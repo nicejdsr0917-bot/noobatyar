@@ -49,6 +49,9 @@ export default function BookingPage({ params }: Props) {
   const [days] = useState<Date[]>(getNext7Days);
   const [selectedDay, setSelectedDay] = useState<Date>(days[0]);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
+  // Distinct from `slots.length === 0`: that also happens when every slot on
+  // an otherwise-open day is booked, and the two need different copy.
+  const [dayClosed, setDayClosed] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   // What the client is coming for, picked from the owner's own service menu.
   // This is the part the owner can actually plan around; `description` stays
@@ -98,8 +101,10 @@ export default function BookingPage({ params }: Props) {
     try {
       const data = await getAvailableSlots(business.id, toDateString(day));
       setSlots(data.slots);
+      setDayClosed(data.closed === true);
     } catch (err: unknown) {
       setSlots([]);
+      setDayClosed(false);
       // A 404 here means the business stopped being served between loading the
       // page and picking a day. "No free hours today" would be a lie — every
       // other day is empty too — so switch to the not-available screen.
@@ -285,6 +290,14 @@ export default function BookingPage({ params }: Props) {
   // Check if booking is enabled for this business
   const bookingEnabled = business.booking_enabled !== false;
 
+  // `business.closed_weekdays` is Python's date.weekday() convention
+  // (Mon=0..Sun=6, matching the backend and the owner app exactly); JS's
+  // Date.getDay() is Sun=0..Sat=6. Converted once here rather than asking
+  // every reader of this set to remember the shift.
+  const closedWeekdaysJs = new Set(
+    (business.closed_weekdays ?? []).map((pyWeekday) => (pyWeekday + 1) % 7)
+  );
+
   if (!bookingEnabled) {
     return (
       <div className="page-content" style={{ background: 'var(--color-bg)' }}>
@@ -396,12 +409,17 @@ export default function BookingPage({ params }: Props) {
                 : new Intl.DateTimeFormat('fa-IR', { weekday: 'long' }).format(day).replace('‌', ' ');
             const dayNum = new Intl.DateTimeFormat('fa-IR', { day: 'numeric' }).format(day);
             const isSelected = toDateString(day) === toDateString(selectedDay);
+            const isClosed = closedWeekdaysJs.has(day.getDay());
             return (
               <button
                 key={day.toISOString()}
-                className={`day-pill ${isSelected ? 'selected' : ''}`}
+                className={`day-pill ${isSelected ? 'selected' : ''} ${isClosed ? 'closed' : ''}`}
                 onClick={() => setSelectedDay(day)}
-                style={{ border: isSelected ? 'none' : '1px solid var(--color-border)', fontFamily: 'inherit' }}
+                style={{
+                  border: isSelected ? 'none' : '1px solid var(--color-border)',
+                  fontFamily: 'inherit',
+                  opacity: isClosed && !isSelected ? 0.5 : 1,
+                }}
               >
                 <span className="day-name">{weekday}</span>
                 <span className="day-num">{dayNum}</span>
@@ -436,8 +454,20 @@ export default function BookingPage({ params }: Props) {
             <span className="empty-state-icon">
               <Icon name="eventBusy" size={26} />
             </span>
-            <h3>ساعت خالی در این روز وجود ندارد</h3>
-            <p>روز دیگری را از نوار بالا انتخاب کنید</p>
+            {/* Distinguishes "the business is closed today" from "every slot
+                is booked" — an empty grid alone reads as the same message,
+                and only one of those is a reason to try another day. */}
+            {dayClosed ? (
+              <>
+                <h3>این روز تعطیل است</h3>
+                <p>روز دیگری را از نوار بالا انتخاب کنید</p>
+              </>
+            ) : (
+              <>
+                <h3>ساعت خالی در این روز وجود ندارد</h3>
+                <p>روز دیگری را از نوار بالا انتخاب کنید</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="slots-grid">

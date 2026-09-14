@@ -26,6 +26,13 @@ export interface Business {
   default_service_duration: number;
   work_start_hour: number;
   work_end_hour: number;
+  /** Weekly recurring days off, as JS's `Date.getDay()` ints (Sun=0..Sat=6) —
+   *  NOT the backend's own Mon=0..Sun=6 convention. Converted once at the API
+   *  boundary (see `closedWeekdaysJs` in the booking page) so every caller in
+   *  this app can compare directly against `Date.getDay()` without repeating
+   *  the +1 mod 7 shift themselves. Absent/undefined on an older server,
+   *  meaning "open every day". */
+  closed_weekdays?: number[];
   allow_anonymous_view: boolean;
   /** Owner-posted advisory (closure, emergency, running late) is live.
    *  Independent of `booking_enabled`: a business can post a notice and still
@@ -298,6 +305,11 @@ export async function getAvailableSlots(businessId: number, date: string): Promi
   slots: TimeSlot[];
   duration_minutes: number;
   date: string;
+  /** True when this date falls on one of the business's weekly days off —
+   *  distinct from an empty `slots` array meaning "fully booked", so the UI
+   *  can tell a customer *why* nothing is bookable. Absent on an older
+   *  backend, in which case the empty-slots case is the only signal. */
+  closed?: boolean;
 }> {
   return apiFetch(`/api/client/appointments/${businessId}/available-slots/?date=${date}`);
 }
