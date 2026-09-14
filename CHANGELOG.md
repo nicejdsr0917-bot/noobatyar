@@ -10,6 +10,18 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.7.1 — 2026-09-14
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- رفع اشکال: تنظیم روزهای تعطیل هفتگی (مثلاً جمعه) ذخیره نمی‌شد و آن روز همچنان در تقویم اپ و صفحه‌ی رزرو مشتری قابل نوبت‌گیری می‌ماند.
+<!-- fa:end -->
+
+### mobile_owner
+- `BusinessApiService.buildMultipart()` never appended `closed_weekdays` to the update/create request body, so the setting silently never reached the server regardless of what was toggled in "روزهای تعطیل" — the request still returned 200 because the field was merely absent, not invalid.
+
+Full commit range: [`v1.7.0...v1.7.1`](https://github.com/javiddeveloper/Noobatyar-automation/compare/v1.7.0...v1.7.1)
+
 ## v1.7.0 — 2026-09-14
 
 <!-- fa:start -->
