@@ -79,6 +79,14 @@ class BusinessApiService(private val httpClient: HttpClient) {
                 // accepted_payment_methods above: DRF's JSONField parses a
                 // string value when the request came in as form data.
                 append("services", business.services.toJsonArrayString())
+                // Same trick, but the bug this field's addition fixes was
+                // simpler than any escaping issue: this line was missing
+                // entirely, so no matter what the owner chose in the closed-
+                // weekdays screen, the save request never carried it — every
+                // update silently kept the server's existing value (usually
+                // empty), which read as "I marked Friday closed but it's
+                // still bookable" with no error anywhere to explain why.
+                append("closed_weekdays", business.closedWeekdays.sorted().joinToString(prefix = "[", postfix = "]"))
                 append("allow_client_add_service", business.allowClientAddService.toString())
                 append("notice_enabled", business.noticeEnabled.toString())
                 append("notice_message", business.noticeMessage)
