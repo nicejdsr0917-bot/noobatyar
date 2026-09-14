@@ -10,6 +10,29 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.7.0 — 2026-09-14
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- امکان تعیین روزهای تعطیل هفتگی برای کسب‌وکار (مثلاً هر جمعه) از بخش «تنظیمات پیشرفته» — این روزها هم در تقویم اپ و هم در صفحه‌ی رزرو مشتری نمایش داده می‌شود و نوبت‌گیری جدید در آن‌ها انجام نمی‌شود.
+- بازه‌ی زمانی تقویم اپ دیگر ثابت روی ۱۰ دقیقه نیست و بر اساس مدت‌زمان واقعی سرویس هر کسب‌وکار تنظیم می‌شود.
+<!-- fa:end -->
+
+### mobile_owner
+- `Business.closedWeekdays` end to end (domain model, DTO, Room entity/mapper, create/update request), with a new "روزهای تعطیل" tab in "تنظیمات پیشرفته" — weekday checkboxes plus a single toggle that clears the set (no separate "no day off" flag; an empty set already means that).
+- Calendar day strip tints a closed weekday distinctly (selection still wins visually), and the slot list shows a non-blocking banner on a closed day — informational, not a lock, since the owner can still add a walk-in themselves.
+- `TimeSlotsList` now generates slots at `business.defaultServiceDuration` instead of a hardcoded 10 minutes, fixing a 3-6x mismatch between the slots offered and what the business can actually book. The "scroll to now" index and appointment-coverage window were both hardcoded to the same 10 and are fixed the same way.
+
+### backend
+- `Business.closed_weekdays` — weekly recurring days off, stored as `date.weekday()` ints (Mon=0..Sun=6). Recurring only, not specific calendar-date holidays; affects only future availability and never touches an appointment already booked on a day later marked closed.
+- `AvailableSlotsView` returns `closed: true` with an empty slot list for a closed weekday, so a client can tell "the business is closed" apart from "every slot today is booked".
+- `closed_weekdays` is writable on the owner's `BusinessSerializer` and read-only on `PublicBusinessSerializer`.
+
+### front_client
+- The booking calendar greys out closed weekdays in the date-picker strip (converted from the backend's Mon=0..Sun=6 to JS's Sun=0..Sat=6 once at the API boundary) and shows "این روز تعطیل است" instead of the generic "no free hour" message when a closed day is selected.
+
+Full commit range: [`v1.6.0...v1.7.0`](https://github.com/javiddeveloper/Noobatyar-automation/compare/v1.6.0...v1.7.0)
+
 ## v1.6.0 — 2026-09-03
 
 <!-- fa:start -->
