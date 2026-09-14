@@ -130,7 +130,7 @@ class BusinessSerializer(serializers.ModelSerializer):
             # Identity
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'address', 'logo', 'theme_color',
             # Schedule
-            'default_service_duration', 'work_start_hour', 'work_end_hour',
+            'default_service_duration', 'work_start_hour', 'work_end_hour', 'closed_weekdays',
             # Notifications (legacy)
             'notification_enabled', 'notification_types', 'notification_minutes_before',
             # Payment config
@@ -223,6 +223,18 @@ class BusinessSerializer(serializers.ModelSerializer):
         if not 0 <= value <= 23:
             raise serializers.ValidationError("Must be between 0-23")
         return value
+
+    def validate_closed_weekdays(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("باید فهرستی از روزهای هفته باشد")
+        if any(not isinstance(v, int) or not 0 <= v <= 6 for v in value):
+            raise serializers.ValidationError(
+                "هر روز باید عددی بین ۰ (دوشنبه) تا ۶ (یکشنبه) باشد"
+            )
+        # De-duplicate rather than reject: the owner app sends the full set on
+        # every save, so a duplicate is a client-side bug, not something the
+        # owner should be shown an error for.
+        return sorted(set(value))
 
     def to_internal_value(self, data):
         ret = super().to_internal_value(data)
@@ -365,6 +377,9 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             'work_start_hour',
             'work_end_hour',
             'default_service_duration',
+            # Weekly days off, so the booking calendar can grey them out before
+            # ever fetching slots for that date — see Business.closed_weekdays.
+            'closed_weekdays',
             'payment_method',   # clients need to know which flow to show (Free/Card/Gateway)
             'accepted_payment_methods',
             'deposit_mode',

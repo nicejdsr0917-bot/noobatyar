@@ -182,6 +182,24 @@ class Business(models.Model):
     default_service_duration = models.IntegerField(help_text="Default duration in minutes")
     work_start_hour = models.IntegerField(help_text="0-23")
     work_end_hour = models.IntegerField(help_text="0-23")
+    # Weekly recurring days off (e.g. every Friday) — NOT specific calendar
+    # dates. Stored as Python's date.weekday() ints (Monday=0 .. Sunday=6) so
+    # backend code can test membership with `date.weekday() in closed_weekdays`
+    # directly, with no conversion table. An empty list means "open every day",
+    # which is also the state a business is in before ever touching this
+    # setting — there is deliberately no separate "no day off" flag, since that
+    # would just be a second way to express the same thing and could drift out
+    # of sync with an empty list.
+    #
+    # Setting this never touches existing Appointment rows: it only removes
+    # future slots for that weekday going forward (available_slots_view.py).
+    # An appointment already booked on a day later marked closed is left
+    # exactly as it was — the owner decided to close going forward, not to
+    # cancel a commitment already made.
+    closed_weekdays = models.JSONField(
+        default=list, blank=True,
+        help_text="Weekly days off as date.weekday() ints (Mon=0..Sun=6), e.g. [4] for every Friday",
+    )
     notification_enabled = models.BooleanField(default=True)
     notification_types = models.CharField(
         max_length=100,
