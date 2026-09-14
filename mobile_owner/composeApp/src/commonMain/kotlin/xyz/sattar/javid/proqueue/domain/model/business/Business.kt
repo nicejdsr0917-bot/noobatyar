@@ -20,6 +20,18 @@ data class Business(
     val defaultServiceDuration: Int,
     val workStartHour: Int,
     val workEndHour: Int,
+    /**
+     * Weekly recurring days off, as Kotlin's `LocalDate.dayOfWeek.ordinal`
+     * ints (Monday=0..Sunday=6) — matching Python's `date.weekday()` on the
+     * server, so no translation table is needed on either side. An empty list
+     * means open every day, which is also the default before this was ever
+     * set; there is deliberately no separate "no day off" flag for the same
+     * value, since that would just be a second way to say the same thing.
+     *
+     * Only affects future availability (AvailableSlotsView on the server) — an
+     * appointment already booked on a day later marked closed is left alone.
+     */
+    val closedWeekdays: List<Int> = emptyList(),
     val notificationEnabled: Boolean,
     val notificationTypes: String,
     val notificationMinutesBefore: Int = DEFAULT_REMINDER_MINUTES,

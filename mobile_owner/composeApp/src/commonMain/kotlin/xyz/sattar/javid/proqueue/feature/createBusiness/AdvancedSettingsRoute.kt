@@ -49,6 +49,7 @@ fun AdvancedSettingsRoute(
     var cardOwnerName by remember { mutableStateOf("") }
     var merchantId by remember { mutableStateOf("") }
     var paymentLink by remember { mutableStateOf("") }
+    var closedWeekdays by remember { mutableStateOf(setOf<Int>()) }
 
     LaunchedEffect(businessId) {
         if (businessId != 0L) viewModel.sendIntent(CreateBusinessIntent.LoadBusiness(businessId))
@@ -66,6 +67,7 @@ fun AdvancedSettingsRoute(
             cardOwnerName = it.cardOwnerName
             merchantId = it.merchantId
             paymentLink = it.paymentLink
+            closedWeekdays = it.closedWeekdays.toSet()
         }
     }
 
@@ -123,6 +125,7 @@ fun AdvancedSettingsRoute(
                                     defaultProgress = business.defaultServiceDuration.toString(),
                                     workStartHour = business.workStartHour,
                                     workEndHour = business.workEndHour,
+                                    closedWeekdays = closedWeekdays.toList(),
                                     allowAnonymousView = business.allowAnonymousView,
                                     notifyOwnerBySms = business.notifyOwnerBySms,
                                     bio = business.bio,
@@ -198,7 +201,9 @@ fun AdvancedSettingsRoute(
                     merchantId = merchantId,
                     onMerchantId = { merchantId = it },
                     paymentLink = paymentLink,
-                    onPaymentLink = { paymentLink = it }
+                    onPaymentLink = { paymentLink = it },
+                    closedWeekdays = closedWeekdays,
+                    onClosedWeekdays = { closedWeekdays = it }
                 )
 
             }

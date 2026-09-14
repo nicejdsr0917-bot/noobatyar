@@ -486,6 +486,12 @@ fun CreateBusinessScreen(
                                         defaultProgress = d,
                                         workStartHour = wsInt!!,
                                         workEndHour = weInt!!,
+                                        // Owned by the "تنظیمات پیشرفته" screen;
+                                        // pass the loaded value straight through
+                                        // so editing basic info here never
+                                        // resets the business's days off.
+                                        closedWeekdays = uiState.business?.closedWeekdays
+                                            ?: emptyList(),
                                         allowAnonymousView = allowAnonymousView,
                                         notifyOwnerBySms = notifyOwnerBySms,
                                         bio = bio.trim(),

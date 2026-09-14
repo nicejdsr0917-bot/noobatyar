@@ -39,6 +39,7 @@ class CreateBusinessViewModel(
                     intent.defaultProgress,
                     intent.workStartHour,
                     intent.workEndHour,
+                    intent.closedWeekdays,
                     intent.allowAnonymousView,
                     intent.notifyOwnerBySms,
                     intent.maxAppointmentsPerHour,
@@ -212,6 +213,7 @@ class CreateBusinessViewModel(
         defaultProgress: String,
         workStartHour: Int,
         workEndHour: Int,
+        closedWeekdays: List<Int>,
         allowAnonymousView: Boolean,
         notifyOwnerBySms: Boolean,
         maxAppointmentsPerHour: Int?,
@@ -247,6 +249,7 @@ class CreateBusinessViewModel(
                 defaultServiceDuration = defaultProgress.toIntOrNull() ?: 15,
                 workStartHour = workStartHour,
                 workEndHour = workEndHour,
+                closedWeekdays = closedWeekdays,
                 notificationEnabled = uiState.value.business?.notificationEnabled ?: true,
                 notificationTypes = uiState.value.business?.notificationTypes ?: "SMS,WHATSAPP",
                 // Carried over rather than rebuilt: this form has no field for

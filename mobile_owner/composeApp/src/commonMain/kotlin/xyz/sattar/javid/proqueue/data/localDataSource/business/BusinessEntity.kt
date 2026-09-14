@@ -17,6 +17,8 @@ data class BusinessEntity(
     val defaultServiceDuration: Int,
     val workStartHour: Int, // 0-23
     val workEndHour: Int, // 0-23
+    /** Comma-separated weekday ints (Mon=0..Sun=6), same encoding as [services]. */
+    val closedWeekdays: String = "",
     val notificationEnabled: Boolean = true,
     val notificationTypes: String = "SMS", // "SMS,WHATSAPP,TELEGRAM"
     val notificationMinutesBefore: Int = 30,

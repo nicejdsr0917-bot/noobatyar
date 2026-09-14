@@ -26,6 +26,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.back
+import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
@@ -138,6 +139,16 @@ fun CalendarScreenContent(
                     CircularProgressIndicator()
                 }
             } else {
+                // Non-blocking: a day off does not stop the owner from adding a
+                // walk-in or a one-off exception themselves, it only tells them
+                // the calendar disagrees with what they're about to do.
+                val business = BusinessStateHolder.selectedBusiness.value
+                if (business != null &&
+                    DateTimeUtils.getWeekday(uiState.selectedDate) in business.closedWeekdays
+                ) {
+                    ClosedDayBanner()
+                }
+
                 // Time Slots. The appointment being edited (if any) is dropped
                 // from the occupancy check, otherwise its own slot reads as
                 // "occupied" and the picker refuses to let it be reselected.
@@ -163,6 +174,38 @@ fun CalendarScreenContent(
                     }
                 )
             }
+        }
+    }
+}
+
+/** Shown above the slot list for a day the business marked as a weekly day
+ *  off. Deliberately not a hard block: the owner can still add a walk-in or a
+ *  one-off exception here, this only flags that the calendar disagrees. */
+@Composable
+private fun ClosedDayBanner() {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Event,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "این روز جزو روزهای تعطیل کسب‌وکار شماست",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
         }
     }
 }
@@ -241,16 +284,19 @@ fun DaysHeader(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
+            val closedWeekdays = BusinessStateHolder.selectedBusiness.value?.closedWeekdays.orEmpty()
             items(days) { dateMillis ->
                 val isSelected = DateTimeUtils.formatDate(dateMillis) == DateTimeUtils.formatDate(selectedDate)
-                
+
                 val pDate = DateTimeUtils.getJalaliDateParts(dateMillis)
                 val dayOfWeek = DateTimeUtils.getDayOfWeekName(dateMillis)
-                
+                val isClosed = DateTimeUtils.getWeekday(dateMillis) in closedWeekdays
+
                 DayItem(
                     day = pDate.dayOfMonth.toString(),
                     dayOfWeek = dayOfWeek,
                     isSelected = isSelected,
+                    isClosed = isClosed,
                     onClick = { onDateSelected(dateMillis) }
                 )
             }
@@ -263,11 +309,22 @@ fun DayItem(
     day: String,
     dayOfWeek: String,
     isSelected: Boolean,
+    isClosed: Boolean = false,
     onClick: () -> Unit
 ) {
-    val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow
-    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-    
+    // Selection still wins when a closed day is tapped — closed is informational,
+    // not a lock, so it must not fight the one state that shows what's picked.
+    val containerColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        isClosed -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+        else -> MaterialTheme.colorScheme.surfaceContainerLow
+    }
+    val contentColor = when {
+        isSelected -> MaterialTheme.colorScheme.onPrimary
+        isClosed -> MaterialTheme.colorScheme.onErrorContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Card(
         modifier = Modifier
             .width(64.dp)
@@ -309,10 +366,19 @@ fun TimeSlotsList(
     onSlotClick: (String) -> Unit,
     onAppointmentClick: (Long) -> Unit
 ) {
-    val slots = remember {
+    // The business's own service length, not a fixed 10 minutes: a business
+    // whose real appointments run 30 or 60 minutes was being offered a slot
+    // every 10 minutes regardless, which is 3-6x denser than anything they
+    // could actually book. Coerced to at least 5 so a 0-or-negative value
+    // (shouldn't happen — the create-business form validates this — but this
+    // is a UI loop, not a place to trust that) can never make `step` crash.
+    val interval = (BusinessStateHolder.selectedBusiness.value?.defaultServiceDuration ?: 30)
+        .coerceAtLeast(5)
+
+    val slots = remember(interval) {
         val list = mutableListOf<String>()
         for (h in 0..23) {
-            for (m in 0..59 step 10) {
+            for (m in 0..59 step interval) {
                 list.add("${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}")
             }
         }
@@ -321,12 +387,13 @@ fun TimeSlotsList(
 
     val listState = rememberLazyListState()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(interval) {
         val now = DateTimeUtils.formatTimeNow()
         val parts = now.split(":")
         val h = parts[0].toInt()
         val m = parts[1].toInt()
-        val index = (h * 6) + (m / 10)
+        val slotsPerHour = 60 / interval
+        val index = (h * slotsPerHour) + (m / interval)
         if (index in slots.indices) {
             listState.scrollToItem(index)
         }
@@ -347,7 +414,7 @@ fun TimeSlotsList(
                 val parts = appTime.split(":")
                 val h = parts[0].toInt()
                 val m = parts[1].toInt()
-                h == slotHour && m >= slotMinute && m < slotMinute + 10
+                h == slotHour && m >= slotMinute && m < slotMinute + interval
             }
 
             val isCovered = appointments.any { appointment ->

@@ -12,6 +12,7 @@ sealed class CreateBusinessIntent {
         val defaultProgress: String,
         val workStartHour: Int,
         val workEndHour: Int,
+        val closedWeekdays: List<Int> = emptyList(),
         val allowAnonymousView: Boolean,
         val notifyOwnerBySms: Boolean,
         val bio: String,

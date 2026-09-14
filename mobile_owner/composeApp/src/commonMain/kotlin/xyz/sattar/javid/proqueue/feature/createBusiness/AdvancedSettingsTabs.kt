@@ -65,9 +65,11 @@ fun AdvancedSettingsTabs(
     onMerchantId: (String) -> Unit,
     paymentLink: String,
     onPaymentLink: (String) -> Unit,
+    closedWeekdays: Set<Int>,
+    onClosedWeekdays: (Set<Int>) -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("پرداخت", "ظرفیت و بیعانه", "یادآوری")
+    val tabs = listOf("پرداخت", "ظرفیت و بیعانه", "یادآوری", "روزهای تعطیل")
 
     Column(modifier = Modifier.fillMaxWidth()) {
         TabRow(
@@ -115,6 +117,77 @@ fun AdvancedSettingsTabs(
                 onDepositAmount = onDepositAmount
             )
             2 -> RemindersTab(entitlements = entitlements, plans = plans, onUpgrade = onUpgrade)
+            3 -> ScheduleTab(closedWeekdays = closedWeekdays, onClosedWeekdays = onClosedWeekdays)
+        }
+    }
+}
+
+/** One weekday, in the order an Iranian week is normally read. */
+private data class WeekdayOption(val isoWeekday: Int, val label: String)
+
+/** Mon=0..Sun=6 (Kotlin's/Python's convention — matches the backend's
+ *  date.weekday() 1:1), ordered Saturday-first the way the week reads here. */
+private val WEEKDAY_OPTIONS = listOf(
+    WeekdayOption(5, "شنبه"),
+    WeekdayOption(6, "یکشنبه"),
+    WeekdayOption(0, "دوشنبه"),
+    WeekdayOption(1, "سه‌شنبه"),
+    WeekdayOption(2, "چهارشنبه"),
+    WeekdayOption(3, "پنجشنبه"),
+    WeekdayOption(4, "جمعه"),
+)
+
+/**
+ * Weekly recurring days off — e.g. every Friday. Not specific calendar dates:
+ * this only ever affects future availability (backend/appointment's slots
+ * endpoint), and never touches an appointment already booked on a day later
+ * marked closed.
+ */
+@Composable
+private fun ScheduleTab(
+    closedWeekdays: Set<Int>,
+    onClosedWeekdays: (Set<Int>) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            "روزهایی که کسب‌وکار شما تعطیل است و نوبت‌دهی در آن‌ها انجام نمی‌شود را انتخاب کنید.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // A single toggle that clears the set. Not a separate stored flag: an
+        // empty set already means "open every day" on its own, and having two
+        // ways to say the same thing is how they drift apart later.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Checkbox(
+                checked = closedWeekdays.isEmpty(),
+                onCheckedChange = { checked -> if (checked) onClosedWeekdays(emptySet()) }
+            )
+            Text("تعطیلی ندارم؛ هر روز هفته نوبت‌دهی فعال است", style = MaterialTheme.typography.bodyMedium)
+        }
+
+        HorizontalDivider()
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            WEEKDAY_OPTIONS.forEach { option ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(
+                        checked = option.isoWeekday in closedWeekdays,
+                        onCheckedChange = { checked ->
+                            val updated = closedWeekdays.toMutableSet()
+                            if (checked) updated.add(option.isoWeekday) else updated.remove(option.isoWeekday)
+                            onClosedWeekdays(updated)
+                        }
+                    )
+                    Text(option.label, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
     }
 }

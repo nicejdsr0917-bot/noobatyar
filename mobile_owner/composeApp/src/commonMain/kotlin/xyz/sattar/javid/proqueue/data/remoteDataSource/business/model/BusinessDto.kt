@@ -16,6 +16,10 @@ data class BusinessDto(
     @SerialName("default_service_duration") val defaultServiceDuration: Int,
     @SerialName("work_start_hour") val workStartHour: Int,
     @SerialName("work_end_hour") val workEndHour: Int,
+    // Weekly days off (Mon=0..Sun=6). Defaulted for the same reason as the
+    // other optional fields here: an older backend that predates this column
+    // must still deserialize, as "open every day" rather than a parse error.
+    @SerialName("closed_weekdays") val closedWeekdays: List<Int> = emptyList(),
     @SerialName("notification_enabled") val notificationEnabled: Boolean,
     @SerialName("notification_types") val notificationTypes: String,
     @SerialName("notification_minutes_before") val notificationMinutesBefore: Int,

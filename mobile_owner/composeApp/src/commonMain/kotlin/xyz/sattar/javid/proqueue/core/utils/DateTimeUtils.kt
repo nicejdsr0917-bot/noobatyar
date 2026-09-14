@@ -260,6 +260,22 @@ object DateTimeUtils {
         return "$hour:$minute"
     }
 
+    /**
+     * Monday=0..Sunday=6 for `millis`, matching Python's `date.weekday()` on
+     * the server exactly — used to test membership in
+     * `Business.closedWeekdays` with no translation table on either side.
+     *
+     * `isoDayNumber - 1` rather than `dayOfWeek.ordinal`: isoDayNumber is a
+     * documented, stable API (1=Monday..7=Sunday), where ordinal is an
+     * implementation detail of enum declaration order that happens to agree
+     * with it today.
+     */
+    fun getWeekday(millis: Long): Int {
+        val instant = Instant.fromEpochMilliseconds(millis)
+        val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        return localDateTime.dayOfWeek.isoDayNumber - 1
+    }
+
     fun getDayOfWeekName(millis: Long): String {
         val instant = Instant.fromEpochMilliseconds(millis)
         val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())

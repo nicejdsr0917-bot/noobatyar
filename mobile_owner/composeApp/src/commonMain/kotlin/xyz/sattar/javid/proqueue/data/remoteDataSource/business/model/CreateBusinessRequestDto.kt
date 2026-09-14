@@ -12,6 +12,7 @@ data class CreateBusinessRequestDto(
     @SerialName("default_service_duration") val defaultServiceDuration: Int,
     @SerialName("work_start_hour") val workStartHour: Int,
     @SerialName("work_end_hour") val workEndHour: Int,
+    @SerialName("closed_weekdays") val closedWeekdays: List<Int> = emptyList(),
     @SerialName("notification_enabled") val notificationEnabled: Boolean=true,
     @SerialName("notification_types") val notificationTypes: String ="SMS,WHATSAPP,TELEGRAM",
     @SerialName("notification_minutes_before") val notificationMinutesBefore: Int,
