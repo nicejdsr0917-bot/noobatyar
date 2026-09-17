@@ -32,7 +32,12 @@ export default function BusinessProfileClient({ business, slug }: Props) {
     : null;
 
   // ── Stat values (short, so they fit the compact cards) ──
-  const workHours = `${toFa(String(business.work_start_hour).padStart(2, '0'))} تا ${toFa(String(business.work_end_hour).padStart(2, '0'))}`;
+  // Minute suffix only when non-zero: "۹ تا ۲۱" reads better than "۹:۰۰ تا
+  // ۲۱:۰۰" for the (still-typical) whole-hour business, and a business that
+  // actually opens on a half hour is exactly when the suffix earns its space.
+  const formatWorkTime = (hour: number, minute: number | undefined) =>
+    minute ? `${toFa(String(hour).padStart(2, '0'))}:${toFa(String(minute).padStart(2, '0'))}` : toFa(String(hour).padStart(2, '0'));
+  const workHours = `${formatWorkTime(business.work_start_hour, business.work_start_minute)} تا ${formatWorkTime(business.work_end_hour, business.work_end_minute)}`;
 
   const depositText =
     business.deposit_mode === 'NONE'
@@ -112,6 +117,15 @@ export default function BusinessProfileClient({ business, slug }: Props) {
               <Icon name="call" size={16} />
               <span dir="ltr">{toFa(business.phone)}</span>
             </a>
+            {/* Same call button, repeated per extra number — a customer
+                calling the wrong line for a multi-number business is exactly
+                what having more than one number is meant to prevent. */}
+            {business.extra_phones?.map((extraPhone) => (
+              <a key={extraPhone} href={`tel:${extraPhone}`} className="biz-action call">
+                <Icon name="call" size={16} />
+                <span dir="ltr">{toFa(extraPhone)}</span>
+              </a>
+            ))}
           </div>
         )}
       </div>

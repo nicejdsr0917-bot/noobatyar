@@ -21,11 +21,19 @@ export interface Business {
   unique_code: string;
   bio?: string | null;
   phone: string | null;
+  /** Additional contact numbers beyond `phone`. Absent/empty on an older
+   *  server, meaning "no extra numbers". */
+  extra_phones?: string[];
   address: string | null;
   logo: string | null;
   default_service_duration: number;
   work_start_hour: number;
   work_end_hour: number;
+  /** Minute component alongside work_start_hour/work_end_hour, e.g. 19:30 is
+   *  work_end_hour=19, work_end_minute=30. Absent/undefined on an older
+   *  server, meaning :00 — the same as an explicit 0. */
+  work_start_minute?: number;
+  work_end_minute?: number;
   /** Weekly recurring days off, as JS's `Date.getDay()` ints (Sun=0..Sat=6) —
    *  NOT the backend's own Mon=0..Sun=6 convention. Converted once at the API
    *  boundary (see `closedWeekdaysJs` in the booking page) so every caller in
