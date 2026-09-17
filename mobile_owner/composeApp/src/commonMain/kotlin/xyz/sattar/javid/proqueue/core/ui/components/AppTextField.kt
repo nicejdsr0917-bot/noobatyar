@@ -97,19 +97,27 @@ private fun AppTextFieldInternal(
         OutlinedTextField(
             value = value,
             onValueChange = { newValue ->
-                if (newValue.length <= maxLength) {
-                    val finalValue = if (
-                        keyboardType == KeyboardType.Number ||
-                        keyboardType == KeyboardType.NumberPassword ||
-                        keyboardType == KeyboardType.Phone ||
-                        keyboardType == KeyboardType.Decimal
-                    ) {
-                        newValue.toEnglishDigits()
-                    } else {
-                        newValue
-                    }
-                    onValueChange(finalValue)
+                // Truncated, not rejected: the old `if (newValue.length <=
+                // maxLength)` guard dropped the entire edit whenever it pushed
+                // the field over the limit — including a paste, which is how
+                // it read as "paste doesn't work" on any capped field (bio at
+                // 50 chars, for one). Pasting 40 chars into a field that
+                // already had 20 (well under most people's idea of "too
+                // long") silently did nothing. Truncating keeps as much of
+                // the paste as fits, which is what every other text field
+                // anywhere does.
+                val limited = newValue.take(maxLength)
+                val finalValue = if (
+                    keyboardType == KeyboardType.Number ||
+                    keyboardType == KeyboardType.NumberPassword ||
+                    keyboardType == KeyboardType.Phone ||
+                    keyboardType == KeyboardType.Decimal
+                ) {
+                    limited.toEnglishDigits()
+                } else {
+                    limited
                 }
+                onValueChange(finalValue)
             },
             placeholder = placeholder?.let { { Text(it) } },
             modifier = Modifier
