@@ -121,10 +121,16 @@ fun AdvancedSettingsRoute(
                                     title = business.title,
                                     category = business.category,
                                     phone = business.phone,
+                                    // Owned by the business-edit form; carried
+                                    // through unchanged for the same reason as
+                                    // services/allowClientAddService below.
+                                    extraPhones = business.extraPhones,
                                     address = business.address,
                                     defaultProgress = business.defaultServiceDuration.toString(),
                                     workStartHour = business.workStartHour,
                                     workEndHour = business.workEndHour,
+                                    workStartMinute = business.workStartMinute,
+                                    workEndMinute = business.workEndMinute,
                                     closedWeekdays = closedWeekdays.toList(),
                                     allowAnonymousView = business.allowAnonymousView,
                                     notifyOwnerBySms = business.notifyOwnerBySms,
@@ -139,12 +145,20 @@ fun AdvancedSettingsRoute(
                                     merchantId = merchantId,
                                     paymentLink = paymentLink,
                                     // Owned by other screens (business edit /
-                                    // reminder messages) — passed through
-                                    // unchanged so saving this tab can't reset
-                                    // them to their defaults.
+                                    // reminder messages / service picker) —
+                                    // passed through unchanged so saving this
+                                    // tab can't reset them to their defaults.
+                                    // services/allowClientAddService were
+                                    // missing here entirely: CreateBusiness's
+                                    // defaults (emptyList()/false) silently
+                                    // wiped the business's whole service menu
+                                    // every time an owner saved anything on
+                                    // this screen.
                                     noticeEnabled = business.noticeEnabled,
                                     noticeMessage = business.noticeMessage,
-                                    reminderDelivery = business.reminderDelivery
+                                    reminderDelivery = business.reminderDelivery,
+                                    services = business.services,
+                                    allowClientAddService = business.allowClientAddService
                                 )
                             )
                         },
@@ -201,9 +215,7 @@ fun AdvancedSettingsRoute(
                     merchantId = merchantId,
                     onMerchantId = { merchantId = it },
                     paymentLink = paymentLink,
-                    onPaymentLink = { paymentLink = it },
-                    closedWeekdays = closedWeekdays,
-                    onClosedWeekdays = { closedWeekdays = it }
+                    onPaymentLink = { paymentLink = it }
                 )
 
             }

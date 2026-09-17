@@ -11,11 +11,18 @@ data class BusinessDto(
     @SerialName("category_display") val categoryDisplay: String? = null,
     @SerialName("unique_code") val uniqueCode: String? = null,
     @SerialName("phone") val phone: String,
+    // Additional contact numbers beyond `phone`. Defaulted for an older
+    // backend that predates the column, same reasoning as closed_weekdays.
+    @SerialName("extra_phones") val extraPhones: List<String> = emptyList(),
     @SerialName("address") val address: String,
     @SerialName("logo") val logo: String? = null,
     @SerialName("default_service_duration") val defaultServiceDuration: Int,
     @SerialName("work_start_hour") val workStartHour: Int,
     @SerialName("work_end_hour") val workEndHour: Int,
+    // Minute component alongside the whole-hour fields above — defaulted to 0
+    // for an older backend that predates minute precision.
+    @SerialName("work_start_minute") val workStartMinute: Int = 0,
+    @SerialName("work_end_minute") val workEndMinute: Int = 0,
     // Weekly days off (Mon=0..Sun=6). Defaulted for the same reason as the
     // other optional fields here: an older backend that predates this column
     // must still deserialize, as "open every day" rather than a parse error.

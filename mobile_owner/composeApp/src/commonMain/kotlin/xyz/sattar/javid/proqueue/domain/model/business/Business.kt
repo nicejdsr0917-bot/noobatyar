@@ -15,11 +15,19 @@ data class Business(
     val categoryLabel: String,
     val uniqueCode: String? = null,
     val phone: String,
+    /** Numbers beyond the primary [phone] — same normalization, same
+     *  ۰۹۱۲۱۲۳۴۵۶۷ shape, just more than one. */
+    val extraPhones: List<String> = emptyList(),
     val address: String,
     val logoPath: String,
     val defaultServiceDuration: Int,
     val workStartHour: Int,
     val workEndHour: Int,
+    /** Minute component alongside [workStartHour]/[workEndHour] — e.g. 19:30
+     *  is workEndHour=19, workEndMinute=30. Defaults to 0 so every business
+     *  that predates this field reads exactly as it did before. */
+    val workStartMinute: Int = 0,
+    val workEndMinute: Int = 0,
     /**
      * Weekly recurring days off, as Kotlin's `LocalDate.dayOfWeek.ordinal`
      * ints (Monday=0..Sunday=6) — matching Python's `date.weekday()` on the

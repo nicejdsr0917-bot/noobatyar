@@ -12,11 +12,15 @@ data class BusinessEntity(
     val categoryLabel: String? = null,
     val uniqueCode: String? = null,
     val phone: String,
+    /** Comma-separated additional numbers, same encoding as [services]. */
+    val extraPhones: String = "",
     val address: String,
     val logoPath: String = "",
     val defaultServiceDuration: Int,
     val workStartHour: Int, // 0-23
     val workEndHour: Int, // 0-23
+    val workStartMinute: Int = 0, // 0-59
+    val workEndMinute: Int = 0, // 0-59
     /** Comma-separated weekday ints (Mon=0..Sun=6), same encoding as [services]. */
     val closedWeekdays: String = "",
     val notificationEnabled: Boolean = true,

@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 16,
-    "identityHash": "d76205aa4eb613c500b47804e2533ca1",
+    "identityHash": "97a86b69df68242397bb3e6010efaf41",
     "entities": [
       {
         "tableName": "Business",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `category` TEXT, `categoryLabel` TEXT, `uniqueCode` TEXT, `phone` TEXT NOT NULL, `address` TEXT NOT NULL, `logoPath` TEXT NOT NULL, `defaultServiceDuration` INTEGER NOT NULL, `workStartHour` INTEGER NOT NULL, `workEndHour` INTEGER NOT NULL, `closedWeekdays` TEXT NOT NULL, `notificationEnabled` INTEGER NOT NULL, `notificationTypes` TEXT NOT NULL, `notificationMinutesBefore` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `allowAnonymousView` INTEGER NOT NULL, `notifyOwnerBySms` INTEGER NOT NULL, `paymentMethod` TEXT, `acceptedPaymentMethods` TEXT NOT NULL, `maxAppointmentsPerHour` INTEGER, `depositMode` TEXT, `depositAmount` INTEGER, `merchantId` TEXT NOT NULL, `paymentLink` TEXT NOT NULL, `cardNumber` TEXT NOT NULL, `cardOwnerName` TEXT NOT NULL, `bio` TEXT NOT NULL, `moderationStatus` TEXT, `moderationStatusDisplay` TEXT NOT NULL, `moderationNote` TEXT NOT NULL, `moderationSubmittedAt` INTEGER NOT NULL, `isLocked` INTEGER NOT NULL, `noticeEnabled` INTEGER NOT NULL, `noticeMessage` TEXT NOT NULL, `enableReminderSms` INTEGER NOT NULL, `reminderDelivery` TEXT NOT NULL, `services` TEXT NOT NULL, `allowClientAddService` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `category` TEXT, `categoryLabel` TEXT, `uniqueCode` TEXT, `phone` TEXT NOT NULL, `extraPhones` TEXT NOT NULL, `address` TEXT NOT NULL, `logoPath` TEXT NOT NULL, `defaultServiceDuration` INTEGER NOT NULL, `workStartHour` INTEGER NOT NULL, `workEndHour` INTEGER NOT NULL, `workStartMinute` INTEGER NOT NULL, `workEndMinute` INTEGER NOT NULL, `closedWeekdays` TEXT NOT NULL, `notificationEnabled` INTEGER NOT NULL, `notificationTypes` TEXT NOT NULL, `notificationMinutesBefore` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `allowAnonymousView` INTEGER NOT NULL, `notifyOwnerBySms` INTEGER NOT NULL, `paymentMethod` TEXT, `acceptedPaymentMethods` TEXT NOT NULL, `maxAppointmentsPerHour` INTEGER, `depositMode` TEXT, `depositAmount` INTEGER, `merchantId` TEXT NOT NULL, `paymentLink` TEXT NOT NULL, `cardNumber` TEXT NOT NULL, `cardOwnerName` TEXT NOT NULL, `bio` TEXT NOT NULL, `moderationStatus` TEXT, `moderationStatusDisplay` TEXT NOT NULL, `moderationNote` TEXT NOT NULL, `moderationSubmittedAt` INTEGER NOT NULL, `isLocked` INTEGER NOT NULL, `noticeEnabled` INTEGER NOT NULL, `noticeMessage` TEXT NOT NULL, `enableReminderSms` INTEGER NOT NULL, `reminderDelivery` TEXT NOT NULL, `services` TEXT NOT NULL, `allowClientAddService` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -42,6 +42,12 @@
             "notNull": true
           },
           {
+            "fieldPath": "extraPhones",
+            "columnName": "extraPhones",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
             "fieldPath": "address",
             "columnName": "address",
             "affinity": "TEXT",
@@ -68,6 +74,18 @@
           {
             "fieldPath": "workEndHour",
             "columnName": "workEndHour",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "workStartMinute",
+            "columnName": "workStartMinute",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "workEndMinute",
+            "columnName": "workEndMinute",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -602,7 +620,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd76205aa4eb613c500b47804e2533ca1')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '97a86b69df68242397bb3e6010efaf41')"
     ]
   }
 }

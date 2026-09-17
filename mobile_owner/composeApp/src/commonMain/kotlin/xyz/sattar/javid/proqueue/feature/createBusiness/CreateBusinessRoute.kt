@@ -126,10 +126,17 @@ fun CreateBusinessRoute(
     var categoryGroups by remember { mutableStateOf(fallbackCategoryGroups()) }
     LaunchedEffect(Unit) { categoryGroups = viewModel.loadCategoryGroups() }
     var phone by remember { mutableStateOf("") }
+    // Additional contact numbers, alongside the primary `phone` above.
+    var extraPhones by remember { mutableStateOf(listOf<String>()) }
     var address by remember { mutableStateOf("") }
     var defaultProgress by remember { mutableStateOf("") }
     var workStartHour by remember { mutableStateOf("9") }
     var workEndHour by remember { mutableStateOf("21") }
+    var workStartMinute by remember { mutableStateOf("0") }
+    var workEndMinute by remember { mutableStateOf("0") }
+    // Moved here from "تنظیمات پیشرفته": this is basic scheduling info set
+    // once alongside work hours, not a paid/advanced capability.
+    var closedWeekdays by remember { mutableStateOf(setOf<Int>()) }
     var allowAnonymousView by remember { mutableStateOf(false) }
     var notifyOwnerBySms by remember { mutableStateOf(true) }
     var bio by remember { mutableStateOf("") }
@@ -177,10 +184,14 @@ fun CreateBusinessRoute(
             title = it.title
             category = CategoryOption(it.category, it.categoryLabel)
             phone = it.phone
+            extraPhones = it.extraPhones
             address = it.address
             defaultProgress = it.defaultServiceDuration.toString()
             workStartHour = it.workStartHour.toString()
             workEndHour = it.workEndHour.toString()
+            workStartMinute = it.workStartMinute.toString()
+            workEndMinute = it.workEndMinute.toString()
+            closedWeekdays = it.closedWeekdays.toSet()
             allowAnonymousView = it.allowAnonymousView
             notifyOwnerBySms = it.notifyOwnerBySms
             maxAppointmentsPerHour = it.maxAppointmentsPerHour?.toString() ?: ""
@@ -212,10 +223,18 @@ fun CreateBusinessRoute(
         category = category,
         categoryGroups = categoryGroups,
         phone = phone,
+        extraPhones = extraPhones,
+        onExtraPhones = { extraPhones = it },
         address = address,
         defaultProgress = defaultProgress,
         workStartHour = workStartHour,
         workEndHour = workEndHour,
+        workStartMinute = workStartMinute,
+        workEndMinute = workEndMinute,
+        onWorkStartMinute = { workStartMinute = it },
+        onWorkEndMinute = { workEndMinute = it },
+        closedWeekdays = closedWeekdays,
+        onClosedWeekdays = { closedWeekdays = it },
         allowAnonymousView = allowAnonymousView,
         notifyOwnerBySms = notifyOwnerBySms,
         bio = bio,
@@ -304,10 +323,18 @@ fun CreateBusinessScreen(
     category: CategoryOption,
     categoryGroups: List<CategoryGroup>,
     phone: String,
+    extraPhones: List<String>,
+    onExtraPhones: (List<String>) -> Unit,
     address: String,
     defaultProgress: String,
     workStartHour: String,
     workEndHour: String,
+    workStartMinute: String,
+    workEndMinute: String,
+    onWorkStartMinute: (String) -> Unit,
+    onWorkEndMinute: (String) -> Unit,
+    closedWeekdays: Set<Int>,
+    onClosedWeekdays: (Set<Int>) -> Unit,
     onTitle: (String) -> Unit,
     onCategory: (CategoryOption) -> Unit,
     onPhone: (String) -> Unit,
@@ -458,6 +485,8 @@ fun CreateBusinessScreen(
                             val d = defaultProgress.trim()
                             val ws = workStartHour.trim()
                             val we = workEndHour.trim()
+                            val wm = workStartMinute.trim().ifEmpty { "0" }
+                            val em = workEndMinute.trim().ifEmpty { "0" }
 
                             val titleInvalid = t.length < 3 || t.length > 50
                             val phoneInvalid = p.length < 7
@@ -466,8 +495,17 @@ fun CreateBusinessScreen(
                             val defaultInvalid = d.toIntOrNull() == null
                             val wsInt = ws.toIntOrNull()
                             val weInt = we.toIntOrNull()
-                            val hoursInvalid =
-                                wsInt == null || weInt == null || wsInt < 0 || wsInt > 23 || weInt < 0 || weInt > 23 || wsInt >= weInt
+                            val wmInt = wm.toIntOrNull()
+                            val emInt = em.toIntOrNull()
+                            // Compared as minutes-since-midnight, not just the
+                            // hour — 19:00-19:30 (same hour, later minute) is a
+                            // real window and must not fail the wsInt >= weInt
+                            // check the way it would with hours alone.
+                            val hoursInvalid = wsInt == null || weInt == null ||
+                                wmInt == null || emInt == null ||
+                                wsInt < 0 || wsInt > 23 || weInt < 0 || weInt > 23 ||
+                                wmInt < 0 || wmInt > 59 || emInt < 0 || emInt > 59 ||
+                                (wsInt * 60 + wmInt) >= (weInt * 60 + emInt)
                             val addressInvalid = a.isEmpty() || a.length > 300
 
                             onTitleErrorUpdate(if (titleInvalid) "نام باید بین ۳ تا ۵۰ کاراکتر باشد" else null)
@@ -482,16 +520,14 @@ fun CreateBusinessScreen(
                                         title = t,
                                         category = category.value,
                                         phone = p,
+                                        extraPhones = extraPhones,
                                         address = a,
                                         defaultProgress = d,
                                         workStartHour = wsInt!!,
                                         workEndHour = weInt!!,
-                                        // Owned by the "تنظیمات پیشرفته" screen;
-                                        // pass the loaded value straight through
-                                        // so editing basic info here never
-                                        // resets the business's days off.
-                                        closedWeekdays = uiState.business?.closedWeekdays
-                                            ?: emptyList(),
+                                        workStartMinute = wmInt!!,
+                                        workEndMinute = emInt!!,
+                                        closedWeekdays = closedWeekdays.toList(),
                                         allowAnonymousView = allowAnonymousView,
                                         notifyOwnerBySms = notifyOwnerBySms,
                                         bio = bio.trim(),
@@ -705,7 +741,12 @@ fun CreateBusinessScreen(
                 value = bio,
                 onValueChange = onBio,
                 label = "معرفی کسب‌وکار (Bio)",
-                maxLength = 50,
+                // Raised from 50 to match the backend's actual limit
+                // (business/models.py Business.bio) — 50 was too short for an
+                // actual description. Multi-line to match: a 300-char field
+                // squeezed onto one line was unreadable while typing.
+                maxLength = 300,
+                maxLine = 4,
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = {
                     Icon(
@@ -828,43 +869,81 @@ fun CreateBusinessScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                AppTextField(
-                    enabled = !uiState.isLoading,
-                    value = workStartHour,
-                    onValueChange = onWorkStartHour,
-                    label = stringResource(Res.string.work_start_hour),
-                    isError = workHoursError != null,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Timer,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
+                // Hour + minute as a pair, so "۱۹:۳۰" is enterable directly
+                // instead of only whole hours. The minute field defaults to 0
+                // and is easy to leave alone for a business that opens on the
+                // hour, same as before this existed.
+                Row(
                     modifier = Modifier.weight(1f),
-                    keyboardType = KeyboardType.Number,
-                    placeholder = stringResource(Res.string.example_work_start)
-                )
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    AppTextField(
+                        enabled = !uiState.isLoading,
+                        value = workStartHour,
+                        onValueChange = onWorkStartHour,
+                        label = stringResource(Res.string.work_start_hour),
+                        isError = workHoursError != null,
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.weight(2f),
+                        keyboardType = KeyboardType.Number,
+                        maxLength = 2,
+                        placeholder = stringResource(Res.string.example_work_start)
+                    )
+                    AppTextField(
+                        enabled = !uiState.isLoading,
+                        value = workStartMinute,
+                        onValueChange = onWorkStartMinute,
+                        label = "دقیقه",
+                        isError = workHoursError != null,
+                        modifier = Modifier.weight(1f),
+                        keyboardType = KeyboardType.Number,
+                        maxLength = 2,
+                        placeholder = "۰۰"
+                    )
+                }
 
-                AppTextField(
-                    enabled = !uiState.isLoading,
-                    value = workEndHour,
-                    onValueChange = onWorkEndHour,
-                    label = stringResource(Res.string.work_end_hour),
-                    isError = workHoursError != null,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Timer,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
+                Row(
                     modifier = Modifier.weight(1f),
-                    keyboardType = KeyboardType.Number,
-                    placeholder = stringResource(Res.string.example_work_end)
-                )
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    AppTextField(
+                        enabled = !uiState.isLoading,
+                        value = workEndHour,
+                        onValueChange = onWorkEndHour,
+                        label = stringResource(Res.string.work_end_hour),
+                        isError = workHoursError != null,
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.weight(2f),
+                        keyboardType = KeyboardType.Number,
+                        maxLength = 2,
+                        placeholder = stringResource(Res.string.example_work_end)
+                    )
+                    AppTextField(
+                        enabled = !uiState.isLoading,
+                        value = workEndMinute,
+                        onValueChange = onWorkEndMinute,
+                        label = "دقیقه",
+                        isError = workHoursError != null,
+                        modifier = Modifier.weight(1f),
+                        keyboardType = KeyboardType.Number,
+                        maxLength = 2,
+                        placeholder = "۰۰"
+                    )
+                }
             }
 
             if (workHoursError != null) {
@@ -875,6 +954,13 @@ fun CreateBusinessScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ClosedWeekdaysField(
+                closedWeekdays = closedWeekdays,
+                onClosedWeekdays = onClosedWeekdays
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -896,6 +982,14 @@ fun CreateBusinessScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardType = KeyboardType.Phone
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            ExtraPhonesField(
+                extraPhones = extraPhones,
+                onExtraPhones = onExtraPhones,
+                enabled = !uiState.isLoading
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1178,10 +1272,18 @@ fun PreviewDashboardScreen() {
             category = CategoryOption(BusinessCategory.OTHER.value, BusinessCategory.OTHER.persianName),
             categoryGroups = fallbackCategoryGroups(),
             phone = "",
+            extraPhones = listOf(),
+            onExtraPhones = {},
             address = "",
             defaultProgress = "",
             workStartHour = "9",
             workEndHour = "21",
+            workStartMinute = "0",
+            workEndMinute = "0",
+            onWorkStartMinute = {},
+            onWorkEndMinute = {},
+            closedWeekdays = setOf(),
+            onClosedWeekdays = {},
             onTitle = {},
             onCategory = {},
             onPhone = {},
