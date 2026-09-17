@@ -128,9 +128,11 @@ class BusinessSerializer(serializers.ModelSerializer):
         model = Business
         fields = [
             # Identity
-            'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'address', 'logo', 'theme_color',
+            'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
+            'address', 'logo', 'theme_color',
             # Schedule
-            'default_service_duration', 'work_start_hour', 'work_end_hour', 'closed_weekdays',
+            'default_service_duration', 'work_start_hour', 'work_end_hour',
+            'work_start_minute', 'work_end_minute', 'closed_weekdays',
             # Notifications (legacy)
             'notification_enabled', 'notification_types', 'notification_minutes_before',
             # Payment config
@@ -214,6 +216,29 @@ class BusinessSerializer(serializers.ModelSerializer):
     def validate_services(self, value):
         return normalize_service_names(value)
 
+    def validate_extra_phones(self, value):
+        """Same shape and normalization as `phone`, plural.
+
+        A blank entry is dropped rather than rejected: the mobile UI is a
+        repeatable list of text fields, and an owner who adds a row and then
+        leaves it empty (or deletes its text without removing the row) should
+        not be blocked from saving everything else.
+        """
+        if not isinstance(value, list):
+            raise serializers.ValidationError("باید فهرستی از شماره‌ها باشد")
+        normalized = []
+        for raw in value:
+            text = str(raw or '').strip()
+            if not text:
+                continue
+            candidate = normalize_phone(text)
+            if not is_iran_phone(candidate):
+                raise serializers.ValidationError(
+                    f"شماره «{raw}» نامعتبر است — باید ۱۱ رقم و با ۰ شروع شود"
+                )
+            normalized.append(candidate)
+        return normalized
+
     def validate_work_start_hour(self, value):
         if not 0 <= value <= 23:
             raise serializers.ValidationError("Must be between 0-23")
@@ -222,6 +247,16 @@ class BusinessSerializer(serializers.ModelSerializer):
     def validate_work_end_hour(self, value):
         if not 0 <= value <= 23:
             raise serializers.ValidationError("Must be between 0-23")
+        return value
+
+    def validate_work_start_minute(self, value):
+        if not 0 <= value <= 59:
+            raise serializers.ValidationError("Must be between 0-59")
+        return value
+
+    def validate_work_end_minute(self, value):
+        if not 0 <= value <= 59:
+            raise serializers.ValidationError("Must be between 0-59")
         return value
 
     def validate_closed_weekdays(self, value):
@@ -250,22 +285,33 @@ class BusinessSerializer(serializers.ModelSerializer):
         return ret
 
     def validate(self, data):
-        if data.get('work_start_hour') and data.get('work_end_hour'):
-            if data['work_start_hour'] >= data['work_end_hour']:
+        # Effective value after this write: partial updates (every PUT here is
+        # partial=True) keep whatever the rest of the row already had, so a
+        # check touching several fields has to look past just what changed.
+        def current(field):
+            if field in data:
+                return data[field]
+            return getattr(self.instance, field, None)
+
+        # Compared as minutes-since-midnight, not just the hour: work_end_hour
+        # alone used to let 19:00-19:30 (start hour 19, end hour 19) through as
+        # "equal, therefore invalid" even though it is a real 30-minute window
+        # once minutes exist — and would just as wrongly accept 19:45-19:15 as
+        # valid because 19 == 19 was never compared at all.
+        start_hour = current('work_start_hour')
+        end_hour = current('work_end_hour')
+        if start_hour is not None and end_hour is not None:
+            start_total = start_hour * 60 + (current('work_start_minute') or 0)
+            end_total = end_hour * 60 + (current('work_end_minute') or 0)
+            if start_total >= end_total:
                 raise serializers.ValidationError(
-                    "work_end_hour must be greater than work_start_hour"
+                    "ساعت پایان کار باید بعد از ساعت شروع باشد"
                 )
 
         # A payment method must be *usable*, not merely switched on. Storing CARD
         # with no card number, or ONLINE with neither a Zibal merchant nor a
         # payment link, leaves the client on a checkout screen with nothing to
         # pay to — which read as «شماره کارت ثبت نشده» and dead-ended the booking.
-        def current(field):
-            """Effective value after this write: partial updates keep the rest."""
-            if field in data:
-                return data[field]
-            return getattr(self.instance, field, None)
-
         accepted = current('accepted_payment_methods') or []
 
         if 'CARD' in accepted and not str(current('card_number') or '').strip():
@@ -374,8 +420,11 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             'theme_color',
             'address',
             'phone',
+            'extra_phones',
             'work_start_hour',
             'work_end_hour',
+            'work_start_minute',
+            'work_end_minute',
             'default_service_duration',
             # Weekly days off, so the booking calendar can grey them out before
             # ever fetching slots for that date — see Business.closed_weekdays.
@@ -410,6 +459,7 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
         if (not request or not request.user or request.user.is_anonymous) \
                 and not instance.allow_anonymous_view:
             data['phone'] = None
+            data['extra_phones'] = []
             data['address'] = None
 
         # Emergency-notice gating + the subscription-driven booking block.
@@ -440,8 +490,10 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
     class Meta:
         model = Business
         fields = [
-            'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'address', 'logo', 'theme_color',
+            'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
+            'address', 'logo', 'theme_color',
             'default_service_duration', 'work_start_hour', 'work_end_hour',
+            'work_start_minute', 'work_end_minute',
             'allow_anonymous_view',
             'notice_message', 'notice_enabled', 'booking_enabled',
             'payment_method', 'accepted_payment_methods',
@@ -465,6 +517,7 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
         if (not request or not request.user or request.user.is_anonymous) \
                 and not instance.allow_anonymous_view:
             data['phone'] = None
+            data['extra_phones'] = []
             data['address'] = None
 
         # Emergency-notice gating + the subscription-driven booking block.

@@ -169,8 +169,21 @@ class Business(models.Model):
         ),
     )
     phone = models.CharField(max_length=20)
+    # Additional contact numbers, beyond the primary `phone`. Kept separate
+    # rather than turning `phone` itself into a list: `phone` is read as a
+    # single string in far too many places (SMS delivery, the moderation
+    # snapshot, every serializer, front_client) to safely widen its type, and
+    # every one of those call sites' "the" contact number is still correct
+    # once there is more than one — it is simply no longer the *only* one.
+    extra_phones = models.JSONField(
+        default=list, blank=True,
+        help_text="Additional contact numbers, normalized the same way as `phone`",
+    )
     address = models.TextField()
-    bio = models.CharField(max_length=50, blank=True, null=True)
+    # 50 was too short for an actual business description (see the owner
+    # complaint this raised it for) — chosen to match notice_message's
+    # existing 300-char cap elsewhere on this model, not a new precedent.
+    bio = models.CharField(max_length=300, blank=True, null=True)
     logo = models.ImageField(upload_to='business_logos/', blank=True, null=True, help_text="Business logo image")
     # Header colour derived from `logo` at save time — see business/theme_color.py
     # for why this is computed here rather than sampled in the browser. Blank
@@ -182,6 +195,15 @@ class Business(models.Model):
     default_service_duration = models.IntegerField(help_text="Default duration in minutes")
     work_start_hour = models.IntegerField(help_text="0-23")
     work_end_hour = models.IntegerField(help_text="0-23")
+    # Minute component of work_start_hour/work_end_hour, e.g. 19:30 is
+    # work_end_hour=19, work_end_minute=30. Separate fields rather than
+    # folding into a single "minutes since midnight" column: work_start_hour/
+    # work_end_hour are read as whole hours in several places already
+    # (validation, display), and every existing business's data stays valid
+    # and correct with minute=0 — no data migration needed for the ~14
+    # businesses that predate this field.
+    work_start_minute = models.IntegerField(default=0, help_text="0-59")
+    work_end_minute = models.IntegerField(default=0, help_text="0-59")
     # Weekly recurring days off (e.g. every Friday) — NOT specific calendar
     # dates. Stored as Python's date.weekday() ints (Monday=0 .. Sunday=6) so
     # backend code can test membership with `date.weekday() in closed_weekdays`
@@ -453,7 +475,7 @@ class Business(models.Model):
     # copies these onto the live fields and clears them; a REJECTED decision
     # leaves them so the owner's next edit still has something to start from.
     pending_title = models.CharField(max_length=255, null=True, blank=True)
-    pending_bio = models.CharField(max_length=50, null=True, blank=True)
+    pending_bio = models.CharField(max_length=300, null=True, blank=True)
     pending_address = models.TextField(null=True, blank=True)
     pending_logo = models.ImageField(upload_to='business_logos/', null=True, blank=True)
 

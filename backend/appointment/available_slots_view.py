@@ -78,6 +78,8 @@ class AvailableSlotsView(APIView):
         duration = business.default_service_duration  # minutes
         start_hour = business.work_start_hour
         end_hour = business.work_end_hour
+        start_minute = business.work_start_minute
+        end_minute = business.work_end_minute
 
         # Generate all possible slots.
         # work_start_hour/work_end_hour are wall-clock hours in the business's own
@@ -88,11 +90,11 @@ class AvailableSlotsView(APIView):
         all_slots = []
         current = datetime(
             target_date.year, target_date.month, target_date.day,
-            start_hour, 0, tzinfo=LOCAL_TZ
+            start_hour, start_minute, tzinfo=LOCAL_TZ
         )
         day_end = datetime(
             target_date.year, target_date.month, target_date.day,
-            end_hour, 0, tzinfo=LOCAL_TZ
+            end_hour, end_minute, tzinfo=LOCAL_TZ
         )
 
         while current + timedelta(minutes=duration) <= day_end:
