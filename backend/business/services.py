@@ -53,6 +53,24 @@ def notify_review_queued(business, kind='new', changed=None):
         )
 
 
+def _notify_owner_queued(business):
+    """Push the owner "your edit is in the queue" — the counterpart to
+    notify_review_queued() above, which pings staff instead. Called from the
+    same two re-queue sites; kept as its own function only so each call site
+    isn't importing push_moderation directly, matching the pattern
+    notify_review_queued already sets for the Bale ping.
+    """
+    try:
+        from .push_moderation import notify_review_queued_push
+
+        notify_review_queued_push(business)
+    except Exception:
+        logger.exception(
+            'Queued-for-review push could not be scheduled for business %s',
+            getattr(business, 'pk', None),
+        )
+
+
 def sync_locks(user):
     """
     Reconcile ``Business.is_locked`` for ``user`` with their current quota.
@@ -138,11 +156,20 @@ def apply_moderation_decision(business, to_status, actor, note='', notify=True):
     if not notify:
         return False
 
+    from .push_moderation import notify_moderation_decision_push
     from .sms_moderation import notify_moderation_decision
 
-    # notify_moderation_decision swallows its own failures; the extra guard is
-    # for an import-time or programming error, which still must not surface as a
-    # 500 on a decision that already landed.
+    # Push first: it is free and near-instant, so a dead SMS provider should
+    # never be the reason the owner hears nothing. Both swallow their own
+    # failures; the extra guards are for an import-time or programming error,
+    # which still must not surface as a 500 on a decision that already landed.
+    try:
+        notify_moderation_decision_push(business, to_status)
+    except Exception:
+        logger.exception(
+            'Moderation push failed for business %s (%s)', business.pk, to_status
+        )
+
     try:
         return notify_moderation_decision(business, to_status)
     except Exception:
@@ -225,6 +252,7 @@ def resubmit_if_content_changed(business, before_snapshot):
         'Business %s re-queued for review after editing %s', business.pk, changed
     )
     notify_review_queued(business, kind='edit', changed=changed)
+    _notify_owner_queued(business)
     return True
 
 
@@ -316,6 +344,7 @@ def save_with_moderation(serializer, business, before_snapshot):
                 kind='edit',
                 changed=[f[len('pending_'):] for f in staged],
             )
+            _notify_owner_queued(business)
 
         # Already PENDING (a second edit landing while the first is still
         # under review) or SUSPENDED: the draft is saved either way, just
