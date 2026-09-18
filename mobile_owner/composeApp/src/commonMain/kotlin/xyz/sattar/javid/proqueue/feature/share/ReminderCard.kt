@@ -1,8 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.share
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +18,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,8 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
@@ -123,6 +125,7 @@ private fun reminderShareText(
  * menu — the owner is about to send this to a named customer, and should see
  * what they are sending.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReminderCardDialog(
     visitorName: String,
@@ -135,29 +138,25 @@ fun ReminderCardDialog(
     val scope = rememberCoroutineScope()
     var exporting by remember { mutableStateOf(false) }
 
-    Dialog(
+    // A bottom sheet, not a dialog: this is opened from a row in a list and
+    // is a step in that flow rather than an interruption of it — it slides up
+    // from where the tap happened, and a drag down is the same "not now" the
+    // owner would have expressed by tapping outside a dialog.
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        containerColor = MaterialTheme.colorScheme.surface,
+        // Straight to fully expanded, and scrollable inside: the card is a
+        // 4:5 image and the two buttons sit under it, which is taller than
+        // the half-height a sheet opens at by default — the owner would have
+        // had to drag the sheet up before they could reach "share".
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        // Own scrim and own centring: at usePlatformDefaultWidth = false the
-        // dialog window is the whole screen and paints nothing, so without
-        // this the card and its buttons float transparently over the list
-        // they were opened from.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                    onClick = onDismiss,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             ExportableCard(controller = capture, designHeightDp = POSTER_HEIGHT_DP) {
@@ -169,14 +168,10 @@ fun ReminderCardDialog(
                 )
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
 
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(10.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 AppButton(
@@ -204,7 +199,6 @@ fun ReminderCardDialog(
                 )
             }
         }
-        }
     }
 }
 
@@ -225,7 +219,7 @@ private fun ReminderPosterCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 15.dp),
+                .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (business != null) {
@@ -266,8 +260,8 @@ private fun ReminderPosterCard(
             // opens with the business's name looks like an advertisement.
             Text(
                 text = visitorName,
-                fontSize = 22.sp,
-                lineHeight = 29.sp,
+                fontSize = 20.sp,
+                lineHeight = 26.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 textAlign = TextAlign.Center,
@@ -283,7 +277,7 @@ private fun ReminderPosterCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 13.dp),
+                        .padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ReminderFact(
@@ -319,7 +313,7 @@ private fun ReminderPosterCard(
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
 
             // The countdown gets the solid panel and the darkest text on the
             // card. "How long do I have" is the one thing the customer opens
@@ -329,12 +323,12 @@ private fun ReminderPosterCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color.White, RoundedCornerShape(22.dp))
-                        .padding(vertical = 13.dp),
+                        .padding(vertical = 11.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         text = remainingUntil(appointmentDate),
-                        fontSize = 22.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = ShareVioletDeep,
                     )
@@ -349,23 +343,36 @@ private fun ReminderPosterCard(
 
             Spacer(Modifier.weight(1f))
 
+            // The address gets the card's full width — squeezed beside the
+            // signature it broke after "طبقه" and left "سوم" alone on a line,
+            // which is the kind of detail that makes a generated image look
+            // generated. The mark then sits on its own line below it, in the
+            // corner the eye reaches last.
             if (business?.address?.isNotBlank() == true) {
                 Text(
                     text = business.address,
-                    fontSize = 11.sp,
-                    lineHeight = 18.sp,
-                    color = Color.White.copy(alpha = 0.75f),
+                    fontSize = 12.sp,
+                    lineHeight = 19.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.95f),
                     textAlign = TextAlign.Center,
-                    // One line, unlike the booking page's address block: this
-                    // card has a fixed height, and an address wrapping to a
-                    // third line pushes the signature off the bottom of the
-                    // exported image.
-                    maxLines = 1,
+                    // Readable at a glance, unlike the 11sp at 75% alpha this
+                    // replaced: the date and time are also in the chat this
+                    // image arrives in, but the address is the line a customer
+                    // opens the picture again at the door to read.
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
             }
 
-            AppSignature(onDark = true)
+            // AbsoluteAlignment, not Start: the card is RTL, where Start is
+            // the right-hand edge — this mark belongs on the physical left.
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.align(AbsoluteAlignment.CenterLeft)) {
+                    AppSignature(onDark = true)
+                }
+            }
         }
     }
 }

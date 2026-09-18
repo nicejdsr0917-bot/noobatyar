@@ -411,7 +411,7 @@ private fun QrPosterCard(business: Business, link: String) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 26.dp, vertical = 24.dp),
+                .padding(start = 26.dp, end = 26.dp, top = 24.dp, bottom = 62.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(
@@ -446,7 +446,7 @@ private fun QrPosterCard(business: Business, link: String) {
             NeonHalo(shape = RoundedCornerShape(26.dp)) {
                 Surface(shape = RoundedCornerShape(26.dp), color = Color.White) {
                     Box(Modifier.padding(16.dp)) {
-                        BookingQrCode(link, size = 168)
+                        BookingQrCode(link, size = 148)
                     }
                 }
             }
@@ -458,14 +458,6 @@ private fun QrPosterCard(business: Business, link: String) {
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "دوربین گوشی را روی کد بگیرید — بدون تماس، بدون انتظار",
-                fontSize = 12.sp,
-                lineHeight = 19.sp,
-                color = Color.White.copy(alpha = 0.78f),
                 textAlign = TextAlign.Center,
             )
 
@@ -485,9 +477,9 @@ private fun QrPosterCard(business: Business, link: String) {
                 )
             }
 
-            Spacer(Modifier.height(14.dp))
-            AppSignature(onDark = true)
         }
+
+        CardSignatureCorner(padding = 22.dp)
     }
 }
 
@@ -611,12 +603,6 @@ private fun ProfileStoryCard(business: Business, link: String) {
                 .padding(horizontal = 26.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            NeonGlass(shape = RoundedCornerShape(20.dp), glowRadius = 8.dp, glowWidth = 2.dp) {
-                Box(Modifier.padding(horizontal = 12.dp, vertical = 7.dp)) {
-                    AppSignature(onDark = true)
-                }
-            }
-
             Spacer(Modifier.weight(0.6f))
 
             BusinessAvatar(business, size = 104, ring = true)
@@ -635,7 +621,7 @@ private fun ProfileStoryCard(business: Business, link: String) {
             Spacer(Modifier.height(8.dp))
             NeonGlass(shape = RoundedCornerShape(12.dp), glowRadius = 7.dp, glowWidth = 2.dp) {
                 Text(
-                    text = business.categoryLabel,
+                    text = "آموزش نوبت‌دهی",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -683,7 +669,7 @@ private fun ProfileStoryCard(business: Business, link: String) {
                     // nothing there — Instagram doesn't make story text
                     // tappable — so step one is the route that does work,
                     // which is the link in the page's bio.
-                    GuideStep(1, "به پیج ما بروید و روی لینک داخل بایو بزنید.")
+                    GuideStep(1, "روی لینک داخل بایو بزنید.")
                     GuideStep(2, "خدمت، روز و ساعت دلخواه‌تان را انتخاب کنید.")
                     GuideStep(3, "شماره موبایل‌تان را وارد کنید؛ نوبت ثبت می‌شود.")
                 }
@@ -692,33 +678,43 @@ private fun ProfileStoryCard(business: Business, link: String) {
 
             Spacer(Modifier.weight(0.6f))
 
+            // Footer: the code and the link on the reading side, the maker's
+            // mark alone in the opposite corner. This card can't take the
+            // overlaid CardSignatureCorner the other three use — the bottom
+            // left is where the QR would otherwise sit — so the row places
+            // the two against each other instead.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                NeonHalo(shape = RoundedCornerShape(14.dp), glowRadius = 10.dp) {
-                    Surface(shape = RoundedCornerShape(14.dp), color = Color.White) {
-                        Box(Modifier.padding(7.dp)) {
-                            BookingQrCode(link, size = 74)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    NeonHalo(shape = RoundedCornerShape(14.dp), glowRadius = 10.dp) {
+                        Surface(shape = RoundedCornerShape(14.dp), color = Color.White) {
+                            Box(Modifier.padding(7.dp)) {
+                                BookingQrCode(link, size = 64)
+                            }
                         }
                     }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "لینک نوبت‌دهی، داخل بایو",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White.copy(alpha = 0.8f),
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        LtrText(
+                            text = link.shortForDisplay(),
+                            fontSize = 12.sp,
+                            weight = FontWeight.Bold,
+                            color = Color.White,
+                        )
+                    }
                 }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = "لینک نوبت‌دهی، داخل بایوی پیج",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White.copy(alpha = 0.8f),
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    LtrText(
-                        text = link.shortForDisplay(),
-                        fontSize = 13.sp,
-                        weight = FontWeight.Bold,
-                        color = Color.White,
-                    )
-                }
+
+                AppSignature(onDark = true)
             }
         }
     }
@@ -833,7 +829,7 @@ private fun CardNumberPosterCard(business: Business) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 26.dp, vertical = 26.dp),
+                .padding(start = 26.dp, end = 26.dp, top = 26.dp, bottom = 62.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -861,7 +857,7 @@ private fun CardNumberPosterCard(business: Business) {
             NeonGlass(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1.586f),
+                    .aspectRatio(1.95f),
                 shape = RoundedCornerShape(20.dp),
                 fill = Color.White.copy(alpha = 0.17f),
                 glowRadius = 16.dp,
@@ -901,26 +897,25 @@ private fun CardNumberPosterCard(business: Business) {
                         }
                     }
 
-                    LtrText(
-                        text = business.cardNumber.asCardGroups(),
-                        fontSize = 20.sp,
-                        weight = FontWeight.Bold,
-                        color = Color.White,
-                        letterSpacing = 1.sp,
-                    )
-
+                    // Number and holder as one block at the foot of the card,
+                    // the way they are embossed on the plastic. The "به نام"
+                    // label that used to sit above the name is gone: a name
+                    // under a card number is already understood as the
+                    // holder, and labelling it reads like a form field.
                     Column {
-                        Text(
-                            text = "به نام",
-                            fontSize = 10.sp,
-                            color = Color.White.copy(alpha = 0.7f),
+                        LtrText(
+                            text = business.cardNumber.asCardGroups(),
+                            fontSize = 20.sp,
+                            weight = FontWeight.Bold,
+                            color = Color.White,
+                            letterSpacing = 1.sp,
                         )
-                        Spacer(Modifier.height(2.dp))
+                        Spacer(Modifier.height(6.dp))
                         Text(
                             text = business.cardOwnerName.ifBlank { business.title },
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = 0.92f),
                             maxLines = 1,
                         )
                     }
@@ -929,17 +924,19 @@ private fun CardNumberPosterCard(business: Business) {
 
             Spacer(Modifier.weight(1f))
 
+            // One line. The two-line version ("...و تصویر رسید را برای ما
+            // بفرستید") wrapped, and a wrapped sentence under a card is the
+            // part of the image that looks unfinished.
             Text(
-                text = "مبلغ را به این شماره کارت واریز کنید و تصویر رسید را برای ما بفرستید.",
+                text = "مبلغ را به این کارت واریز کنید.",
                 fontSize = 12.sp,
-                lineHeight = 21.sp,
                 color = Color.White.copy(alpha = 0.82f),
                 textAlign = TextAlign.Center,
+                maxLines = 1,
             )
-
-            Spacer(Modifier.height(14.dp))
-            AppSignature(onDark = true)
         }
+
+        CardSignatureCorner(padding = 22.dp)
     }
 }
 

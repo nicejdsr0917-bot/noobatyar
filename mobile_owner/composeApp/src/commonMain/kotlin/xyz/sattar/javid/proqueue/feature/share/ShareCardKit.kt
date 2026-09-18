@@ -2,6 +2,8 @@ package xyz.sattar.javid.proqueue.feature.share
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -35,6 +38,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -244,32 +248,61 @@ internal fun BusinessAvatar(business: Business, size: Int, ring: Boolean = false
 @Composable
 internal fun AppSignature(onDark: Boolean) {
     val tone = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-    // Mark and name on one line, domain centred underneath — rather than the
-    // icon set against a two-line block, where it ends up floating between
-    // the lines and reads as a stray glyph.
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.alpha(if (onDark) 0.72f else 0.6f),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = painterResource(Res.drawable.main_icon),
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
+    // Laid out left-to-right regardless of the app's RTL: the mark, the name
+    // and the domain are one brand lockup, and a lockup that flips with the
+    // reading direction of the page around it is two different lockups.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Column(
+            horizontalAlignment = Alignment.Start,
+            modifier = Modifier.alpha(if (onDark) 0.75f else 0.6f),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(Res.drawable.main_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp),
+                )
+                Spacer(Modifier.width(5.dp))
+                Text("نوبت‌یار", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = tone)
+            }
+            Spacer(Modifier.height(1.dp))
+            // The name alone is a brand nobody can look up. The domain under
+            // it is the whole point of signing a card that will be reposted,
+            // screenshotted and forwarded away from any link.
+            LtrText(
+                text = "noobatyar.ir",
+                fontSize = 9.sp,
+                weight = FontWeight.SemiBold,
+                color = tone.copy(alpha = 0.9f),
             )
-            Spacer(Modifier.width(5.dp))
-            Text("نوبت‌یار", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = tone)
         }
-        Spacer(Modifier.height(1.dp))
-        // The name alone is a brand nobody can look up. The domain under it is
-        // the whole point of signing a card that will be reposted,
-        // screenshotted and forwarded away from any link.
-        LtrText(
-            text = "noobatyar.ir",
-            fontSize = 9.sp,
-            weight = FontWeight.SemiBold,
-            color = tone.copy(alpha = 0.9f),
-        )
+    }
+}
+
+/**
+ * The signature, parked in the card's bottom-left corner.
+ *
+ * Centred under the content it was competing with the card's own message for
+ * the reader's last line; in the corner it behaves like a maker's mark --
+ * present, findable, and out of the way. Bottom-*left* specifically, and
+ * absolutely rather than by layout direction: every one of these cards is
+ * RTL, so the bottom-left is the corner the eye arrives at last.
+ *
+ * Overlaid on the card rather than placed in its column, so it costs the
+ * content no vertical space -- leave room for it with the column's bottom
+ * padding.
+ */
+@Composable
+internal fun BoxScope.CardSignatureCorner(
+    onDark: Boolean = true,
+    padding: Dp = 20.dp,
+) {
+    Box(
+        modifier = Modifier
+            .align(AbsoluteAlignment.BottomLeft)
+            .padding(padding)
+    ) {
+        AppSignature(onDark = onDark)
     }
 }
 
@@ -324,4 +357,3 @@ internal fun ExportableCard(
         }
     }
 }
-
