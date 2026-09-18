@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getAppointment, type Appointment } from '@/lib/api';
+import { businessUrl, getAppointment, type Appointment } from '@/lib/api';
 import { STATUS_LABELS, formatDate } from '@/lib/format';
 import { BusinessAvatar } from '@/app/components/AppointmentCard';
 import Icon from '@/app/components/Icon';
@@ -64,8 +64,30 @@ function BookingSuccess() {
 
   const status = appt ? STATUS_LABELS[appt.status] : null;
 
+  // Falls back to the site's own home only in the split second before `appt`
+  // has loaded (or if that fetch never lands) — this button must never be a
+  // dead click, and the business's own page is the whole point of it.
+  const closeHref = appt ? businessUrl(appt.business.unique_code) : '/';
+
   return (
     <div className="success-screen">
+      {/* This screen has no Toolbar (it's reached by `router.replace`, so
+          there is deliberately nothing to go "back" to) — but leaving with
+          no way out except the two buttons below meant a customer who just
+          wanted to get back to the business's page had to read both first.
+          Closes to that business's own page specifically, not the generic
+          site home: the two big buttons below already cover "site home" and
+          "my appointments". */}
+      <button
+        type="button"
+        className="success-close"
+        aria-label="بستن"
+        title="بستن"
+        onClick={() => router.replace(closeHref)}
+      >
+        <Icon name="close" size={20} />
+      </button>
+
       <Confetti />
 
       <div className="success-badge">

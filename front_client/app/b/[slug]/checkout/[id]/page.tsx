@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  cancelAppointment,
   getAppointment,
   payAppointment,
   payAppointmentWithReceipt,
@@ -41,6 +42,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   const [toast, setToast] = useState('');
   const [copied, setCopied] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const biz = appointment?.business;
   const accepted = biz?.accepted_payment_methods;
@@ -138,6 +140,47 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
     }
   };
 
+  /**
+   * The toolbar's × — an explicit way out of the payment step, in place of
+   * the arrow-back this screen used to inherit from Toolbar's default.
+   *
+   * That default called router.back(), plain browser history navigation.
+   * The bug this replaces: this appointment already exists as LOCKED before
+   * this page even renders (the previous, time-picker page creates it), and
+   * `router.replace` on the success/checkout pages only swaps the *current*
+   * history entry — it never removes the entries around it. So a tab that
+   * has ever completed a booking before carries THAT attempt's checkout and
+   * /booking-success pages in its back/forward list too. Pressing back twice
+   * from here can walk past this attempt's own time-picker page and land on
+   * one of those old, unrelated screens — which is how a customer backing
+   * out of an unfinished payment saw a stale "نوبت شما تایید شد" from a
+   * previous booking and reasonably read it as this one succeeding.
+   *
+   * So this button does not navigate through history at all: it releases
+   * the lock this attempt is holding (cancelAppointment — LOCKED is in the
+   * backend's CANCELLABLE_STATUSES, so the slot is freed for other
+   * customers) and replaces straight to this business's own page, a fixed,
+   * unambiguous destination.
+   */
+  const handleCancel = async () => {
+    // Guards against racing an in-flight payment submission or gateway
+    // redirect — cancelling and paying at nearly the same moment must not
+    // both land on the server.
+    if (cancelling || submitting || redirecting) return;
+    setCancelling(true);
+    const token = localStorage.getItem('visitor_token');
+    if (token && id) {
+      try {
+        await cancelAppointment(id, token);
+      } catch {
+        // Best-effort: the customer must still be able to leave even if the
+        // release call fails on a network hiccup — an appointment stuck
+        // LOCKED past its own slot time ages out on the backend regardless.
+      }
+    }
+    router.replace(slug ? `/b/${slug}` : '/');
+  };
+
   const handleSubmit = async () => {
     setSubmitAttempted(true);
 
@@ -184,7 +227,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   if (loading) {
     return (
       <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
-        <Toolbar title="پرداخت و نهایی‌سازی" />
+        <Toolbar title="پرداخت و نهایی‌سازی" backIcon="close" onBack={handleCancel} />
         <div style={{ padding: 24 }}>
           <div className="skeleton" style={{ height: 52, borderRadius: 14, marginBottom: 16 }} />
           <div className="skeleton" style={{ height: 180, borderRadius: 16, marginBottom: 16 }} />
@@ -197,14 +240,14 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   if (error || !appointment) {
     return (
       <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
-        <Toolbar title="پرداخت و نهایی‌سازی" />
+        <Toolbar title="پرداخت و نهایی‌سازی" backIcon="close" onBack={handleCancel} />
         <div style={{ padding: 24 }}>
           <div className="empty-state">
             <span className="empty-state-icon" style={{ color: 'var(--color-error)' }}>
               <Icon name="error" size={26} />
             </span>
             <h3>{error}</h3>
-            <button className="btn-primary" style={{ marginTop: 18, height: 48 }} onClick={() => router.back()}>
+            <button className="btn-primary" style={{ marginTop: 18, height: 48 }} onClick={handleCancel}>
               بازگشت
             </button>
           </div>
@@ -215,7 +258,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
 
   return (
     <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
-      <Toolbar title="پرداخت و نهایی‌سازی" />
+      <Toolbar title="پرداخت و نهایی‌سازی" backIcon="close" onBack={handleCancel} />
 
       <div style={{ padding: '24px' }}>
         {/* ── Method tabs ── (only the methods this business actually offers) */}
