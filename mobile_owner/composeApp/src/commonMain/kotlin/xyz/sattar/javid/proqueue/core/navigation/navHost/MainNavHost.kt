@@ -48,6 +48,7 @@ import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportScreen
 import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsScreen
 import xyz.sattar.javid.proqueue.feature.visitorSelection.VisitorSelectionScreen
 import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
+import xyz.sattar.javid.proqueue.feature.share.ShareBusinessScreen
 import xyz.sattar.javid.proqueue.core.payment.PaymentWebViewScreen
 import xyz.sattar.javid.proqueue.feature.addons.AddonsScreen
 import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessRoute
@@ -177,6 +178,9 @@ fun MainNavHost(
                 HomeScreen(
                     onNavigateToCalendar = {
                         navController.navigate(AppScreens.Calendar())
+                    },
+                    onNavigateToShare = {
+                        navController.navigate(AppScreens.ShareBusiness)
                     },
                     onNavigateToLogin = onNavigateToLogin,
                     onChangeBusiness = onChangeBusiness,
@@ -431,6 +435,12 @@ fun MainNavHost(
                             }
                         }
                     },
+                )
+            }
+
+            composable<AppScreens.ShareBusiness> {
+                ShareBusinessScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

@@ -104,6 +104,8 @@ kotlin {
             // Glassmorphism blur for bars/toolbars
             implementation(libs.haze)
             implementation(libs.haze.materials)
+
+            implementation(libs.qrose)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native.driver)

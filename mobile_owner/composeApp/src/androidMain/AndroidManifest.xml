@@ -54,6 +54,23 @@
             </intent-filter>
         </activity>
         
+        <!-- Serves the PNGs the share screen renders (QR card, profile card)
+             to whichever app the owner picks from the share sheet. androidx's
+             FileProvider rather than a raw file:// URI, which every Android
+             since N rejects with FileUriExposedException.
+             The authority carries ${applicationId}, so the `local` flavour's
+             .local suffix gives it its own authority and both builds can be
+             installed side by side. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/shared_images_paths" />
+        </provider>
+
         <receiver android:name=".core.notifications.ReminderReceiver" />
 
         <!-- FCM. exported=false: only the Play Services process binds to it,

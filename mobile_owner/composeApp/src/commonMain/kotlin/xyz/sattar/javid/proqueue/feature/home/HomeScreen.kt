@@ -104,6 +104,7 @@ import xyz.sattar.javid.proqueue.ui.theme.AppTheme
 fun HomeScreen(
     viewModel: HomeViewModel = koinViewModel<HomeViewModel>(),
     onNavigateToCalendar: () -> Unit,
+    onNavigateToShare: () -> Unit = {},
     onNavigateToLogin: () -> Unit,
     onChangeBusiness: () -> Unit = {},
     onNavigateToAddons: () -> Unit = {},
@@ -129,6 +130,7 @@ fun HomeScreen(
         snackbarHostState = snackbarHostState,
         onIntent = viewModel::sendIntent,
         onNavigateToCalendar = onNavigateToCalendar,
+        onNavigateToShare = onNavigateToShare,
         onNavigateToLogin = onNavigateToLogin,
         onChangeBusiness = onChangeBusiness,
         onNavigateToAddons = onNavigateToAddons,
@@ -161,6 +163,7 @@ fun HomeScreenContent(
     snackbarHostState: SnackbarHostState,
     onIntent: (HomeIntent) -> Unit,
     onNavigateToCalendar: () -> Unit,
+    onNavigateToShare: () -> Unit = {},
     onNavigateToLogin: () -> Unit,
     onChangeBusiness: () -> Unit = {},
     onNavigateToAddons: () -> Unit = {},
@@ -243,7 +246,8 @@ fun HomeScreenContent(
                 collapseFraction = collapseFraction,
                 todayAppointmentsCount = uiState.stats.totalAppointments.takeIf { uiState.statsLoaded },
                 business = uiState.business,
-                onOpenCalendar = onNavigateToCalendar
+                onOpenCalendar = onNavigateToCalendar,
+                onOpenShare = onNavigateToShare
             )
 
             LazyColumn(

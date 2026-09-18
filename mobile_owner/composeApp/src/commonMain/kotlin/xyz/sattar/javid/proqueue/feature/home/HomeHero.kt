@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Card
@@ -28,18 +27,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
@@ -68,6 +61,7 @@ fun HomeHero(
     todayAppointmentsCount: Int?,
     business: Business?,
     onOpenCalendar: () -> Unit,
+    onOpenShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val expanded = 1f - collapseFraction.coerceIn(0f, 1f)
@@ -134,7 +128,11 @@ fun HomeHero(
                                 icon = Icons.Rounded.CalendarMonth,
                                 onClick = onOpenCalendar,
                             )
-                            business?.let { CompactBookingLinkAction(it) }
+                            CompactAction(
+                                icon = Icons.Rounded.Share,
+                                onClick = onOpenShare,
+                                highlighted = true,
+                            )
                         }
                     }
                 }
@@ -156,8 +154,8 @@ fun HomeHero(
                         onClick = onOpenCalendar,
                         modifier = Modifier.weight(1f),
                     )
-                    BookingLinkActionCard(
-                        business = business,
+                    ShareActionCard(
+                        onClick = onOpenShare,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -170,56 +168,24 @@ fun HomeHero(
 private fun CompactAction(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
+    highlighted: Boolean = false,
 ) {
     Box(
         modifier = Modifier
             .size(34.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primaryContainer)
+            .background(
+                if (highlighted) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.primaryContainer
+            )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.size(17.dp),
-        )
-    }
-}
-
-/** Copy-the-link action in its collapsed, icon-only form. */
-@Composable
-private fun CompactBookingLinkAction(business: Business) {
-    val uniqueCode = business.uniqueCode ?: return
-    val clipboard = LocalClipboardManager.current
-    val link = "${xyz.sattar.javid.proqueue.core.utils.AppConfig.bookingBaseUrl}/b/$uniqueCode"
-    var copied by remember { mutableStateOf(false) }
-
-    LaunchedEffect(copied) {
-        if (copied) {
-            kotlinx.coroutines.delay(2000)
-            copied = false
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .background(
-                if (copied) Color(0xFF1B5E20) else MaterialTheme.colorScheme.primary
-            )
-            .clickable {
-                clipboard.setText(buildAnnotatedString { append(link) })
-                copied = true
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.Share,
-            contentDescription = null,
-            tint = Color.White,
+            tint = if (highlighted) Color.White
+            else MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.size(17.dp),
         )
     }
@@ -262,32 +228,25 @@ private fun CalendarActionCard(
     }
 }
 
-/** The booking link, moved up from the fifth section to the header. */
+/**
+ * The share entry point, in its full-width form.
+ *
+ * It used to copy the link to the clipboard on the spot. Copying is only one
+ * of the things an owner does with that link, and the least useful of them in
+ * front of a customer standing at the counter — so this now opens the share
+ * screen, where the same link is also a QR card and a profile card, and
+ * copying is one tap further in.
+ */
 @Composable
-private fun BookingLinkActionCard(
-    business: Business?,
+private fun ShareActionCard(
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val uniqueCode = business?.uniqueCode
-    val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
-
-    LaunchedEffect(copied) {
-        if (copied) {
-            kotlinx.coroutines.delay(2000)
-            copied = false
-        }
-    }
-
     Card(
-        modifier = modifier.clickable(enabled = uniqueCode != null) {
-            val link = "${xyz.sattar.javid.proqueue.core.utils.AppConfig.bookingBaseUrl}/b/$uniqueCode"
-            clipboard.setText(buildAnnotatedString { append(link) })
-            copied = true
-        },
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (copied) Color(0xFF1B5E20) else MaterialTheme.colorScheme.primary
+            containerColor = MaterialTheme.colorScheme.primary
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
@@ -298,13 +257,13 @@ private fun BookingLinkActionCard(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(
-                imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.Share,
+                imageVector = Icons.Rounded.Share,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(22.dp),
             )
             Text(
-                text = if (copied) "کپی شد!" else "لینک نوبت‌گیری",
+                text = "اشتراک لینک نوبت",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
