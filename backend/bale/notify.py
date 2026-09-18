@@ -144,23 +144,45 @@ def _logo_path(business):
 
 
 def fire_owner_sms(business_id, to_status):
-    """Send the owner's moderation SMS off the request path.
+    """Send the owner's moderation SMS *and* push off the request path.
 
-    ``apply_moderation_decision(notify=True)`` sends it inline, which costs the
-    caller a round trip to Melipayamak with a 10s timeout. In the admin that is
-    merely slow; in the Bale webhook it is the difference between a button that
-    resolves instantly and one that spins until Bale gives up on the delivery
-    and retries it.
+    ``apply_moderation_decision(notify=True)`` sends both inline, and the SMS
+    half costs the caller a round trip to Melipayamak with a 10s timeout. In
+    the admin that is merely slow; in the Bale webhook it is the difference
+    between a button that resolves instantly and one that spins until Bale
+    gives up on the delivery and retries it. Both callers in bale/views.py
+    pass ``notify=False`` to apply_moderation_decision for exactly this
+    reason and fire this function instead.
+
+    The push half is not actually slow — it is a single HTTP call to FCM, not
+    a 10s-timeout SMS gateway — but it stayed out of the request path too:
+    keeping both channels behind the one function this decision fires is
+    what makes "notify=False, then call this" mean *notify off-thread*, full
+    stop, rather than a partial notify that whoever edits either function
+    next has to remember to keep in sync by hand. This was exactly the bug
+    the push half of this function was added to close: apply_moderation_decision
+    already sent both when notify=True, but the Bale path's notify=False
+    skipped both, and only the SMS had a replacement here.
     """
     def _run():
         try:
             from business.models import Business
+            from business.push_moderation import notify_moderation_decision_push
             from business.sms_moderation import notify_moderation_decision
 
             business = Business.objects.select_related('user').filter(
                 pk=business_id).first()
-            if business is not None:
-                notify_moderation_decision(business, to_status)
+            if business is None:
+                return
+            # Push first, same ordering as apply_moderation_decision: a dead
+            # SMS provider should never be the reason the owner hears nothing.
+            try:
+                notify_moderation_decision_push(business, to_status)
+            except Exception:
+                logger.exception(
+                    'Owner moderation push failed for business %s', business_id
+                )
+            notify_moderation_decision(business, to_status)
         except Exception:
             logger.exception('Owner moderation SMS failed for business %s', business_id)
 
@@ -169,7 +191,7 @@ def fire_owner_sms(business_id, to_status):
             target=_run, daemon=True, name=f'bale-sms-{business_id}',
         ).start()
     except Exception:
-        logger.exception('Could not start owner SMS thread for %s', business_id)
+        logger.exception('Could not start owner notify thread for %s', business_id)
 
 
 def build_text(business, kind, changed=None) -> str:
