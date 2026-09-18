@@ -89,6 +89,8 @@ import {
 
 type TablerIcon = ComponentType<{
   className?: string;
+  /** Tabler's own prop; CategoryArt sizes via CSS instead, CategoryGlyph uses it. */
+  size?: number;
   stroke?: number;
   'aria-hidden'?: boolean;
 }>;
@@ -211,6 +213,39 @@ export default function CategoryArt({
   return createElement(artIconForCategory(category), {
     className,
     stroke: 1.25,
+    'aria-hidden': true,
+  });
+}
+
+/**
+ * The same per-category mark at UI size — chips, avatars, list rows.
+ *
+ * Exists so those places stop reaching for Icon.tsx's own category map,
+ * which collapsed fourteen different medical specialities (dentistry,
+ * cardiology, ophthalmology, neurology…) onto one generic clipboard
+ * glyph. Two maps for one concept meant the small icon beside a category
+ * name could contradict the large mark drawn behind it on the very same
+ * page; there is now only this one.
+ *
+ * Stroke is heavier than CategoryArt's: at 14–24px the thinned line the
+ * hero mark uses would nearly disappear.
+ */
+export function CategoryGlyph({
+  category,
+  size = 16,
+  stroke = 2,
+  className,
+}: {
+  category: string;
+  size?: number;
+  stroke?: number;
+  className?: string;
+}) {
+  // createElement for the same reason as CategoryArt above.
+  return createElement(artIconForCategory(category), {
+    size,
+    stroke,
+    className,
     'aria-hidden': true,
   });
 }

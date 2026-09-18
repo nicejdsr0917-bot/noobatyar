@@ -15,7 +15,8 @@ import BusinessUnavailable from '@/app/components/BusinessUnavailable';
 import BusinessNotice from '@/app/components/BusinessNotice';
 import Toolbar from '@/app/components/Toolbar';
 import TextField from '@/app/components/TextField';
-import Icon, { CATEGORY_ICON } from '@/app/components/Icon';
+import Icon from '@/app/components/Icon';
+import { CategoryGlyph } from '@/app/components/CategoryArt';
 import { toPersianDigits, validateFreeText } from '@/lib/validation';
 import { schedulePushPrompt } from '@/lib/push';
 
@@ -383,7 +384,7 @@ export default function BookingPage({ params }: Props) {
               style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
             />
           ) : (
-            <Icon name={CATEGORY_ICON[business.category] ?? 'storefront'} size={24} />
+            <CategoryGlyph category={business.category} size={24} />
           )}
         </div>
         <div>
