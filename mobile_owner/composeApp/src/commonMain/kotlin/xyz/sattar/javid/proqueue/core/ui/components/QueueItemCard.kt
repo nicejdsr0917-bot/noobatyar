@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
@@ -70,6 +71,7 @@ import xyz.sattar.javid.proqueue.core.utils.openSms
 import xyz.sattar.javid.proqueue.core.utils.openTelegram
 import xyz.sattar.javid.proqueue.core.utils.openWhatsApp
 import xyz.sattar.javid.proqueue.feature.home.QueueItem
+import xyz.sattar.javid.proqueue.feature.share.ReminderCardDialog
 
 @Composable
 fun QueueItemCard(
@@ -86,6 +88,7 @@ fun QueueItemCard(
     }
     val uriHandler = LocalUriHandler.current
     val isPending = item.appointment.status == "PENDING_APPROVAL" || item.appointment.status == "PENDING_VERIFICATION"
+    var showReminderCard by remember { mutableStateOf(false) }
     val isPendingVerification = item.appointment.status == "PENDING_VERIFICATION"
 
     // Build the reminder message once and dispatch it through the chosen channel.
@@ -266,6 +269,18 @@ fun QueueItemCard(
                                 openPhoneDial(item.visitorPhone)
                             }
                         )
+                        // The same reminder the three entries above send as
+                        // text, as a picture instead — see ReminderCardDialog
+                        // for why that is worth a separate entry rather than
+                        // an option inside one of them.
+                        DropdownMenuItem(
+                            text = { Text("کارت یادآوری") },
+                            leadingIcon = { Icon(Icons.Rounded.Image, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                showReminderCard = true
+                            }
+                        )
 
                         // Payment receipt is now shown inline on the card (above),
                         // so it no longer needs a menu entry here.
@@ -326,5 +341,18 @@ fun QueueItemCard(
                 }
             }
         }
+    }
+
+    if (showReminderCard) {
+        ReminderCardDialog(
+            visitorName = item.visitorName,
+            // The booked time, not estimatedStartTime: the queue's estimate
+            // shifts as the day runs late, and a reminder that quietly told
+            // the customer a different hour than the one they booked would be
+            // worse than no reminder.
+            appointmentDate = item.appointment.appointmentDate,
+            services = item.appointment.selectedServices,
+            onDismiss = { showReminderCard = false },
+        )
     }
 }
