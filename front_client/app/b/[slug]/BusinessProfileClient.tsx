@@ -36,7 +36,8 @@ export default function BusinessProfileClient({ business, slug }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
 
   /**
-   * Where the bio goes depends on how long it is.
+   * Where the bio goes depends on how many *lines* it is — not how many
+   * characters.
    *
    * A short bio is a tagline — it belongs under the name, and reads well
    * there. A long one is prose, and the hero is the wrong place for prose:
@@ -45,13 +46,22 @@ export default function BusinessProfileClient({ business, slug }: Props) {
    * behind it. Centred long text is also the hardest way to read Persian,
    * since both edges end up ragged.
    *
-   * The cut-off is where a bio stops fitting the hero's two-line subtitle
-   * slot (~300px wide at 13px). Past that it becomes its own card below,
-   * left-aligned and clamped, which is a shape built for reading.
+   * Character count alone gets this wrong in the other direction too: a bio
+   * of five short emoji-led lines ("💜رنگ مو\n💚کراتین\n...") is only ~45
+   * characters — nowhere near a length-based cutoff — but is still five
+   * lines, and the hero's subtitle is a 2-line clamp
+   * (-webkit-line-clamp in globals.css). The clamp doesn't know or care
+   * *why* a bio is long; a bio the owner wrote as a short list is exactly as
+   * unreadable, ellipsised at line 2, as one that is long text. So this
+   * counts line breaks first, and only falls back to a character estimate
+   * for a single unbroken line long enough to *wrap* past two lines on its
+   * own (~300px wide at 13px) — that case has no '\n' to count.
    */
   const bio = business.bio?.trim() ?? '';
-  const HERO_TAGLINE_MAX = 90;
-  const bioIsProse = bio.length > HERO_TAGLINE_MAX;
+  const HERO_TAGLINE_MAX_LINES = 2;
+  const HERO_TAGLINE_MAX_CHARS = 90;
+  const bioIsProse =
+    bio.split('\n').length > HERO_TAGLINE_MAX_LINES || bio.length > HERO_TAGLINE_MAX_CHARS;
   const heroTagline = bioIsProse
     ? ''
     : bio || `ارائه خدمات تخصصی در زمینه ${businessCategoryLabel(business)} توسط کادر مجرب.`;
