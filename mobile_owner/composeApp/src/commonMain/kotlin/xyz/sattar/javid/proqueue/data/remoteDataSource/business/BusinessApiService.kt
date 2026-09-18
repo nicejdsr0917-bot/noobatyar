@@ -56,6 +56,16 @@ class BusinessApiService(private val httpClient: HttpClient) {
                 append("default_service_duration", business.defaultServiceDuration.toString())
                 append("work_start_hour", business.workStartHour.toString())
                 append("work_end_hour", business.workEndHour.toString())
+                // These two were the whole point of the "19:30" work-hours
+                // request — but this function builds the multipart that
+                // actually goes on the wire, separate from Business.toRequestDto()
+                // (used for the local Room cache), and got missed when the
+                // minute fields were added there. Without these, the server's
+                // partial update never sees them and silently keeps whatever
+                // minute it already had (usually 0), no matter what the owner
+                // picked in WorkHoursField.
+                append("work_start_minute", business.workStartMinute.toString())
+                append("work_end_minute", business.workEndMinute.toString())
                 append("notification_enabled", business.notificationEnabled.toString())
                 append("notification_types", business.notificationTypes)
                 append("notification_minutes_before", business.notificationMinutesBefore.toString())
@@ -87,6 +97,11 @@ class BusinessApiService(private val httpClient: HttpClient) {
                 // empty), which read as "I marked Friday closed but it's
                 // still bookable" with no error anywhere to explain why.
                 append("closed_weekdays", business.closedWeekdays.sorted().joinToString(prefix = "[", postfix = "]"))
+                // Same "missing from this function, not from toRequestDto()"
+                // gap as the minute fields above: ExtraPhonesField could add
+                // and remove numbers all day and the save would still only
+                // carry the single `phone` field, silently dropping the rest.
+                append("extra_phones", business.extraPhones.toJsonArrayString())
                 append("allow_client_add_service", business.allowClientAddService.toString())
                 append("notice_enabled", business.noticeEnabled.toString())
                 append("notice_message", business.noticeMessage)
