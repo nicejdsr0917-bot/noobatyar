@@ -193,7 +193,7 @@ private fun CompactAction(
 private fun CompactBookingLinkAction(business: Business) {
     val uniqueCode = business.uniqueCode ?: return
     val clipboard = LocalClipboardManager.current
-    val link = "${xyz.sattar.javid.proqueue.BuildKonfig.BOOKING_BASE_URL}/b/$uniqueCode"
+    val link = "${xyz.sattar.javid.proqueue.core.utils.AppConfig.bookingBaseUrl}/b/$uniqueCode"
     var copied by remember { mutableStateOf(false) }
 
     LaunchedEffect(copied) {
@@ -281,7 +281,7 @@ private fun BookingLinkActionCard(
 
     Card(
         modifier = modifier.clickable(enabled = uniqueCode != null) {
-            val link = "${xyz.sattar.javid.proqueue.BuildKonfig.BOOKING_BASE_URL}/b/$uniqueCode"
+            val link = "${xyz.sattar.javid.proqueue.core.utils.AppConfig.bookingBaseUrl}/b/$uniqueCode"
             clipboard.setText(buildAnnotatedString { append(link) })
             copied = true
         },
