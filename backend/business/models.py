@@ -6,6 +6,14 @@ from django.utils.crypto import get_random_string
 
 User = get_user_model()
 
+# How long a business description may be. Enforced by the serializer rather
+# than the column (see Business.bio), so raising it is a one-line change with
+# no migration. The owner app shows a counter against this same number, and
+# the client web's "درباره" card is built to clamp-and-expand whatever fits
+# under it — both were sized from this value, so move it deliberately.
+BIO_MAX_LENGTH = 1500
+
+
 class Business(models.Model):
     """
     Represents a business profile for appointment management.
@@ -180,10 +188,13 @@ class Business(models.Model):
         help_text="Additional contact numbers, normalized the same way as `phone`",
     )
     address = models.TextField()
-    # 50 was too short for an actual business description (see the owner
-    # complaint this raised it for) — chosen to match notice_message's
-    # existing 300-char cap elsewhere on this model, not a new precedent.
-    bio = models.CharField(max_length=300, blank=True, null=True)
+    # TextField, not CharField, because this cap has now moved twice (50 → 300
+    # → 1500) and every move cost a migration for a value that is really a
+    # product decision. The column is now unbounded and BIO_MAX_LENGTH is
+    # enforced in the serializer instead, so the next change is a one-line edit
+    # — the clients (owner app's input counter, client web's "درباره" card)
+    # read the same number.
+    bio = models.TextField(blank=True, null=True)
     logo = models.ImageField(upload_to='business_logos/', blank=True, null=True, help_text="Business logo image")
     # Header colour derived from `logo` at save time — see business/theme_color.py
     # for why this is computed here rather than sampled in the browser. Blank
@@ -475,7 +486,11 @@ class Business(models.Model):
     # copies these onto the live fields and clears them; a REJECTED decision
     # leaves them so the owner's next edit still has something to start from.
     pending_title = models.CharField(max_length=255, null=True, blank=True)
-    pending_bio = models.CharField(max_length=300, null=True, blank=True)
+    # Mirrors `bio`'s type exactly: a moderated edit holds the same text, so a
+    # tighter column here would silently truncate an edit that was valid when
+    # the owner submitted it, and only for businesses that happen to be under
+    # review.
+    pending_bio = models.TextField(null=True, blank=True)
     pending_address = models.TextField(null=True, blank=True)
     pending_logo = models.ImageField(upload_to='business_logos/', null=True, blank=True)
 

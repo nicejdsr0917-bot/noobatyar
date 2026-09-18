@@ -8,7 +8,8 @@ facing write path:
 * work_start_minute / work_end_minute — minute precision on top of the
   existing whole-hour work_start_hour/work_end_hour, so a business can open
   at e.g. 19:30.
-* bio's max_length raised from 50 to 300.
+* bio's length cap, now BIO_MAX_LENGTH (models.py) rather than a column
+  width, so multi-paragraph descriptions fit.
 """
 
 from django.contrib.auth import get_user_model
@@ -16,6 +17,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
+from .models import BIO_MAX_LENGTH
 from .serializers import PublicBusinessSerializer
 from .tests_moderation_api import make_business
 
@@ -112,10 +114,28 @@ class WorkMinutesTests(OwnerWriteTestCaseMixin, TestCase):
 
 
 class BioLengthTests(OwnerWriteTestCaseMixin, TestCase):
-    def test_bio_accepts_up_to_300_chars(self):
-        response = self._put(bio='ب' * 300)
+    """The cap is read from BIO_MAX_LENGTH rather than written out here.
+
+    These assertions were pinned to a literal 300 and went stale the moment
+    the limit moved, failing for a change that was entirely intended. Bound to
+    the constant they keep testing the real contract — the boundary holds, one
+    past it does not — at whatever the limit happens to be.
+    """
+
+    def test_bio_accepts_up_to_the_limit(self):
+        response = self._put(bio='ب' * BIO_MAX_LENGTH)
         self.assertEqual(response.status_code, 200, response.content)
 
-    def test_bio_rejects_over_300_chars(self):
-        response = self._put(bio='ب' * 301)
+    def test_bio_rejects_one_char_over_the_limit(self):
+        response = self._put(bio='ب' * (BIO_MAX_LENGTH + 1))
         self.assertEqual(response.status_code, 400)
+
+    def test_bio_keeps_paragraph_breaks(self):
+        """Multi-paragraph text is the reason the cap was raised, and the
+        newlines surviving the round-trip are what let the client render it
+        as paragraphs rather than one wall of text."""
+        bio = 'خط اول\n\nخط دوم'
+        response = self._put(bio=bio)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.business.refresh_from_db()
+        self.assertEqual(self.business.bio, bio)

@@ -4,7 +4,7 @@ from rest_framework.exceptions import ValidationError
 from api.phone import is_iran_phone, normalize_phone
 from visitor.models import PushLog, SmsLog
 
-from .models import Business, ServiceCatalogItem
+from .models import BIO_MAX_LENGTH, Business, ServiceCatalogItem
 
 # Shown to clients when the owner still has booking_enabled=True but their plan
 # quota / subscription can no longer pay for a new appointment.
@@ -238,6 +238,19 @@ class BusinessSerializer(serializers.ModelSerializer):
                 )
             normalized.append(candidate)
         return normalized
+
+    def validate_bio(self, value):
+        """Length is enforced here, not by the column — see Business.bio.
+
+        Without this the field became effectively unbounded when it moved to
+        TextField: DRF derives no max_length from one, so a client could post
+        a megabyte of text.
+        """
+        if value and len(value) > BIO_MAX_LENGTH:
+            raise serializers.ValidationError(
+                f"معرفی کسب‌وکار حداکثر می‌تواند {BIO_MAX_LENGTH} کاراکتر باشد"
+            )
+        return value
 
     def validate_work_start_hour(self, value):
         if not 0 <= value <= 23:
