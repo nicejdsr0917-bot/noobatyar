@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { businessCategoryLabel, type Business } from '@/lib/api';
 import BusinessNotice from '@/app/components/BusinessNotice';
-import Icon, { CATEGORY_ICON, type IconName } from '@/app/components/Icon';
-import CategoryArt from '@/app/components/CategoryArt';
+import Icon, { type IconName } from '@/app/components/Icon';
+import CategoryArt, { CategoryGlyph } from '@/app/components/CategoryArt';
 import AppBanner from '@/app/components/AppBanner';
 import { toPersianDigits as toFa } from '@/lib/validation';
 
@@ -18,7 +18,6 @@ export default function BusinessProfileClient({ business, slug }: Props) {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
 
-  const categoryIcon: IconName = CATEGORY_ICON[business.category] ?? 'storefront';
   // Derived from the logo server-side (Business.theme_color) and already
   // contrast-clamped for white text there, so it can be used raw. Falls back
   // to the brand purple for a business with no logo.
@@ -30,6 +29,32 @@ export default function BusinessProfileClient({ business, slug }: Props) {
       ? business.logo
       : `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}${business.logo}`
     : null;
+  // A logo URL that 404s (media file gone) otherwise renders the browser's
+  // broken-image glyph over the hero. Falling back to the category icon is
+  // the same thing a business with no logo at all already shows.
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [bioExpanded, setBioExpanded] = useState(false);
+
+  /**
+   * Where the bio goes depends on how long it is.
+   *
+   * A short bio is a tagline — it belongs under the name, and reads well
+   * there. A long one is prose, and the hero is the wrong place for prose:
+   * at 244 characters it pushed the hero to twice its height, buried the
+   * call buttons below the fold, and ran straight over the category artwork
+   * behind it. Centred long text is also the hardest way to read Persian,
+   * since both edges end up ragged.
+   *
+   * The cut-off is where a bio stops fitting the hero's two-line subtitle
+   * slot (~300px wide at 13px). Past that it becomes its own card below,
+   * left-aligned and clamped, which is a shape built for reading.
+   */
+  const bio = business.bio?.trim() ?? '';
+  const HERO_TAGLINE_MAX = 90;
+  const bioIsProse = bio.length > HERO_TAGLINE_MAX;
+  const heroTagline = bioIsProse
+    ? ''
+    : bio || `ارائه خدمات تخصصی در زمینه ${businessCategoryLabel(business)} توسط کادر مجرب.`;
 
   // ── Stat values (short, so they fit the compact cards) ──
   // Minute suffix only when non-zero: "۹ تا ۲۱" reads better than "۹:۰۰ تا
@@ -92,24 +117,33 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             draw: it says what the business actually does. */}
         <CategoryArt category={business.category} className="biz-hero-art" />
         <div className="biz-hero-avatar">
-          {logoUrl ? (
+          {logoUrl && !logoFailed ? (
             // eslint-disable-next-line @next/next/no-img-element -- remote media host, no loader configured
-            <img src={logoUrl} alt={business.title} />
+            <img
+              src={logoUrl}
+              alt={business.title}
+              onError={() => setLogoFailed(true)}
+              // onError alone misses the common case: the <img> ships in the
+              // SSR HTML, so a failing logo has usually already errored by the
+              // time React hydrates and attaches the handler. A decoded-but-
+              // zero-width image is exactly that already-failed state.
+              ref={(node) => {
+                if (node?.complete && node.naturalWidth === 0) setLogoFailed(true);
+              }}
+            />
           ) : (
-            <Icon name={categoryIcon} size={44} />
+            <CategoryGlyph category={business.category} size={44} stroke={1.5} />
           )}
         </div>
 
         <h1 className="biz-hero-title">{business.title}</h1>
 
         <span className="biz-hero-chip">
-          <Icon name={categoryIcon} size={14} />
+          <CategoryGlyph category={business.category} size={14} />
           <span>{businessCategoryLabel(business)}</span>
         </span>
 
-        <p className="biz-hero-bio">
-          {business.bio || `ارائه خدمات تخصصی در زمینه ${businessCategoryLabel(business)} توسط کادر مجرب.`}
-        </p>
+        {heroTagline && <p className="biz-hero-bio">{heroTagline}</p>}
 
         {business.phone && (
           <div className="biz-hero-actions">
@@ -153,6 +187,33 @@ export default function BusinessProfileClient({ business, slug }: Props) {
           </div>
         </div>
       </div>
+
+      {/* ── About ──
+          Sits after the stats, not before them: hours, deposit and payment
+          are what a visitor is deciding on, and the description supports
+          that decision rather than leading it. */}
+      {bioIsProse && (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-about">
+            <div className="biz-about-head">
+              <span className="ico"><Icon name="info" size={17} /></span>
+              <h2>درباره‌ی ما</h2>
+            </div>
+            <p className={bioExpanded ? 'biz-about-text' : 'biz-about-text clamped'}>
+              {bio}
+            </p>
+            <button
+              type="button"
+              className="biz-about-toggle"
+              onClick={() => setBioExpanded((v) => !v)}
+              aria-expanded={bioExpanded}
+            >
+              {bioExpanded ? 'کمتر' : 'بیشتر'}
+              <Icon name={bioExpanded ? 'chevronUp' : 'chevronDown'} size={15} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Address ── */}
       {business.address && (

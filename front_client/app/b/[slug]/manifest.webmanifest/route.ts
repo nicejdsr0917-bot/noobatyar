@@ -20,9 +20,14 @@ export async function GET(
   const code = slug.replace(/^Noobatyar-/i, '');
 
   let title: string | null = null;
+  // Installed-PWA chrome. Same reasoning as generateViewport on the page: the
+  // splash and task-switcher tint should be the business's colour, not the
+  // brand purple, since this manifest describes *one* business.
+  let themeColor = '#7c3aed';
   try {
     const business = await getBusinessByCode(code);
     title = business.title;
+    if (business.theme_color) themeColor = business.theme_color;
   } catch {
     // Fall through to the generic name: a manifest that 404s would make the
     // page not installable at all, which is worse than a generic label.
@@ -43,7 +48,7 @@ export async function GET(
       dir: 'rtl',
       lang: 'fa',
       background_color: '#f9fafb',
-      theme_color: '#7c3aed',
+      theme_color: themeColor,
       icons: [
         { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
         { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

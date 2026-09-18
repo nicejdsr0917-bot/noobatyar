@@ -1,3 +1,4 @@
+import type { Viewport } from 'next';
 import { notFound } from 'next/navigation';
 import { getBusinessByCode, businessCategoryLabel, mediaUrl, type Business } from '@/lib/api';
 import { absoluteBusinessUrl } from '@/lib/site';
@@ -59,6 +60,32 @@ function businessDescription(biz: Business): string {
     biz.address?.trim(),
   ].filter(Boolean);
   return parts.join('. ').slice(0, 160);
+}
+
+/**
+ * Paints the browser chrome (Android Chrome's toolbar, iOS Safari's bars) in
+ * the business's own colour instead of the brand purple the root layout sets.
+ *
+ * Without this the top of the screen stayed purple while the hero directly
+ * beneath it was, say, teal — the seam landed right where the page meets the
+ * browser, which is the most visible place to get it wrong.
+ *
+ * One colour rather than the root's light/dark pair on purpose: the hero keeps
+ * its business colour in both schemes, so the bar above it should too.
+ *
+ * The extra getBusinessByCode call is free — identical fetches are deduped
+ * across generateMetadata, generateViewport and the page within one render.
+ */
+export async function generateViewport({ params }: Props): Promise<Viewport> {
+  const { slug } = await params;
+  try {
+    const biz = await getBusinessByCode(slug.replace(/^Noobatyar-/i, ''));
+    if (biz.theme_color) return { themeColor: biz.theme_color };
+  } catch {
+    // Unreachable API or unknown code: fall through to the brand colour rather
+    // than failing the render over chrome tinting.
+  }
+  return { themeColor: '#7c3aed' };
 }
 
 export async function generateMetadata({ params }: Props) {
