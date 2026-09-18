@@ -11,6 +11,7 @@ import {
   type Appointment,
   type PaymentMethod,
 } from '@/lib/api';
+import { bankLogoSrc, detectBank } from '@/lib/bankLogos';
 import {
   digitsOnly,
   formatCardNumber,
@@ -76,6 +77,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   const rawCard = biz?.card_number ?? '';
   const cardDigits = digitsOnly(rawCard);
   const cardLooksWrong = cardDigits.length > 0 && !isValidCardChecksum(cardDigits);
+  const cardBank = detectBank(cardDigits);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -360,9 +362,20 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
               {/* Grouped 4-by-4 so it can be read off the screen and typed into
                   a banking app without losing your place. */}
               <div className="card-number-row">
-                <span className="card-number" dir="ltr">
-                  {cardDigits ? formatCardNumber(cardDigits) : 'شماره کارت ثبت نشده'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  {cardBank && (
+                    // eslint-disable-next-line @next/next/no-img-element -- local /public asset, no loader needed
+                    <img
+                      src={bankLogoSrc(cardBank.key)}
+                      alt={cardBank.name}
+                      title={cardBank.name}
+                      className="card-bank-logo"
+                    />
+                  )}
+                  <span className="card-number" dir="ltr">
+                    {cardDigits ? formatCardNumber(cardDigits) : 'شماره کارت ثبت نشده'}
+                  </span>
+                </div>
                 <button
                   onClick={copyCard}
                   disabled={!cardDigits}

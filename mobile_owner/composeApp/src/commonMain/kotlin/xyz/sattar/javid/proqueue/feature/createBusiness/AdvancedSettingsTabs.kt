@@ -1,10 +1,12 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -28,12 +30,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.coming_soon_badge
 import proqueue.composeapp.generated.resources.coming_soon_hint
 import xyz.sattar.javid.proqueue.core.ui.components.AppTextField
 import xyz.sattar.javid.proqueue.core.ui.components.FeatureGate
+import xyz.sattar.javid.proqueue.core.utils.detectIranianBank
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementKeys
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
@@ -191,6 +195,14 @@ private fun PaymentTab(
                 onCheckedChange = { toggle("CARD", it) },
                 enabled = !isLoading,
             ) {
+                // Detected live as the owner types — the same "yes, this is
+                // really your bank" confirmation every Iranian
+                // banking/payment app gives, and a cheap sanity check against
+                // a fat-fingered first few digits before the rest even goes
+                // in. Null (fewer than 6 digits, or a BIN outside the
+                // deliberately-partial table in IranianBankDetector.kt) just
+                // means no icon — never a wrong one.
+                val detectedBank = detectIranianBank(cardNumber)
                 AppTextField(
                     enabled = !isLoading,
                     value = cardNumber,
@@ -199,7 +211,17 @@ private fun PaymentTab(
                     modifier = Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Number,
                     maxLength = 16,
-                    visualTransformation = xyz.sattar.javid.proqueue.core.ui.utils.CardNumberVisualTransformation()
+                    visualTransformation = xyz.sattar.javid.proqueue.core.ui.utils.CardNumberVisualTransformation(),
+                    leadingIcon = detectedBank?.let { bank ->
+                        {
+                            Image(
+                                painter = painterResource(bank.logo),
+                                contentDescription = bank.name,
+                                modifier = Modifier.size(28.dp).clip(CircleShape),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                    },
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 AppTextField(
