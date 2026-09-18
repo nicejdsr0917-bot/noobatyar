@@ -37,6 +37,14 @@ class VersionViewModel(
     override fun handleIntent(intent: VersionIntent): Flow<VersionPartialState> = flow {
         when (intent) {
             VersionIntent.CheckVersion -> {
+                // A debug build (Android Studio's Run, not a signed release)
+                // has no real version code — it is whatever placeholder
+                // build.gradle.kts falls back to when ANDROID_VERSION_CODE
+                // isn't set, unrelated to what production considers current.
+                // Comparing it against the server would show the mandatory-
+                // update screen on every single local run, before anything
+                // else could be tested.
+                if (AppInfo.isDebug) return@flow
                 emit(VersionPartialState.Loading(true))
                 emit(VersionPartialState.NetworkError(false))
                 try {
