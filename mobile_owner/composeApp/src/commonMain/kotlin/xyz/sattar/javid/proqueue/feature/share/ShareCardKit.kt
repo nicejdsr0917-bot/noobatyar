@@ -263,7 +263,13 @@ internal fun AppSignature(onDark: Boolean) {
                     modifier = Modifier.size(15.dp),
                 )
                 Spacer(Modifier.width(5.dp))
-                Text("نوبت‌یار", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = tone)
+                Text(
+                    text = "نوبت‌یار",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = tone,
+                    maxLines = 1,
+                )
             }
             Spacer(Modifier.height(1.dp))
             // The name alone is a brand nobody can look up. The domain under

@@ -686,9 +686,11 @@ private fun ProfileStoryCard(business: Business, link: String) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     NeonHalo(shape = RoundedCornerShape(14.dp), glowRadius = 10.dp) {
                         Surface(shape = RoundedCornerShape(14.dp), color = Color.White) {
                             Box(Modifier.padding(7.dp)) {
@@ -697,12 +699,13 @@ private fun ProfileStoryCard(business: Business, link: String) {
                         }
                     }
                     Spacer(Modifier.width(10.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "لینک نوبت‌دهی، داخل بایو",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White.copy(alpha = 0.8f),
+                            maxLines = 1,
                         )
                         Spacer(Modifier.height(3.dp))
                         LtrText(
@@ -713,6 +716,8 @@ private fun ProfileStoryCard(business: Business, link: String) {
                         )
                     }
                 }
+
+                Spacer(Modifier.width(16.dp))
 
                 AppSignature(onDark = true)
             }
