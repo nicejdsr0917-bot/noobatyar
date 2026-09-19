@@ -10,6 +10,23 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.9.1 — 2026-09-19
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- انتقال کامل اپلیکیشن به سرورهای عملیاتی (Production) و خروج از حالت توسعه محلی.
+- رفع مشکل تداخل گرافیکی در کارت‌های اشتراک‌گذاری: در لینک‌های طولانی، آدرس سایت و لوگوی نوبت‌یار در پایین تصویر روی هم می‌افتادند که اصلاح شد.
+- جلوگیری از شکستن نام «نوبت‌یار» در فوتر کارت‌ها که باعث به‌هم‌ریختگی چیدمان در برخی گوشی‌ها می‌شد.
+<!-- fa:end -->
+
+### mobile_owner
+- آدرس‌های `BASE_URL` و `BOOKING_BASE_URL` در فایل `build.gradle.kts` به آدرس‌های نهایی (`api.noobatyar.ir` و `app.noobatyar.ir`) تغییر یافتند.
+- اصلاح چیدمان فوتر در `ShareBusinessScreen.kt` با استفاده از `weight(1f)` برای ستون لینک و افزودن `Spacer` قبل از امضا.
+- افزودن `maxLines = 1` به نام برند در `AppSignature` برای جلوگیری از چندخطی شدن متن.
+- افزودن مدل دامنه `AppointmentStatus` که در نسخه قبل جا مانده بود.
+
+Full commit range: [`v1.9.0...v1.9.1`](https://github.com/javiddeveloper/Noobatyar-automation/compare/v1.9.0...v1.9.1)
+
 ## v1.9.0 — 2026-09-19
 
 <!-- fa:start -->
