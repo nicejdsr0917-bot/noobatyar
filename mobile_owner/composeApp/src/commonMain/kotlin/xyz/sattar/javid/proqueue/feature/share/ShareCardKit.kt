@@ -1,6 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.share
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.padding
@@ -15,10 +16,12 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -336,10 +339,13 @@ internal fun ExportableCard(
         val previewHeight =
             with(outerDensity) { (designHeightDp * CARD_EXPORT_DENSITY * scale).toDp() }
 
-        Box(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(previewHeight),
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shadowElevation = 8.dp
         ) {
             CompositionLocalProvider(
                 LocalDensity provides Density(CARD_EXPORT_DENSITY, fontScale = 1f)
