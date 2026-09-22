@@ -768,7 +768,7 @@ fun AppointmentCard(
             // here meant a client's uploaded slip was invisible from this tab.
             appointment.paymentReceipt?.let { receipt ->
                 val receiptUrl = if (receipt.startsWith("http")) receipt
-                else "${xyz.sattar.javid.proqueue.BuildKonfig.BASE_URL}$receipt"
+                else "${xyz.sattar.javid.proqueue.core.utils.AppConfig.baseUrl}$receipt"
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = stringResource(Res.string.payment_receipt),

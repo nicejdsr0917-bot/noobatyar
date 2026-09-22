@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +26,9 @@ import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.stringResource
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import xyz.sattar.javid.proqueue.core.ui.LocalHazeState
+import xyz.sattar.javid.proqueue.ui.theme.DarkBottomBar
+import xyz.sattar.javid.proqueue.ui.theme.LightBottomBar
+import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 import xyz.sattar.javid.proqueue.feature.profile.UserViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.runtime.collectAsState
@@ -116,15 +120,40 @@ fun BottomNavigationBar(
         contentAlignment = Alignment.BottomCenter
     ) {
         // Main Navigation Bar Background — frosted glass over the scrolling content.
+        //
+        // The bar has to read as a distinct object floating over the page. In
+        // the light theme that means going meaningfully *darker* than the page:
+        // it previously painted `surface` (white) and then surfaceContainerHigh
+        // (#F0F0F0) against a #F9FAFB background — a ~3% step, which is not a
+        // bar, it is a smudge. LightBottomBar is picked for this job alone (see
+        // ui/theme/Color.kt) rather than borrowing a token the cards and
+        // shimmers also use.
+        //
+        // Nearly opaque, because the frosted-glass tint is what washed the
+        // previous attempt out; the haze still blurs what passes underneath.
+        // The border is onSurface-derived so it is a real line in both themes —
+        // `outline` is #E5E7EB in light, which at any alpha is invisible on a
+        // near-white page — and it defines the top edge, where a soft shadow
+        // alone never showed up.
+        val isDark = LocalIsDarkTheme.current
+        val barColor = if (isDark) DarkBottomBar else LightBottomBar
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(72.dp)
                 .clip(barShape)
-                .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin(MaterialTheme.colorScheme.surfaceContainer)),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                .hazeEffect(
+                    state = hazeState,
+                    style = HazeMaterials.ultraThin(barColor),
+                )
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+                    shape = barShape,
+                ),
+            color = barColor.copy(alpha = 0.97f),
             shape = barShape,
-            shadowElevation = 4.dp
+            shadowElevation = 12.dp
         ) {
             Row(
                 modifier = Modifier

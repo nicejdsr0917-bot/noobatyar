@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAppointment, cancelAppointment, categoryLabel, type Appointment } from '@/lib/api';
+import { getAppointment, cancelAppointment, businessCategoryLabel, type Appointment } from '@/lib/api';
 import { STATUS_LABELS, formatDate } from '@/lib/format';
 import Toolbar from '@/app/components/Toolbar';
-import Icon, { CATEGORY_ICON } from '@/app/components/Icon';
+import Icon from '@/app/components/Icon';
+import { CategoryGlyph } from '@/app/components/CategoryArt';
 
 // Anything still ahead of the appointment time can be cancelled by the client.
 const CANCELLABLE = ['LOCKED', 'PENDING_APPROVAL', 'PENDING_VERIFICATION', 'WAITING', 'CONFIRMED'];
@@ -83,7 +84,6 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
 
   const st = STATUS_LABELS[appointment.status] || { label: appointment.status, color: 'var(--color-muted)', bg: '#f3f4f6' };
   const biz = appointment.business;
-  const categoryIcon = CATEGORY_ICON[biz.category] ?? 'storefront';
 
   return (
     <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
@@ -100,11 +100,11 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
             alignItems: 'center', justifyContent: 'center',
             color: 'var(--color-primary)',
           }}>
-            <Icon name={categoryIcon} size={36} />
+            <CategoryGlyph category={biz.category} size={36} stroke={1.75} />
           </div>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text)' }}>{biz.title}</h2>
           <div style={{ fontSize: 13, color: 'var(--color-muted)', marginTop: 4, marginBottom: 14 }}>
-            {categoryLabel(biz.category)}
+            {businessCategoryLabel(biz)}
           </div>
           <div style={{ display: 'inline-block', background: st.bg, color: st.color, padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700 }}>
             {st.label}

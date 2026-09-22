@@ -1,9 +1,17 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CreditCard
+import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.HourglassEmpty
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.*
@@ -14,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
@@ -21,12 +30,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.coming_soon_badge
 import proqueue.composeapp.generated.resources.coming_soon_hint
 import xyz.sattar.javid.proqueue.core.ui.components.AppTextField
 import xyz.sattar.javid.proqueue.core.ui.components.FeatureGate
+import xyz.sattar.javid.proqueue.core.utils.detectIranianBank
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementKeys
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
@@ -67,6 +78,9 @@ fun AdvancedSettingsTabs(
     onPaymentLink: (String) -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
+    // "روزهای تعطیل" moved to the business create/edit form, next to work
+    // hours — it is basic scheduling info, not a paid/advanced capability, and
+    // living here made it easy to miss when setting up a new business.
     val tabs = listOf("پرداخت", "ظرفیت و بیعانه", "یادآوری")
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -141,7 +155,13 @@ private fun PaymentTab(
     paymentLink: String,
     onPaymentLink: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    fun toggle(method: String, on: Boolean) {
+        val updated = acceptedPaymentMethods.toMutableSet()
+        if (on) updated.add(method) else updated.remove(method)
+        onAcceptedPaymentMethods(updated)
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             "روش‌های دریافت وجه را انتخاب کنید.",
             style = MaterialTheme.typography.bodySmall,
@@ -149,17 +169,14 @@ private fun PaymentTab(
         )
 
         // پرداخت در محل — رایگان در همه‌ی پلن‌ها
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
-                checked = acceptedPaymentMethods.contains("CASH"),
-                onCheckedChange = { checked ->
-                    val newSet = acceptedPaymentMethods.toMutableSet()
-                    if (checked) newSet.add("CASH") else newSet.remove("CASH")
-                    onAcceptedPaymentMethods(newSet)
-                }
-            )
-            Text("پرداخت در محل", style = MaterialTheme.typography.bodyMedium)
-        }
+        PaymentMethodCard(
+            icon = Icons.Rounded.Storefront,
+            title = "پرداخت در محل",
+            description = "مشتری هنگام مراجعه، وجه را حضوری پرداخت می‌کند.",
+            checked = acceptedPaymentMethods.contains("CASH"),
+            onCheckedChange = { toggle("CASH", it) },
+            enabled = !isLoading,
+        )
 
         // کارت به کارت — قابلیت پلن تعهد/بیعانه (به‌صورت درجا قفل می‌شود)
         FeatureGate(
@@ -170,38 +187,51 @@ private fun PaymentTab(
             description = "دریافت مبلغ نوبت با انتقال کارت‌به‌کارت.",
             onUpgrade = onUpgrade
         ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = acceptedPaymentMethods.contains("CARD"),
-                        onCheckedChange = { checked ->
-                            val newSet = acceptedPaymentMethods.toMutableSet()
-                            if (checked) newSet.add("CARD") else newSet.remove("CARD")
-                            onAcceptedPaymentMethods(newSet)
+            PaymentMethodCard(
+                icon = Icons.Rounded.CreditCard,
+                title = "کارت به کارت",
+                description = "مشتری مبلغ را به کارت شما واریز و فیش را ارسال می‌کند.",
+                checked = acceptedPaymentMethods.contains("CARD"),
+                onCheckedChange = { toggle("CARD", it) },
+                enabled = !isLoading,
+            ) {
+                // Detected live as the owner types — the same "yes, this is
+                // really your bank" confirmation every Iranian
+                // banking/payment app gives, and a cheap sanity check against
+                // a fat-fingered first few digits before the rest even goes
+                // in. Null (fewer than 6 digits, or a BIN outside the
+                // deliberately-partial table in IranianBankDetector.kt) just
+                // means no icon — never a wrong one.
+                val detectedBank = detectIranianBank(cardNumber)
+                AppTextField(
+                    enabled = !isLoading,
+                    value = cardNumber,
+                    onValueChange = onCardNumber,
+                    label = "شماره کارت (۱۶ رقم)",
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardType = KeyboardType.Number,
+                    maxLength = 16,
+                    visualTransformation = xyz.sattar.javid.proqueue.core.ui.utils.CardNumberVisualTransformation(),
+                    leadingIcon = detectedBank?.let { bank ->
+                        {
+                            Image(
+                                painter = painterResource(bank.logo),
+                                contentDescription = bank.name,
+                                modifier = Modifier.size(28.dp).clip(CircleShape),
+                                contentScale = ContentScale.Crop,
+                            )
                         }
-                    )
-                    Text("کارت به کارت", style = MaterialTheme.typography.bodyMedium)
-                }
-                if (acceptedPaymentMethods.contains("CARD")) {
-                    AppTextField(
-                        enabled = !isLoading,
-                        value = cardNumber,
-                        onValueChange = onCardNumber,
-                        label = "شماره کارت (۱۶ رقم)",
-                        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, bottom = 8.dp),
-                        keyboardType = KeyboardType.Number,
-                        maxLength = 16,
-                        visualTransformation = xyz.sattar.javid.proqueue.core.ui.utils.CardNumberVisualTransformation()
-                    )
-                    AppTextField(
-                        enabled = !isLoading,
-                        value = cardOwnerName,
-                        onValueChange = onCardOwnerName,
-                        label = "نام صاحب کارت",
-                        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, bottom = 8.dp),
-                        keyboardType = KeyboardType.Text
-                    )
-                }
+                    },
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                AppTextField(
+                    enabled = !isLoading,
+                    value = cardOwnerName,
+                    onValueChange = onCardOwnerName,
+                    label = "نام صاحب کارت",
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardType = KeyboardType.Text
+                )
             }
         }
 
@@ -214,54 +244,154 @@ private fun PaymentTab(
             description = "دریافت مبلغ نوبت مستقیم از طریق درگاه بانکی.",
             onUpgrade = onUpgrade
         ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = acceptedPaymentMethods.contains("ONLINE"),
-                        onCheckedChange = { checked ->
-                            val newSet = acceptedPaymentMethods.toMutableSet()
-                            if (checked) newSet.add("ONLINE") else newSet.remove("ONLINE")
-                            onAcceptedPaymentMethods(newSet)
-                        }
-                    )
-                    Text("فعال‌سازی درگاه آنلاین", style = MaterialTheme.typography.bodyMedium)
+            PaymentMethodCard(
+                icon = Icons.Rounded.AccountBalance,
+                title = "درگاه پرداخت آنلاین",
+                description = "مشتری مستقیم به درگاه بانکی می‌رود و نوبت بلافاصله قطعی می‌شود.",
+                checked = acceptedPaymentMethods.contains("ONLINE"),
+                onCheckedChange = { toggle("ONLINE", it) },
+                enabled = !isLoading,
+            ) {
+                AppTextField(
+                    enabled = !isLoading,
+                    value = merchantId,
+                    onValueChange = onMerchantId,
+                    label = "مرچنت آیدی زیبال (Merchant ID)",
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardType = KeyboardType.Text
+                )
+                FieldHint(
+                    "با پر کردن این فیلد، بیعانه به حساب زیبالِ شما واریز می‌شود و " +
+                        "نوبت بدون بررسی فیش قطعی می‌شود. مرچنت آیدی را از پنل zibal.ir بردارید."
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                AppTextField(
+                    enabled = !isLoading,
+                    value = paymentLink,
+                    onValueChange = onPaymentLink,
+                    label = "لینک پرداخت (در نبودِ مرچنت آیدی)",
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardType = KeyboardType.Uri
+                )
+                FieldHint(
+                    "فقط وقتی لازم است که حساب زیبال ندارید. چون مبلغ به لینک فرستاده " +
+                        "نمی‌شود، لینک باید مبلغِ ثابتِ برابر با بیعانه داشته باشد."
+                )
+            }
+        }
+    }
+}
+
+/** Small explanatory line under a field, in the tab's muted style. */
+@Composable
+private fun FieldHint(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 6.dp)
+    )
+}
+
+/**
+ * One payment method: a card carrying its own icon, name, one-line
+ * explanation and switch, with its configuration fields folded inside the
+ * same card once it is on.
+ *
+ * Replaces a bare `Checkbox` + label row per method. Those had no visual
+ * grouping at all, so a method's own settings (card number, merchant id) read
+ * as loose fields belonging to the page rather than to the method above them —
+ * and only the *locked* states got cards, which left the unlocked ones looking
+ * unfinished next to them. Matches the card idiom in FeatureGate and the
+ * icon-badge + Switch row used on the notifications screen.
+ */
+@Composable
+private fun PaymentMethodCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean,
+    content: @Composable (ColumnScope.() -> Unit)? = null,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (checked) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+            }
+        ),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = SolidColor(
+                if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+            )
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // The whole row toggles, not just the switch — a 20dp checkbox was
+            // the only target on the old layout.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = enabled) { onCheckedChange(!checked) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                if (acceptedPaymentMethods.contains("ONLINE")) {
-                    AppTextField(
-                        enabled = !isLoading,
-                        value = merchantId,
-                        onValueChange = onMerchantId,
-                        label = "مرچنت آیدی زیبال (Merchant ID)",
-                        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, bottom = 4.dp),
-                        keyboardType = KeyboardType.Text
+                Spacer(modifier = Modifier.width(8.dp))
+                Switch(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    enabled = enabled,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
                     )
-                    Text(
-                        text = "با پر کردن این فیلد، مشتری مستقیم به درگاه بانکی می‌رود و " +
-                                "بیعانه به حساب زیبالِ شما واریز می‌شود. نوبت بلافاصله قطعی " +
-                                "می‌شود و نیازی به بررسی فیش نیست. مرچنت آیدی را از پنل " +
-                                "zibal.ir بردارید.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 32.dp, bottom = 12.dp)
-                    )
-                    AppTextField(
-                        enabled = !isLoading,
-                        value = paymentLink,
-                        onValueChange = onPaymentLink,
-                        label = "لینک پرداخت (در نبودِ مرچنت آیدی)",
-                        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, bottom = 4.dp),
-                        keyboardType = KeyboardType.Uri
-                    )
-                    Text(
-                        text = "فقط وقتی لازم است که حساب زیبال ندارید. مشتری به این لینک " +
-                                "می‌رود، پرداخت می‌کند و بعد باید شماره پیگیری را دستی وارد " +
-                                "کند تا شما تأیید کنید. چون مبلغ به لینک فرستاده نمی‌شود، " +
-                                "لینک باید مبلغِ ثابتِ برابر با بیعانه داشته باشد.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 32.dp, bottom = 8.dp)
-                    )
-                }
+                )
+            }
+
+            if (checked && content != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                Spacer(modifier = Modifier.height(16.dp))
+                content()
             }
         }
     }

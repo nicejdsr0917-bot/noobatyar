@@ -12,14 +12,35 @@ export interface Business {
   id: number;
   title: string;
   category: string;
+  /** Persian label as the server rendered it. Preferred over the local map so
+   *  a category added after this build shipped still reads correctly. */
+  category_display?: string;
+  /** Hex colour derived from the logo server-side, already contrast-checked
+   *  against white text. Empty/absent for a business with no logo. */
+  theme_color?: string;
   unique_code: string;
   bio?: string | null;
   phone: string | null;
+  /** Additional contact numbers beyond `phone`. Absent/empty on an older
+   *  server, meaning "no extra numbers". */
+  extra_phones?: string[];
   address: string | null;
   logo: string | null;
   default_service_duration: number;
   work_start_hour: number;
   work_end_hour: number;
+  /** Minute component alongside work_start_hour/work_end_hour, e.g. 19:30 is
+   *  work_end_hour=19, work_end_minute=30. Absent/undefined on an older
+   *  server, meaning :00 — the same as an explicit 0. */
+  work_start_minute?: number;
+  work_end_minute?: number;
+  /** Weekly recurring days off, as JS's `Date.getDay()` ints (Sun=0..Sat=6) —
+   *  NOT the backend's own Mon=0..Sun=6 convention. Converted once at the API
+   *  boundary (see `closedWeekdaysJs` in the booking page) so every caller in
+   *  this app can compare directly against `Date.getDay()` without repeating
+   *  the +1 mod 7 shift themselves. Absent/undefined on an older server,
+   *  meaning "open every day". */
+  closed_weekdays?: number[];
   allow_anonymous_view: boolean;
   /** Owner-posted advisory (closure, emergency, running late) is live.
    *  Independent of `booking_enabled`: a business can post a notice and still
@@ -292,6 +313,11 @@ export async function getAvailableSlots(businessId: number, date: string): Promi
   slots: TimeSlot[];
   duration_minutes: number;
   date: string;
+  /** True when this date falls on one of the business's weekly days off —
+   *  distinct from an empty `slots` array meaning "fully booked", so the UI
+   *  can tell a customer *why* nothing is bookable. Absent on an older
+   *  backend, in which case the empty-slots case is the only signal. */
+  closed?: boolean;
 }> {
   return apiFetch(`/api/client/appointments/${businessId}/available-slots/?date=${date}`);
 }
@@ -439,11 +465,90 @@ export function extractCode(slug: string): string {
   return slug.replace(/^Noobatyar-/i, '');
 }
 
+/**
+ * Persian label for a business category.
+ *
+ * Mirrors `Business.CATEGORY_CHOICES` in backend/business/models.py, which is
+ * the source of truth. An unknown key falls through to the raw value rather
+ * than "سایر": a category this build predates should still read as *something*
+ * specific, and showing the code makes the drift obvious instead of quietly
+ * mislabelling every new business as "other".
+ */
+export function businessCategoryLabel(
+  biz: { category: string; category_display?: string },
+): string {
+  return biz.category_display?.trim() || categoryLabel(biz.category);
+}
+
 export function categoryLabel(category: string): string {
   const map: Record<string, string> = {
-    BEAUTY_SALON: 'آرایشگاه و سالن زیبایی',
     DOCTOR: 'پزشک و کلینیک',
+    GENERAL_PRACTITIONER: 'پزشک عمومی',
+    INTERNAL_MEDICINE: 'داخلی',
+    CARDIOLOGY: 'قلب و عروق',
+    DERMATOLOGY: 'پوست، مو و زیبایی (پزشک)',
+    ORTHOPEDICS: 'ارتوپدی',
+    PEDIATRICS: 'اطفال و کودکان',
+    GYNECOLOGY: 'زنان و زایمان',
+    ENT: 'گوش، حلق و بینی',
+    OPHTHALMOLOGY: 'چشم‌پزشکی',
+    NEUROLOGY: 'مغز و اعصاب',
+    UROLOGY: 'اورولوژی',
+    ENDOCRINOLOGY: 'غدد و دیابت',
+    GASTROENTEROLOGY: 'گوارش و کبد',
+    ONCOLOGY: 'انکولوژی',
+    SURGERY: 'جراحی',
+    PSYCHIATRY: 'روان‌پزشکی',
+    INFERTILITY: 'ناباروری و IVF',
+    DENTIST: 'دندان‌پزشکی',
+    ORTHODONTICS: 'ارتودنسی',
+    DENTAL_IMPLANT: 'ایمپلنت و جراحی دهان',
+    PEDIATRIC_DENTISTRY: 'دندان‌پزشکی کودکان',
+    PSYCHOLOGY: 'روان‌شناسی و مشاوره',
+    PHYSIOTHERAPY: 'فیزیوتراپی و توان‌بخشی',
+    NUTRITION: 'تغذیه و رژیم‌درمانی',
+    LABORATORY: 'آزمایشگاه',
+    RADIOLOGY: 'رادیولوژی و سونوگرافی',
+    OPTOMETRY: 'بینایی‌سنجی و عینک',
+    SPEECH_THERAPY: 'گفتاردرمانی',
+    OCCUPATIONAL_THERAPY: 'کاردرمانی',
+    MIDWIFERY: 'مامایی و سلامت بانوان',
+    NURSING: 'پرستاری و خدمات در منزل',
+    PHARMACY: 'داروخانه',
+    VETERINARY: 'دامپزشکی',
+    BEAUTY_SALON: 'آرایشگاه و سالن زیبایی',
+    WOMENS_SALON: 'سالن زیبایی زنانه',
+    BARBERSHOP: 'آرایشگاه مردانه',
+    HAIR_SALON: 'سالن مو (رنگ و کراتین)',
+    HAIR_TRANSPLANT: 'کاشت مو و ابرو',
+    MAKEUP: 'میکاپ و گریم',
+    BRIDAL: 'عروس و خدمات مجلسی',
+    NAIL_SALON: 'سالن ناخن',
+    EYEBROW_LASH: 'ابرو، مژه و میکروبلیدینگ',
+    SKIN_LASER: 'پوست و لیزر',
+    TATTOO: 'تتو و میکروپیگمنتیشن',
+    MASSAGE_SPA: 'ماساژ و اسپا',
+    SLIMMING: 'لاغری و تناسب اندام',
     CONSULTANT: 'مشاوره',
+    LAWYER: 'وکالت و مشاوره حقوقی',
+    ACCOUNTING: 'حسابداری و مالیات',
+    REAL_ESTATE: 'املاک و مستغلات',
+    INSURANCE: 'بیمه',
+    IMMIGRATION: 'مهاجرت و ویزا',
+    TUTORING: 'تدریس و کلاس خصوصی',
+    LANGUAGE_SCHOOL: 'آموزشگاه زبان',
+    MUSIC_SCHOOL: 'آموزش موسیقی',
+    GYM: 'باشگاه ورزشی و مربی شخصی',
+    YOGA_PILATES: 'یوگا و پیلاتس',
+    DRIVING_SCHOOL: 'آموزشگاه رانندگی',
+    AUTO_SERVICE: 'تعمیرگاه و خدمات خودرو',
+    CAR_WASH: 'کارواش و دیتیلینگ',
+    HOME_SERVICE: 'خدمات و تعمیرات منزل',
+    DEVICE_REPAIR: 'تعمیر موبایل و لوازم برقی',
+    TAILORING: 'خیاطی و طراحی لباس',
+    PHOTOGRAPHY: 'عکاسی و آتلیه',
+    EVENT_SERVICES: 'تالار و خدمات مراسم',
+    PET_GROOMING: 'آرایش و نگهداری حیوانات',
     OTHER: 'سایر',
   };
   return map[category] || category;

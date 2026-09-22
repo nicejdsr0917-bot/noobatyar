@@ -3,14 +3,43 @@ package xyz.sattar.javid.proqueue.domain.model.business
 data class Business(
     val id: Long = 0,
     val title: String,
-    val category: BusinessCategory,
+    /** Wire code, e.g. "DENTIST". Deliberately the raw string rather than
+     *  [BusinessCategory]: the server's vocabulary grows, and an enum would
+     *  silently coerce any category added after this build to OTHER — which
+     *  would then be written back on the next save. */
+    val category: String,
+    /** Persian label as the *server* described it (`category_display`), so a
+     *  category this build predates still renders correctly. Falls back to the
+     *  compiled-in enum when absent (an older server, or a Room row written
+     *  before this field existed). */
+    val categoryLabel: String,
     val uniqueCode: String? = null,
     val phone: String,
+    /** Numbers beyond the primary [phone] — same normalization, same
+     *  ۰۹۱۲۱۲۳۴۵۶۷ shape, just more than one. */
+    val extraPhones: List<String> = emptyList(),
     val address: String,
     val logoPath: String,
     val defaultServiceDuration: Int,
     val workStartHour: Int,
     val workEndHour: Int,
+    /** Minute component alongside [workStartHour]/[workEndHour] — e.g. 19:30
+     *  is workEndHour=19, workEndMinute=30. Defaults to 0 so every business
+     *  that predates this field reads exactly as it did before. */
+    val workStartMinute: Int = 0,
+    val workEndMinute: Int = 0,
+    /**
+     * Weekly recurring days off, as Kotlin's `LocalDate.dayOfWeek.ordinal`
+     * ints (Monday=0..Sunday=6) — matching Python's `date.weekday()` on the
+     * server, so no translation table is needed on either side. An empty list
+     * means open every day, which is also the default before this was ever
+     * set; there is deliberately no separate "no day off" flag for the same
+     * value, since that would just be a second way to say the same thing.
+     *
+     * Only affects future availability (AvailableSlotsView on the server) — an
+     * appointment already booked on a day later marked closed is left alone.
+     */
+    val closedWeekdays: List<Int> = emptyList(),
     val notificationEnabled: Boolean,
     val notificationTypes: String,
     val notificationMinutesBefore: Int = DEFAULT_REMINDER_MINUTES,

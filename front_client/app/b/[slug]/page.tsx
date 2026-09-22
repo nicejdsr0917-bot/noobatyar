@@ -1,5 +1,6 @@
+import type { Viewport } from 'next';
 import { notFound } from 'next/navigation';
-import { getBusinessByCode, categoryLabel, mediaUrl, type Business } from '@/lib/api';
+import { getBusinessByCode, businessCategoryLabel, mediaUrl, type Business } from '@/lib/api';
 import { absoluteBusinessUrl } from '@/lib/site';
 import BusinessProfileClient from './BusinessProfileClient';
 
@@ -11,9 +12,41 @@ interface Props {
  *  Anything unmapped falls back to the LocalBusiness base type rather than
  *  guessing: a wrong specific type is worse than a correct general one. */
 const SCHEMA_TYPE: Record<string, string> = {
-  BEAUTY_SALON: 'BeautySalon',
+  // سلامت — only categories with a real schema.org LocalBusiness subtype are
+  // named; the rest (nutrition, speech therapy, midwifery, physiotherapy) have
+  // no such type and fall back rather than being filed under a wrong one.
   DOCTOR: 'MedicalClinic',
+  DENTIST: 'Dentist',
+  PSYCHOLOGY: 'Physician',
+  LABORATORY: 'MedicalClinic',
+  OPTOMETRY: 'Optician',
+  VETERINARY: 'VeterinaryCare',
+  // زیبایی
+  BEAUTY_SALON: 'BeautySalon',
+  BARBERSHOP: 'HairSalon',
+  NAIL_SALON: 'NailSalon',
+  SKIN_LASER: 'HealthAndBeautyBusiness',
+  TATTOO: 'TattooParlor',
+  MASSAGE_SPA: 'DaySpa',
+  // خدمات حرفه‌ای
   CONSULTANT: 'ProfessionalService',
+  LAWYER: 'Attorney',
+  ACCOUNTING: 'AccountingService',
+  REAL_ESTATE: 'RealEstateAgent',
+  INSURANCE: 'InsuranceAgency',
+  IMMIGRATION: 'ProfessionalService',
+  // آموزش و ورزش
+  TUTORING: 'School',
+  LANGUAGE_SCHOOL: 'School',
+  MUSIC_SCHOOL: 'School',
+  DRIVING_SCHOOL: 'School',
+  GYM: 'ExerciseGym',
+  YOGA_PILATES: 'ExerciseGym',
+  // فنی و تعمیرات
+  AUTO_SERVICE: 'AutoRepair',
+  CAR_WASH: 'AutoWash',
+  HOME_SERVICE: 'HomeAndConstructionBusiness',
+  // سایر
   OTHER: 'LocalBusiness',
 };
 
@@ -23,10 +56,36 @@ function businessDescription(biz: Business): string {
   const parts = [
     biz.bio?.trim(),
     `رزرو آنلاین نوبت در ${biz.title}`,
-    categoryLabel(biz.category),
+    businessCategoryLabel(biz),
     biz.address?.trim(),
   ].filter(Boolean);
   return parts.join('. ').slice(0, 160);
+}
+
+/**
+ * Paints the browser chrome (Android Chrome's toolbar, iOS Safari's bars) in
+ * the business's own colour instead of the brand purple the root layout sets.
+ *
+ * Without this the top of the screen stayed purple while the hero directly
+ * beneath it was, say, teal — the seam landed right where the page meets the
+ * browser, which is the most visible place to get it wrong.
+ *
+ * One colour rather than the root's light/dark pair on purpose: the hero keeps
+ * its business colour in both schemes, so the bar above it should too.
+ *
+ * The extra getBusinessByCode call is free — identical fetches are deduped
+ * across generateMetadata, generateViewport and the page within one render.
+ */
+export async function generateViewport({ params }: Props): Promise<Viewport> {
+  const { slug } = await params;
+  try {
+    const biz = await getBusinessByCode(slug.replace(/^Noobatyar-/i, ''));
+    if (biz.theme_color) return { themeColor: biz.theme_color };
+  } catch {
+    // Unreachable API or unknown code: fall through to the brand colour rather
+    // than failing the render over chrome tinting.
+  }
+  return { themeColor: '#7c3aed' };
 }
 
 export async function generateMetadata({ params }: Props) {

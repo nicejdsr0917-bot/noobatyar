@@ -10,8 +10,8 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 import logging
 
-from .models import Visitor, SmsLog, VisitorArchive, VisitorActivity
-from .serializers import VisitorSerializer, SmsLogSerializer
+from .models import Visitor, SmsLog, VisitorArchive, VisitorActivity, VisitorContact
+from .serializers import VisitorSerializer, VisitorAttachSerializer, SmsLogSerializer
 from .activity import record_activity
 from api.responses import APIResponse  # اضافه کردن import
 
@@ -36,11 +36,7 @@ async def get_readable_visitor(visitor_id, user):
     editing/deleting still requires direct ownership.
     """
     try:
-        return await sync_to_async(
-            Visitor.objects.filter(
-                Q(user=user) | Q(appointments__business__user=user)
-            ).distinct().get
-        )(id=visitor_id)
+        return await sync_to_async(Visitor.readable_by(user).get)(id=visitor_id)
     except Visitor.DoesNotExist:
         return None
 
@@ -108,9 +104,8 @@ class VisitorView(APIView):
             # their list only — the row itself is untouched and still visible to
             # every other business the person books at.
             visitors = [
-                b async for b in Visitor.objects.filter(
-                    Q(user=user) | Q(appointments__business__user=user)
-                ).exclude(archives__owner=user).distinct().order_by('-created_at')
+                b async for b in Visitor.readable_by(user)
+                .exclude(archives__owner=user).order_by('-created_at')
             ]
 
             # Paginate
@@ -141,13 +136,19 @@ class VisitorView(APIView):
     async def post(self, request):
         """Create new visitor, or attach to an existing one by phone number.
 
-        phone_number is globally unique on Visitor now (it's one real person
-        across the whole platform, not a per-owner record), so a blind create
-        would 500 on a visitor who already exists — whether from their own
-        online booking or another owner having added them first.
+        phone_number is globally unique on Visitor (it's one real person across
+        the whole platform, not a per-owner record), so a blind create would
+        500 on a visitor who already exists — whether from their own online
+        booking or another owner having added them first.
+
+        Attaching also writes a `VisitorContact` row. Without it, a customer
+        who already existed under a *different* owner stayed invisible to this
+        one: `readable_by` matched neither `user` (taken by whoever added them
+        first) nor an appointment at this owner's business — which is precisely
+        what the owner was trying to create.
         """
         try:
-            serializer = VisitorSerializer(data=request.data)
+            serializer = VisitorAttachSerializer(data=request.data)
 
             if await sync_to_async(serializer.is_valid)():
                 phone = serializer.validated_data['phone_number']
@@ -161,9 +162,19 @@ class VisitorView(APIView):
                     visitor.user = request.user
                     await sync_to_async(visitor.save)(update_fields=['user'])
 
+                await sync_to_async(VisitorContact.objects.get_or_create)(
+                    owner=request.user, visitor=visitor,
+                )
+                # Adding someone back is the clearest possible statement that
+                # this owner wants them in their list, so it undoes an earlier
+                # archive rather than leaving them added-but-still-hidden.
+                await sync_to_async(
+                    VisitorArchive.objects.filter(owner=request.user, visitor=visitor).delete
+                )()
+
                 return APIResponse.success(
                     data=VisitorSerializer(visitor).data,
-                    message="مشتری با موفقیت ایجاد شد" if created else "این مشتری از قبل ثبت شده بود",
+                    message="مشتری با موفقیت ایجاد شد" if created else "این مشتری از قبل ثبت شده بود و به لیست شما اضافه شد",
                     status=201 if created else 200,
                 )
 

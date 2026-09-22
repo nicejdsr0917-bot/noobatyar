@@ -36,6 +36,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -84,6 +85,9 @@ import xyz.sattar.javid.proqueue.core.ui.components.ServiceCatalogBottomSheet
 import xyz.sattar.javid.proqueue.core.ui.components.ServiceDurationBottomSheet
 import xyz.sattar.javid.proqueue.core.ui.components.formatServiceDuration
 import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
+import xyz.sattar.javid.proqueue.domain.model.business.CategoryGroup
+import xyz.sattar.javid.proqueue.domain.model.business.CategoryOption
+import xyz.sattar.javid.proqueue.domain.model.business.fallbackCategoryGroups
 import xyz.sattar.javid.proqueue.domain.model.business.ModerationStatus
 import xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery
 import androidx.compose.foundation.layout.Box
@@ -94,6 +98,7 @@ import com.preat.peekaboo.image.picker.rememberImagePickerLauncher
 import com.preat.peekaboo.image.picker.toImageBitmap
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.Image
 import androidx.compose.material.icons.filled.AddLocation
@@ -112,12 +117,28 @@ fun CreateBusinessRoute(
     val uiState by viewModel.uiState.collectAsState()
 
     var title by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(BusinessCategory.OTHER) }
+    // Holds the picked category as the server describes it, so a category
+    // added after this build shipped is still submitted with its real code
+    // instead of being coerced to OTHER by the enum.
+    var category by remember {
+        mutableStateOf(CategoryOption(BusinessCategory.OTHER.value, BusinessCategory.OTHER.persianName))
+    }
+    // Fetched once; falls back to this build's enum when the server is
+    // unreachable or too old to serve the endpoint.
+    var categoryGroups by remember { mutableStateOf(fallbackCategoryGroups()) }
+    LaunchedEffect(Unit) { categoryGroups = viewModel.loadCategoryGroups() }
     var phone by remember { mutableStateOf("") }
+    // Additional contact numbers, alongside the primary `phone` above.
+    var extraPhones by remember { mutableStateOf(listOf<String>()) }
     var address by remember { mutableStateOf("") }
     var defaultProgress by remember { mutableStateOf("") }
     var workStartHour by remember { mutableStateOf("9") }
     var workEndHour by remember { mutableStateOf("21") }
+    var workStartMinute by remember { mutableStateOf("0") }
+    var workEndMinute by remember { mutableStateOf("0") }
+    // Moved here from "تنظیمات پیشرفته": this is basic scheduling info set
+    // once alongside work hours, not a paid/advanced capability.
+    var closedWeekdays by remember { mutableStateOf(setOf<Int>()) }
     var allowAnonymousView by remember { mutableStateOf(false) }
     var notifyOwnerBySms by remember { mutableStateOf(true) }
     var bio by remember { mutableStateOf("") }
@@ -157,18 +178,22 @@ fun CreateBusinessRoute(
     // The pickable chips are category-scoped, so they reload whenever the
     // owner switches category — a salon must not be offered clinic services.
     LaunchedEffect(category) {
-        viewModel.sendIntent(CreateBusinessIntent.LoadServiceCatalog(category))
+        viewModel.sendIntent(CreateBusinessIntent.LoadServiceCatalog(category.value))
     }
 
     LaunchedEffect(uiState.business) {
         uiState.business?.let {
             title = it.title
-            category = it.category
+            category = CategoryOption(it.category, it.categoryLabel)
             phone = it.phone
+            extraPhones = it.extraPhones
             address = it.address
             defaultProgress = it.defaultServiceDuration.toString()
             workStartHour = it.workStartHour.toString()
             workEndHour = it.workEndHour.toString()
+            workStartMinute = it.workStartMinute.toString()
+            workEndMinute = it.workEndMinute.toString()
+            closedWeekdays = it.closedWeekdays.toSet()
             allowAnonymousView = it.allowAnonymousView
             notifyOwnerBySms = it.notifyOwnerBySms
             maxAppointmentsPerHour = it.maxAppointmentsPerHour?.toString() ?: ""
@@ -198,11 +223,20 @@ fun CreateBusinessRoute(
         onIntent = viewModel::sendIntent,
         title = title,
         category = category,
+        categoryGroups = categoryGroups,
         phone = phone,
+        extraPhones = extraPhones,
+        onExtraPhones = { extraPhones = it },
         address = address,
         defaultProgress = defaultProgress,
         workStartHour = workStartHour,
         workEndHour = workEndHour,
+        workStartMinute = workStartMinute,
+        workEndMinute = workEndMinute,
+        onWorkStartMinute = { workStartMinute = it },
+        onWorkEndMinute = { workEndMinute = it },
+        closedWeekdays = closedWeekdays,
+        onClosedWeekdays = { closedWeekdays = it },
         allowAnonymousView = allowAnonymousView,
         notifyOwnerBySms = notifyOwnerBySms,
         bio = bio,
@@ -265,7 +299,7 @@ fun CreateBusinessRoute(
             // their own menu. The intent adds it to the shared category catalog
             // so other businesses can pick it too.
             if (!services.contains(name)) services = services + name
-            viewModel.sendIntent(CreateBusinessIntent.AddServiceCatalogItem(category, name))
+            viewModel.sendIntent(CreateBusinessIntent.AddServiceCatalogItem(category.value, name))
         },
         onAllowClientAddService = { allowClientAddService = it },
         onLogoBytes = { logoBytes = it },
@@ -288,14 +322,23 @@ fun CreateBusinessScreen(
     uiState: CreateBusinessState,
     onIntent: (CreateBusinessIntent) -> Unit,
     title: String,
-    category: BusinessCategory,
+    category: CategoryOption,
+    categoryGroups: List<CategoryGroup>,
     phone: String,
+    extraPhones: List<String>,
+    onExtraPhones: (List<String>) -> Unit,
     address: String,
     defaultProgress: String,
     workStartHour: String,
     workEndHour: String,
+    workStartMinute: String,
+    workEndMinute: String,
+    onWorkStartMinute: (String) -> Unit,
+    onWorkEndMinute: (String) -> Unit,
+    closedWeekdays: Set<Int>,
+    onClosedWeekdays: (Set<Int>) -> Unit,
     onTitle: (String) -> Unit,
-    onCategory: (BusinessCategory) -> Unit,
+    onCategory: (CategoryOption) -> Unit,
     onPhone: (String) -> Unit,
     onAddress: (String) -> Unit,
     onDefaultProgress: (String) -> Unit,
@@ -345,6 +388,75 @@ fun CreateBusinessScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showCategorySheet by remember { mutableStateOf(false) }
     var showDurationSheet by remember { mutableStateOf(false) }
+    var currentStep by remember { mutableStateOf(0) }
+    // How far the owner has legitimately reached. Steps behind this are
+    // tappable in the header; steps ahead are not, since each one validates
+    // before it advances and jumping forward would skip that.
+    var furthestStep by remember { mutableStateOf(0) }
+    val formScrollState = rememberScrollState()
+
+    // A new step starts at its own top. Without this the next step opens
+    // already scrolled to wherever the previous one was left.
+    LaunchedEffect(currentStep) { formScrollState.scrollTo(0) }
+
+    /**
+     * Whether a step's own fields are good enough to move past it, marking
+     * the ones that are not.
+     *
+     * Per step rather than all-at-once on submit: with four steps, a single
+     * final check would report an error on step 1 while the owner is looking
+     * at step 4, with nothing on screen to connect the message to the field.
+     * The submit button still runs the whole set as a backstop.
+     */
+    fun validateStep(step: Int): Boolean = when (BusinessFormStep.at(step)) {
+        BusinessFormStep.IDENTITY -> {
+            val t = title.trim()
+            val invalid = t.length < 3 || t.length > 50
+            onTitleErrorUpdate(if (invalid) "نام باید بین ۳ تا ۵۰ کاراکتر باشد" else null)
+            !invalid
+        }
+
+        BusinessFormStep.SCHEDULE -> {
+            val d = defaultProgress.trim()
+            val durationInvalid = d.toIntOrNull() == null
+            onDefaultProgressErrorUpdate(
+                if (durationInvalid) "مدت زمان سرویس را انتخاب کنید" else null
+            )
+
+            val wsInt = workStartHour.trim().toIntOrNull()
+            val weInt = workEndHour.trim().toIntOrNull()
+            val wmInt = workStartMinute.trim().ifEmpty { "0" }.toIntOrNull()
+            val emInt = workEndMinute.trim().ifEmpty { "0" }.toIntOrNull()
+            val hoursInvalid = wsInt == null || weInt == null || wmInt == null || emInt == null ||
+                wsInt !in 0..23 || weInt !in 0..23 || wmInt !in 0..59 || emInt !in 0..59 ||
+                (wsInt * 60 + wmInt) >= (weInt * 60 + emInt)
+            onWorkHoursErrorUpdate(
+                if (hoursInvalid) "ساعت پایان کار باید بعد از ساعت شروع باشد" else null
+            )
+
+            !durationInvalid && !hoursInvalid
+        }
+
+        // Nothing here is required: a business with no service menu simply
+        // lets clients describe what they want, which is the old behaviour.
+        BusinessFormStep.SERVICES -> true
+
+        BusinessFormStep.CONTACT -> {
+            val p = phone.trim()
+            val a = address.trim()
+            val phoneInvalid = p.length < 7
+            val addressInvalid = a.isEmpty() || a.length > 300
+            onPhoneErrorUpdate(if (phoneInvalid) "شماره تلفن صحیح نیست" else null)
+            onAddressErrorUpdate(
+                when {
+                    a.isEmpty() -> "آدرس الزامی است"
+                    a.length > 300 -> "آدرس نباید بیشتر از ۳۰۰ کاراکتر باشد"
+                    else -> null
+                }
+            )
+            !phoneInvalid && !addressInvalid
+        }
+    }
     var showServicesSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -435,15 +547,48 @@ fun CreateBusinessScreen(
                     color = MaterialTheme.colorScheme.background,
                     shadowElevation = 8.dp
                 ) {
-                    AppButton(
-                        text = stringResource(Res.string.accept),
-                        onClick = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 16.dp)
+                            .navigationBarsPadding(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (currentStep > 0) {
+                            OutlinedButton(
+                                onClick = { currentStep -= 1 },
+                                modifier = Modifier.weight(1f).height(52.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("قبلی", style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+
+                        if (currentStep < BusinessFormStep.count - 1) {
+                            AppButton(
+                                text = "بعدی",
+                                onClick = {
+                                    if (validateStep(currentStep)) {
+                                        currentStep += 1
+                                        furthestStep = maxOf(furthestStep, currentStep)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                isLoading = false
+                            )
+                        } else {
+                            AppButton(
+                                text = stringResource(Res.string.accept),
+                                onClick = {
                             val t = title.trim()
                             val p = phone.trim()
                             val a = address.trim()
                             val d = defaultProgress.trim()
                             val ws = workStartHour.trim()
                             val we = workEndHour.trim()
+                            val wm = workStartMinute.trim().ifEmpty { "0" }
+                            val em = workEndMinute.trim().ifEmpty { "0" }
 
                             val titleInvalid = t.length < 3 || t.length > 50
                             val phoneInvalid = p.length < 7
@@ -452,8 +597,17 @@ fun CreateBusinessScreen(
                             val defaultInvalid = d.toIntOrNull() == null
                             val wsInt = ws.toIntOrNull()
                             val weInt = we.toIntOrNull()
-                            val hoursInvalid =
-                                wsInt == null || weInt == null || wsInt < 0 || wsInt > 23 || weInt < 0 || weInt > 23 || wsInt >= weInt
+                            val wmInt = wm.toIntOrNull()
+                            val emInt = em.toIntOrNull()
+                            // Compared as minutes-since-midnight, not just the
+                            // hour — 19:00-19:30 (same hour, later minute) is a
+                            // real window and must not fail the wsInt >= weInt
+                            // check the way it would with hours alone.
+                            val hoursInvalid = wsInt == null || weInt == null ||
+                                wmInt == null || emInt == null ||
+                                wsInt < 0 || wsInt > 23 || weInt < 0 || weInt > 23 ||
+                                wmInt < 0 || wmInt > 59 || emInt < 0 || emInt > 59 ||
+                                (wsInt * 60 + wmInt) >= (weInt * 60 + emInt)
                             val addressInvalid = a.isEmpty() || a.length > 300
 
                             onTitleErrorUpdate(if (titleInvalid) "نام باید بین ۳ تا ۵۰ کاراکتر باشد" else null)
@@ -466,12 +620,16 @@ fun CreateBusinessScreen(
                                 val intent =
                                     CreateBusinessIntent.CreateBusiness(
                                         title = t,
-                                        category = category,
+                                        category = category.value,
                                         phone = p,
+                                        extraPhones = extraPhones,
                                         address = a,
                                         defaultProgress = d,
                                         workStartHour = wsInt!!,
                                         workEndHour = weInt!!,
+                                        workStartMinute = wmInt!!,
+                                        workEndMinute = emInt!!,
+                                        closedWeekdays = closedWeekdays.toList(),
                                         allowAnonymousView = allowAnonymousView,
                                         notifyOwnerBySms = notifyOwnerBySms,
                                         bio = bio.trim(),
@@ -529,12 +687,11 @@ fun CreateBusinessScreen(
                                 }
                             }
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 16.dp)
-                            .navigationBarsPadding(),
-                        isLoading = uiState.isLoading
-                    )
+                                modifier = Modifier.weight(1f),
+                                isLoading = uiState.isLoading
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -558,11 +715,14 @@ fun CreateBusinessScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(formScrollState)
                 .imePadding()
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            // Top, not Center: each step holds a different amount of content, and
+            // centering made the stepper itself slide up and down the screen as
+            // the owner moved between steps.
+            verticalArrangement = Arrangement.Top
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -577,6 +737,15 @@ fun CreateBusinessScreen(
                 }
             }
 
+            BusinessFormStepper(
+                currentStep = currentStep,
+                furthestStep = furthestStep,
+                onStepClick = { currentStep = it },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (currentStep == 0) {
             // Avatar Section
             Box(
                 modifier = Modifier
@@ -611,7 +780,7 @@ fun CreateBusinessScreen(
                     }
                 } else if (!uiState.business?.logoPath.isNullOrEmpty()) {
                     val path = uiState.business!!.logoPath!!
-                    val url = if (path.startsWith("http")) path else "${xyz.sattar.javid.proqueue.BuildKonfig.BASE_URL}$path"
+                    val url = if (path.startsWith("http")) path else "${xyz.sattar.javid.proqueue.core.utils.AppConfig.baseUrl}$path"
                     AsyncImage(
                         model = url,
                         contentDescription = "Business Logo",
@@ -629,7 +798,7 @@ fun CreateBusinessScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            val selectedCategoryText = category.persianName
+            val selectedCategoryText = category.label
 
             Box(modifier = Modifier.fillMaxWidth().clickable {
                 if (!uiState.isLoading) showCategorySheet = true
@@ -685,7 +854,15 @@ fun CreateBusinessScreen(
                 value = bio,
                 onValueChange = onBio,
                 label = "معرفی کسب‌وکار (Bio)",
-                maxLength = 50,
+                // Must stay equal to BIO_MAX_LENGTH in backend/business/models.py:
+                // this is the only thing stopping the owner from typing a
+                // description the server will then reject on save, after they
+                // have written it. The counter exists for the same reason —
+                // silently refusing keystrokes at the cap, with no number in
+                // sight, reads as a broken keyboard.
+                maxLength = 1500,
+                maxLine = 10,
+                showCounter = true,
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = {
                     Icon(
@@ -700,6 +877,9 @@ fun CreateBusinessScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            }
+
+            if (currentStep == 1) {
             // Duration is picked from a fixed 5-minute ladder rather than typed:
             // free text let owners save slots the calendar can't lay out.
             Box(modifier = Modifier.fillMaxWidth().clickable {
@@ -733,6 +913,30 @@ fun CreateBusinessScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            WorkHoursField(
+                workStartHour = workStartHour,
+                workStartMinute = workStartMinute,
+                workEndHour = workEndHour,
+                workEndMinute = workEndMinute,
+                onWorkStart = { h, m -> onWorkStartHour(h); onWorkStartMinute(m) },
+                onWorkEnd = { h, m -> onWorkEndHour(h); onWorkEndMinute(m) },
+                isError = workHoursError != null,
+                errorMessage = workHoursError,
+                enabled = !uiState.isLoading,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ClosedWeekdaysField(
+                closedWeekdays = closedWeekdays,
+                onClosedWeekdays = onClosedWeekdays
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            }
+
+            if (currentStep == 2) {
             // ── Service menu ──
             // Defined once here, then reused everywhere a service has to be
             // named: the owner's own booking screen, and the client's public
@@ -804,60 +1008,9 @@ fun CreateBusinessScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                AppTextField(
-                    enabled = !uiState.isLoading,
-                    value = workStartHour,
-                    onValueChange = onWorkStartHour,
-                    label = stringResource(Res.string.work_start_hour),
-                    isError = workHoursError != null,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Timer,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
-                    keyboardType = KeyboardType.Number,
-                    placeholder = stringResource(Res.string.example_work_start)
-                )
-
-                AppTextField(
-                    enabled = !uiState.isLoading,
-                    value = workEndHour,
-                    onValueChange = onWorkEndHour,
-                    label = stringResource(Res.string.work_end_hour),
-                    isError = workHoursError != null,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Timer,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
-                    keyboardType = KeyboardType.Number,
-                    placeholder = stringResource(Res.string.example_work_end)
-                )
             }
 
-            if (workHoursError != null) {
-                Text(
-                    text = workHoursError,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+            if (currentStep == 3) {
             AppTextField(
                 enabled = !uiState.isLoading,
                 maxLength = 11,
@@ -876,6 +1029,14 @@ fun CreateBusinessScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardType = KeyboardType.Phone
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            ExtraPhonesField(
+                extraPhones = extraPhones,
+                onExtraPhones = onExtraPhones,
+                enabled = !uiState.isLoading
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -944,6 +1105,7 @@ fun CreateBusinessScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            }
 
             // Emergency notice is configured on its own screen, reachable from
             // Settings (feature/settings/EmergencyNoticeScreen.kt) — not shown
@@ -957,9 +1119,7 @@ fun CreateBusinessScreen(
             // Spacer replaced by bottomBar button
 
 
-            if (uiState.business != null) {
-                Text(uiState.business.title)
-            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
@@ -1069,27 +1229,48 @@ fun CreateBusinessScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val filteredOptions = BusinessCategory.entries.filter {
-                    it.persianName.contains(searchQuery, ignoreCase = true)
-                }
+                // Grouped rather than one flat run: the list is ~35 entries
+                // long, and the section headers are what make it skimmable
+                // when the owner is browsing rather than searching. Groups
+                // with no match are dropped entirely, so a search never
+                // renders a header over an empty section.
+                val filteredGroups = categoryGroups
+                    .map { group ->
+                        group.copy(
+                            categories = group.categories.filter {
+                                it.label.contains(searchQuery, ignoreCase = true)
+                            }
+                        )
+                    }
+                    .filter { it.categories.isNotEmpty() }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(filteredOptions) { option ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onCategory(option)
-                                    showCategorySheet = false
-                                }
-                                .padding(vertical = 16.dp)
-                        ) {
+                    filteredGroups.forEach { group ->
+                        item(key = "header-${group.key}") {
                             Text(
-                                text = option.persianName,
-                                style = MaterialTheme.typography.bodyLarge
+                                text = group.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
                             )
+                        }
+                        items(group.categories, key = { it.value }) { option ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onCategory(option)
+                                        showCategorySheet = false
+                                    }
+                                    .padding(vertical = 16.dp)
+                            ) {
+                                Text(
+                                    text = option.label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         }
                     }
                     item {
@@ -1134,12 +1315,21 @@ fun PreviewDashboardScreen() {
             uiState = CreateBusinessState(),
             onIntent = {},
             title = "",
-            category = BusinessCategory.OTHER,
+            category = CategoryOption(BusinessCategory.OTHER.value, BusinessCategory.OTHER.persianName),
+            categoryGroups = fallbackCategoryGroups(),
             phone = "",
+            extraPhones = listOf(),
+            onExtraPhones = {},
             address = "",
             defaultProgress = "",
             workStartHour = "9",
             workEndHour = "21",
+            workStartMinute = "0",
+            workEndMinute = "0",
+            onWorkStartMinute = {},
+            onWorkEndMinute = {},
+            closedWeekdays = setOf(),
+            onClosedWeekdays = {},
             onTitle = {},
             onCategory = {},
             onPhone = {},
