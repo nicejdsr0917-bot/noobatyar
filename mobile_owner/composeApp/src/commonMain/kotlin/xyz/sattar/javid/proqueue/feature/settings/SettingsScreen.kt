@@ -655,16 +655,19 @@ private fun ProfileHeaderCard(
                                     color = Color.White.copy(alpha = 0.7f)
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
+                                // Name only, under the logo that is already
+                                // next to it. The category line that used to
+                                // sit here ("دندان‌پزشکی", "آرایشگاه") told the
+                                // owner something they picked themselves and
+                                // never see again — the logo and the name are
+                                // what identify a business everywhere else in
+                                // the app, so they are all this row carries.
                                 Text(
                                     text = business.title,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = business.categoryLabel,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.8f)
+                                    color = Color.White,
+                                    maxLines = 2
                                 )
                             }
 

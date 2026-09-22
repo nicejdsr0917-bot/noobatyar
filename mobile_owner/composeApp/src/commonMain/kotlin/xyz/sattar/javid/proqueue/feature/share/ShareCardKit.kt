@@ -40,6 +40,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -188,14 +189,34 @@ internal fun LtrText(
             fontWeight = weight,
             color = color,
             letterSpacing = letterSpacing,
+            // One line always: these are URLs and card numbers, and a URL
+            // broken across two lines is a URL nobody can retype. Ellipsis
+            // rather than a silent crop so a value that doesn't fit is
+            // visibly truncated instead of looking like the whole thing.
             maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
             modifier = modifier,
         )
     }
 }
 
+/**
+ * The business's own logo, which is what identifies the card — on every card,
+ * wherever its name appears. The storefront glyph is only the fallback for a
+ * business that hasn't uploaded one.
+ *
+ * [ringColor] exists because the disc behind a transparent logo is white: that
+ * reads as a lit avatar on the violet cards, but vanishes on the light-surface
+ * link card, which passes a tinted ring to give it an edge.
+ */
 @Composable
-internal fun BusinessAvatar(business: Business, size: Int, ring: Boolean = false) {
+internal fun BusinessAvatar(
+    business: Business,
+    size: Int,
+    ring: Boolean = false,
+    ringColor: Color = Color.White.copy(alpha = 0.28f),
+) {
     val inner: @Composable () -> Unit = {
         Box(
             modifier = Modifier
@@ -232,7 +253,7 @@ internal fun BusinessAvatar(business: Business, size: Int, ring: Boolean = false
         modifier = Modifier
             .size((size + 8).dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.28f)),
+            .background(ringColor),
         contentAlignment = Alignment.Center,
     ) {
         inner()

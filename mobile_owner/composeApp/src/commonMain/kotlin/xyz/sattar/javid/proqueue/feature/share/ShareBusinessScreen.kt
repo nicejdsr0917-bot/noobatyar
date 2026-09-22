@@ -74,6 +74,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -230,7 +231,7 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                             designHeightDp = POSTER_HEIGHT_DP,
                         ) { QrPosterCard(b, link) }
 
-                        ShareMode.LINK -> LinkShareCard(link)
+                        ShareMode.LINK -> LinkShareCard(b, link)
 
                         ShareMode.PROFILE -> ExportableCard(
                             controller = storyCapture,
@@ -386,14 +387,20 @@ private fun ShareModePill(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(15.dp))
+        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(4.dp))
+        // Four equal-weight pills, but the labels are not equal lengths — the
+        // longest ("شماره کارت") overran its share and was cut mid-glyph, with
+        // no ellipsis to show it. It fits at this size; the clamp is the
+        // guard for a wider system font or a narrower phone.
         Text(
             text = label,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = content,
             maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -421,22 +428,15 @@ private fun QrPosterCard(business: Business, link: String) {
             ) {
                 BusinessAvatar(business, size = 44, ring = true)
                 Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = business.title,
-                        fontSize = 17.sp,
-                        lineHeight = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 2,
-                    )
-                    Text(
-                        text = business.categoryLabel,
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.72f),
-                        maxLines = 1,
-                    )
-                }
+                Text(
+                    text = business.title,
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 2,
+                    modifier = Modifier.weight(1f),
+                )
             }
 
             Spacer(Modifier.weight(1f))
@@ -517,7 +517,7 @@ private fun BookingQrCode(link: String, size: Int) {
 // ─────────────────────────── 2. link card ───────────────────────────
 
 @Composable
-private fun LinkShareCard(link: String) {
+private fun LinkShareCard(business: Business, link: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -531,53 +531,61 @@ private fun LinkShareCard(link: String) {
                 .padding(22.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(ShareViolet.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Rounded.Link, null, tint = ShareViolet, modifier = Modifier.size(26.dp))
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        Text(
-            text = "لینک اختصاصی نوبت‌دهی شما",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = "این لینک را در بیو، کانال یا پیام مستقیم بگذارید؛ مشتری با یک کلیک صفحه نوبت‌دهی شما را می‌بیند.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            lineHeight = 20.sp,
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = link,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = ShareViolet,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 14.dp),
+            // The owner's own logo, not a link glyph: this tab is one of four
+            // ways to hand out the same link, and the business it belongs to
+            // is the one thing all four have to agree on.
+            BusinessAvatar(
+                business = business,
+                size = 56,
+                ring = true,
+                ringColor = ShareViolet.copy(alpha = 0.14f),
             )
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = business.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "این لینک را در بیو، کانال یا پیام مستقیم بگذارید؛ مشتری با یک کلیک صفحه نوبت‌دهی شما را می‌بیند.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                // Centred as a block but rendered LTR inside it, so the bidi
+                // algorithm can't reorder the URL's own slash-separated
+                // segments the way it does to a bare Text in this RTL app.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LtrText(
+                        text = link.shortForDisplay(),
+                        fontSize = 14.sp,
+                        weight = FontWeight.SemiBold,
+                        color = ShareViolet,
+                    )
+                }
+            }
         }
     }
-  }
 }
 
 // ─────────────────────────── 3. profile story ───────────────────────────
@@ -684,18 +692,24 @@ private fun ProfileStoryCard(business: Business, link: String) {
 
             Spacer(Modifier.weight(0.6f))
 
-            // Footer: the code and the link on the reading side, the maker's
-            // mark alone in the opposite corner. This card can't take the
-            // overlaid CardSignatureCorner the other three use — the bottom
-            // left is where the QR would otherwise sit — so the row places
-            // the two against each other instead.
+            // Footer: the code and what to do with it on the reading side,
+            // the maker's mark alone in the opposite corner. This card can't
+            // take the overlaid CardSignatureCorner the other three use — the
+            // bottom left is where the QR would otherwise sit — so the row
+            // places the two against each other instead.
+            //
+            // No URL here on purpose: the story is a picture, so a URL printed
+            // on it can only be retyped, and the two routes that actually work
+            // from a story — the bio link and the QR — are both already on the
+            // card. The QR poster is the one place the address is spelled out,
+            // because that is the card that gets printed and read off paper.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     NeonHalo(shape = RoundedCornerShape(14.dp), glowRadius = 10.dp) {
                         Surface(shape = RoundedCornerShape(14.dp), color = Color.White) {
@@ -705,25 +719,18 @@ private fun ProfileStoryCard(business: Business, link: String) {
                         }
                     }
                     Spacer(Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "لینک نوبت‌دهی، داخل بایو",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.8f),
-                            maxLines = 1,
-                        )
-                        Spacer(Modifier.height(3.dp))
-                        LtrText(
-                            text = link.shortForDisplay(),
-                            fontSize = 12.sp,
-                            weight = FontWeight.Bold,
-                            color = Color.White,
-                        )
-                    }
+                    Text(
+                        text = "لینک نوبت‌دهی، داخل بایو",
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = 2,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
 
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(12.dp))
 
                 AppSignature(onDark = true)
             }
@@ -840,24 +847,36 @@ private fun CardNumberPosterCard(business: Business) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 26.dp, end = 26.dp, top = 26.dp, bottom = 62.dp),
+                .padding(start = 26.dp, end = 26.dp, top = 24.dp, bottom = 62.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = "شماره کارت برای واریز",
-                fontSize = 12.sp,
-                color = Color.White.copy(alpha = 0.75f),
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = business.title,
-                fontSize = 19.sp,
-                lineHeight = 26.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-            )
+            // Deliberately the QR poster's header, measure for measure — same
+            // 44dp logo, same gap, same 17sp title on the same baseline. The
+            // two cards are flipped between in one tap strip, and a header
+            // that shifts between them reads as the page jumping.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BusinessAvatar(business, size = 44, ring = true)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "شماره کارت برای واریز",
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.75f),
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = business.title,
+                        fontSize = 17.sp,
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 2,
+                    )
+                }
+            }
 
             Spacer(Modifier.weight(1f))
 
@@ -969,33 +988,33 @@ private fun MissingCardPrompt(onAdd: () -> Unit) {
                 .padding(26.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-        Box(
-            modifier = Modifier
-                .size(62.dp)
-                .clip(CircleShape)
-                .background(ShareViolet.copy(alpha = 0.12f))
-                .clickable(onClick = onAdd),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Rounded.Add, null, tint = ShareViolet, modifier = Modifier.size(30.dp))
+            Box(
+                modifier = Modifier
+                    .size(62.dp)
+                    .clip(CircleShape)
+                    .background(ShareViolet.copy(alpha = 0.12f))
+                    .clickable(onClick = onAdd),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Rounded.Add, null, tint = ShareViolet, modifier = Modifier.size(30.dp))
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = "هنوز شماره کارتی ثبت نکرده‌اید",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "شماره کارت و نام صاحب حساب را ثبت کنید تا کارت آماده‌ی ارسال ساخته شود. همین شماره برای دریافت بیعانه هم استفاده می‌شود.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                lineHeight = 21.sp,
+            )
         }
-        Spacer(Modifier.height(14.dp))
-        Text(
-            text = "هنوز شماره کارتی ثبت نکرده‌اید",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = "شماره کارت و نام صاحب حساب را ثبت کنید تا کارت آماده‌ی ارسال ساخته شود. همین شماره برای دریافت بیعانه هم استفاده می‌شود.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            lineHeight = 21.sp,
-        )
     }
-  }
 }
 
 @Composable
