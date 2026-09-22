@@ -951,7 +951,7 @@ fun BookingLinkButton(business: Business) {
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = if (copied) link else "مشتریان با یک کلیک نوبت می‌گیرن",
+                    text = "مشتریان با یک کلیک نوبت می‌گیرن",
                     style = MaterialTheme.typography.bodySmall,
                     color = contentColor.copy(alpha = 0.8f),
                     maxLines = 1,

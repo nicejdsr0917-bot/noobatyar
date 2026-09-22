@@ -13,6 +13,7 @@ import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.domain.AppointmentRepository
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentOrdering
 import xyz.sattar.javid.proqueue.domain.usecase.GenerateReminderMessageUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.GetRangeReportUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.MarkAppointmentCompletedUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.MarkAppointmentNoShowUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.RemoveAppointmentUseCase
@@ -27,6 +28,7 @@ class LastVisitorsViewModel(
     private val sendMessageUseCase: SendMessageUseCase,
     private val generateReminderMessageUseCase: GenerateReminderMessageUseCase,
     private val syncAppointmentsUseCase: SyncAppointmentsUseCase,
+    private val getRangeReportUseCase: GetRangeReportUseCase,
     private val appointmentRepository: AppointmentRepository
 ) : BaseViewModel<LastVisitorsState, LastVisitorsState.PartialState, LastVisitorsEvent, LastVisitorsIntent>(
     initialState = LastVisitorsState()
@@ -59,6 +61,14 @@ class LastVisitorsViewModel(
             }
             is LastVisitorsIntent.OnTabSelected -> flow {
                 emit(LastVisitorsState.PartialState.TabSelected(intent.index))
+                // Load the report the first time its tab is opened, not on
+                // every switch back to it — it's a server round trip, and the
+                // window it describes doesn't change on its own.
+                if (intent.index == RANGE_REPORT_TAB && uiState.value.rangeReport == null) {
+                    val (from, to) = defaultRangeIfUnset(uiState.value.rangeFrom, uiState.value.rangeTo)
+                    emit(LastVisitorsState.PartialState.RangeSelected(from, to))
+                    emitAll(loadRangeReport(from, to))
+                }
             }
             is LastVisitorsIntent.OnAppointmentClick -> {
                 sendEvent(LastVisitorsEvent.NavigateToVisitorDetails(intent.visitorId))
@@ -96,6 +106,109 @@ class LastVisitorsViewModel(
                 }
             }
             LastVisitorsIntent.ClearMessage -> flow { emit(LastVisitorsState.PartialState.ClearMessage) }
+            is LastVisitorsIntent.OnRangeChanged -> flow {
+                val (from, to) = clampRange(intent.from, intent.to)
+                emit(LastVisitorsState.PartialState.RangeSelected(from, to))
+                emitAll(loadRangeReport(from, to))
+            }
+            is LastVisitorsIntent.OnRangeSubTabSelected -> flow {
+                emit(LastVisitorsState.PartialState.RangeSubTabSelected(intent.index))
+            }
+            LastVisitorsIntent.LoadRangeReport -> flow {
+                val state = uiState.value
+                val (from, to) = defaultRangeIfUnset(state.rangeFrom, state.rangeTo)
+                emit(LastVisitorsState.PartialState.RangeSelected(from, to))
+                emitAll(loadRangeReport(from, to))
+            }
+            LastVisitorsIntent.LoadMoreRangeCustomers -> loadMoreRangeCustomers()
+        }
+    }
+
+    /**
+     * Keeps the requested window inside the server's one-month cap by pulling
+     * the *start* forward, so the recent end — the part the owner is looking
+     * at — is what survives. Matches the server's own clamp direction
+     * (backend/appointment/views/range_visitors_view.py), so a range that
+     * passes here is never narrowed again on arrival.
+     */
+    private fun clampRange(from: Long, to: Long): Pair<Long, Long> {
+        val end = maxOf(from, to)
+        val start = minOf(from, to)
+        val earliest = end - GetRangeReportUseCase.MAX_RANGE_MILLIS
+        return maxOf(start, earliest) to end
+    }
+
+    private fun defaultRangeIfUnset(from: Long, to: Long): Pair<Long, Long> {
+        if (from != 0L && to != 0L) return from to to
+        val today = DateTimeUtils.startOfTodayMillis()
+        return (today - 29L * GetRangeReportUseCase.DAY_MILLIS) to today
+    }
+
+    private fun loadRangeReport(from: Long, to: Long): Flow<LastVisitorsState.PartialState> = flow {
+        emit(LastVisitorsState.PartialState.RangeLoading(true))
+        val business = BusinessStateHolder.selectedBusiness.value
+        if (business == null) {
+            emit(LastVisitorsState.PartialState.RangeLoading(false))
+            return@flow
+        }
+        try {
+            val report = getRangeReportUseCase(
+                businessId = business.id,
+                dateFrom = from,
+                dateTo = to
+            )
+            if (report == null) {
+                emit(LastVisitorsState.PartialState.RangeFailed)
+                return@flow
+            }
+
+            // The appointment rows come through the same sync-then-read path
+            // the other tabs use, over the window the server actually
+            // measured — so a clamped range doesn't list appointments from
+            // days the summary above them never counted.
+            syncAppointmentsUseCase(
+                businessId = business.id,
+                status = null,
+                date = null,
+                dateFrom = report.dateFrom,
+                dateTo = report.dateTo,
+                ordering = AppointmentOrdering.DATE_DESC
+            )
+            val appointments = appointmentRepository
+                .getAllAppointmentsForBusiness(business.id)
+                .filter {
+                    it.appointment.appointmentDate >= report.dateFrom &&
+                        it.appointment.appointmentDate <= report.dateTo + GetRangeReportUseCase.DAY_MILLIS
+                }
+                .sortedByDescending { it.appointment.appointmentDate }
+
+            emit(LastVisitorsState.PartialState.RangeLoaded(report, appointments))
+        } catch (e: Exception) {
+            emit(LastVisitorsState.PartialState.RangeFailed)
+        }
+    }
+
+    private fun loadMoreRangeCustomers(): Flow<LastVisitorsState.PartialState> = flow {
+        val state = uiState.value
+        val current = state.rangeReport ?: return@flow
+        if (!current.hasMoreCustomers || state.rangeLoading) return@flow
+        val business = BusinessStateHolder.selectedBusiness.value ?: return@flow
+
+        emit(LastVisitorsState.PartialState.RangeLoading(true))
+        try {
+            val next = getRangeReportUseCase(
+                businessId = business.id,
+                dateFrom = current.dateFrom,
+                dateTo = current.dateTo,
+                page = current.currentPage + 1
+            )
+            if (next == null) {
+                emit(LastVisitorsState.PartialState.RangeLoading(false))
+                return@flow
+            }
+            emit(LastVisitorsState.PartialState.RangeCustomersAppended(next))
+        } catch (e: Exception) {
+            emit(LastVisitorsState.PartialState.RangeLoading(false))
         }
     }
 
@@ -127,6 +240,34 @@ class LastVisitorsViewModel(
                 currentState.copy(showFilterSheet = partialState.show)
             LastVisitorsState.PartialState.ClearMessage ->
                 currentState.copy(message = null)
+            is LastVisitorsState.PartialState.RangeSelected ->
+                currentState.copy(rangeFrom = partialState.from, rangeTo = partialState.to)
+            is LastVisitorsState.PartialState.RangeSubTabSelected ->
+                currentState.copy(rangeSubTab = partialState.index)
+            is LastVisitorsState.PartialState.RangeLoading ->
+                currentState.copy(rangeLoading = partialState.isLoading)
+            is LastVisitorsState.PartialState.RangeLoaded ->
+                currentState.copy(
+                    rangeReport = partialState.report,
+                    rangeAppointments = partialState.appointments,
+                    // Snap the picker onto what the server measured, so a
+                    // clamped range can't leave the header showing dates the
+                    // numbers below it never covered.
+                    rangeFrom = partialState.report.dateFrom,
+                    rangeTo = partialState.report.dateTo,
+                    rangeLoading = false,
+                    rangeFailed = false
+                )
+            LastVisitorsState.PartialState.RangeFailed ->
+                currentState.copy(rangeLoading = false, rangeFailed = true)
+            is LastVisitorsState.PartialState.RangeCustomersAppended ->
+                currentState.copy(
+                    rangeReport = partialState.report.copy(
+                        customers = (currentState.rangeReport?.customers ?: emptyList()) +
+                            partialState.report.customers
+                    ),
+                    rangeLoading = false
+                )
         }
     }
 

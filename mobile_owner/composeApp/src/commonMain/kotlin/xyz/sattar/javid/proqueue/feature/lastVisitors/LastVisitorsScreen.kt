@@ -189,6 +189,33 @@ fun LastVisitorsScreenContent(
                 .padding(top = paddingValues.calculateTopPadding())
         ) {
             when {
+                // First, ahead of the loading and empty checks: this tab
+                // carries its own data over its own window, so gating it on
+                // the *other* tabs' appointment list would hide it exactly
+                // when it's most useful — a business with nothing booked in
+                // the next 7 days still has a history worth reporting on.
+                uiState.selectedTab == RANGE_REPORT_TAB -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        VisitorsTabBar(
+                            selectedIndex = uiState.selectedTab,
+                            onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) }
+                        )
+                        RangeReportSection(
+                            uiState = uiState,
+                            onIntent = onIntent,
+                            onAppointmentClick = { visitorId ->
+                                onIntent(LastVisitorsIntent.OnAppointmentClick(visitorId))
+                            },
+                            onEditAppointment = { id ->
+                                onIntent(LastVisitorsIntent.OnEditAppointment(id))
+                            },
+                            onAppointmentOptions = { id ->
+                                onIntent(LastVisitorsIntent.OnAppointmentOptionsClick(id))
+                            }
+                        )
+                    }
+                }
+
                 uiState.isLoading -> {
                     Column(
                         modifier = Modifier
@@ -202,14 +229,9 @@ fun LastVisitorsScreenContent(
 
                 uiState.appointments.isEmpty() -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        SectionTabs(
-                            labels = listOf(
-                                stringResource(Res.string.visitors_tab),
-                                stringResource(Res.string.queue_tab),
-                            ),
+                        VisitorsTabBar(
                             selectedIndex = uiState.selectedTab,
-                            onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) },
-                            modifier = Modifier.fillMaxWidth()
+                            onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) }
                         )
                         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                             EmptyState(
@@ -223,14 +245,9 @@ fun LastVisitorsScreenContent(
 
                 else -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        SectionTabs(
-                            labels = listOf(
-                                stringResource(Res.string.visitors_tab),
-                                stringResource(Res.string.queue_tab),
-                            ),
+                        VisitorsTabBar(
                             selectedIndex = uiState.selectedTab,
-                            onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) },
-                            modifier = Modifier.fillMaxWidth()
+                            onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         if (uiState.selectedTab == 1) {
@@ -351,6 +368,8 @@ fun LastVisitorsScreenContent(
         }
     }
 }
+
+
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -533,6 +552,32 @@ fun AppointmentsList(
         }
         item { BottomBarSpacer() }
     }
+}
+
+/** Index of the range-report tab, referenced from both layouts. */
+const val RANGE_REPORT_TAB = 2
+
+/**
+ * The screen's tab bar. Extracted because both the phone and web layouts
+ * render it from more than one branch of their content `when`, and three
+ * copies drifting apart is how a tab ends up existing on one path and not
+ * another.
+ */
+@Composable
+private fun VisitorsTabBar(
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit
+) {
+    SectionTabs(
+        labels = listOf(
+            stringResource(Res.string.visitors_tab),
+            stringResource(Res.string.queue_tab),
+            stringResource(Res.string.range_report_tab),
+        ),
+        selectedIndex = selectedIndex,
+        onSelected = onSelected,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
