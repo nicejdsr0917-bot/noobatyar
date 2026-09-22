@@ -560,30 +560,7 @@ private fun LinkShareCard(business: Business, link: String) {
                 lineHeight = 20.sp,
             )
 
-            Spacer(Modifier.height(16.dp))
-
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                // Centred as a block but rendered LTR inside it, so the bidi
-                // algorithm can't reorder the URL's own slash-separated
-                // segments the way it does to a bare Text in this RTL app.
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 14.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    LtrText(
-                        text = link.shortForDisplay(),
-                        fontSize = 14.sp,
-                        weight = FontWeight.SemiBold,
-                        color = ShareViolet,
-                    )
-                }
-            }
+            // Link URL display removed as requested.
         }
     }
 }
