@@ -4,7 +4,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -180,7 +179,6 @@ fun RangeReportSection(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RangePickerRow(
     from: Long,
@@ -189,24 +187,77 @@ private fun RangePickerRow(
     onToClick: () -> Unit,
     onPreset: (Int) -> Unit
 ) {
-    // One wrapping row rather than a full-width pair plus a separate chip row:
-    // stretched across a desktop panel the two date fields were mostly empty
-    // box, and the presets sat orphaned under them. FlowRow keeps them all on
-    // one line where there's room and wraps on a phone.
-    FlowRow(
+    // Two fixed rows, not one FlowRow: wrapping put "۷ روز" beside the dates
+    // and the other two presets on a line of their own, and AssistChip let a
+    // label break onto a second line when its share of the row got narrow.
+    // Dates share one row at equal width; presets share the next, also at
+    // equal width, each label clamped to a single line.
+    val today = DateTimeUtils.startOfTodayMillis()
+    val selectedDays = if (to == today && from <= to) {
+        ((to - from) / GetRangeReportUseCase.DAY_MILLIS + 1).toInt()
+    } else null
+
+    Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        DateField(label = "از", value = from, onClick = onFromClick)
-        DateField(label = "تا", value = to, onClick = onToClick)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            DateField(label = "از", value = from, onClick = onFromClick, modifier = Modifier.weight(1f))
+            DateField(label = "تا", value = to, onClick = onToClick, modifier = Modifier.weight(1f))
+        }
 
-        // 31 rather than 30 so the widest preset lands exactly on the cap
-        // instead of one day short of it.
-        listOf(7 to "۷ روز", 30 to "۳۰ روز", GetRangeReportUseCase.MAX_RANGE_DAYS to "یک ماه")
-            .forEach { (days, label) ->
-                AssistChip(onClick = { onPreset(days) }, label = { Text(label) })
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 31 rather than 30 so the widest preset lands exactly on the cap
+            // instead of one day short of it.
+            listOf(7 to "۷ روز", 30 to "۳۰ روز", GetRangeReportUseCase.MAX_RANGE_DAYS to "یک ماه")
+                .forEach { (days, label) ->
+                    PresetChip(
+                        label = label,
+                        selected = selectedDays == days,
+                        onClick = { onPreset(days) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+        }
+    }
+}
+
+@Composable
+private fun PresetChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(40.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+        border = if (selected) null else androidx.compose.foundation.BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 6.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -219,7 +270,6 @@ private fun DateField(
 ) {
     Surface(
         modifier = modifier
-            .widthIn(min = 150.dp)
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -245,7 +295,9 @@ private fun DateField(
                 Text(
                     text = if (value == 0L) "—" else DateTimeUtils.getJalaliDate(value),
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
         }
