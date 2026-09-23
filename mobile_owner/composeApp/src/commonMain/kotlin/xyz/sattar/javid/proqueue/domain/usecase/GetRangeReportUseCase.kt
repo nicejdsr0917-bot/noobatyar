@@ -1,6 +1,7 @@
 package xyz.sattar.javid.proqueue.domain.usecase
 
 import xyz.sattar.javid.proqueue.domain.AppointmentRepository
+import xyz.sattar.javid.proqueue.domain.model.CustomerOrdering
 import xyz.sattar.javid.proqueue.domain.model.RangeReport
 
 /**
@@ -15,12 +16,14 @@ class GetRangeReportUseCase(private val repository: AppointmentRepository) {
         businessId: Long,
         dateFrom: Long,
         dateTo: Long,
+        ordering: CustomerOrdering = CustomerOrdering.VISITS,
         page: Int = 1,
         pageSize: Int = 20
     ): RangeReport? = repository.getRangeReport(
         businessId = businessId,
         dateFrom = dateFrom,
         dateTo = dateTo,
+        ordering = ordering,
         page = page,
         pageSize = pageSize
     )

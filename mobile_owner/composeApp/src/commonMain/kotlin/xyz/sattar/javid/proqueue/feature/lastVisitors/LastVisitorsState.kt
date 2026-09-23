@@ -2,6 +2,7 @@ package xyz.sattar.javid.proqueue.feature.lastVisitors
 
 import androidx.compose.runtime.Immutable
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
+import xyz.sattar.javid.proqueue.domain.model.CustomerOrdering
 import xyz.sattar.javid.proqueue.domain.model.RangeReport
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentOrdering
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
@@ -29,7 +30,8 @@ data class LastVisitorsState(
     val rangeTo: Long = 0L,
     val rangeLoading: Boolean = false,
     val rangeReport: RangeReport? = null,
-    val rangeFailed: Boolean = false
+    val rangeFailed: Boolean = false,
+    val customerOrdering: CustomerOrdering = CustomerOrdering.VISITS
 ) {
     sealed class PartialState {
         data class IsLoading(val isLoading: Boolean) : PartialState()
@@ -49,6 +51,7 @@ data class LastVisitorsState(
         data object RangeFailed : PartialState()
         /** A further page of customers, appended to the ones already shown. */
         data class RangeCustomersAppended(val report: RangeReport) : PartialState()
+        data class CustomerOrderingChanged(val ordering: CustomerOrdering) : PartialState()
     }
 }
 

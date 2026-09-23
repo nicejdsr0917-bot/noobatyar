@@ -30,6 +30,7 @@ class AppointmentRepositoryImpl(
         businessId: Long,
         dateFrom: Long,
         dateTo: Long,
+        ordering: xyz.sattar.javid.proqueue.domain.model.CustomerOrdering,
         page: Int,
         pageSize: Int
     ): xyz.sattar.javid.proqueue.domain.model.RangeReport? {
@@ -38,6 +39,7 @@ class AppointmentRepositoryImpl(
                 businessId = businessId,
                 dateFrom = dateFrom,
                 dateTo = dateTo,
+                ordering = ordering.apiValue,
                 page = page,
                 pageSize = pageSize
             )
@@ -46,30 +48,10 @@ class AppointmentRepositoryImpl(
                 is ApiResponse.Error -> return null
             }
 
-            // Summary comes from the stats endpoint over the *server's*
-            // window, not the requested one — if the range was clamped,
-            // asking stats for the original range would put numbers from a
-            // wider window next to a customer list from a narrower one.
-            val statsResponse = appointmentApiService.getAppointmentStats(
-                businessId = businessId,
-                dateFrom = visitorsPage.dateFrom,
-                dateTo = visitorsPage.dateTo
-            )
-            val stats = when (statsResponse) {
-                is ApiResponse.Success -> statsResponse.data
-                is ApiResponse.Error -> null
-            }
-
             xyz.sattar.javid.proqueue.domain.model.RangeReport(
                 dateFrom = visitorsPage.dateFrom,
                 dateTo = visitorsPage.dateTo,
                 clamped = visitorsPage.clamped,
-                totalAppointments = stats?.totalAppointments ?: 0,
-                completedAppointments = stats?.completedAppointments ?: 0,
-                noShowAppointments = stats?.noShowAppointments ?: 0,
-                // The customer page's own count is the distinct-visitor total
-                // for the window, so it stands in when stats didn't load.
-                uniqueVisitors = stats?.totalVisitors ?: visitorsPage.count,
                 customers = visitorsPage.results.map {
                     xyz.sattar.javid.proqueue.domain.model.RangeCustomer(
                         visitorId = it.visitorId,

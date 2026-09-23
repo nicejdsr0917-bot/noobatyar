@@ -37,6 +37,8 @@ interface AppointmentRepository {
         businessId: Long,
         dateFrom: Long,
         dateTo: Long,
+        ordering: xyz.sattar.javid.proqueue.domain.model.CustomerOrdering =
+            xyz.sattar.javid.proqueue.domain.model.CustomerOrdering.VISITS,
         page: Int = 1,
         pageSize: Int = 20
     ): xyz.sattar.javid.proqueue.domain.model.RangeReport?

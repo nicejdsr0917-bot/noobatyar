@@ -1,6 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,11 +11,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -94,6 +102,10 @@ internal fun VisitorsDateBar(
     to: Long,
     onRangeChange: (from: Long, to: Long) -> Unit,
     modifier: Modifier = Modifier,
+    /** Called after a preset is tapped, so a host showing this bar as a
+     *  drop-down panel can fold it away again — a preset is a complete
+     *  answer, unlike one end of a custom range. */
+    onPresetSelected: () -> Unit = {},
 ) {
     var pickingFrom by remember { mutableStateOf(false) }
     var pickingTo by remember { mutableStateOf(false) }
@@ -130,7 +142,7 @@ internal fun VisitorsDateBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
@@ -151,51 +163,9 @@ internal fun VisitorsDateBar(
                     onClick = {
                         val (f, t) = preset.range()
                         onRangeChange(f, t)
+                        onPresetSelected()
                     },
                     modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Shown under the date bar whenever a status filter is on, with an ✕ to drop
- * it. A Home stat card ("لغو شده", "عدم حضور", …) navigates in with a status
- * already applied, and nothing on this screen used to say so — the owner saw
- * a list that was mysteriously short, with the only explanation buried in the
- * filter sheet.
- */
-@Composable
-internal fun ActiveStatusChip(
-    status: String,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val label = appointmentStatusOptions().firstOrNull { it.first == status }?.second ?: status
-    Row(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClear)
-        ) {
-            Row(
-                modifier = Modifier.padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = "وضعیت: $label",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    maxLines = 1
-                )
-                Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = "حذف فیلتر وضعیت",
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -287,6 +257,172 @@ private fun PresetChip(
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+/**
+ * The نوبت‌ها screen's filters folded into a single line under the tabs.
+ *
+ * The date bar used to sit open above every list — two date fields, a row of
+ * presets and a count card: close to half the screen before the first
+ * appointment, spent on settings an owner changes a couple of times a day
+ * rather than on the list they came to work through. Everything that was
+ * there is still one tap away; what stays on screen is only what the owner
+ * needs to read the list correctly — which window it covers, which status (if
+ * any) it's narrowed to, and how many rows that came to.
+ *
+ * @param count rows in the list, or null to leave the count out (the report
+ *   tab carries its own totals).
+ * @param onOpenFilter null hides the status/ordering button (the report
+ *   ignores both).
+ */
+@Composable
+internal fun VisitorsFilterStrip(
+    from: Long,
+    to: Long,
+    dateExpanded: Boolean,
+    onToggleDate: () -> Unit,
+    status: String?,
+    onClearStatus: () -> Unit,
+    count: Int?,
+    countLabel: String,
+    filterActive: Boolean,
+    onOpenFilter: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val active = DatePreset.entries.firstOrNull { it.range() == (from to to) }
+    val rangeLabel = active?.label ?: compactRangeLabel(from, to)
+    val chevronRotation by animateFloatAsState(if (dateExpanded) 180f else 0f)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // The window, as a drop-down: tapping it opens the full date bar.
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = if (dateExpanded) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.primaryContainer,
+            contentColor = if (dateExpanded) MaterialTheme.colorScheme.onPrimary
+            else MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.height(34.dp).clip(RoundedCornerShape(50)).clickable(onClick = onToggleDate)
+        ) {
+            Row(
+                modifier = Modifier.padding(start = 12.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(Icons.Rounded.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp))
+                Text(
+                    text = rangeLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Icon(
+                    Icons.Rounded.ExpandMore,
+                    contentDescription = if (dateExpanded) "بستن بازه" else "تغییر بازه",
+                    modifier = Modifier.size(18.dp).rotate(chevronRotation)
+                )
+            }
+        }
+
+        // Takes whatever width is left, so a long status label ellipsises
+        // instead of pushing the count off the line.
+        Box(modifier = Modifier.weight(1f)) {
+            if (status != null) {
+                CompactStatusChip(status = status, onClear = onClearStatus)
+            }
+        }
+
+        if (count != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = countLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+        }
+
+        if (onOpenFilter != null) {
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable(onClick = onOpenFilter),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Rounded.Tune,
+                        contentDescription = "فیلتر",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                // A status or a non-default order is in force.
+                if (filterActive) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(9.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** "04/01 – 06/07" within one year, full dates otherwise. */
+private fun compactRangeLabel(from: Long, to: Long): String {
+    if (from == 0L || to == 0L) return "بازه"
+    val f = DateTimeUtils.getJalaliDate(from)
+    val t = DateTimeUtils.getJalaliDate(to)
+    if (f == t) return f
+    val sameYear = f.substringBefore('/') == t.substringBefore('/')
+    return if (sameYear) "${f.substringAfter('/')} – ${t.substringAfter('/')}" else "$f – $t"
+}
+
+@Composable
+private fun CompactStatusChip(status: String, onClear: () -> Unit) {
+    val label = appointmentStatusOptions().firstOrNull { it.first == status }?.second ?: status
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = Modifier.height(30.dp).clip(RoundedCornerShape(50)).clickable(onClick = onClear)
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 10.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Icon(Icons.Rounded.Close, contentDescription = "حذف فیلتر وضعیت", modifier = Modifier.size(14.dp))
         }
     }
 }

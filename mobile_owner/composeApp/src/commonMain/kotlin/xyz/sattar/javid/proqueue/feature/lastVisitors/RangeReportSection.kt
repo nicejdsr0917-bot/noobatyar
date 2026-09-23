@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.EventNote
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material3.*
@@ -25,21 +26,24 @@ import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.components.BottomBarSpacer
 import xyz.sattar.javid.proqueue.core.ui.components.EmptyState
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
+import xyz.sattar.javid.proqueue.domain.model.CustomerOrdering
 import xyz.sattar.javid.proqueue.domain.model.RangeCustomer
 import xyz.sattar.javid.proqueue.domain.usecase.GetRangeReportUseCase
 
 /**
- * "گزارش بازه‌ای" — the third tab on the نوبت‌ها screen: the window chosen in
- * the shared date bar ([VisitorsDateBar]), summarised — totals, then who came.
+ * "مشتری‌ها" — the third tab on the نوبت‌ها screen: who came in the window
+ * chosen in the shared date bar ([VisitorsDateBar]), one row per person with
+ * how often they came and when they were last in.
  *
- * It used to carry its own date picker and its own appointment list. The
- * picker is now the screen-wide bar, so every tab answers for the same dates;
- * and with the dates shared, its appointment list was the مراجعین tab over
- * again. What only this tab has is the numbers and the customer roll-up, so
- * that is all it shows.
+ * It began as "گزارش بازه‌ای", with the window's totals (appointments,
+ * customers, completed, no-shows) above the list. Those numbers are the home
+ * dashboard's job, and the نوبت‌ها tab now shows its own count on the filter
+ * strip, so the tab was cut down to the part nothing else in the app has —
+ * the customer roll-up — and given a way to ask the two questions it's good
+ * for: who are the regulars, and who was in most recently.
  *
- * The server caps a report at [GetRangeReportUseCase.MAX_RANGE_DAYS]; a wider
- * window from the bar is clamped on the way out and the note below says so.
+ * The server caps the window at [GetRangeReportUseCase.MAX_RANGE_DAYS]; a
+ * wider window from the bar is clamped on the way out and the note says so.
  */
 @Composable
 fun RangeReportSection(
@@ -51,15 +55,6 @@ fun RangeReportSection(
     val report = uiState.rangeReport
 
     Column(modifier = modifier.fillMaxSize()) {
-        if (report?.clamped == true) {
-            Text(
-                text = "گزارش فقط ${GetRangeReportUseCase.MAX_RANGE_DAYS} روز آخرِ این بازه را پوشش می‌دهد",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
-        }
-
         when {
             uiState.rangeLoading && report == null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -71,28 +66,28 @@ fun RangeReportSection(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     EmptyState(
                         icon = Icons.Rounded.EventNote,
-                        title = "گزارش بارگذاری نشد",
+                        title = "لیست مشتری‌ها بارگذاری نشد",
                         subtitle = "اتصال خود را بررسی کنید و دوباره تلاش کنید"
                     )
                 }
             }
 
             report != null -> {
-                RangeSummaryCard(
-                    totalAppointments = report.totalAppointments,
-                    uniqueVisitors = report.uniqueVisitors,
-                    completed = report.completedAppointments,
-                    noShow = report.noShowAppointments
-                )
-
-                Text(
-                    text = "مشتری‌های این بازه (${report.customersTotal})",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
-                )
-
                 CustomerList(
+                    header = {
+                        CustomerOrderingRow(
+                            selected = uiState.customerOrdering,
+                            onSelected = { onIntent(LastVisitorsIntent.OnCustomerOrderingChanged(it)) }
+                        )
+                        if (report.clamped) {
+                            Text(
+                                text = "فقط ${GetRangeReportUseCase.MAX_RANGE_DAYS} روز آخرِ این بازه شمرده شده",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                        }
+                    },
                     customers = report.customers,
                     hasMore = report.hasMoreCustomers,
                     isLoadingMore = uiState.rangeLoading,
@@ -104,54 +99,29 @@ fun RangeReportSection(
     }
 }
 
+/** The two orders the server offers, as a pair of chips at the top of the list. */
 @Composable
-private fun RangeSummaryCard(
-    totalAppointments: Int,
-    uniqueVisitors: Int,
-    completed: Int,
-    noShow: Int
+private fun CustomerOrderingRow(
+    selected: CustomerOrdering,
+    onSelected: (CustomerOrdering) -> Unit
 ) {
-    // Four separate cards rather than four numbers spread across one wide
-    // one: on a desktop panel that single card put ~200dp of empty surface
-    // between each figure and its neighbour, which read as a gap rather than
-    // a row of stats. Mirrors the home dashboard's own stat strip.
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        SummaryStat("نوبت‌ها", totalAppointments, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-        SummaryStat("مشتری‌ها", uniqueVisitors, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
-        SummaryStat("تکمیل‌شده", completed, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-        SummaryStat("عدم حضور", noShow, MaterialTheme.colorScheme.error, Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun SummaryStat(
-    label: String,
-    value: Int,
-    color: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "$value",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = color
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        Icon(
+            Icons.AutoMirrored.Rounded.Sort,
+            contentDescription = "مرتب‌سازی",
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        CustomerOrdering.entries.forEach { ordering ->
+            FilterChip(
+                selected = ordering == selected,
+                onClick = { onSelected(ordering) },
+                label = { Text(ordering.label, style = MaterialTheme.typography.labelLarge) },
+                modifier = Modifier.height(32.dp)
             )
         }
     }
@@ -159,23 +129,13 @@ private fun SummaryStat(
 
 @Composable
 private fun CustomerList(
+    header: @Composable () -> Unit,
     customers: List<RangeCustomer>,
     hasMore: Boolean,
     isLoadingMore: Boolean,
     onLoadMore: () -> Unit,
     onCustomerClick: (Long) -> Unit
 ) {
-    if (customers.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            EmptyState(
-                icon = Icons.Rounded.Groups,
-                title = "مشتری‌ای در این بازه نبوده",
-                subtitle = "بازه‌ی دیگری را امتحان کنید"
-            )
-        }
-        return
-    }
-
     // Same grid the appointment tabs use on a wide window — one column of
     // full-width rows across a desktop panel left each card mostly empty
     // space between the name and its badge.
@@ -188,6 +148,19 @@ private fun CustomerList(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column { header() }
+        }
+        if (customers.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                EmptyState(
+                    icon = Icons.Rounded.Groups,
+                    title = "مشتری‌ای در این بازه نبوده",
+                    subtitle = "بازه‌ی دیگری را امتحان کنید",
+                    modifier = Modifier.padding(top = 32.dp)
+                )
+            }
+        }
         gridItems(customers, key = { it.visitorId }) { customer ->
             CustomerRow(customer = customer, onClick = { onCustomerClick(customer.visitorId) })
         }
@@ -217,13 +190,13 @@ private fun CustomerRow(customer: RangeCustomer, onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
@@ -245,17 +218,13 @@ private fun CustomerRow(customer: RangeCustomer, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = customer.phoneNumber,
+                    text = customer.phoneNumber +
+                        (customer.lastVisit?.let { " · آخرین: ${DateTimeUtils.getJalaliDate(it)}" } ?: ""),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                customer.lastVisit?.let {
-                    Text(
-                        text = "آخرین مراجعه: ${DateTimeUtils.getJalaliDate(it)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                    )
-                }
             }
 
             Surface(

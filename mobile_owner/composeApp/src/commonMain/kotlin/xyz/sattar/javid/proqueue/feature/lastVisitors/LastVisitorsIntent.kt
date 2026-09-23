@@ -25,6 +25,9 @@ sealed interface LastVisitorsIntent {
      *  millisecond of the last day, inclusive. */
     data class OnDateRangeChanged(val from: Long, val to: Long) : LastVisitorsIntent
     data object LoadMoreRangeCustomers : LastVisitorsIntent
+    data class OnCustomerOrderingChanged(
+        val ordering: xyz.sattar.javid.proqueue.domain.model.CustomerOrdering
+    ) : LastVisitorsIntent
     /** Dispatched right after a toast is shown so it can't be re-shown/deduped. */
     data object ClearMessage : LastVisitorsIntent
 }

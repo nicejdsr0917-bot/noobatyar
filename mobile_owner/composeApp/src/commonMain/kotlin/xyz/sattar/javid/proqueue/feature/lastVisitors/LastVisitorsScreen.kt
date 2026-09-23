@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import xyz.sattar.javid.proqueue.core.navigation.MainTab
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,14 +15,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.Flow
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -32,7 +33,11 @@ import xyz.sattar.javid.proqueue.core.ui.components.BottomBarSpacer
 import xyz.sattar.javid.proqueue.core.ui.components.MainTopAppBar
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.components.EmptyState
-import xyz.sattar.javid.proqueue.core.ui.components.LastVisitorsListShimmer
+import xyz.sattar.javid.proqueue.core.ui.components.ListItemShimmer
+import xyz.sattar.javid.proqueue.core.ui.components.CollapsibleReceipt
+import xyz.sattar.javid.proqueue.core.ui.components.CollapsingHeader
+import xyz.sattar.javid.proqueue.core.ui.components.PullToRefreshBox
+import xyz.sattar.javid.proqueue.core.ui.components.rememberCollapsingHeaderState
 import xyz.sattar.javid.proqueue.core.ui.components.QueueItemCard
 import xyz.sattar.javid.proqueue.core.ui.components.SectionTabs
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
@@ -101,6 +106,7 @@ fun LastVisitorsScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LastVisitorsScreenContent(
     modifier: Modifier = Modifier,
@@ -121,64 +127,80 @@ fun LastVisitorsScreenContent(
         }
     }
 
+    // ── Space budget ──────────────────────────────────────────────────────
+    // This screen is worked through, not read: the owner is here to find a
+    // booking and act on it. It used to open with the app bar, tabs, two
+    // date fields, three presets and a count card stacked above the list —
+    // close to half a phone screen before the first row. Now only the tabs
+    // are pinned; the app bar and the one-line filter strip slide away as the
+    // list scrolls and come straight back on the way up, the date controls
+    // live in a drop-down off the strip, and the + button steps aside while
+    // the list is moving so it doesn't sit on top of a row's action button.
+    val topBarBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+    val headerState = rememberCollapsingHeaderState()
+    var dateExpanded by rememberSaveable { mutableStateOf(false) }
+
+    // Another tab or another window is another list: start it with the
+    // header in view, so what the list covers is never off screen.
+    LaunchedEffect(uiState.selectedTab, uiState.filter) {
+        headerState.expand()
+        topBarBehavior.state.heightOffset = 0f
+    }
+    // Once the strip has scrolled out of sight, fold its date panel away too,
+    // so it comes back as one line rather than the whole panel.
+    LaunchedEffect(headerState) {
+        snapshotFlow { headerState.collapsedFraction >= 1f }
+            .collect { hidden -> if (hidden) dateExpanded = false }
+    }
+    val fabVisible by remember {
+        derivedStateOf { topBarBehavior.state.collapsedFraction < 0.5f }
+    }
+
+    val isReport = uiState.selectedTab == RANGE_REPORT_TAB
+    val isQueue = uiState.selectedTab == 1
+    val appointments = remember(uiState.appointments) {
+        uiState.appointments.distinctBy { it.appointment.id }
+    }
+    val waiting = remember(appointments) {
+        val now = DateTimeUtils.systemCurrentMilliseconds()
+        appointments
+            .filter { it.appointment.status == "WAITING" || it.appointment.status == "PENDING_APPROVAL" || it.appointment.status == "PENDING_VERIFICATION" }
+            .sortedBy { abs(it.appointment.appointmentDate - now) }
+    }
+
     Scaffold(
+        modifier = Modifier.nestedScroll(topBarBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { ToastyHost(hostState = snackbarHostState) },
         topBar = {
+            // Refresh is pull-to-refresh (or a double-tap on the tab) and the
+            // filter lives on the strip, so the bar keeps nothing the list
+            // depends on while it is scrolled away.
             MainTopAppBar(
                 onNavigateToLogin = onNavigateToLogin,
                 onChangeBusiness = onChangeBusiness,
-                actions = {
-                    Box(
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable(enabled = !uiState.isLoading) {
-                                onIntent(LastVisitorsIntent.LoadAppointments)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Refresh,
-                            contentDescription = stringResource(Res.string.refresh),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .clickable { onIntent(LastVisitorsIntent.ShowFilterSheet(true)) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.FilterList,
-                            contentDescription = "فیلتر",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
+                scrollBehavior = topBarBehavior
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    onIntent(LastVisitorsIntent.OnCreateAppointmentClick)
-                },
-                modifier = Modifier.padding(bottom = BottomBarDefaults.FabClearance),
-                containerColor = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(16.dp)
+            AnimatedVisibility(
+                visible = fabVisible,
+                enter = scaleIn() + fadeIn(),
+                exit = scaleOut() + fadeOut()
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = stringResource(Res.string.create_appointment)
-                )
+                FloatingActionButton(
+                    onClick = {
+                        onIntent(LastVisitorsIntent.OnCreateAppointmentClick)
+                    },
+                    modifier = Modifier.padding(bottom = BottomBarDefaults.FabClearance),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = stringResource(Res.string.create_appointment)
+                    )
+                }
             }
         }
     ) { paddingValues ->
@@ -188,182 +210,126 @@ fun LastVisitorsScreenContent(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(top = paddingValues.calculateTopPadding())
         ) {
-            // Tabs and the date bar sit above every tab's content, in every
-            // state — loading and empty included — so switching tabs never
-            // moves them and the window a list covers is always on screen.
-            Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(headerState.connection)
+            ) {
                 VisitorsTabBar(
                     selectedIndex = uiState.selectedTab,
                     onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) }
                 )
-                VisitorsDateBar(
-                    from = uiState.filter.dateFrom ?: 0L,
-                    to = uiState.filter.dateTo ?: 0L,
-                    onRangeChange = { from, to ->
-                        onIntent(LastVisitorsIntent.OnDateRangeChanged(from, to))
-                    }
-                )
-                // The report counts every status, so a status filter has
-                // nothing to say there; on the two lists it is shown, not
-                // hidden in the sheet.
-                val status = uiState.filter.status
-                if (status != null && uiState.selectedTab != RANGE_REPORT_TAB) {
-                    ActiveStatusChip(
-                        status = status,
-                        onClear = {
-                            onIntent(LastVisitorsIntent.OnFilterChanged(uiState.filter.copy(status = null)))
-                        },
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
 
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when {
-                    // Ahead of the loading and empty checks: this tab carries
-                    // its own data, so gating it on the lists' appointments
-                    // would hide it exactly when it's most useful — a window
-                    // with nothing waiting still has a history to report on.
-                    uiState.selectedTab == RANGE_REPORT_TAB -> {
-                        RangeReportSection(
-                            uiState = uiState,
-                            onIntent = onIntent,
-                            onCustomerClick = { visitorId ->
-                                onIntent(LastVisitorsIntent.OnAppointmentClick(visitorId))
+                CollapsingHeader(state = headerState) {
+                    Column {
+                        VisitorsFilterStrip(
+                            from = uiState.filter.dateFrom ?: 0L,
+                            to = uiState.filter.dateTo ?: 0L,
+                            dateExpanded = dateExpanded,
+                            onToggleDate = { dateExpanded = !dateExpanded },
+                            // The report counts every status, so a status
+                            // filter has nothing to say there.
+                            status = uiState.filter.status.takeUnless { isReport },
+                            onClearStatus = {
+                                onIntent(LastVisitorsIntent.OnFilterChanged(uiState.filter.copy(status = null)))
+                            },
+                            count = when {
+                                isReport -> uiState.rangeReport?.customersTotal
+                                uiState.isLoading -> null
+                                isQueue -> waiting.size
+                                else -> uiState.totalCount
+                            },
+                            countLabel = when {
+                                isReport -> "مشتری"
+                                isQueue -> "در صف"
+                                else -> "نوبت"
+                            },
+                            filterActive = uiState.filter.status != null ||
+                                uiState.filter.ordering != AppointmentFilter().ordering,
+                            onOpenFilter = if (isReport) null else {
+                                { onIntent(LastVisitorsIntent.ShowFilterSheet(true)) }
                             }
                         )
-                    }
-
-                    uiState.isLoading -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                        AnimatedVisibility(
+                            visible = dateExpanded,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
                         ) {
-                            LastVisitorsListShimmer()
-                            BottomBarSpacer()
-                        }
-                    }
-
-                    uiState.appointments.isEmpty() -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            EmptyState(
-                                icon = Icons.Rounded.EventNote,
-                                title = "در این بازه نوبتی نیست",
-                                // Kept to one short line: the + button floats
-                                // over this area and a long subtitle ran under it.
-                                subtitle = "بازه‌ی دیگری را انتخاب کنید"
+                            VisitorsDateBar(
+                                from = uiState.filter.dateFrom ?: 0L,
+                                to = uiState.filter.dateTo ?: 0L,
+                                onRangeChange = { from, to ->
+                                    onIntent(LastVisitorsIntent.OnDateRangeChanged(from, to))
+                                },
+                                onPresetSelected = { dateExpanded = false }
                             )
                         }
                     }
+                }
 
-                    else -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        if (uiState.selectedTab == 1) {
-                            val now = DateTimeUtils.systemCurrentMilliseconds()
-                            val waiting = uiState.appointments
-                                .filter { it.appointment.status == "WAITING" || it.appointment.status == "PENDING_APPROVAL" || it.appointment.status == "PENDING_VERIFICATION" }
-                                .sortedBy { abs(it.appointment.appointmentDate - now) }
-
-                            TotalCountHeader(
-                                title = stringResource(Res.string.people_in_queue_count),
-                                count = waiting.size
-                            )
-
-                            if (waiting.isEmpty()) {
-                                EmptyState(
-                                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                                    icon = Icons.Rounded.EventNote,
-                                    title = stringResource(Res.string.empty_appointments_title),
-                                    subtitle = stringResource(Res.string.empty_appointments_subtitle)
-                                )
-                            } else {
-                                val queueItems = waiting.map { item ->
-                                    val duration = (item.appointment.serviceDuration
-                                        ?: item.business.defaultServiceDuration) * 60 * 1000L
-                                    QueueItem(
-                                        appointment = item.appointment,
-                                        visitorName = item.visitor.fullName,
-                                        visitorPhone = item.visitor.phoneNumber,
-                                        estimatedStartTime = item.appointment.appointmentDate,
-                                        estimatedEndTime = item.appointment.appointmentDate + duration
-                                    )
-                                }
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    items(queueItems) { queueItem ->
-                                        QueueItemCard(
-                                            item = queueItem,
-                                            onRemove = {
-                                                onIntent(
-                                                    LastVisitorsIntent.OnDeleteAppointment(
-                                                        queueItem.appointment.id
-                                                    )
-                                                )
-                                            },
-                                            onComplete = {
-                                                when (queueItem.appointment.status) {
-                                                    "PENDING_APPROVAL", "PENDING_VERIFICATION" -> {
-                                                        // Verify/Approve receipt → move to WAITING
-                                                        onIntent(LastVisitorsIntent.OnUpdateStatus(queueItem.appointment.id, "WAITING"))
-                                                    }
-                                                    else -> onIntent(LastVisitorsIntent.OnMarkCompleted(queueItem.appointment.id))
-                                                }
-                                            },
-                                            onNoShow = {
-                                                when (queueItem.appointment.status) {
-                                                    "PENDING_APPROVAL", "PENDING_VERIFICATION" -> {
-                                                        // Reject receipt → CANCELLED
-                                                        onIntent(LastVisitorsIntent.OnUpdateStatus(queueItem.appointment.id, "CANCELLED"))
-                                                    }
-                                                    else -> onIntent(LastVisitorsIntent.OnMarkNoShow(queueItem.appointment.id))
-                                                }
-                                            },
-                                            onSendMessage = { appointmentId, type, content, businessTitle ->
-                                                onIntent(
-                                                    LastVisitorsIntent.OnSendMessage(
-                                                        appointmentId = appointmentId,
-                                                        type = type,
-                                                        content = content,
-                                                        businessTitle = businessTitle
-                                                    )
-                                                )
-                                            },
-                                            onItemClick = {
-                                                onIntent(
-                                                    LastVisitorsIntent.OnEditAppointment(
-                                                        queueItem.appointment.id
-                                                    )
-                                                )
-                                            },
-                                            onGenerateMessage = onGenerateMessage
-                                        )
-                                    }
-                                    item { BottomBarSpacer() }
-                                }
-                            }
-                        } else {
-                            TotalCountHeader(
-                                title = stringResource(Res.string.total_visitors_count),
-                                count = uiState.totalCount
-                            )
-                            AppointmentsList(
-                                appointments = uiState.appointments,
-                                onEditClick = { appointmentId ->
-                                    onIntent(LastVisitorsIntent.OnEditAppointment(appointmentId))
-                                },
-                                onDeleteClick = { appointmentId ->
-                                    onIntent(LastVisitorsIntent.OnDeleteAppointment(appointmentId))
-                                },
-                                onItemClick = { visitorId ->
+                PullToRefreshBox(
+                    isRefreshing = if (isReport) uiState.rangeLoading else uiState.isLoading,
+                    onRefresh = { onIntent(LastVisitorsIntent.LoadAppointments) },
+                    refreshTab = MainTab.LastVisitors,
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                ) {
+                    when {
+                        // Ahead of the loading and empty checks: this tab carries
+                        // its own data, so gating it on the lists' appointments
+                        // would hide it exactly when it's most useful — a window
+                        // with nothing waiting still has a history to report on.
+                        isReport -> {
+                            RangeReportSection(
+                                uiState = uiState,
+                                onIntent = onIntent,
+                                onCustomerClick = { visitorId ->
                                     onIntent(LastVisitorsIntent.OnAppointmentClick(visitorId))
                                 }
                             )
                         }
+
+                        uiState.isLoading -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                repeat(7) { ListItemShimmer(height = 72.dp) }
+                            }
+                        }
+
+                        isQueue && waiting.isEmpty() -> ScrollableEmptyState(
+                            title = stringResource(Res.string.empty_appointments_title),
+                            subtitle = stringResource(Res.string.empty_appointments_subtitle)
+                        )
+
+                        appointments.isEmpty() -> ScrollableEmptyState(
+                            title = "در این بازه نوبتی نیست",
+                            // Kept to one short line: the + button floats
+                            // over this area and a long subtitle ran under it.
+                            subtitle = "بازه‌ی دیگری را انتخاب کنید"
+                        )
+
+                        isQueue -> QueueList(
+                            waiting = waiting,
+                            onIntent = onIntent,
+                            onGenerateMessage = onGenerateMessage
+                        )
+
+                        else -> AppointmentsList(
+                            appointments = appointments,
+                            onEditClick = { appointmentId ->
+                                onIntent(LastVisitorsIntent.OnEditAppointment(appointmentId))
+                            },
+                            onDeleteClick = { appointmentId ->
+                                onIntent(LastVisitorsIntent.OnDeleteAppointment(appointmentId))
+                            },
+                            onItemClick = { visitorId ->
+                                onIntent(LastVisitorsIntent.OnAppointmentClick(visitorId))
+                            }
+                        )
                     }
-                    }
-                }
                 }
             }
 
@@ -379,7 +345,90 @@ fun LastVisitorsScreenContent(
     }
 }
 
+/**
+ * An empty list that can still be pulled to refresh: the message sits in a
+ * one-item lazy list the height of the viewport, so the pull gesture has
+ * something to scroll against.
+ */
+@Composable
+private fun ScrollableEmptyState(title: String, subtitle: String) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item {
+            Box(
+                modifier = Modifier.fillParentMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                EmptyState(icon = Icons.Rounded.EventNote, title = title, subtitle = subtitle)
+            }
+        }
+    }
+}
 
+@Composable
+private fun QueueList(
+    waiting: List<AppointmentWithDetails>,
+    onIntent: (LastVisitorsIntent) -> Unit,
+    onGenerateMessage: (Long, String, String, String, Long, String, Int?) -> String
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        items(waiting, key = { it.appointment.id }) { item ->
+            val duration = (item.appointment.serviceDuration
+                ?: item.business.defaultServiceDuration) * 60 * 1000L
+            val queueItem = QueueItem(
+                appointment = item.appointment,
+                visitorName = item.visitor.fullName,
+                visitorPhone = item.visitor.phoneNumber,
+                estimatedStartTime = item.appointment.appointmentDate,
+                estimatedEndTime = item.appointment.appointmentDate + duration
+            )
+            Box(modifier = Modifier.animateItem()) {
+                QueueItemCard(
+                    item = queueItem,
+                    onRemove = {
+                        onIntent(LastVisitorsIntent.OnDeleteAppointment(queueItem.appointment.id))
+                    },
+                    onComplete = {
+                        when (queueItem.appointment.status) {
+                            "PENDING_APPROVAL", "PENDING_VERIFICATION" -> {
+                                // Verify/Approve receipt → move to WAITING
+                                onIntent(LastVisitorsIntent.OnUpdateStatus(queueItem.appointment.id, "WAITING"))
+                            }
+                            else -> onIntent(LastVisitorsIntent.OnMarkCompleted(queueItem.appointment.id))
+                        }
+                    },
+                    onNoShow = {
+                        when (queueItem.appointment.status) {
+                            "PENDING_APPROVAL", "PENDING_VERIFICATION" -> {
+                                // Reject receipt → CANCELLED
+                                onIntent(LastVisitorsIntent.OnUpdateStatus(queueItem.appointment.id, "CANCELLED"))
+                            }
+                            else -> onIntent(LastVisitorsIntent.OnMarkNoShow(queueItem.appointment.id))
+                        }
+                    },
+                    onSendMessage = { appointmentId, type, content, businessTitle ->
+                        onIntent(
+                            LastVisitorsIntent.OnSendMessage(
+                                appointmentId = appointmentId,
+                                type = type,
+                                content = content,
+                                businessTitle = businessTitle
+                            )
+                        )
+                    },
+                    onItemClick = {
+                        onIntent(LastVisitorsIntent.OnEditAppointment(queueItem.appointment.id))
+                    },
+                    onGenerateMessage = onGenerateMessage
+                )
+            }
+        }
+        item { BottomBarSpacer() }
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -484,51 +533,6 @@ fun FilterBottomSheet(
 }
 
 @Composable
-fun TotalCountHeader(
-    title: String,
-    count: Int
-) {
-    val isDark = !MaterialTheme.colorScheme.surface.let { color ->
-        (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) > 0.5
-    }
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 12.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.4f else 0.7f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.3f else 0.2f))
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-}
-
-@Composable
 fun AppointmentsList(
     appointments: List<AppointmentWithDetails>,
     onEditClick: (Long) -> Unit,
@@ -536,16 +540,19 @@ fun AppointmentsList(
     onItemClick: (Long) -> Unit
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(appointments) { appointment ->
-            AppointmentCard(
-                appointmentWithDetails = appointment,
-                onEditClick = { onEditClick(appointment.appointment.id) },
-                onDeleteClick = { onDeleteClick(appointment.appointment.id) },
-                onItemClick = { onItemClick(appointment.appointment.visitorId) }
-            )
+        items(appointments, key = { it.appointment.id }) { appointment ->
+            Box(modifier = Modifier.animateItem()) {
+                AppointmentCard(
+                    appointmentWithDetails = appointment,
+                    onEditClick = { onEditClick(appointment.appointment.id) },
+                    onDeleteClick = { onDeleteClick(appointment.appointment.id) },
+                    onItemClick = { onItemClick(appointment.appointment.visitorId) }
+                )
+            }
         }
         item { BottomBarSpacer() }
     }
@@ -573,7 +580,8 @@ private fun VisitorsTabBar(
         ),
         selectedIndex = selectedIndex,
         onSelected = onSelected,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        tabHeight = 48.dp
     )
 }
 
@@ -586,11 +594,10 @@ fun AppointmentCard(
 ) {
     val appointment = appointmentWithDetails.appointment
     val visitor = appointmentWithDetails.visitor
-    val uriHandler = LocalUriHandler.current
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onItemClick() },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
@@ -602,7 +609,7 @@ fun AppointmentCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             val durationMinutes = appointment.serviceDuration
                 ?: appointmentWithDetails.business.defaultServiceDuration
@@ -613,182 +620,118 @@ fun AppointmentCard(
             val overdue =
                 DateTimeUtils.systemCurrentMilliseconds() > endTimeMs && appointment.status == "WAITING"
 
-            // Header: identity + status, on a single line.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically
+            // Two lines: who and where the booking stands, then when. The
+            // phone number, and the separate tinted strip the time/date/
+            // duration sat in, made every row ~120dp; the number is one tap
+            // away on the visitor's page, which is where tapping the card goes.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = visitor.fullName.firstOrNull()?.toString() ?: "?",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = visitor.fullName.firstOrNull()?.toString() ?: "?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = visitor.fullName,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
                         )
-                        Text(
-                            text = visitor.phoneNumber ?: "--",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Spacer(modifier = Modifier.width(8.dp))
+                        StatusBadge(status = appointment.status, overdue = overdue)
+                    }
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        MetaItem(
+                            icon = Icons.Rounded.Schedule,
+                            text = "$endTimeOnly ${stringResource(Res.string.to_label)} $startTimeOnly",
+                            emphasized = true
                         )
+                        MetaItem(icon = Icons.Rounded.CalendarToday, text = dateText)
+                        MetaItem(icon = Icons.Rounded.Timer, text = "$durationMinutes دقیقه")
                     }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                StatusBadge(status = appointment.status, overdue = overdue)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Compact info strip: time range · date · duration grouped in one bar,
-            // so the width is used instead of leaving a big empty gap.
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            // Anything below only exists for some bookings, and each is kept
+            // to a single line so a card with all of them stays short.
+            val hasNote = !appointment.description.isNullOrBlank()
+            val hasDeposit = appointment.depositPaymentMethod == "CARD" || appointment.depositPaymentMethod == "GATEWAY"
+            val receipt = appointment.paymentReceipt
+            if (hasNote || hasDeposit || receipt != null) {
+                Column(
+                    modifier = Modifier.padding(start = 48.dp, top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    MetaItem(
-                        icon = Icons.Rounded.Schedule,
-                        text = "$endTimeOnly ${stringResource(Res.string.to_label)} $startTimeOnly",
-                        emphasized = true
-                    )
-                    MetaItem(
-                        icon = Icons.Rounded.CalendarToday,
-                        text = dateText
-                    )
-                    MetaItem(
-                        icon = Icons.Rounded.Timer,
-                        text = "$durationMinutes دقیقه"
-                    )
-                }
-            }
+                    if (hasNote) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = appointment.description.orEmpty(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
 
-            if (!appointment.description.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.Edit,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = appointment.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            // Deposit summary — a gateway payment has a tracking reference but no
-            // receipt image, so this has to stand on its own rather than being
-            // folded into the receipt block below. Purpose: an owner meeting the
-            // client in person to collect the remainder needs to see at a glance
-            // that a deposit was already taken, and through which channel.
-            if (appointment.depositPaymentMethod == "CARD" || appointment.depositPaymentMethod == "GATEWAY") {
-                Spacer(modifier = Modifier.height(10.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                    // Deposit summary — a gateway payment has a tracking
+                    // reference but no receipt image, so this stands on its
+                    // own. An owner meeting the client in person to collect
+                    // the remainder needs to see that a deposit was already
+                    // taken, and through which channel.
+                    if (hasDeposit) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = if (appointment.depositPaymentMethod == "GATEWAY")
                                     Icons.Rounded.CreditCard else Icons.Rounded.Payments,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = stringResource(Res.string.deposit_paid_label),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "— " + stringResource(
+                                text = stringResource(Res.string.deposit_paid_label) + " — " + stringResource(
                                     if (appointment.depositPaymentMethod == "GATEWAY")
                                         Res.string.deposit_method_gateway
                                     else Res.string.deposit_method_card
-                                ),
+                                ) + (appointment.paymentReference?.takeIf { it.isNotBlank() }
+                                    ?.let { " · ${stringResource(Res.string.tracking_number_label)}: $it" } ?: ""),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        appointment.paymentReference?.takeIf { it.isNotBlank() }?.let { reference ->
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "${stringResource(Res.string.tracking_number_label)}: $reference",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
-                }
-            }
 
-            // Payment receipt preview — same pattern as QueueItemCard, missing
-            // here meant a client's uploaded slip was invisible from this tab.
-            appointment.paymentReceipt?.let { receipt ->
-                val receiptUrl = if (receipt.startsWith("http")) receipt
-                else "${xyz.sattar.javid.proqueue.core.utils.AppConfig.baseUrl}$receipt"
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = stringResource(Res.string.payment_receipt),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                AsyncImage(
-                    model = receiptUrl,
-                    contentDescription = stringResource(Res.string.payment_receipt),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { uriHandler.openUri(receiptUrl) },
-                    contentScale = ContentScale.Crop
-                )
-                Text(
-                    text = stringResource(Res.string.click_to_view_full),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                    // Folded to one line; see CollapsibleReceipt.
+                    receipt?.let { CollapsibleReceipt(receipt = it) }
+                }
             }
         }
     }

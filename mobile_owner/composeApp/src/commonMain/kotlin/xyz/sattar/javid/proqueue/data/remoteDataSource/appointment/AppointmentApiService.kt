@@ -104,6 +104,7 @@ class AppointmentApiService(private val httpClient: HttpClient) {
             businessId: Long,
             dateFrom: Long,
             dateTo: Long,
+            ordering: String = "visits",
             page: Int = 1,
             pageSize: Int = 20
     ): ApiResponse<
@@ -114,6 +115,7 @@ class AppointmentApiService(private val httpClient: HttpClient) {
                     parameter("business_id", businessId)
                     parameter("date_from", dateFrom)
                     parameter("date_to", dateTo)
+                    parameter("ordering", ordering)
                     parameter("page", page)
                     parameter("page_size", pageSize)
                 }

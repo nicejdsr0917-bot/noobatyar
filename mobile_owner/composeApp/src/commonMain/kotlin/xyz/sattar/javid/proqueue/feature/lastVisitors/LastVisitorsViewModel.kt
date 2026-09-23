@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import xyz.sattar.javid.proqueue.domain.model.CustomerOrdering
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -111,6 +112,15 @@ class LastVisitorsViewModel(
             }
             LastVisitorsIntent.ClearMessage -> flow { emit(LastVisitorsState.PartialState.ClearMessage) }
             LastVisitorsIntent.LoadMoreRangeCustomers -> loadMoreRangeCustomers()
+            is LastVisitorsIntent.OnCustomerOrderingChanged -> flow {
+                if (intent.ordering == uiState.value.customerOrdering) return@flow
+                emit(LastVisitorsState.PartialState.CustomerOrderingChanged(intent.ordering))
+                // Same window, new order: the pages already loaded are in the
+                // old order, so start again from page one. The new order is
+                // passed in rather than read back from uiState, which hasn't
+                // necessarily been reduced yet at this point.
+                emitAll(loadReportIfStale(uiState.value.filter, force = true, ordering = intent.ordering))
+            }
         }
     }
 
@@ -158,7 +168,8 @@ class LastVisitorsViewModel(
 
     private fun loadReportIfStale(
         filter: AppointmentFilter,
-        force: Boolean = false
+        force: Boolean = false,
+        ordering: CustomerOrdering = uiState.value.customerOrdering
     ): Flow<LastVisitorsState.PartialState> = flow {
         val window = reportWindow(filter)
         val state = uiState.value
@@ -166,10 +177,14 @@ class LastVisitorsViewModel(
             window != (state.rangeFrom to state.rangeTo)
         if (!force && !stale) return@flow
         emit(LastVisitorsState.PartialState.RangeSelected(window.first, window.second))
-        emitAll(loadRangeReport(window.first, window.second))
+        emitAll(loadRangeReport(window.first, window.second, ordering))
     }
 
-    private fun loadRangeReport(from: Long, to: Long): Flow<LastVisitorsState.PartialState> = flow {
+    private fun loadRangeReport(
+        from: Long,
+        to: Long,
+        ordering: CustomerOrdering
+    ): Flow<LastVisitorsState.PartialState> = flow {
         emit(LastVisitorsState.PartialState.RangeLoading(true))
         val business = BusinessStateHolder.selectedBusiness.value
         if (business == null) {
@@ -180,7 +195,8 @@ class LastVisitorsViewModel(
             val report = getRangeReportUseCase(
                 businessId = business.id,
                 dateFrom = from,
-                dateTo = to
+                dateTo = to,
+                ordering = ordering
             )
             if (report == null) {
                 emit(LastVisitorsState.PartialState.RangeFailed)
@@ -204,6 +220,7 @@ class LastVisitorsViewModel(
                 businessId = business.id,
                 dateFrom = current.dateFrom,
                 dateTo = current.dateTo,
+                ordering = uiState.value.customerOrdering,
                 page = current.currentPage + 1
             )
             if (next == null) {
@@ -269,6 +286,8 @@ class LastVisitorsViewModel(
                     ),
                     rangeLoading = false
                 )
+            is LastVisitorsState.PartialState.CustomerOrderingChanged ->
+                currentState.copy(customerOrdering = partialState.ordering)
         }
     }
 
