@@ -2,9 +2,10 @@
 appointment/views/range_visitors_view.py
 
 Distinct customers who had an appointment in a date window, for the owner
-app's "گزارش بازه‌ای" tab (the third tab on the مراجعین screen).
+app's "مشتری‌ها" tab (the third tab on the نوبت‌ها screen; formerly
+"گزارش بازه‌ای").
 
-GET /api/appointment/range-visitors/?business_id=<id>&date_from=<ms>&date_to=<ms>[&page][&page_size]
+GET /api/appointment/range-visitors/?business_id=<id>&date_from=<ms>&date_to=<ms>[&ordering][&page][&page_size]
 → {
       "date_from": <ms>, "date_to": <ms>,   // the range actually measured
       "clamped": <bool>,
@@ -17,7 +18,7 @@ GET /api/appointment/range-visitors/?business_id=<id>&date_from=<ms>&date_to=<ms
   }
 
 Unlike the appointment list, this answers "who came", not "what happened" —
-one row per person with how many times they came, busiest first. Paging
+one row per person with how many times they came. Paging
 through appointment_list and grouping client-side would only ever group the
 page in hand, the same trap service_breakdown_view.py was written to avoid.
 
@@ -28,6 +29,12 @@ of its day, date_to pushed to the start of the next day so the end date is
 inclusive. Both are **required** here, unlike the other range endpoints where
 they are independently optional — a customer list with no window is the
 unbounded scan this endpoint exists to prevent.
+
+── ordering ─────────────────────────────────────────────────────────────
+`visits` (default): most appointments first — the regulars.
+`recent`: latest appointment first — who was in most recently.
+Anything else falls back to `visits`. Sorted here, not in the app, because
+the list is paged: re-sorting the rows in hand would only order one page.
 
 ── the 31-day cap ────────────────────────────────────────────────────────
 A window longer than [MAX_RANGE_DAYS] is clamped by moving date_from up to
@@ -58,12 +65,24 @@ from api.responses import APIResponse
 
 MAX_RANGE_DAYS = 31
 MAX_PAGE_SIZE = 100
+ORDERINGS = {
+    'visits': ('-appointment_count', '-last_visit'),
+    'recent': ('-last_visit', '-appointment_count'),
+}
 
 
 def _parse_ms(value: str):
-    """Epoch-ms string → aware datetime at the start of that local day."""
+    """Epoch-ms string → aware datetime at the start of that local day.
+
+    The day is read in the server's zone (Asia/Tehran), not UTC. The app
+    sends local midnight, which in UTC is still the previous date — reading
+    it as a UTC date moved both ends of the window back a day, so the
+    customer list never included the last day asked for (with the default
+    windows, that was always today).
+    """
     timestamp_ms = int(value)
-    day = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc).date()
+    instant = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
+    day = timezone.localtime(instant).date()
     return timezone.make_aware(datetime.combine(day, datetime.min.time()))
 
 
@@ -120,9 +139,10 @@ class RangeVisitorsView(APIView):
 
         page = _positive_int(request.query_params.get('page'), default=1)
         page_size = min(_positive_int(request.query_params.get('page_size'), default=20), MAX_PAGE_SIZE)
+        ordering = ORDERINGS.get(request.query_params.get('ordering'), ORDERINGS['visits'])
 
         data = await self._range_visitors(
-            request.user, business_id, start, end_day, page, page_size
+            request.user, business_id, start, end_day, page, page_size, ordering
         )
         data['date_from'] = int(start.timestamp() * 1000)
         data['date_to'] = int(end_day.timestamp() * 1000)
@@ -130,7 +150,8 @@ class RangeVisitorsView(APIView):
         return APIResponse.success(data=data, message='لیست مشتریان بازه دریافت شد')
 
     @sync_to_async
-    def _range_visitors(self, user, business_id: int, start, end_day, page: int, page_size: int) -> dict:
+    def _range_visitors(self, user, business_id: int, start, end_day, page: int, page_size: int,
+                        ordering: tuple) -> dict:
         # Scoped to business__user=user, same as daily_counts_view.py and
         # service_breakdown_view.py — a business_id the caller does not own
         # comes back empty rather than 403/404, so the endpoint leaks nothing
@@ -145,7 +166,10 @@ class RangeVisitorsView(APIView):
             )
             .values('visitor_id', 'visitor__full_name', 'visitor__phone_number')
             .annotate(appointment_count=Count('id'), last_visit=Max('appointment_date'))
-            .order_by('-appointment_count', '-last_visit')
+            # visitor_id last so rows that tie on both keys still page
+            # deterministically — without it the same person can show up on
+            # two pages, or on none.
+            .order_by(*ordering, 'visitor_id')
         )
 
         # Paginator over the queryset, not a materialised list: the grouping
