@@ -167,8 +167,18 @@ android {
             // listens per docs/ENVIRONMENTS.md. On a real device on the same
             // LAN, override with your machine's IP instead (adb won't route
             // 10.0.2.2).
-            buildConfigField("String", "BASE_URL", "\"https://api.noobatyar.ir\"")
-            buildConfigField("String", "BOOKING_BASE_URL", "\"https://app.noobatyar.ir\"")
+            //
+            // Defaults to production (2b1951b). To point it at a backend on this
+            // machine without editing this file, pass the URL as a property:
+            //   ./gradlew assembleLocalDebug -PlocalBaseUrl=http://127.0.0.1:8000
+            // 127.0.0.1 works on any emulator (LDPlayer included, which has no
+            // 10.0.2.2 alias) once `adb reverse tcp:8000 tcp:8000` is set up.
+            val localBaseUrl = (project.findProperty("localBaseUrl") as String?)
+                ?: "https://api.noobatyar.ir"
+            val localBookingUrl = (project.findProperty("localBookingUrl") as String?)
+                ?: "https://app.noobatyar.ir"
+            buildConfigField("String", "BASE_URL", "\"$localBaseUrl\"")
+            buildConfigField("String", "BOOKING_BASE_URL", "\"$localBookingUrl\"")
         }
     }
     packaging {
