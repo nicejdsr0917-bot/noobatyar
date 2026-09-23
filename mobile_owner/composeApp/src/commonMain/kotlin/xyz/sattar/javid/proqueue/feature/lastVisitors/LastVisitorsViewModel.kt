@@ -31,7 +31,7 @@ class LastVisitorsViewModel(
     private val getRangeReportUseCase: GetRangeReportUseCase,
     private val appointmentRepository: AppointmentRepository
 ) : BaseViewModel<LastVisitorsState, LastVisitorsState.PartialState, LastVisitorsEvent, LastVisitorsIntent>(
-    initialState = LastVisitorsState()
+    initialState = LastVisitorsState(filter = AppointmentFilter().withResolvedDates())
 ) {
 
     init {
@@ -44,7 +44,14 @@ class LastVisitorsViewModel(
 
     override fun handleIntent(intent: LastVisitorsIntent): Flow<LastVisitorsState.PartialState> {
         return when (intent) {
-            LastVisitorsIntent.LoadAppointments -> loadAppointments()
+            LastVisitorsIntent.LoadAppointments -> flow {
+                emitAll(loadAppointments())
+                // The refresh button and a business switch reload whatever
+                // is on screen, report included.
+                if (uiState.value.selectedTab == RANGE_REPORT_TAB) {
+                    emitAll(loadReportIfStale(uiState.value.filter, force = true))
+                }
+            }
             is LastVisitorsIntent.OnAppointmentOptionsClick -> flow {
                 emit(LastVisitorsState.PartialState.ShowOptionsDialog(intent.appointmentId))
             }
@@ -61,31 +68,28 @@ class LastVisitorsViewModel(
             }
             is LastVisitorsIntent.OnTabSelected -> flow {
                 emit(LastVisitorsState.PartialState.TabSelected(intent.index))
-                // Load the report the first time its tab is opened, not on
-                // every switch back to it — it's a server round trip, and the
-                // window it describes doesn't change on its own.
-                if (intent.index == RANGE_REPORT_TAB && uiState.value.rangeReport == null) {
-                    val (from, to) = defaultRangeIfUnset(uiState.value.rangeFrom, uiState.value.rangeTo)
-                    emit(LastVisitorsState.PartialState.RangeSelected(from, to))
-                    emitAll(loadRangeReport(from, to))
+                // The report is a server round trip, so it is fetched when its
+                // tab is opened and only if the shared window moved since the
+                // last fetch — not on every switch back to it.
+                if (intent.index == RANGE_REPORT_TAB) {
+                    emitAll(loadReportIfStale(uiState.value.filter))
                 }
             }
             is LastVisitorsIntent.OnAppointmentClick -> {
                 sendEvent(LastVisitorsEvent.NavigateToVisitorDetails(intent.visitorId))
             }
-            is LastVisitorsIntent.OnFilterChanged -> flow {
-                emit(LastVisitorsState.PartialState.UpdateFilter(intent.filter))
-                emit(LastVisitorsState.PartialState.ShowFilterSheet(false))
-                emitAll(loadAppointments(intent.filter))
-            }
+            is LastVisitorsIntent.OnFilterChanged -> applyFilter(intent.filter)
+            is LastVisitorsIntent.OnDateRangeChanged -> applyFilter(
+                uiState.value.filter.copy(date = null, dateFrom = intent.from, dateTo = intent.to)
+            )
             is LastVisitorsIntent.ShowFilterSheet -> flow {
                 emit(LastVisitorsState.PartialState.ShowFilterSheet(intent.show))
             }
-            LastVisitorsIntent.ClearFilter -> flow {
-                val defaultFilter = AppointmentFilter()
-                emit(LastVisitorsState.PartialState.UpdateFilter(defaultFilter))
-                emitAll(loadAppointments(defaultFilter))
-            }
+            // Clears what the filter sheet sets — status and ordering. The
+            // date window belongs to the date bar and stays where it is.
+            LastVisitorsIntent.ClearFilter -> applyFilter(
+                uiState.value.filter.copy(status = null, ordering = AppointmentFilter().ordering)
+            )
             is LastVisitorsIntent.OnSendMessage -> flow {
                 try {
                     val success = sendMessageUseCase(
@@ -106,20 +110,6 @@ class LastVisitorsViewModel(
                 }
             }
             LastVisitorsIntent.ClearMessage -> flow { emit(LastVisitorsState.PartialState.ClearMessage) }
-            is LastVisitorsIntent.OnRangeChanged -> flow {
-                val (from, to) = clampRange(intent.from, intent.to)
-                emit(LastVisitorsState.PartialState.RangeSelected(from, to))
-                emitAll(loadRangeReport(from, to))
-            }
-            is LastVisitorsIntent.OnRangeSubTabSelected -> flow {
-                emit(LastVisitorsState.PartialState.RangeSubTabSelected(intent.index))
-            }
-            LastVisitorsIntent.LoadRangeReport -> flow {
-                val state = uiState.value
-                val (from, to) = defaultRangeIfUnset(state.rangeFrom, state.rangeTo)
-                emit(LastVisitorsState.PartialState.RangeSelected(from, to))
-                emitAll(loadRangeReport(from, to))
-            }
             LastVisitorsIntent.LoadMoreRangeCustomers -> loadMoreRangeCustomers()
         }
     }
@@ -138,10 +128,45 @@ class LastVisitorsViewModel(
         return maxOf(start, earliest) to end
     }
 
-    private fun defaultRangeIfUnset(from: Long, to: Long): Pair<Long, Long> {
-        if (from != 0L && to != 0L) return from to to
-        val today = DateTimeUtils.startOfTodayMillis()
-        return (today - 29L * GetRangeReportUseCase.DAY_MILLIS) to today
+    /**
+     * One filter change, applied to every tab: the lists reload, and the
+     * report too if it is the tab on screen (otherwise it catches up when
+     * opened — see [loadReportIfStale]).
+     */
+    private fun applyFilter(filter: AppointmentFilter): Flow<LastVisitorsState.PartialState> = flow {
+        val resolved = filter.withResolvedDates()
+        emit(LastVisitorsState.PartialState.UpdateFilter(resolved))
+        emit(LastVisitorsState.PartialState.ShowFilterSheet(false))
+        emitAll(loadAppointments(resolved))
+        if (uiState.value.selectedTab == RANGE_REPORT_TAB) {
+            emitAll(loadReportIfStale(resolved))
+        }
+    }
+
+    /**
+     * The report window for the shared filter: the same days, expressed the
+     * way the report endpoint takes them (start of first day, start of last
+     * day), then clamped to the report's cap.
+     */
+    private fun reportWindow(filter: AppointmentFilter): Pair<Long, Long> {
+        val f = filter.withResolvedDates()
+        val from = f.dateFrom!!
+        val lastDayStart = from + ((f.dateTo!! - from) / GetRangeReportUseCase.DAY_MILLIS) *
+            GetRangeReportUseCase.DAY_MILLIS
+        return clampRange(from, lastDayStart)
+    }
+
+    private fun loadReportIfStale(
+        filter: AppointmentFilter,
+        force: Boolean = false
+    ): Flow<LastVisitorsState.PartialState> = flow {
+        val window = reportWindow(filter)
+        val state = uiState.value
+        val stale = state.rangeReport == null || state.rangeFailed ||
+            window != (state.rangeFrom to state.rangeTo)
+        if (!force && !stale) return@flow
+        emit(LastVisitorsState.PartialState.RangeSelected(window.first, window.second))
+        emitAll(loadRangeReport(window.first, window.second))
     }
 
     private fun loadRangeReport(from: Long, to: Long): Flow<LastVisitorsState.PartialState> = flow {
@@ -161,28 +186,7 @@ class LastVisitorsViewModel(
                 emit(LastVisitorsState.PartialState.RangeFailed)
                 return@flow
             }
-
-            // The appointment rows come through the same sync-then-read path
-            // the other tabs use, over the window the server actually
-            // measured — so a clamped range doesn't list appointments from
-            // days the summary above them never counted.
-            syncAppointmentsUseCase(
-                businessId = business.id,
-                status = null,
-                date = null,
-                dateFrom = report.dateFrom,
-                dateTo = report.dateTo,
-                ordering = AppointmentOrdering.DATE_DESC
-            )
-            val appointments = appointmentRepository
-                .getAllAppointmentsForBusiness(business.id)
-                .filter {
-                    it.appointment.appointmentDate >= report.dateFrom &&
-                        it.appointment.appointmentDate <= report.dateTo + GetRangeReportUseCase.DAY_MILLIS
-                }
-                .sortedByDescending { it.appointment.appointmentDate }
-
-            emit(LastVisitorsState.PartialState.RangeLoaded(report, appointments))
+            emit(LastVisitorsState.PartialState.RangeLoaded(report))
         } catch (e: Exception) {
             emit(LastVisitorsState.PartialState.RangeFailed)
         }
@@ -242,19 +246,16 @@ class LastVisitorsViewModel(
                 currentState.copy(message = null)
             is LastVisitorsState.PartialState.RangeSelected ->
                 currentState.copy(rangeFrom = partialState.from, rangeTo = partialState.to)
-            is LastVisitorsState.PartialState.RangeSubTabSelected ->
-                currentState.copy(rangeSubTab = partialState.index)
             is LastVisitorsState.PartialState.RangeLoading ->
                 currentState.copy(rangeLoading = partialState.isLoading)
             is LastVisitorsState.PartialState.RangeLoaded ->
+                // rangeFrom/rangeTo stay as requested, not snapped to what the
+                // server measured: they are the staleness key for
+                // loadReportIfStale, and the shared date bar — not the report —
+                // owns the dates on screen. A clamp is surfaced by the note
+                // RangeReportSection shows off report.clamped.
                 currentState.copy(
                     rangeReport = partialState.report,
-                    rangeAppointments = partialState.appointments,
-                    // Snap the picker onto what the server measured, so a
-                    // clamped range can't leave the header showing dates the
-                    // numbers below it never covered.
-                    rangeFrom = partialState.report.dateFrom,
-                    rangeTo = partialState.report.dateTo,
                     rangeLoading = false,
                     rangeFailed = false
                 )
@@ -300,26 +301,18 @@ class LastVisitorsViewModel(
         try {
             val business = BusinessStateHolder.selectedBusiness.value
             if (business != null) {
-                // این تب باید فقط ۷ روز آینده را نشان دهد. وقتی فیلتر کاربر نه
-                // یک روز خاص (filter.date) و نه بازه‌ی تاریخ صریحی (مثلاً از
-                // نمودار روند) مشخص کرده، پیش‌فرض را به [امروز, امروز+۷روز]
-                // محدود می‌کنیم — قبلاً بدون این پیش‌فرض همه‌ی نوبت‌های
-                // گذشته/آینده بارگذاری می‌شدند.
-                val effectiveDateFrom: Long?
-                val effectiveDateTo: Long?
-                if (filter.date != null) {
-                    effectiveDateFrom = filter.dateFrom
-                    effectiveDateTo = filter.dateTo
-                } else {
-                    effectiveDateFrom = filter.dateFrom ?: DateTimeUtils.startOfTodayMillis()
-                    effectiveDateTo = filter.dateTo ?: (DateTimeUtils.startOfTodayMillis() + 7L * 24 * 60 * 60 * 1000L)
-                }
+                // The window comes from the shared date bar; withResolvedDates
+                // is a no-op for any filter that went through applyFilter, and
+                // fills in the default (next 7 days) for any that didn't.
+                val resolved = filter.withResolvedDates()
+                val effectiveDateFrom = resolved.dateFrom
+                val effectiveDateTo = resolved.dateTo
 
                 // Sync with server using filters
                 syncAppointmentsUseCase(
                     businessId = business.id,
                     status = filter.status,
-                    date = filter.date,
+                    date = null,
                     dateFrom = effectiveDateFrom,
                     dateTo = effectiveDateTo,
                     ordering = filter.ordering
@@ -333,7 +326,6 @@ class LastVisitorsViewModel(
 
                 val filtered = appointments.filter { app ->
                     (filter.status == null || app.appointment.status == filter.status) &&
-                    (filter.date == null || DateTimeUtils.isSameDay(app.appointment.appointmentDate, filter.date)) &&
                     (effectiveDateFrom == null || app.appointment.appointmentDate >= effectiveDateFrom) &&
                     (effectiveDateTo == null || app.appointment.appointmentDate <= effectiveDateTo)
                 }
@@ -416,6 +408,28 @@ class LastVisitorsViewModel(
             }
         } catch (e: Exception) {
             emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در تغییر وضعیت نوبت")))
+        }
+    }
+}
+
+/**
+ * Fills in whichever end of the date window is missing, so every filter the
+ * screen holds names both days. A single [AppointmentFilter.date] becomes that
+ * whole day; no dates at all becomes the default window, the next seven days —
+ * what an owner opening the screen cold is looking for.
+ */
+internal fun AppointmentFilter.withResolvedDates(): AppointmentFilter {
+    date?.let { day ->
+        val start = DateTimeUtils.startOfDayMillis(day)
+        return copy(date = null, dateFrom = start, dateTo = DateRanges.endOfDay(start))
+    }
+    return when {
+        dateFrom != null && dateTo != null -> this
+        dateFrom != null -> copy(dateTo = DateRanges.endOfDay(DateTimeUtils.startOfDayMillis(dateFrom)))
+        dateTo != null -> copy(dateFrom = DateTimeUtils.startOfDayMillis(dateTo))
+        else -> {
+            val (from, to) = DateRanges.nextWeek()
+            copy(dateFrom = from, dateTo = to)
         }
     }
 }

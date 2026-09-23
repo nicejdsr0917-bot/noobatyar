@@ -188,68 +188,76 @@ fun LastVisitorsScreenContent(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(top = paddingValues.calculateTopPadding())
         ) {
-            when {
-                // First, ahead of the loading and empty checks: this tab
-                // carries its own data over its own window, so gating it on
-                // the *other* tabs' appointment list would hide it exactly
-                // when it's most useful — a business with nothing booked in
-                // the next 7 days still has a history worth reporting on.
-                uiState.selectedTab == RANGE_REPORT_TAB -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        VisitorsTabBar(
-                            selectedIndex = uiState.selectedTab,
-                            onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) }
-                        )
+            // Tabs and the date bar sit above every tab's content, in every
+            // state — loading and empty included — so switching tabs never
+            // moves them and the window a list covers is always on screen.
+            Column(modifier = Modifier.fillMaxSize()) {
+                VisitorsTabBar(
+                    selectedIndex = uiState.selectedTab,
+                    onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) }
+                )
+                VisitorsDateBar(
+                    from = uiState.filter.dateFrom ?: 0L,
+                    to = uiState.filter.dateTo ?: 0L,
+                    onRangeChange = { from, to ->
+                        onIntent(LastVisitorsIntent.OnDateRangeChanged(from, to))
+                    }
+                )
+                // The report counts every status, so a status filter has
+                // nothing to say there; on the two lists it is shown, not
+                // hidden in the sheet.
+                val status = uiState.filter.status
+                if (status != null && uiState.selectedTab != RANGE_REPORT_TAB) {
+                    ActiveStatusChip(
+                        status = status,
+                        onClear = {
+                            onIntent(LastVisitorsIntent.OnFilterChanged(uiState.filter.copy(status = null)))
+                        },
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    // Ahead of the loading and empty checks: this tab carries
+                    // its own data, so gating it on the lists' appointments
+                    // would hide it exactly when it's most useful — a window
+                    // with nothing waiting still has a history to report on.
+                    uiState.selectedTab == RANGE_REPORT_TAB -> {
                         RangeReportSection(
                             uiState = uiState,
                             onIntent = onIntent,
-                            onAppointmentClick = { visitorId ->
+                            onCustomerClick = { visitorId ->
                                 onIntent(LastVisitorsIntent.OnAppointmentClick(visitorId))
-                            },
-                            onEditAppointment = { id ->
-                                onIntent(LastVisitorsIntent.OnEditAppointment(id))
-                            },
-                            onAppointmentOptions = { id ->
-                                onIntent(LastVisitorsIntent.OnAppointmentOptionsClick(id))
                             }
                         )
                     }
-                }
 
-                uiState.isLoading -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        LastVisitorsListShimmer()
-                        BottomBarSpacer()
+                    uiState.isLoading -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                        ) {
+                            LastVisitorsListShimmer()
+                            BottomBarSpacer()
+                        }
                     }
-                }
 
-                uiState.appointments.isEmpty() -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        VisitorsTabBar(
-                            selectedIndex = uiState.selectedTab,
-                            onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) }
-                        )
-                        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    uiState.appointments.isEmpty() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             EmptyState(
                                 icon = Icons.Rounded.EventNote,
-                                title = stringResource(Res.string.empty_appointments_title),
-                                subtitle = stringResource(Res.string.empty_appointments_subtitle)
+                                title = "در این بازه نوبتی نیست",
+                                // Kept to one short line: the + button floats
+                                // over this area and a long subtitle ran under it.
+                                subtitle = "بازه‌ی دیگری را انتخاب کنید"
                             )
                         }
                     }
-                }
 
-                else -> {
+                    else -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        VisitorsTabBar(
-                            selectedIndex = uiState.selectedTab,
-                            onSelected = { index -> onIntent(LastVisitorsIntent.OnTabSelected(index)) }
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
                         if (uiState.selectedTab == 1) {
                             val now = DateTimeUtils.systemCurrentMilliseconds()
                             val waiting = uiState.appointments
@@ -354,6 +362,8 @@ fun LastVisitorsScreenContent(
                             )
                         }
                     }
+                    }
+                }
                 }
             }
 
@@ -420,20 +430,7 @@ fun FilterBottomSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Same set as Appointment.STATUS_CHOICES on the backend.
-                    val statuses = listOf(
-                        null to "همه",
-                        "LOCKED" to "در حال پرداخت",
-                        "PENDING_VERIFICATION" to "💳 در انتظار تأیید فیش",
-                        "PENDING_APPROVAL" to "در انتظار تایید",
-                        "CONFIRMED" to "تأیید شده",
-                        "WAITING" to stringResource(Res.string.status_waiting),
-                        "IN_PROGRESS" to "در حال سرویس",
-                        "COMPLETED" to stringResource(Res.string.status_completed),
-                        "NO_SHOW" to stringResource(Res.string.status_no_show),
-                        "CANCELLED" to "لغو شده"
-                    )
-                    statuses.forEach { (status, label) ->
+                    appointmentStatusOptions().forEach { (status, label) ->
                         FilterChip(
                             selected = selectedStatus == status,
                             onClick = { selectedStatus = status },

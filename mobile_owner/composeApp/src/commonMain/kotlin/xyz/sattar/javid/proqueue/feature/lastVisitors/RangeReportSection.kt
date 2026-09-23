@@ -1,9 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -12,15 +10,10 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.EventNote
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,89 +23,37 @@ import androidx.compose.ui.unit.dp
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
 import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.components.BottomBarSpacer
-import xyz.sattar.javid.proqueue.core.ui.components.DateBottomSheet
 import xyz.sattar.javid.proqueue.core.ui.components.EmptyState
-import xyz.sattar.javid.proqueue.core.ui.components.SectionTabs
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.domain.model.RangeCustomer
-import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
 import xyz.sattar.javid.proqueue.domain.usecase.GetRangeReportUseCase
 
 /**
- * "گزارش بازه‌ای" — the third tab on the مراجعین screen: pick a window of up
- * to a month and see what happened in it, both as totals and as the two lists
- * behind them (who came, and every appointment).
+ * "گزارش بازه‌ای" — the third tab on the نوبت‌ها screen: the window chosen in
+ * the shared date bar ([VisitorsDateBar]), summarised — totals, then who came.
  *
- * One composable for phone and web alike. The only piece that differs is the
- * date picker, and [DateBottomSheet] already resolves that itself (bottom
- * sheet at Compact, dialog above it), so nothing here needs a width branch.
+ * It used to carry its own date picker and its own appointment list. The
+ * picker is now the screen-wide bar, so every tab answers for the same dates;
+ * and with the dates shared, its appointment list was the مراجعین tab over
+ * again. What only this tab has is the numbers and the customer roll-up, so
+ * that is all it shows.
  *
- * The window is capped at [GetRangeReportUseCase.MAX_RANGE_DAYS] on the way
- * out — see [onRangeChanged]'s callers — and again on the server, which is
- * the layer that actually holds, since the panel runs in a browser where the
- * query string is whatever the caller types.
+ * The server caps a report at [GetRangeReportUseCase.MAX_RANGE_DAYS]; a wider
+ * window from the bar is clamped on the way out and the note below says so.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RangeReportSection(
     uiState: LastVisitorsState,
     onIntent: (LastVisitorsIntent) -> Unit,
-    onAppointmentClick: (Long) -> Unit,
-    onEditAppointment: (Long) -> Unit,
-    onAppointmentOptions: (Long) -> Unit,
+    onCustomerClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showFromPicker by remember { mutableStateOf(false) }
-    var showToPicker by remember { mutableStateOf(false) }
-
     val report = uiState.rangeReport
 
-    if (showFromPicker) {
-        DateBottomSheet(
-            initialDate = uiState.rangeFrom,
-            onDateSelected = { picked ->
-                showFromPicker = false
-                // Moving the start past the end drags the end with it, rather
-                // than producing an inverted range the server would reject.
-                val end = maxOf(uiState.rangeTo, picked)
-                onIntent(LastVisitorsIntent.OnRangeChanged(picked, end))
-            },
-            onDismiss = { showFromPicker = false }
-        )
-    }
-
-    if (showToPicker) {
-        DateBottomSheet(
-            initialDate = uiState.rangeTo,
-            onDateSelected = { picked ->
-                showToPicker = false
-                val start = minOf(uiState.rangeFrom, picked)
-                onIntent(LastVisitorsIntent.OnRangeChanged(start, picked))
-            },
-            onDismiss = { showToPicker = false }
-        )
-    }
-
     Column(modifier = modifier.fillMaxSize()) {
-        RangePickerRow(
-            from = uiState.rangeFrom,
-            to = uiState.rangeTo,
-            onFromClick = { showFromPicker = true },
-            onToClick = { showToPicker = true },
-            onPreset = { days ->
-                val today = DateTimeUtils.startOfTodayMillis()
-                onIntent(
-                    LastVisitorsIntent.OnRangeChanged(
-                        today - (days - 1) * GetRangeReportUseCase.DAY_MILLIS,
-                        today
-                    )
-                )
-            }
-        )
-
         if (report?.clamped == true) {
             Text(
-                text = "بازه به حداکثر ${GetRangeReportUseCase.MAX_RANGE_DAYS} روز محدود شد",
+                text = "گزارش فقط ${GetRangeReportUseCase.MAX_RANGE_DAYS} روز آخرِ این بازه را پوشش می‌دهد",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -144,160 +85,19 @@ fun RangeReportSection(
                     noShow = report.noShowAppointments
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                SectionTabs(
-                    labels = listOf(
-                        "مشتری‌ها (${report.customersTotal})",
-                        "نوبت‌ها (${report.totalAppointments})"
-                    ),
-                    selectedIndex = uiState.rangeSubTab,
-                    onSelected = { onIntent(LastVisitorsIntent.OnRangeSubTabSelected(it)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (uiState.rangeSubTab == 0) {
-                    CustomerList(
-                        customers = report.customers,
-                        hasMore = report.hasMoreCustomers,
-                        isLoadingMore = uiState.rangeLoading,
-                        onLoadMore = { onIntent(LastVisitorsIntent.LoadMoreRangeCustomers) },
-                        onCustomerClick = onAppointmentClick
-                    )
-                } else {
-                    RangeAppointmentList(
-                        appointments = uiState.rangeAppointments,
-                        onAppointmentClick = onAppointmentClick,
-                        onEditAppointment = onEditAppointment,
-                        onAppointmentOptions = onAppointmentOptions
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RangePickerRow(
-    from: Long,
-    to: Long,
-    onFromClick: () -> Unit,
-    onToClick: () -> Unit,
-    onPreset: (Int) -> Unit
-) {
-    // Two fixed rows, not one FlowRow: wrapping put "۷ روز" beside the dates
-    // and the other two presets on a line of their own, and AssistChip let a
-    // label break onto a second line when its share of the row got narrow.
-    // Dates share one row at equal width; presets share the next, also at
-    // equal width, each label clamped to a single line.
-    val today = DateTimeUtils.startOfTodayMillis()
-    val selectedDays = if (to == today && from <= to) {
-        ((to - from) / GetRangeReportUseCase.DAY_MILLIS + 1).toInt()
-    } else null
-
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            DateField(label = "از", value = from, onClick = onFromClick, modifier = Modifier.weight(1f))
-            DateField(label = "تا", value = to, onClick = onToClick, modifier = Modifier.weight(1f))
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // 31 rather than 30 so the widest preset lands exactly on the cap
-            // instead of one day short of it.
-            listOf(7 to "۷ روز", 30 to "۳۰ روز", GetRangeReportUseCase.MAX_RANGE_DAYS to "یک ماه")
-                .forEach { (days, label) ->
-                    PresetChip(
-                        label = label,
-                        selected = selectedDays == days,
-                        onClick = { onPreset(days) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-        }
-    }
-}
-
-@Composable
-private fun PresetChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .height(40.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        border = if (selected) null else androidx.compose.foundation.BorderStroke(
-            1.dp, MaterialTheme.colorScheme.outlineVariant
-        )
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 6.dp)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) MaterialTheme.colorScheme.onPrimary
-                else MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun DateField(
-    label: String,
-    value: Long,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(14.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                Icons.Rounded.CalendarMonth,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Column {
                 Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = if (value == 0L) "—" else DateTimeUtils.getJalaliDate(value),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "مشتری‌های این بازه (${report.customersTotal})",
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    softWrap = false
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+                )
+
+                CustomerList(
+                    customers = report.customers,
+                    hasMore = report.hasMoreCustomers,
+                    isLoadingMore = uiState.rangeLoading,
+                    onLoadMore = { onIntent(LastVisitorsIntent.LoadMoreRangeCustomers) },
+                    onCustomerClick = onCustomerClick
                 )
             }
         }
@@ -471,46 +271,5 @@ private fun CustomerRow(customer: RangeCustomer, onClick: () -> Unit) {
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun RangeAppointmentList(
-    appointments: List<AppointmentWithDetails>,
-    onAppointmentClick: (Long) -> Unit,
-    onEditAppointment: (Long) -> Unit,
-    onAppointmentOptions: (Long) -> Unit
-) {
-    if (appointments.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            EmptyState(
-                icon = Icons.Rounded.EventNote,
-                title = "نوبتی در این بازه نبوده",
-                subtitle = "بازه‌ی دیگری را امتحان کنید"
-            )
-        }
-        return
-    }
-
-    val columns = if (LocalWindowSize.current == WindowSize.Expanded) 2 else 1
-
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(columns),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        gridItems(appointments, key = { it.appointment.id }) { item ->
-            // The same card the other two tabs use, not a copy — status
-            // colours and the receipt preview stay in one place.
-            AppointmentCard(
-                appointmentWithDetails = item,
-                onEditClick = { onEditAppointment(item.appointment.id) },
-                onDeleteClick = { onAppointmentOptions(item.appointment.id) },
-                onItemClick = { onAppointmentClick(item.visitor.id) }
-            )
-        }
-        item(span = { GridItemSpan(maxLineSpan) }) { BottomBarSpacer() }
     }
 }

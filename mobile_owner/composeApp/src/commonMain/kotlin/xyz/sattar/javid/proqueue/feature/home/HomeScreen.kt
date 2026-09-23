@@ -149,6 +149,17 @@ private const val COLLAPSE_DISTANCE_PX = 130f
  * Arguments for jumping into the visitors/appointments tab pre-filtered —
  * used when tapping a Home stat card, the queue row, or the month card.
  */
+/** Args for opening the نوبت‌ها screen on today, from a card that counts today. */
+private fun todayArgs(status: String? = null, tab: Int): VisitorsNavArgs {
+    val start = DateTimeUtils.startOfTodayMillis()
+    return VisitorsNavArgs(
+        status = status,
+        tab = tab,
+        dateFrom = start,
+        dateTo = start + 24L * 60 * 60 * 1000 - 1
+    )
+}
+
 data class VisitorsNavArgs(
     val status: String? = null,
     val tab: Int? = null,
@@ -270,7 +281,9 @@ fun HomeScreenContent(
                         } else {
                             QueueStatRow(
                                 count = uiState.queue.size,
-                                onClick = { onNavigateToVisitors(VisitorsNavArgs(tab = 1)) }
+                                // Today's queue, so the list opens on the same day
+                                // the count here was taken from.
+                                onClick = { onNavigateToVisitors(todayArgs(tab = 1)) }
                             )
                         }
                     }
@@ -292,8 +305,11 @@ fun HomeScreenContent(
                                 // tab = 0 (مراجعین/history) explicitly — LastVisitorsState
                                 // defaults selectedTab to 1 (صف/queue), where a status
                                 // filter like "cancelled" has nothing to show.
+                                // Scoped to today as well: these are today's
+                                // numbers, and the list used to open on the next
+                                // seven days, where the counts didn't match.
                                 onStatClick = { status ->
-                                    onNavigateToVisitors(VisitorsNavArgs(status = status, tab = 0))
+                                    onNavigateToVisitors(todayArgs(status = status, tab = 0))
                                 }
                             )
                         }

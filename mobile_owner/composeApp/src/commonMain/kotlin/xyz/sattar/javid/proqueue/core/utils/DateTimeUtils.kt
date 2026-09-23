@@ -145,6 +145,12 @@ object DateTimeUtils {
         return now.toLocalDateTime(timeZone).date.atStartOfDayIn(timeZone).toEpochMilliseconds()
     }
 
+    /** Midnight at the start of the local day [millis] falls on. */
+    @OptIn(ExperimentalTime::class)
+    fun startOfDayMillis(millis: Long, timeZone: TimeZone = TimeZone.currentSystemDefault()): Long =
+        Instant.fromEpochMilliseconds(millis).toLocalDateTime(timeZone).date
+            .atStartOfDayIn(timeZone).toEpochMilliseconds()
+
 
     @OptIn(ExperimentalTime::class)
     fun formatMillisDateOnly(millis: Long): String {
