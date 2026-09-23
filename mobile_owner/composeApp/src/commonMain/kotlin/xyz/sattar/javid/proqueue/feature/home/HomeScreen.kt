@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -238,6 +239,7 @@ fun HomeScreenContent(
         PullToRefreshBox(
             isRefreshing = uiState.isLoading,
             onRefresh = { onIntent(HomeIntent.LoadData) },
+            refreshTab = MainTab.Home,
             // Keeps the badge clear of the glass top bar, which the content
             // deliberately scrolls underneath.
             indicatorTopPadding = paddingValues.calculateTopPadding(),

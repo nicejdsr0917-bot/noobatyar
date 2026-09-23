@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.navigation.MainTab
+import xyz.sattar.javid.proqueue.core.navigation.OnTabRefreshRequested
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -38,9 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
 import xyz.sattar.javid.proqueue.core.ui.WindowSize
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -52,6 +52,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import xyz.sattar.javid.proqueue.ui.theme.PrimaryPurple
+import xyz.sattar.javid.proqueue.ui.theme.PrimaryPurpleDark
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
@@ -60,7 +74,7 @@ import proqueue.composeapp.generated.resources.main_icon
 
 private val PullThreshold = 72.dp
 private val MaxPull = 130.dp
-private val IndicatorSize = 44.dp
+private val IndicatorSize = 52.dp
 
 /**
  * Pull-to-refresh that pushes the whole page down as you drag, revealing a small
@@ -83,6 +97,10 @@ private val IndicatorSize = 44.dp
  * content down the way they'd swipe a phone. The nested-scroll wiring stays
  * active either way (harmless if unused), so nothing about the phone path
  * changes.
+ *
+ * Pass [refreshTab] on a bottom-bar tab's root screen to have a double-tap on
+ * that tab run the same refresh, with the page sliding open and the badge
+ * showing exactly as if the user had pulled.
  */
 @Composable
 fun PullToRefreshBox(
@@ -90,6 +108,7 @@ fun PullToRefreshBox(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     indicatorTopPadding: Dp = 0.dp,
+    refreshTab: MainTab? = null,
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
@@ -120,6 +139,16 @@ fun PullToRefreshBox(
             delay(400)
             offset.animateTo(0f)
             userTriggered = false
+        }
+    }
+
+    if (refreshTab != null) {
+        OnTabRefreshRequested(refreshTab) {
+            if (!isRefreshing) {
+                userTriggered = true
+                scope.launch { offset.animateTo(restingPx) }
+                currentOnRefresh()
+            }
         }
     }
 
@@ -175,7 +204,11 @@ fun PullToRefreshBox(
         PullIndicator(
             offset = offset.value,
             thresholdPx = thresholdPx,
-            isRefreshing = isRefreshing && userTriggered,
+            // userTriggered alone, not `&& isRefreshing`: the ViewModel flips
+            // its loading flag a beat after onRefresh(), and in that gap the
+            // open page used to read "رها کنید" even though it was already
+            // refreshing.
+            isRefreshing = userTriggered,
             topPadding = indicatorTopPadding
         )
         Box(
@@ -264,6 +297,18 @@ private fun DesktopRefreshButton(
     }
 }
 
+// Neon ring palette: the amber of the logo's dot running into the brand
+// purples, the app's take on the Instagram story ring.
+private val NeonAmber = Color(0xFFFBBF24)
+private val NeonLavender = Color(0xFFC4B5FD)
+private val NeonRingColors = listOf(NeonAmber, PrimaryPurple, PrimaryPurpleDark, NeonLavender, NeonAmber)
+
+/** Wide faint strokes under the ring fake the bloom of a neon tube: (width multiplier, alpha). */
+private val NeonGlowLayers = listOf(5f to 0.10f, 3.4f to 0.20f, 2.1f to 0.40f)
+
+/** Segment count for the loading ring, as on a story that is still loading. */
+private const val LoadingSegments = 12
+
 @Composable
 private fun PullIndicator(
     offset: Float,
@@ -276,12 +321,29 @@ private fun PullIndicator(
     val progress = (offset / thresholdPx).coerceIn(0f, 1f)
     val readyToRelease = offset >= thresholdPx
 
-    val spin by rememberInfiniteTransition(label = "pull-spin").animateFloat(
+    // One tick as the pull crosses the threshold, so "let go now" can be felt
+    // as well as read. Not while refreshing: the page settling at its resting
+    // height also sits past the threshold.
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(readyToRelease) {
+        if (readyToRelease && !isRefreshing) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+
+    val transition = rememberInfiniteTransition(label = "pull-neon")
+    val spin by transition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Restart),
         label = "spin"
     )
+    val pulse by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "pulse"
+    )
+
+    val gapColor = MaterialTheme.colorScheme.background
 
     Column(
         modifier = Modifier
@@ -294,36 +356,54 @@ private fun PullIndicator(
         Box(
             modifier = Modifier
                 .size(IndicatorSize)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .alpha(if (isRefreshing) 1f else (0.35f + progress * 0.65f)),
+                .graphicsLayer {
+                    val s = when {
+                        isRefreshing -> 1f
+                        readyToRelease -> 1f + 0.06f * pulse
+                        else -> 0.8f + 0.2f * progress
+                    }
+                    scaleX = s
+                    scaleY = s
+                    alpha = if (isRefreshing) 1f else 0.35f + progress * 0.65f
+                },
             contentAlignment = Alignment.Center
         ) {
-            if (isRefreshing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(IndicatorSize - 6.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                CircularProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .size(IndicatorSize - 6.dp)
-                        .rotate(if (readyToRelease) spin else 0f),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                )
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val stroke = 2.5.dp.toPx()
+                // Leave room inside the box for the glow to bloom outward.
+                val radius = size.minDimension / 2f - 6.dp.toPx()
+                val brush = Brush.sweepGradient(NeonRingColors, center)
+
+                // The gap between ring and logo, as on a story avatar.
+                drawCircle(color = gapColor, radius = radius - stroke / 2f)
+
+                when {
+                    isRefreshing -> rotate(spin) {
+                        // Story-loading look: evenly spaced dashes chasing
+                        // round, with the glow breathing.
+                        val step = 360f / LoadingSegments
+                        repeat(LoadingSegments) { i ->
+                            neonArc(brush, -90f + i * step, step - 11f, radius, stroke, glow = 0.65f + 0.35f * pulse)
+                        }
+                    }
+                    readyToRelease -> rotate(spin * 0.5f) {
+                        neonArc(brush, -90f, 360f, radius, stroke, glow = 0.8f + 0.2f * pulse)
+                    }
+                    // Fills clockwise from the top with the pull; the glow
+                    // brightens as it nears the threshold.
+                    else -> neonArc(brush, -90f, 360f * progress, radius, stroke, glow = 0.3f + 0.7f * progress)
+                }
             }
 
-            // The tiny Noobatyar mark in the middle of the ring.
+            // The Noobatyar mark in the middle of the ring.
             Image(
                 painter = painterResource(Res.drawable.main_icon),
                 contentDescription = null,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(18.dp)
-                    .scale(if (isRefreshing) 1f else 0.7f + progress * 0.3f)
+                    .size(IndicatorSize - 20.dp)
+                    .scale(if (isRefreshing) 0.94f + 0.06f * pulse else 1f)
+                    .clip(CircleShape)
             )
         }
 
@@ -335,11 +415,44 @@ private fun PullIndicator(
                     else -> "برای بروزرسانی بکشید"
                 },
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
+                fontWeight = if (readyToRelease || isRefreshing) FontWeight.Bold else FontWeight.Medium,
                 color = if (readyToRelease || isRefreshing) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp)
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }
+}
+
+/**
+ * One neon stroke: soft glow layers underneath, the gradient tube itself, and
+ * a thin pale core on top — the bright centre a real neon tube has.
+ */
+private fun DrawScope.neonArc(
+    brush: Brush,
+    startAngle: Float,
+    sweepAngle: Float,
+    radius: Float,
+    stroke: Float,
+    glow: Float
+) {
+    val topLeft = Offset(center.x - radius, center.y - radius)
+    val arcSize = Size(radius * 2f, radius * 2f)
+    for ((widthMul, alpha) in NeonGlowLayers) {
+        drawArc(
+            brush = brush, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false,
+            topLeft = topLeft, size = arcSize, alpha = alpha * glow,
+            style = Stroke(width = stroke * widthMul, cap = StrokeCap.Round)
+        )
+    }
+    drawArc(
+        brush = brush, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false,
+        topLeft = topLeft, size = arcSize,
+        style = Stroke(width = stroke, cap = StrokeCap.Round)
+    )
+    drawArc(
+        color = Color.White, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false,
+        topLeft = topLeft, size = arcSize, alpha = 0.45f * glow,
+        style = Stroke(width = stroke * 0.3f, cap = StrokeCap.Round)
+    )
 }
