@@ -140,7 +140,7 @@ class BusinessSerializer(serializers.ModelSerializer):
             'payment_link', 'card_number', 'card_owner_name',
             # SMS preferences
             'enable_reminder_sms', 'enable_promotional_sms', 'notify_owner_by_sms',
-            'reminder_delivery',
+            'reminder_delivery', 'reminder_template',
             # Service menu shown to the owner when booking and to clients on the
             # public booking page
             'services', 'allow_client_add_service',

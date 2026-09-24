@@ -57,7 +57,6 @@ QUOTA_KEYS = (QUOTA_MAX_BUSINESSES, QUOTA_MONTHLY_APPOINTMENTS, QUOTA_MONTHLY_SM
 # part of this backend has ever been able to send. Delete a key from here the
 # moment its feature ships; this list is the single source of truth.
 COMING_SOON_FEATURES = (
-    FEATURE_PROMOTIONAL_SMS,
     FEATURE_MULTI_CHANNEL,
 )
 
