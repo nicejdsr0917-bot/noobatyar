@@ -29,7 +29,10 @@ from django.urls import path, reverse
 from django.utils import timezone
 
 from . import reports
-from .models import Plan, Subscription, AddOnPack, AddOnPurchase, Transaction, CreditLedger
+from .models import (
+    Plan, Subscription, AddOnPack, AddOnPurchase, Transaction, CreditLedger,
+    SubscriptionReminderSettings,
+)
 from .payment.addon_payment import grant_addon_benefit
 
 
@@ -334,6 +337,35 @@ class TransactionAdmin(admin.ModelAdmin):
         filename = f"financial-report-{report['range']['from'].isoformat()}-{report['range']['to'].isoformat()}.csv"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+@admin.register(SubscriptionReminderSettings)
+class SubscriptionReminderSettingsAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'is_enabled', 'days_before', 'updated_at')
+    readonly_fields = ('updated_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('is_enabled', 'days_before', 'message_template', 'updated_at'),
+            'description': (
+                'اجرا هر ساعت با <code>python manage.py run_subscription_lifecycle</code> '
+                '(کرون سرور). جاهای خالی مجاز در متن پیامک: <code>{plan}</code> نام پلن، '
+                '<code>{days}</code> تعداد روز باقی‌مانده.'
+            ),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        # Singleton: the row is created on first access by
+        # SubscriptionReminderSettings.load(), a second row would just shadow it.
+        return request.user.is_superuser and not SubscriptionReminderSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        if request.user.is_superuser:
+            SubscriptionReminderSettings.load()
+        return super().changelist_view(request, extra_context)
 
 
 @admin.register(CreditLedger)

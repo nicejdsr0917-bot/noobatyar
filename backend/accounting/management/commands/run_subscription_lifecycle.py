@@ -6,13 +6,17 @@ Subscription lifecycle job — intended to run periodically (e.g. hourly cron):
 It performs three things:
 
   1. Renewal reminders — SMS to owners whose subscription ends within
-     ``REMINDER_DAYS`` days and who haven't been reminded yet.
+     ``SubscriptionReminderSettings.days_before`` days and who haven't been
+     reminded yet. Gated by ``SubscriptionReminderSettings.is_enabled`` —
+     see the "تنظیمات یادآوری تمدید اشتراک" row in the Django admin.
   2. Grace-period expiry — subscriptions past ``ends_at + GRACE_DAYS`` are marked
      ``expired``.
   3. Graceful downgrade — for each just-expired user, excess businesses are
      locked (kept, not deleted) to match the new (baseline) quota.
 
-Tunable via env: SUBSCRIPTION_REMINDER_DAYS, SUBSCRIPTION_GRACE_DAYS.
+Tunable via env: SUBSCRIPTION_GRACE_DAYS. The reminder toggle, lead time and
+message text live in the admin (SubscriptionReminderSettings), not env vars —
+see that model's docstring for why.
 """
 
 import os
@@ -21,9 +25,8 @@ from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from accounting.models import Subscription
+from accounting.models import Subscription, SubscriptionReminderSettings
 
-REMINDER_DAYS = int(os.getenv("SUBSCRIPTION_REMINDER_DAYS", "3"))
 GRACE_DAYS = int(os.getenv("SUBSCRIPTION_GRACE_DAYS", "3"))
 
 
@@ -40,7 +43,12 @@ class Command(BaseCommand):
     def _send_renewal_reminders(self, now):
         from api.sms import send_sms, signed
 
-        window_end = now + timedelta(days=REMINDER_DAYS)
+        settings_row = SubscriptionReminderSettings.load()
+        if not settings_row.is_enabled:
+            self.stdout.write("یادآوری تمدید: خاموش است (SubscriptionReminderSettings.is_enabled=False)")
+            return
+
+        window_end = now + timedelta(days=settings_row.days_before)
         due = Subscription.objects.filter(
             status="active",
             reminder_sent=False,
@@ -52,10 +60,7 @@ class Command(BaseCommand):
             phone = getattr(sub.user, "phone", None)
             if phone:
                 days = max(1, sub.days_left())
-                msg = signed(
-                    f"⏰ اشتراک «{sub.plan.name}» شما تا {days} روز دیگر به پایان می‌رسد\n"
-                    f"برای جلوگیری از قطع خدمات، همین حالا تمدید کنید"
-                )
+                msg = signed(settings_row.render_message(plan_name=sub.plan.name, days_left=days))
                 try:
                     # Platform-level notice to the owner about their own
                     # subscription, so it is not billed to their SMS quota.

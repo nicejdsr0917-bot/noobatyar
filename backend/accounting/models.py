@@ -252,3 +252,63 @@ class CreditLedger(models.Model):
 
     def __str__(self):
         return f"{self.user_id} {self.metric} {self.delta:+d} ({self.reason})"
+
+
+class SubscriptionReminderSettings(models.Model):
+    """Row ``pk=1`` and only ``pk=1`` — same singleton pattern as
+    ``bale.models.BaleSettings``: an operator-tunable knob wired up from the
+    admin panel on a running server, no redeploy needed.
+
+    Read by ``run_subscription_lifecycle`` in place of the old
+    ``SUBSCRIPTION_REMINDER_DAYS`` env var and hardcoded message, so staff can
+    turn the reminder on/off and edit its wording without touching code.
+    """
+
+    SINGLETON_PK = 1
+
+    is_enabled = models.BooleanField(
+        default=False,
+        help_text='تا وقتی خاموش است، هیچ پیامک یادآوری تمدید ارسال نمی‌شود',
+    )
+    days_before = models.PositiveIntegerField(
+        default=3,
+        help_text='چند روز قبل از پایان اشتراک پیامک ارسال شود',
+    )
+    message_template = models.TextField(
+        default='⏰ اشتراک «{plan}» شما تا {days} روز دیگر به پایان می‌رسد\n'
+                'برای جلوگیری از قطع خدمات، همین حالا تمدید کنید',
+        help_text='متن پیامک. جاهای خالی مجاز: {plan} نام پلن، {days} تعداد روز باقی‌مانده.',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'accounting_subscription_reminder_settings'
+        verbose_name = 'تنظیمات یادآوری تمدید اشتراک'
+        verbose_name_plural = 'تنظیمات یادآوری تمدید اشتراک'
+
+    def __str__(self):
+        return 'تنظیمات یادآوری تمدید اشتراک'
+
+    def save(self, *args, **kwargs):
+        self.pk = self.SINGLETON_PK
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """Deleting the singleton is a no-op; blank/disable it instead."""
+        return 0, {}
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=cls.SINGLETON_PK)
+        return obj
+
+    def render_message(self, *, plan_name, days_left):
+        try:
+            return self.message_template.format(plan=plan_name, days=days_left)
+        except (KeyError, ValueError, IndexError):
+            # A malformed template (typo'd placeholder, stray brace) must not
+            # take down the whole reminder job — fall back to the field's
+            # own default rather than crashing the cron run.
+            return self._meta.get_field('message_template').default.format(
+                plan=plan_name, days=days_left,
+            )
