@@ -60,7 +60,9 @@ class Command(BaseCommand):
             phone = getattr(sub.user, "phone", None)
             if phone:
                 days = max(1, sub.days_left())
-                msg = signed(settings_row.render_message(plan_name=sub.plan.name, days_left=days))
+                msg = signed(settings_row.render_message(
+                    plan_name=sub.plan.name, days_left=days, owner_name=sub.user.name,
+                ))
                 try:
                     # Platform-level notice to the owner about their own
                     # subscription, so it is not billed to their SMS quota.

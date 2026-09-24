@@ -184,10 +184,15 @@ def _deliver(audience, recipient_id, campaign):
 
 def send_expiry_sms(message: str, days_before: int, actor=None):
     """
-    Sends ``message`` (with ``{full_name}`` replaced by each owner's own
-    name) to every owner with an active subscription ending within
+    Sends ``message`` — ``{full_name}`` replaced with each owner's own name,
+    ``{days}`` with that owner's actual days-left (not the ``days_before``
+    window edge) — to every owner with an active subscription ending within
     ``days_before`` days, and records one :class:`core.models.ExpirySmsLog`
     row.
+
+    Same two tokens as ``accounting.SubscriptionReminderSettings`` (the
+    cron-run counterpart to this manual send), so one message template reads
+    the same whether it is typed here or saved there.
 
     Funded the same way as :func:`send_admin_message` — straight through
     ``api.sms.send_sms``, never ``accounting.usage.consume_sms``: a
@@ -215,7 +220,11 @@ def send_expiry_sms(message: str, days_before: int, actor=None):
         if not phone:
             failed += 1
             continue
-        personalized = message.replace('{full_name}', sub.user.name or '')
+        personalized = (
+            message
+            .replace('{full_name}', sub.user.name or '')
+            .replace('{days}', str(max(1, sub.days_left())))
+        )
         try:
             ok, err = send_sms(phone, signed(personalized))
         except Exception as exc:  # noqa: BLE001 — one bad send must not sink the whole blast

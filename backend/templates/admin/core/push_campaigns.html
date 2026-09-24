@@ -190,29 +190,56 @@
    audience, but the operator writes the wording fresh and sends on demand. #}
 <div class="pc-box">
   <h2>پیامک یادآوری انقضای اشتراک</h2>
-  <form method="post" action="{% url 'admin:core_expiry_sms_send' %}" id="es-form">
+  <form method="post" id="es-form">
     {% csrf_token %}
 
     <label class="pc-field" style="max-width:220px">
       تا چند روز مانده به پایان اشتراک
-      <input type="number" name="expiry_days_before" id="es-days" min="1" value="3" class="pc-ltr">
+      <input type="number" name="expiry_days_before" id="es-days" min="1"
+             value="{{ reminder_settings.days_before|default:3 }}" class="pc-ltr">
     </label>
 
     <label class="pc-field">
       متن پیامک <span style="color:#d9534f">*</span>
-      <textarea name="expiry_message" id="es-message" maxlength="500" required></textarea>
+      <textarea name="expiry_message" id="es-message" maxlength="500" required>{{ reminder_settings.message_template }}</textarea>
       <span class="pc-hint">
-        می‌توانید از <code>{{ '{full_name}' }}</code> برای درج نام خود صاحب‌حساب استفاده کنید
-        (نه نام کسب‌وکار). مثال: «{{ '{full_name}' }} عزیز، ۳ روز دیگر موعد اشتراک شما تمام می‌شود».
+        جاهای خالی مجاز: <code>{{ '{full_name}' }}</code> نام خود صاحب‌حساب (نه نام کسب‌وکار)،
+        <code>{{ '{days}' }}</code> تعداد روز واقعی باقی‌مانده تا پایان اشتراک همان شخص.
+        مثال: «{{ '{full_name}' }} عزیز، {{ '{days}' }} روز دیگر موعد اشتراک شما تمام می‌شود».
+        کلمه‌ی لغو۱۱ نیازی نیست دستی تایپ شود — سامانه‌ی پیامک آن را خودش انتهای هر پیام اضافه می‌کند.
       </span>
     </label>
 
     <div class="pc-counts" id="es-counts"></div>
 
-    <button type="submit" class="default">ارسال پیامک</button>
+    <button type="submit" formaction="{% url 'admin:core_expiry_sms_send' %}" class="default">
+      ارسال الان
+    </button>
     <span class="pc-hint" style="margin-inline-start:10px">
       ارسال بلافاصله و بدون تأیید دوم انجام می‌شود.
     </span>
+
+    <div style="margin-block-start:16px; padding-block-start:14px; border-block-start:1px solid #eee">
+      <label class="pc-aud" style="width:fit-content">
+        <input type="checkbox" name="auto_enabled" value="1" {% if reminder_settings.is_enabled %}checked{% endif %}>
+        ارسال خودکار فعال باشد
+      </label>
+      <p class="pc-hint" style="margin-block-start:6px">
+        وضعیت فعلی:
+        {% if reminder_settings.is_enabled %}
+          <strong style="color:#2e7d32">روشن</strong> — هر بار که چرخه اجرا شود،
+          {{ reminder_settings.days_before }} روز مانده به پایان، همین متن بالا فرستاده می‌شود.
+        {% else %}
+          <strong>خاموش</strong>
+        {% endif %}
+        — این تیک فقط تنظیم را روشن/خاموش می‌کند؛ اجرای واقعی هر بار نیاز به این دارد که
+        <code dir="ltr">python manage.py run_subscription_lifecycle</code> جایی (کرون یا هر ابزار دیگری)
+        زمان‌بندی شده باشد.
+      </p>
+      <button type="submit" formaction="{% url 'admin:core_expiry_sms_autosend' %}">
+        ذخیره تنظیمات خودکار
+      </button>
+    </div>
   </form>
 </div>
 

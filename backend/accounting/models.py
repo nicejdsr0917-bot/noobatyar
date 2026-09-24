@@ -275,9 +275,10 @@ class SubscriptionReminderSettings(models.Model):
         help_text='چند روز قبل از پایان اشتراک پیامک ارسال شود',
     )
     message_template = models.TextField(
-        default='⏰ اشتراک «{plan}» شما تا {days} روز دیگر به پایان می‌رسد\n'
+        default='{full_name} عزیز، {days} روز دیگر تا پایان اشتراک شما در نوبت‌یار باقی مانده است\n'
                 'برای جلوگیری از قطع خدمات، همین حالا تمدید کنید',
-        help_text='متن پیامک. جاهای خالی مجاز: {plan} نام پلن، {days} تعداد روز باقی‌مانده.',
+        help_text='متن پیامک. جاهای خالی مجاز: {full_name} نام صاحب‌حساب، '
+                  '{days} تعداد روز باقی‌مانده، {plan} نام پلن.',
     )
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -302,13 +303,13 @@ class SubscriptionReminderSettings(models.Model):
         obj, _ = cls.objects.get_or_create(pk=cls.SINGLETON_PK)
         return obj
 
-    def render_message(self, *, plan_name, days_left):
+    def render_message(self, *, plan_name, days_left, owner_name=''):
         try:
-            return self.message_template.format(plan=plan_name, days=days_left)
+            return self.message_template.format(plan=plan_name, days=days_left, full_name=owner_name)
         except (KeyError, ValueError, IndexError):
             # A malformed template (typo'd placeholder, stray brace) must not
             # take down the whole reminder job — fall back to the field's
             # own default rather than crashing the cron run.
             return self._meta.get_field('message_template').default.format(
-                plan=plan_name, days=days_left,
+                plan=plan_name, days=days_left, full_name=owner_name,
             )
