@@ -145,6 +145,24 @@ jobs:
           done
           exit $FAIL
 
+      - name: Upload APK to noobatyar.ir
+        # The WordPress download button on noobatyar.ir always requests a
+        # fixed URL under wp-content/uploads/android/Noobatyar-owner.apk, so
+        # deploying is just overwriting that file with the current arm64-v8a
+        # build — no WordPress API/media-library involvement, and no trash
+        # step to worry about (that only applies to the WP media library).
+        working-directory: .
+        run: |
+          curl --ftp-ssl-reqd --disable-epsv -sS \
+            -T "${{ steps.apk.outputs.dir }}/Noobatyar-Owner-${{ steps.version.outputs.version_name }}-arm64-v8a.apk" \
+            "ftp://${WP_FTP_HOST}:${WP_FTP_PORT}/public_html/wp-content/uploads/android/Noobatyar-owner.apk" \
+            --user "${WP_FTP_USERNAME}:${WP_FTP_PASSWORD}"
+        env:
+          WP_FTP_HOST: ${{ secrets.WP_FTP_HOST }}
+          WP_FTP_PORT: ${{ secrets.WP_FTP_PORT }}
+          WP_FTP_USERNAME: ${{ secrets.WP_FTP_USERNAME }}
+          WP_FTP_PASSWORD: ${{ secrets.WP_FTP_PASSWORD }}
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
