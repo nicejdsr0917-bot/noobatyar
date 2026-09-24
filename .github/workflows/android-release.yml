@@ -151,21 +151,58 @@ jobs:
         # deploying is just overwriting that file with the current arm64-v8a
         # build — no WordPress API/media-library involvement, and no trash
         # step to worry about (that only applies to the WP media library).
+        # The FTP account is already jailed to that uploads/android
+        # directory, so the remote path is just the filename — an earlier
+        # version of this step used the full public_html/... path, which the
+        # server rejected (550/9: can't CWD above its own jail root).
+        # ftplib over curl: curl (--ftp-ssl-reqd) against this host silently
+        # truncated multi-MB uploads (timed out waiting for the transfer-done
+        # reply after the data connection had already dropped early) with no
+        # error surfaced beyond a generic response timeout; ftplib's
+        # storbinary reliably completes and lets us assert the byte count
+        # matches before declaring success — verified manually 2026-09-24.
         # continue-on-error: the GitHub Release and Telegram send below are
         # the real distribution channels; this WP mirror is a bonus and
         # shouldn't block a release if the FTP host is misconfigured.
         continue-on-error: true
         working-directory: .
         run: |
-          curl --ftp-ssl-reqd --disable-epsv -sS \
-            -T "${{ steps.apk.outputs.dir }}/Noobatyar-Owner-${{ steps.version.outputs.version_name }}-arm64-v8a.apk" \
-            "ftp://${WP_FTP_HOST}:${WP_FTP_PORT}/public_html/wp-content/uploads/android/Noobatyar-owner.apk" \
-            --user "${WP_FTP_USERNAME}:${WP_FTP_PASSWORD}"
+          python3 - <<'PYEOF'
+          import ftplib, os, sys
+
+          host = os.environ["WP_FTP_HOST"]
+          port = int(os.environ["WP_FTP_PORT"])
+          user = os.environ["WP_FTP_USERNAME"]
+          password = os.environ["WP_FTP_PASSWORD"]
+          local_path = os.environ["APK_PATH"]
+          remote_name = "Noobatyar-owner.apk"
+
+          expected_size = os.path.getsize(local_path)
+
+          ftps = ftplib.FTP_TLS(timeout=120)
+          ftps.connect(host, port)
+          ftps.auth()
+          ftps.login(user, password)
+          ftps.prot_p()
+          ftps.set_pasv(True)
+
+          with open(local_path, "rb") as f:
+              ftps.storbinary(f"STOR {remote_name}", f, blocksize=262144)
+
+          actual_size = ftps.size(remote_name)
+          ftps.quit()
+
+          if actual_size != expected_size:
+              print(f"::error::Uploaded size {actual_size} != local size {expected_size}", file=sys.stderr)
+              sys.exit(1)
+          print(f"Uploaded {remote_name}: {actual_size} bytes, matches local file")
+          PYEOF
         env:
           WP_FTP_HOST: ${{ secrets.WP_FTP_HOST }}
           WP_FTP_PORT: ${{ secrets.WP_FTP_PORT }}
           WP_FTP_USERNAME: ${{ secrets.WP_FTP_USERNAME }}
           WP_FTP_PASSWORD: ${{ secrets.WP_FTP_PASSWORD }}
+          APK_PATH: ${{ steps.apk.outputs.dir }}/Noobatyar-Owner-${{ steps.version.outputs.version_name }}-arm64-v8a.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
