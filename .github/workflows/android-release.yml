@@ -148,7 +148,7 @@ jobs:
       - name: Upload APK to noobatyar.ir
         # The WordPress download button on noobatyar.ir always requests a
         # fixed URL under wp-content/uploads/android/Noobatyar-owner.apk, so
-        # deploying is just overwriting that file with the current arm64-v8a
+        # deploying is just overwriting that file with the current universal
         # build — no WordPress API/media-library involvement, and no trash
         # step to worry about (that only applies to the WP media library).
         # The FTP account is already jailed to that uploads/android
@@ -232,7 +232,7 @@ jobs:
           WP_FTP_PORT: ${{ secrets.WP_FTP_PORT }}
           WP_FTP_USERNAME: ${{ secrets.WP_FTP_USERNAME }}
           WP_FTP_PASSWORD: ${{ secrets.WP_FTP_PASSWORD }}
-          APK_PATH: ${{ steps.apk.outputs.dir }}/Noobatyar-Owner-${{ steps.version.outputs.version_name }}-arm64-v8a.apk
+          APK_PATH: ${{ steps.apk.outputs.dir }}/Noobatyar-Owner-${{ steps.version.outputs.version_name }}-universal.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
