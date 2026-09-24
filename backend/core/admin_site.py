@@ -683,6 +683,13 @@ class NobatyarAdminSite(admin.AdminSite):
         from accounting.models import SubscriptionReminderSettings
         reminder_settings = SubscriptionReminderSettings.load()
 
+        # What api.sms.signed() appends after whatever staff types — footer
+        # + the mandatory لغو11 opt-out — so the compose box can count real
+        # SMS segments (and therefore real cost) instead of just the typed
+        # text, which understates both.
+        from api.sms import SMS_FOOTER, SMS_OPT_OUT
+        sms_suffix = f'\n\n{SMS_FOOTER}\n{SMS_OPT_OUT}'
+
         from api.services import push
         return {
             **self.each_context(request),
@@ -694,6 +701,7 @@ class NobatyarAdminSite(admin.AdminSite):
             'push_configured': push.is_configured(),
             'expiry_logs': expiry_logs,
             'reminder_settings': reminder_settings,
+            'sms_suffix_len': len(sms_suffix),
         }
 
     def campaign_view(self, request):

@@ -201,12 +201,15 @@
 
     <label class="pc-field">
       متن پیامک <span style="color:#d9534f">*</span>
-      <textarea name="expiry_message" id="es-message" maxlength="500" required>{{ reminder_settings.message_template }}</textarea>
+      <textarea name="expiry_message" id="es-message" maxlength="500" required
+                data-suffix-len="{{ sms_suffix_len }}">{{ reminder_settings.message_template }}</textarea>
+      <span class="pc-hint" id="es-charcount"></span>
       <span class="pc-hint">
         جاهای خالی مجاز: <code>{{ '{full_name}' }}</code> نام خود صاحب‌حساب (نه نام کسب‌وکار)،
         <code>{{ '{days}' }}</code> تعداد روز واقعی باقی‌مانده تا پایان اشتراک همان شخص.
         مثال: «{{ '{full_name}' }} عزیز، {{ '{days}' }} روز دیگر موعد اشتراک شما تمام می‌شود».
-        کلمه‌ی لغو۱۱ نیازی نیست دستی تایپ شود — سامانه‌ی پیامک آن را خودش انتهای هر پیام اضافه می‌کند.
+        کلمه‌ی لغو۱۱ نیازی نیست دستی تایپ شود — سامانه‌ی پیامک آن را خودش انتهای هر پیام اضافه می‌کند
+        (در شمارش کاراکتر بالا لحاظ شده).
       </span>
     </label>
 
@@ -248,32 +251,42 @@
   {% if not expiry_logs %}
     <p class="pc-hint">هنوز پیامکی ارسال نشده است.</p>
   {% else %}
-    <table class="pc-table">
-      <thead>
-        <tr>
-          <th>زمان</th>
-          <th>متن</th>
-          <th>روز</th>
-          <th>واجد شرایط</th>
-          <th>ارسال‌شده</th>
-          <th>ناموفق</th>
-          <th>ارسال‌کننده</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for l in expiry_logs %}
-          <tr>
-            <td>{{ l.sent_at }}</td>
-            <td>{{ l.message|truncatechars:60 }}</td>
-            <td class="pc-num">{{ l.days_before }}</td>
-            <td class="pc-num">{{ l.matched_count }}</td>
-            <td class="pc-num">{{ l.sent_count }}</td>
-            <td class="pc-num">{{ l.failed_count }}</td>
-            <td>{% if l.sent_by %}{{ l.sent_by.name|default:l.sent_by.phone }}{% else %}—{% endif %}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    {% for l in expiry_logs %}
+      <div class="pc-campaign">
+        <div class="pc-campaign-head">
+          <div class="pc-campaign-title">{{ l.message }}</div>
+          <div class="pc-campaign-meta">
+            {{ l.sent_at }} —
+            {% if l.sent_by %}{{ l.sent_by.name|default:l.sent_by.phone }}{% else %}—{% endif %}
+            — تا {{ l.days_before }} روز مانده —
+            {{ l.sent_count }} از {{ l.matched_count }} ارسال شد
+            {% if l.failed_count %}({{ l.failed_count }} ناموفق){% endif %}
+          </div>
+        </div>
+        {% if l.recipients %}
+          <details>
+            <summary style="cursor:pointer; padding:8px 14px; font-size:12px; color:#417690">
+              فهرست گیرندگان ({{ l.recipients|length }} نفر)
+            </summary>
+            <table class="pc-table">
+              <thead>
+                <tr><th>نام</th><th>شماره</th><th>وضعیت</th><th>خطا</th></tr>
+              </thead>
+              <tbody>
+                {% for r in l.recipients %}
+                  <tr>
+                    <td>{{ r.name|default:"—" }}</td>
+                    <td class="pc-num">{{ r.phone|default:"—" }}</td>
+                    <td>{% if r.status == 'SENT' %}ارسال‌شده{% else %}ناموفق{% endif %}</td>
+                    <td>{{ r.error|default:"" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </details>
+        {% endif %}
+      </div>
+    {% endfor %}
   {% endif %}
 </div>
 
@@ -443,6 +456,37 @@
       esTimer = setTimeout(esRefresh, 150);
     });
     esRefresh();
+  }
+
+  // ── Expiry-SMS character/segment counter ──
+  // Iranian SMS gateways bill in UCS-2 segments once Persian text is
+  // involved: 70 chars for one segment, 67 per segment once it splits into
+  // several (the extra 3 chars per part go to the concatenation header).
+  // `data-suffix-len` is the exact length of what api.sms.signed() appends
+  // after whatever staff type (footer + لغو11), computed server-side in
+  // core.admin_site so this never drifts from the real value sent.
+  var esMessage = document.getElementById('es-message');
+  var esCharCount = document.getElementById('es-charcount');
+
+  function smsSegments(len) {
+    if (len <= 0) return 0;
+    if (len <= 70) return 1;
+    return Math.ceil(len / 67);
+  }
+
+  function esUpdateCount() {
+    if (!esMessage || !esCharCount) return;
+    var suffixLen = parseInt(esMessage.dataset.suffixLen || '0', 10);
+    var total = esMessage.value.length + suffixLen;
+    var segments = smsSegments(total);
+    esCharCount.textContent =
+      total + ' کاراکتر با احتساب امضا و لغو۱۱ (خودِ متن: ' + esMessage.value.length + ' کاراکتر)' +
+      ' → ' + segments + ' پیامک برای هر گیرنده';
+  }
+
+  if (esMessage) {
+    esMessage.addEventListener('input', esUpdateCount);
+    esUpdateCount();
   }
 })();
 </script>

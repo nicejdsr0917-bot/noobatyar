@@ -214,15 +214,18 @@ def send_expiry_sms(message: str, days_before: int, actor=None):
     ).select_related('user')
 
     matched = sent = failed = 0
+    recipients = []
     for sub in subs:
         matched += 1
+        name = sub.user.name or ''
         phone = getattr(sub.user, 'phone', None)
         if not phone:
             failed += 1
+            recipients.append({'name': name, 'phone': '', 'status': 'FAILED', 'error': 'بدون شماره تلفن'})
             continue
         personalized = (
             message
-            .replace('{full_name}', sub.user.name or '')
+            .replace('{full_name}', name)
             .replace('{days}', str(max(1, sub.days_left())))
         )
         try:
@@ -231,14 +234,16 @@ def send_expiry_sms(message: str, days_before: int, actor=None):
             ok, err = False, str(exc)
         if ok:
             sent += 1
+            recipients.append({'name': name, 'phone': phone, 'status': 'SENT'})
         else:
             failed += 1
             logger.warning('Expiry SMS to %s failed: %s', phone, err)
+            recipients.append({'name': name, 'phone': phone, 'status': 'FAILED', 'error': err or ''})
 
     return ExpirySmsLog.objects.create(
         message=message, days_before=days_before,
         matched_count=matched, sent_count=sent, failed_count=failed,
-        sent_by=actor,
+        recipients=recipients, sent_by=actor,
     )
 
 
