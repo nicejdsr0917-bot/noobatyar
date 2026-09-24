@@ -13,16 +13,34 @@
 ## v1.9.3 — 2026-09-24
 
 <!-- fa:start -->
-این نسخه تغییری در اپلیکیشن ندارد — فقط برای تست عملکرد مسیر انتشار
-(آپلود خودکار روی سایت و ارسال به کانال تلگرام) منتشر شده است.
+تغییرات این نسخه:
+- پیامک تبلیغاتی: کمپین پیامکی با نام خود مشتری، انتخاب مخاطب (همه، مراجعه‌ی اخیر، مشتری‌های غایب)، نمایش هزینه‌ی دقیق پیش از ارسال و گزارش هر کمپین.
+- پیام خودکار: در ارسال خودکار از پنل، متن از الگوهای تأییدشده انتخاب می‌شود، «لغو۱۱» ثابت است و تعداد پیامک شمرده می‌شود؛ زمان یادآوری هم حالا واقعاً ذخیره می‌شود.
+- تنظیمات پیشرفته با طراحی تازه؛ رفع ریست‌شدن حالت بیعانه به «بدون بیعانه».
+- صفحه‌ی جدید «تم و ظاهر» با پیش‌نمایش؛ «درباره ما» با آیکن‌های رسمی و اینستاگرام نوبت‌یار.
 <!-- fa:end -->
+
+### mobile_owner
+- `BusinessMapper.kt` — `depositMode` در هر چهار تبدیل (DTO↔Entity↔Domain↔Request) جا افتاده بود؛ کش محلی همیشه بدون
+  حالت بیعانه برمی‌گشت و ذخیره‌ی بعدی در تنظیمات پیشرفته `NONE` را به سرور می‌فرستاد.
+- `feature/promo/` — صفحه‌ی کمپین پیامک تبلیغاتی (API جدید `business/<id>/promo-sms/`).
+- `feature/messages/` — بازطراحی پیام خودکار؛ PANEL فقط الگوهای ثابت (`ReminderTemplates.kt`، هم‌خوان با
+  `backend/business/reminder_templates.py`) و ذخیره‌ی `notification_minutes_before`/`reminder_template` روی سرور.
+- `AdvancedSettingsRoute.kt`/`AdvancedSettingsTabs.kt` — هدر قابلیت‌های پلن، تب‌های جدید، نوار ذخیره با وضعیت
+  تغییرات؛ کارت «یادآوری چندکاناله» (پیاده‌سازی‌نشده) حذف شد.
+- `ThemeScreen.kt` (جدید)، `AboutUsScreen.kt` (آیکن‌های رسمی بله/ایتا/روبیکا از وب‌اپ خودشان، گلیف رسمی اینستاگرام).
+- Room schema 17 (`BusinessEntity.reminderTemplate`).
+
+### backend
+- `business/promo_sms.py`، `promo_views.py`، مدل‌های `PromoCampaign`/`PromoCampaignRecipient`، دستور
+  `send_promo_campaigns` برای ادامه‌ی ارسال‌های نیمه‌کاره؛ `promotional_sms` از `COMING_SOON_FEATURES` خارج شد.
+- `Business.reminder_template` و استفاده از آن در `send_appointment_reminders` (قبلاً متن ثابت و یکسان).
 
 ### infra
 - `.github/workflows/android-release.yml` — آپلود APK به `noobatyar.ir` از مسیر اشتباه (`public_html/...`) به مسیر درست
   (ریشه‌ی همان اکانت FTP jail‌شده) اصلاح شد؛ ارسال هم از `curl` به `ftplib.FTP_TLS` تغییر کرد چون `curl` روی این
   هاست آپلودهای چند-مگابایتی را بی‌صدا ناقص می‌گذاشت.
 - کانال مقصد ارسال در تلگرام از کانال مشتریان به کانال بکاپ (`TELEGRAM_CHAT_ID`) تغییر کرد.
-- کد اپ (`mobile_owner`) نسبت به v1.9.2 بدون تغییر است؛ این تگ فقط برای آزمودن مسیر جدید انتشار زده شده.
 
 Full commit range: [`v1.9.2...v1.9.3`](https://github.com/javiddeveloper/Noobatyar-automation/compare/v1.9.2...v1.9.3)
 
