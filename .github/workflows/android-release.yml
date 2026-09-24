@@ -151,6 +151,10 @@ jobs:
         # deploying is just overwriting that file with the current arm64-v8a
         # build — no WordPress API/media-library involvement, and no trash
         # step to worry about (that only applies to the WP media library).
+        # continue-on-error: the GitHub Release and Telegram send below are
+        # the real distribution channels; this WP mirror is a bonus and
+        # shouldn't block a release if the FTP host is misconfigured.
+        continue-on-error: true
         working-directory: .
         run: |
           curl --ftp-ssl-reqd --disable-epsv -sS \
