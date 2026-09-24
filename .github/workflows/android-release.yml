@@ -163,12 +163,6 @@ jobs:
           WP_FTP_USERNAME: ${{ secrets.WP_FTP_USERNAME }}
           WP_FTP_PASSWORD: ${{ secrets.WP_FTP_PASSWORD }}
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Noobatyar-Owner-${{ steps.version.outputs.version_name }}
-          path: ${{ steps.apk.outputs.dir }}/*.apk
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
