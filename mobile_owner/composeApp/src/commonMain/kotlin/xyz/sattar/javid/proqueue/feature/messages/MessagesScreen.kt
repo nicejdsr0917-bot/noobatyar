@@ -46,6 +46,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
+import xyz.sattar.javid.proqueue.core.ui.components.ChoiceTile
 import xyz.sattar.javid.proqueue.core.ui.components.SmsBubble
 import xyz.sattar.javid.proqueue.core.ui.components.SmsCounter
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
@@ -59,6 +60,7 @@ import xyz.sattar.javid.proqueue.domain.model.business.SmsSegments
 private val SuccessGreen = Color(0xFF10B981)
 private val WarningAmber = Color(0xFFF59E0B)
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MessagesScreen(
     viewModel: MessagesViewModel = koinViewModel(),
@@ -141,7 +143,7 @@ fun MessagesScreen(
                 subtitle = stringResource(Res.string.reminder_delivery_subtitle)
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DeliveryTile(
+                    ChoiceTile(
                         icon = Icons.Rounded.PhoneAndroid,
                         title = "دستی از گوشی شما",
                         badge = "رایگان",
@@ -150,7 +152,7 @@ fun MessagesScreen(
                         onClick = { viewModel.sendIntent(MessagesIntent.SetDelivery(ReminderDelivery.MANUAL.value)) },
                         modifier = Modifier.weight(1f)
                     )
-                    DeliveryTile(
+                    ChoiceTile(
                         icon = Icons.Rounded.CloudUpload,
                         title = "خودکار از پنل",
                         badge = "از اعتبار پیامک",
@@ -209,11 +211,9 @@ fun MessagesScreen(
                 subtitle = stringResource(Res.string.reminder_lead_time_description),
                 icon = Icons.Rounded.Schedule
             ) {
-                Row(
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     reminderLeadTimeOptions.forEach { minutes ->
                         FilterChip(
@@ -397,68 +397,6 @@ private fun Section(
             }
             Spacer(Modifier.height(14.dp))
             content()
-        }
-    }
-}
-
-/** One of the two delivery modes, as a large selectable tile. */
-@Composable
-private fun DeliveryTile(
-    icon: ImageVector,
-    title: String,
-    badge: String,
-    selected: Boolean,
-    locked: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val primary = MaterialTheme.colorScheme.primary
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (selected) primary.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface)
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                shape = RoundedCornerShape(18.dp)
-            )
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(if (selected) primary else primary.copy(alpha = 0.10f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = if (locked) Icons.Rounded.Lock else icon,
-                contentDescription = null,
-                tint = if (selected) MaterialTheme.colorScheme.onPrimary else primary,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = if (selected) primary else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.alpha(if (locked) 0.7f else 1f)
-        )
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-        ) {
-            Text(
-                text = if (locked) "نیاز به ارتقا" else badge,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-            )
         }
     }
 }

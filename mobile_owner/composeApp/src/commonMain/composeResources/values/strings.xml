@@ -304,8 +304,8 @@
     <string name="reminder_lead_time_description">یادآوری چند دقیقه قبل از زمان نوبت فرستاده شود.</string>
 
     <!-- SMS report -->
-    <string name="sms_report_title">گزارش پیامک‌ها</string>
-    <string name="sms_report_settings_subtitle">پیامک‌های ارسال‌شده و مانده‌ی سهمیه</string>
+    <string name="sms_report_title">گزارش ارسال‌ها</string>
+    <string name="sms_report_settings_subtitle">پیامک‌ها و اعلان‌های ارسال‌شده به مشتریان</string>
     <string name="sms_report_filter_all">همه</string>
     <string name="sms_report_filter_sent">ارسال‌شده</string>
     <string name="sms_report_filter_failed">ناموفق</string>
@@ -314,7 +314,7 @@
     <string name="sms_report_status_skipped">کسری اعتبار</string>
     <string name="sms_report_filter_skipped">کسری اعتبار</string>
     <string name="home_sms_quota_exhausted_warning">این ماه %1$d پیامک به‌دلیل اتمام اعتبار ارسال نشد. برای ادامه‌ی ارسال، بسته‌ی پیامک بخرید.</string>
-    <string name="sms_report_owner_recipient">اونر</string>
+    <string name="sms_report_owner_recipient">خودتان (مالک)</string>
     <string name="sms_report_summary_title">سهمیه‌ی پیامک این ماه</string>
     <string name="sms_report_summary_used">مصرف‌شده</string>
     <string name="sms_report_summary_remaining">باقی‌مانده</string>
@@ -324,7 +324,7 @@
     <string name="sms_report_summary_wallet">اعتبار کیف پول</string>
     <string name="sms_report_empty_title">پیامکی ثبت نشده است</string>
     <string name="sms_report_empty_subtitle">هر پیامکی که از پنل برای این کسب‌وکار فرستاده شود، اینجا ثبت می‌شود.</string>
-    <string name="sms_report_error_title">گزارش پیامک‌ها بارگذاری نشد</string>
+    <string name="sms_report_error_title">گزارش بارگذاری نشد</string>
     <string name="sms_report_retry">تلاش مجدد</string>
     <string name="sms_report_search_placeholder">جستجو بر اساس نام یا شماره مراجع</string>
     <string name="sms_report_search_clear">پاک کردن جستجو</string>

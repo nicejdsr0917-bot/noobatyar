@@ -340,6 +340,7 @@ fun MainNavHost(
 
             composable<AppScreens.Notifications> {
                 NotificationsScreen(
+                    onNavigateToMessages = { navController.navigate(AppScreens.Messages) },
                     onNavigateBack = {
                         navController.popBackStack()
                     },
