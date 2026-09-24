@@ -69,6 +69,7 @@ data class BusinessDto(
     @SerialName("enable_reminder_sms") val enableReminderSms: Boolean = true,
     // "MANUAL" (owner texts from their own SIM) or "PANEL" (server sends).
     @SerialName("reminder_delivery") val reminderDelivery: String? = null,
+    @SerialName("reminder_template") val reminderTemplate: String? = null,
     // The business's own service menu and whether clients may go off it.
     // Defaulted so a backend that predates the field still deserializes.
     @SerialName("services") val services: List<String> = emptyList(),

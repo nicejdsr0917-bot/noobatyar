@@ -20,6 +20,9 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogPag
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogSummaryDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogSummaryDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoCampaignDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoPreviewDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoSmsOverviewDto
 
 class BusinessRepositoryImpl(
     private val businessDao: BusinessDao,
@@ -156,6 +159,18 @@ class BusinessRepositoryImpl(
 
     override suspend fun getPushLogSummary(businessId: Long): ApiResponse<PushLogSummaryDto> =
         businessApiService.getPushLogSummary(businessId)
+
+    override suspend fun getPromoSms(businessId: Long): ApiResponse<PromoSmsOverviewDto> =
+        businessApiService.getPromoSms(businessId)
+
+    override suspend fun previewPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoPreviewDto> =
+        businessApiService.previewPromoSms(businessId, audience, message)
+
+    override suspend fun sendPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoCampaignDto> =
+        businessApiService.sendPromoSms(businessId, audience, message)
+
+    override suspend fun getPromoCampaign(businessId: Long, campaignId: Long): ApiResponse<PromoCampaignDto> =
+        businessApiService.getPromoCampaign(businessId, campaignId)
 
     // Server-owned and shared across businesses — nothing to cache locally,
     // same reasoning as the SMS log above.

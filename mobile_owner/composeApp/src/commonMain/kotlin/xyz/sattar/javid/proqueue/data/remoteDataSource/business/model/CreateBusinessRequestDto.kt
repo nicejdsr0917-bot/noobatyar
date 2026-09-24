@@ -35,6 +35,7 @@ data class CreateBusinessRequestDto(
     @SerialName("notice_message") val noticeMessage: String? = null,
     @SerialName("enable_reminder_sms") val enableReminderSms: Boolean = true,
     @SerialName("reminder_delivery") val reminderDelivery: String? = null,
+    @SerialName("reminder_template") val reminderTemplate: String? = null,
     @SerialName("services") val services: List<String> = emptyList(),
     @SerialName("allow_client_add_service") val allowClientAddService: Boolean = false
 )

@@ -282,6 +282,8 @@ class CreateBusinessViewModel(
                 noticeEnabled = noticeEnabled,
                 noticeMessage = noticeMessage,
                 reminderDelivery = reminderDelivery,
+                reminderTemplate = uiState.value.business?.reminderTemplate
+                    ?: xyz.sattar.javid.proqueue.domain.model.business.ReminderTemplates.DEFAULT_KEY,
                 services = services,
                 allowClientAddService = allowClientAddService
             )

@@ -1,17 +1,30 @@
 package xyz.sattar.javid.proqueue.feature.messages
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudUpload
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,26 +34,37 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
-import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
-import xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery
-import xyz.sattar.javid.proqueue.ui.theme.AppTheme
+import xyz.sattar.javid.proqueue.core.ui.components.SmsBubble
+import xyz.sattar.javid.proqueue.core.ui.components.SmsCounter
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
+import xyz.sattar.javid.proqueue.core.ui.components.showToasty
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
+import xyz.sattar.javid.proqueue.domain.model.business.PanelSmsSuffix
+import xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery
+import xyz.sattar.javid.proqueue.domain.model.business.ReminderTemplates
+import xyz.sattar.javid.proqueue.domain.model.business.SmsSegments
 
+private val SuccessGreen = Color(0xFF10B981)
+private val WarningAmber = Color(0xFFF59E0B)
 
 @Composable
 fun MessagesScreen(
     viewModel: MessagesViewModel = koinViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToAddons: () -> Unit = {}
+    onNavigateToAddons: () -> Unit = {},
+    onNavigateToSmsReport: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -48,14 +72,12 @@ fun MessagesScreen(
     viewModel.events.collectWithLifecycleAware { event ->
         when (event) {
             MessagesEvent.NavigateToAddons -> onNavigateToAddons()
+            MessagesEvent.NavigateToSmsReport -> onNavigateToSmsReport()
         }
     }
 
     LaunchedEffect(uiState.message) {
-        val msg = uiState.message
-        if (msg != null) {
-            snackbarHostState.showSnackbar(msg)
-        }
+        uiState.message?.let { snackbarHostState.showToasty(it) }
     }
 
     LaunchedEffect(Unit) {
@@ -66,12 +88,12 @@ fun MessagesScreen(
         snackbarHost = { ToastyHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
-                        stringResource(Res.string.messages_title),
+                        stringResource(Res.string.messages_auto_item),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
-                    ) 
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -83,316 +105,399 @@ fun MessagesScreen(
                 )
             )
         },
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.background,
+                shadowElevation = 8.dp
+            ) {
+                AppButton(
+                    onClick = { viewModel.sendIntent(MessagesIntent.Save) },
+                    text = stringResource(Res.string.messages_save),
+                    isLoading = uiState.isSaving,
+                    enabled = !uiState.isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .navigationBarsPadding()
+                )
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
 
-            // Delivery Card — who actually sends the reminder. This is the first
-            // decision on the screen: the message being written below reaches the
-            // client either from the owner's SIM or from the server.
-            SettingsCard {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = stringResource(Res.string.reminder_delivery_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = stringResource(Res.string.reminder_delivery_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    DeliveryOption(
+            // ── 1. Who sends ──
+            Section(
+                step = 1,
+                title = stringResource(Res.string.reminder_delivery_title),
+                subtitle = stringResource(Res.string.reminder_delivery_subtitle)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DeliveryTile(
                         icon = Icons.Rounded.PhoneAndroid,
-                        title = stringResource(Res.string.reminder_delivery_manual_title),
-                        description = stringResource(Res.string.reminder_delivery_manual_description),
-                        selected = uiState.reminderDelivery == ReminderDelivery.MANUAL.value,
+                        title = "دستی از گوشی شما",
+                        badge = "رایگان",
+                        selected = !uiState.isPanel,
                         locked = false,
-                        onClick = {
-                            viewModel.sendIntent(MessagesIntent.SetDelivery(ReminderDelivery.MANUAL.value))
-                        }
+                        onClick = { viewModel.sendIntent(MessagesIntent.SetDelivery(ReminderDelivery.MANUAL.value)) },
+                        modifier = Modifier.weight(1f)
                     )
-
-                    DeliveryOption(
+                    DeliveryTile(
                         icon = Icons.Rounded.CloudUpload,
-                        title = stringResource(Res.string.reminder_delivery_panel_title),
-                        description = stringResource(Res.string.reminder_delivery_panel_description),
-                        selected = uiState.reminderDelivery == ReminderDelivery.PANEL.value,
+                        title = "خودکار از پنل",
+                        badge = "از اعتبار پیامک",
+                        selected = uiState.isPanel,
                         locked = !uiState.canUsePanelDelivery,
-                        lockedHint = stringResource(Res.string.reminder_delivery_panel_locked),
-                        onClick = {
-                            viewModel.sendIntent(MessagesIntent.SetDelivery(ReminderDelivery.PANEL.value))
-                        },
-                        onUpgrade = {
-                            viewModel.sendIntent(MessagesIntent.UpgradeForPanelDelivery)
-                        }
+                        onClick = { viewModel.sendIntent(MessagesIntent.SetDelivery(ReminderDelivery.PANEL.value)) },
+                        modifier = Modifier.weight(1f)
                     )
                 }
-            }
 
-            // Lead-time Card — the «{minutes}» in the template used to come from
-            // a preference the owner had no way of seeing from this screen.
-            SettingsCard {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Rounded.Schedule,
-                            contentDescription = null,
+                Spacer(Modifier.height(12.dp))
+
+                AnimatedContent(
+                    targetState = Triple(uiState.isPanel, uiState.canUsePanelDelivery, uiState.notificationsOff),
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "delivery-status"
+                ) { (panel, allowed, notificationsOff) ->
+                    when {
+                        panel && notificationsOff -> StatusBanner(
+                            icon = Icons.Rounded.WarningAmber,
+                            tint = WarningAmber,
+                            text = "اعلان‌های این کسب‌وکار خاموش است؛ تا از «تنظیمات اعلان‌ها» روشن نشود، " +
+                                "سرور هیچ یادآوری‌ای نمی‌فرستد."
+                        )
+                        panel -> StatusBanner(
+                            icon = Icons.Rounded.CheckCircle,
+                            tint = SuccessGreen,
+                            text = "سرور ${uiState.reminderMinutes.toString().toPersianDigits()} دقیقه قبل از هر نوبت، " +
+                                "پیامک یادآوری را خودش برای مشتری می‌فرستد؛ لازم نیست کاری انجام دهید.",
+                            actionLabel = "گزارش پیامک‌های ارسال‌شده",
+                            actionIcon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                            onAction = { viewModel.sendIntent(MessagesIntent.OpenSmsReport) }
+                        )
+                        !allowed -> StatusBanner(
+                            icon = Icons.Rounded.Lock,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            text = stringResource(Res.string.reminder_delivery_panel_locked) +
+                                " با ارسال خودکار، دیگر لازم نیست یادآوری‌ها را خودتان بفرستید.",
+                            actionLabel = "فعال‌سازی ارسال خودکار",
+                            onAction = { viewModel.sendIntent(MessagesIntent.UpgradeForPanelDelivery) }
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(Res.string.reminder_lead_time_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                        else -> StatusBanner(
+                            icon = Icons.Rounded.Info,
+                            tint = MaterialTheme.colorScheme.primary,
+                            text = "سر زمان یادآوری اعلانی برایتان می‌آید و پیامک با همین متن از سیم‌کارت خودتان " +
+                                "برای مشتری ارسال می‌شود."
                         )
-                    }
-                    Text(
-                        text = stringResource(Res.string.reminder_lead_time_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                    ) {
-                        reminderLeadTimeOptions.forEach { minutes ->
-                            FilterChip(
-                                selected = uiState.reminderMinutes == minutes,
-                                onClick = { viewModel.sendIntent(MessagesIntent.SetReminder(minutes)) },
-                                label = { Text("${minutes.toString().toPersianDigits()} دقیقه") },
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                        }
                     }
                 }
             }
 
-            // Editor Card — variables + text field together, so it's clear the
-            // chips insert into the message being edited.
-            SettingsCard {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = stringResource(Res.string.message_text),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "با لمس هر متغیر، آن را به متن اضافه کنید؛ هنگام ارسال با اطلاعات واقعی مشتری جایگزین می‌شود.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
+            // ── 2. When ──
+            Section(
+                step = 2,
+                title = stringResource(Res.string.reminder_lead_time_title),
+                subtitle = stringResource(Res.string.reminder_lead_time_description),
+                icon = Icons.Rounded.Schedule
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                ) {
+                    reminderLeadTimeOptions.forEach { minutes ->
+                        FilterChip(
+                            selected = uiState.reminderMinutes == minutes,
+                            onClick = { viewModel.sendIntent(MessagesIntent.SetReminder(minutes)) },
+                            label = { Text("${minutes.toString().toPersianDigits()} دقیقه") },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+            }
+
+            // ── 3. What ──
+            AnimatedContent(
+                targetState = uiState.isPanel,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "text-mode"
+            ) { panel ->
+                if (panel) {
+                    Section(
+                        step = 3,
+                        title = "انتخاب متن پیامک",
+                        subtitle = "در ارسال خودکار، متن از میان الگوهای تأییدشده انتخاب می‌شود و قابل ویرایش نیست " +
+                            "تا همیشه با قوانین خط پیامکی (بدون لینک و با «لغو۱۱») سازگار بماند."
                     ) {
-                        MessageToken.entries.forEach { token ->
-                            TokenChip(label = token.label) {
-                                viewModel.sendIntent(MessagesIntent.InsertToken(token.token))
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ReminderTemplates.all.forEach { tpl ->
+                                PanelTemplateOption(
+                                    label = tpl.label,
+                                    preview = uiState.panelPreviews[tpl.key].orEmpty(),
+                                    selected = uiState.reminderTemplateKey == tpl.key,
+                                    onClick = { viewModel.sendIntent(MessagesIntent.SelectPanelTemplate(tpl.key)) }
+                                )
                             }
                         }
                     }
-                    OutlinedTextField(
-                        value = uiState.template,
-                        onValueChange = { viewModel.sendIntent(MessagesIntent.UpdateTemplate(it)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 4,
-                        maxLines = 8,
-                        shape = RoundedCornerShape(16.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    )
-                }
-            }
-
-            // Preview Card — rendered as an incoming SMS bubble.
-            SettingsCard {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = stringResource(Res.string.messages_preview_label),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(
-                            topStart = 18.dp,
-                            topEnd = 4.dp,
-                            bottomStart = 18.dp,
-                            bottomEnd = 18.dp
-                        )
+                } else {
+                    Section(
+                        step = 3,
+                        title = stringResource(Res.string.message_text),
+                        subtitle = "با لمس هر متغیر، آن را به متن اضافه کنید؛ هنگام ارسال با اطلاعات واقعی مشتری جایگزین می‌شود."
                     ) {
-                        Text(
-                            text = uiState.preview,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(14.dp),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4f
-                        )
-                    }
-                }
-            }
-
-            // Ready Templates
-            SettingsCard {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = stringResource(Res.string.messages_ready_subtitle),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                    ) {
-                        uiState.readyTemplates.forEachIndexed { index, tpl ->
-                            SuggestionChip(
-                                onClick = { viewModel.sendIntent(MessagesIntent.ApplyReadyTemplate(tpl)) },
-                                label = { Text("الگو ${index + 1}") },
-                                shape = RoundedCornerShape(12.dp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                        ) {
+                            MessageToken.entries.forEach { token ->
+                                AssistChip(
+                                    onClick = { viewModel.sendIntent(MessagesIntent.InsertToken(token.token)) },
+                                    label = { Text("+ ${token.label}") },
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        labelColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = uiState.template,
+                            onValueChange = { viewModel.sendIntent(MessagesIntent.UpdateTemplate(it)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 4,
+                            maxLines = 8,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                             )
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = stringResource(Res.string.messages_ready_subtitle),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                        ) {
+                            uiState.readyTemplates.forEachIndexed { index, tpl ->
+                                SuggestionChip(
+                                    onClick = { viewModel.sendIntent(MessagesIntent.ApplyReadyTemplate(tpl)) },
+                                    label = { Text("الگوی ${(index + 1).toString().toPersianDigits()}") },
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            // ── 4. What the customer receives ──
+            val body = if (uiState.isPanel) uiState.panelPreviews[uiState.reminderTemplateKey].orEmpty()
+            else uiState.preview
+            val finalText = if (uiState.isPanel) PanelSmsSuffix.sign(body) else body
+            Section(
+                step = 4,
+                title = stringResource(Res.string.messages_preview_label),
+                subtitle = "همان پیامکی که مشتری دریافت می‌کند (با نام نمونه).",
+                icon = Icons.Rounded.Sms
+            ) {
+                SmsBubble(
+                    body = if (uiState.isPanel) body.replace(".", "").trimEnd() else body,
+                    lockedSuffix = uiState.isPanel
+                )
+                Spacer(Modifier.height(12.dp))
+                val parts = SmsSegments.parts(finalText).toString().toPersianDigits()
+                SmsCounter(
+                    text = finalText,
+                    footnote = if (uiState.isPanel) {
+                        "هر پیامک فارسی ۷۰ کاراکتر است (در پیام چندبخشی ۶۷). برای هر نوبت حدود " +
+                            "$parts پیامک از اعتبار شما کسر می‌شود؛ طول نام مشتری هم در آن اثر دارد."
+                    } else {
+                        "هر پیامک فارسی ۷۰ کاراکتر است (در پیام چندبخشی ۶۷). پیامک از سیم‌کارت خودتان و با تعرفه‌ی اپراتور ارسال می‌شود."
+                    }
+                )
+            }
 
-            AppButton(
-                onClick = { viewModel.sendIntent(MessagesIntent.Save) },
-                text = stringResource(Res.string.messages_save),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
-private fun SettingsCard(content: @Composable () -> Unit) {
+private fun Section(
+    step: Int,
+    title: String,
+    subtitle: String? = null,
+    icon: ImageVector? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (icon != null) {
+                        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+                    } else {
+                        Text(
+                            step.toString().toPersianDigits(),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            if (subtitle != null) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = MaterialTheme.typography.bodySmall.lineHeight * 1.2f
+                )
+            }
+            Spacer(Modifier.height(14.dp))
             content()
         }
     }
 }
 
-/**
- * One reminder-delivery mode. The description is not optional decoration: the
- * two modes differ in who pays and who has to remember to press send, and that
- * is exactly what the labels alone don't say.
- *
- * A [locked] option keeps its description (so the owner can see what they'd be
- * buying) but is not selectable; the upsell button points at the same add-ons
- * screen the rest of the app uses for paid capabilities.
- */
+/** One of the two delivery modes, as a large selectable tile. */
 @Composable
-private fun DeliveryOption(
+private fun DeliveryTile(
     icon: ImageVector,
     title: String,
-    description: String,
+    badge: String,
     selected: Boolean,
     locked: Boolean,
     onClick: () -> Unit,
-    lockedHint: String? = null,
-    onUpgrade: () -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
-    val borderColor = when {
-        locked -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-        selected -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.outlineVariant
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
-        else Color.Transparent,
-        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
-        onClick = onClick,
-        enabled = !locked
+    val primary = MaterialTheme.colorScheme.primary
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (selected) primary.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface)
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(18.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(
-                    selected = selected,
-                    onClick = onClick,
-                    enabled = !locked,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Icon(
-                    imageVector = if (locked) Icons.Rounded.Lock else icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(if (selected) primary else primary.copy(alpha = 0.10f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (locked) Icons.Rounded.Lock else icon,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.onPrimary else primary,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = if (selected) primary else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.alpha(if (locked) 0.7f else 1f)
+        )
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+        ) {
+            Text(
+                text = if (locked) "نیاز به ارتقا" else badge,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusBanner(
+    icon: ImageVector,
+    tint: Color,
+    text: String,
+    actionLabel: String? = null,
+    actionIcon: ImageVector? = null,
+    onAction: () -> Unit = {}
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = tint.copy(alpha = 0.10f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.alpha(if (locked) 0.6f else 1f)
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 34.dp).alpha(if (locked) 0.6f else 1f)
-            )
-            if (locked) {
-                Spacer(modifier = Modifier.height(10.dp))
-                if (lockedHint != null) {
-                    Text(
-                        text = lockedHint,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 34.dp)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                }
-                OutlinedButton(
-                    onClick = onUpgrade,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.padding(start = 34.dp)
+            if (actionLabel != null) {
+                TextButton(
+                    onClick = onAction,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    modifier = Modifier.padding(start = 18.dp)
                 ) {
-                    Text("فعال‌سازی", style = MaterialTheme.typography.labelMedium)
+                    if (actionIcon != null) {
+                        Icon(actionIcon, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(actionLabel, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -400,15 +505,46 @@ private fun DeliveryOption(
 }
 
 @Composable
-private fun TokenChip(label: String, onClick: () -> Unit) {
-    SuggestionChip(
-        onClick = onClick,
-        label = { Text(label) },
-        shape = RoundedCornerShape(12.dp),
-        colors = SuggestionChipDefaults.suggestionChipColors(
-            labelColor = MaterialTheme.colorScheme.primary
-        )
-    )
+private fun PanelTemplateOption(
+    label: String,
+    preview: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val primary = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface)
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = if (selected) primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        RadioButton(selected = selected, onClick = onClick, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (selected) primary else MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = preview,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
 }
 
 enum class MessageToken(val label: String, val token: String) {

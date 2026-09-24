@@ -43,7 +43,8 @@ internal const val dbFileName = "proQueue.db"
     //     independently on two branches and can't both be "the" version 10/11.
     // 15: BusinessEntity.enableReminderSms — the owner app can now switch the
     //     client's reminder on and off instead of it being backend-only.
-    version = 16
+    // 17: BusinessEntity.reminderTemplate (fixed PANEL reminder wording).
+    version = 17
 )
 @ConstructedBy(DbFactory::class)
 abstract class AppDatabase : RoomDatabase() {

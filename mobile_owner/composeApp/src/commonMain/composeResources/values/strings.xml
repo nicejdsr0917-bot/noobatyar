@@ -76,6 +76,10 @@
     <string name="theme_light">روشن</string>
     <string name="theme_dark">تیره</string>
     <string name="select_theme">انتخاب تم</string>
+    <string name="theme_preview_caption">پیش‌نمایش ظاهر برنامه با تم انتخاب‌شده — تغییر همان لحظه روی کل برنامه اعمال می‌شود.</string>
+    <string name="theme_light_hint">زمینه‌ی روشن؛ مناسب محیط‌های پرنور و روز.</string>
+    <string name="theme_dark_hint">زمینه‌ی تیره؛ کم‌فشارتر برای چشم در شب و کم‌مصرف‌تر روی صفحه‌های OLED.</string>
+    <string name="theme_system_hint">هر وقت حالت گوشی شما روشن یا تیره شود، برنامه هم خودش همان را دنبال می‌کند.</string>
     <string name="notifications">اعلان‌ها</string>
     <string name="manage_notifications">مدیریت اعلان‌ها</string>
     <string name="contact_me">تماس با ما</string>
@@ -253,8 +257,10 @@
     <string name="about_us_title">درباره ما</string>
     <string name="about_us_app_name">نوبت‌یار</string>
     <string name="about_us_app_description">سیستم هوشمند مدیریت نوبت و صف</string>
-    <string name="about_us_description">نوبت‌یار به شما کمک می‌کند تا به سادگی مراجعین خود را مدیریت کرده و صف‌های طولانی را به یک فرایند منظم و هوشمند تبدیل کنید. با نوبت‌یار، کسب‌وکار خود را حرفه‌ای‌تر مدیریت کنید.</string>
+    <string name="about_us_description">نوبت‌یار دستیار نوبت‌دهی کسب‌وکار شماست. مشتری‌ها هر ساعت از شبانه‌روز آنلاین نوبت می‌گیرند، پیامک یادآوری به‌موقع برایشان می‌رود و شما همه‌ی نوبت‌ها، مشتری‌ها و گزارش‌ها را یک‌جا در گوشی خود دارید.\n\nبدون دفترچه، بدون تماس‌های پشت‌سرهم و بدون نوبت‌های فراموش‌شده؛ وقتتان را برای کار اصلی خودتان بگذارید.</string>
     <string name="about_us_follow_us">ما را دنبال کنید</string>
+    <string name="about_us_developer">برنامه‌نویس</string>
+    <string name="about_us_developer_instagram">اینستاگرام برنامه‌نویس</string>
     <string name="social_bale">بله</string>
     <string name="social_eitaa">ایتا</string>
     <string name="social_rubika">روبیکا</string>

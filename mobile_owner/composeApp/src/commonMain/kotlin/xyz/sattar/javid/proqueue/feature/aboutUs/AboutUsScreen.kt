@@ -30,11 +30,13 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.cos
@@ -119,14 +121,16 @@ fun AboutUsContent(
 
                 HeroCard()
 
-                // Description Card
+                // Start-aligned, not Justify: Compose justifies Persian by
+                // stretching the spaces (no kashida), which opened visibly
+                // huge gaps between words on every line but the last.
                 SettingsCard {
                     Text(
                         text = stringResource(Res.string.about_us_description),
                         style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Justify,
+                        textAlign = TextAlign.Start,
                         color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
+                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.45f,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -148,11 +152,15 @@ fun AboutUsContent(
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
 
+                        // Bale/Eitaa/Rubika are the official app icons (from each
+                        // messenger's own web app), so they fill the tile as-is;
+                        // Instagram/website are white glyphs on a drawn tile.
                         SocialRow(
                             title = stringResource(Res.string.social_bale),
                             handle = "ble.ir/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_bale),
-                            tileColors = listOf(Color(0xFF10D19E), Color(0xFF059669)),
+                            tile = SolidColor(Color(0xFF00B894)),
+                            iconPadding = 0.dp,
                             index = 0,
                             onClick = { uriHandler.openUri("https://ble.ir/noobatyar") }
                         )
@@ -161,7 +169,8 @@ fun AboutUsContent(
                             title = stringResource(Res.string.social_eitaa),
                             handle = "eitaa.com/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_eitaa),
-                            tileColors = listOf(Color(0xFFFB923C), Color(0xFFEA6D0E)),
+                            tile = SolidColor(Color(0xFFF47435)),
+                            iconPadding = 0.dp,
                             index = 1,
                             onClick = { uriHandler.openUri("https://eitaa.com/noobatyar") }
                         )
@@ -170,35 +179,53 @@ fun AboutUsContent(
                             title = stringResource(Res.string.social_rubika),
                             handle = "rubika.ir/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_rubika),
-                            tileColors = listOf(Color(0xFF4ABDC9), Color(0xFF126AA1)),
+                            // Rubika's icon is a hexagon on transparency — a white
+                            // plate is what it sits on in every app store.
+                            tile = SolidColor(Color.White),
+                            iconPadding = 3.dp,
                             index = 2,
                             onClick = { uriHandler.openUri("https://rubika.ir/noobatyar") }
                         )
                         SocialDivider()
                         SocialRow(
                             title = stringResource(Res.string.instagram),
-                            handle = "@javiddev",
+                            handle = "@noobatyar",
                             painter = painterResource(Res.drawable.ic_social_instagram),
-                            // Instagram's mark is defined by its gradient, so the
-                            // official ramp lives on the tile and the glyph is white.
-                            tileColors = listOf(
-                                Color(0xFFFEDA75),
-                                Color(0xFFFA7E1E),
-                                Color(0xFFD62976),
-                                Color(0xFF962FBF),
-                                Color(0xFF4F5BD5)
-                            ),
+                            tile = InstagramGradient,
+                            iconPadding = 11.dp,
                             index = 3,
-                            onClick = { uriHandler.openUri("https://instagram.com/javiddev") }
+                            onClick = { uriHandler.openUri("https://instagram.com/noobatyar") }
                         )
                         SocialDivider()
                         SocialRow(
                             title = stringResource(Res.string.social_website),
                             handle = "noobatyar.ir",
                             painter = painterResource(Res.drawable.ic_social_website),
-                            tileColors = listOf(Color(0xFFA855F7), Color(0xFF6D28D9)),
+                            tile = Brush.linearGradient(listOf(Color(0xFFA855F7), Color(0xFF6D28D9))),
+                            iconPadding = 10.dp,
                             index = 4,
                             onClick = { uriHandler.openUri("https://noobatyar.ir") }
+                        )
+                    }
+                }
+
+                SettingsCard {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(Res.string.about_us_developer),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        SocialRow(
+                            title = stringResource(Res.string.about_us_developer_instagram),
+                            handle = "@javiddev",
+                            painter = painterResource(Res.drawable.ic_social_instagram),
+                            tile = InstagramGradient,
+                            iconPadding = 11.dp,
+                            index = 5,
+                            onClick = { uriHandler.openUri("https://instagram.com/javiddev") }
                         )
                     }
                 }
@@ -481,12 +508,24 @@ private fun SocialDivider() {
     )
 }
 
+/** Instagram's mark is defined by its gradient, so it lives on the tile. */
+private val InstagramGradient = Brush.linearGradient(
+    listOf(
+        Color(0xFFFEDA75),
+        Color(0xFFFA7E1E),
+        Color(0xFFD62976),
+        Color(0xFF962FBF),
+        Color(0xFF4F5BD5)
+    )
+)
+
 @Composable
 private fun SocialRow(
     title: String,
     handle: String,
     painter: Painter,
-    tileColors: List<Color>,
+    tile: Brush,
+    iconPadding: Dp,
     index: Int,
     onClick: () -> Unit
 ) {
@@ -513,7 +552,7 @@ private fun SocialRow(
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(13.dp))
-                .background(Brush.linearGradient(tileColors))
+                .background(tile)
                 .drawWithContent {
                     drawContent()
                     val w = size.width
@@ -537,7 +576,9 @@ private fun SocialRow(
                 painter = painter,
                 contentDescription = title,
                 tint = Color.Unspecified,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(iconPadding)
             )
         }
 

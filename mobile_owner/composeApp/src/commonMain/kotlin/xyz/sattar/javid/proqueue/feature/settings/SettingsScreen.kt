@@ -49,9 +49,6 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
-import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
-import xyz.sattar.javid.proqueue.core.state.AppThemeMode
-import xyz.sattar.javid.proqueue.core.state.ThemeStateHolder
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.ui.components.BottomBarSpacer
 import xyz.sattar.javid.proqueue.core.ui.components.ModerationBadge
@@ -72,16 +69,14 @@ fun SettingsScreen(
     onNavigateToMessages: () -> Unit = {},
     onNavigateToSmsReport: () -> Unit = {},
     onNavigateToEmergencyNotice: () -> Unit = {},
+    onNavigateToTheme: () -> Unit = {},
+    onNavigateToPromoCampaign: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val userState by userViewModel.uiState.collectAsState()
-    val scope = rememberCoroutineScope()
-    var showThemeSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showNotificationToast by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState()
-    val themeMode by ThemeStateHolder.themeMode.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Initial load happens once in SettingsViewModel.init (it observes the
@@ -111,28 +106,6 @@ fun SettingsScreen(
     userViewModel.events.collectWithLifecycleAware { event ->
         when (event) {
             xyz.sattar.javid.proqueue.feature.profile.UserEvent.LogoutSuccess -> onNavigateToLogin()
-        }
-    }
-
-    if (showThemeSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showThemeSheet = false },
-            sheetState = sheetState
-        ) {
-            ThemeSelectionContent(
-                currentMode = themeMode,
-                onThemeSelected = { mode ->
-                    ThemeStateHolder.setThemeMode(mode)
-                    scope.launch {
-                        PreferencesManager.setThemeMode(mode)
-                        sheetState.hide()
-                    }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            showThemeSheet = false
-                        }
-                    }
-                }
-            )
         }
     }
 
@@ -185,7 +158,7 @@ fun SettingsScreen(
             userViewModel.sendIntent(xyz.sattar.javid.proqueue.feature.profile.UserIntent.LoadProfile)
         },
         onIntent = viewModel::sendIntent,
-        onShowThemeSheet = { showThemeSheet = true },
+        onShowThemeSheet = onNavigateToTheme,
         onShowDeleteDialog = { showDeleteDialog = true },
         onNavigateToLogin = onNavigateToLogin,
         onLogout = { userViewModel.sendIntent(xyz.sattar.javid.proqueue.feature.profile.UserIntent.Logout) },
@@ -194,7 +167,8 @@ fun SettingsScreen(
             uiState.currentBusiness?.let {
                 onNavigateToAdvancedSettings(it.id)
             }
-        }
+        },
+        onPromoCampaign = onNavigateToPromoCampaign
     )
 }
 
@@ -214,7 +188,8 @@ fun SettingsContent(
     onNavigateToLogin: () -> Unit,
     onLogout: () -> Unit = {},
     onChangeBusiness: () -> Unit = {},
-    onAdvancedSettings: () -> Unit
+    onAdvancedSettings: () -> Unit,
+    onPromoCampaign: () -> Unit = {}
 ) {
     // No top app bar here: the profile hero below is this screen's header, so a
     // separate toolbar showing the business title would just overlap it. We only
@@ -324,6 +299,15 @@ fun SettingsContent(
                         title = stringResource(Res.string.messages_auto_item),
                         subtitle = stringResource(Res.string.messages_auto_subtitle),
                         onClick = { onIntent(SettingsIntent.OnMessagesClick) }
+                    )
+
+                    HorizontalDivider()
+
+                    SettingsItem(
+                        icon = Icons.Rounded.LocalOffer,
+                        title = "پیامک تبلیغاتی",
+                        subtitle = "تخفیف و خبر تازه را با یک پیامک به مشتری‌ها برسانید",
+                        onClick = onPromoCampaign
                     )
 
                     HorizontalDivider()
@@ -806,69 +790,6 @@ private fun SettingsItem(
                 tint = tint.copy(alpha = 0.5f)
             )
         }
-    }
-}
-
-@Composable
-private fun ThemeSelectionContent(
-    currentMode: AppThemeMode,
-    onThemeSelected: (AppThemeMode) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = stringResource(Res.string.select_theme),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        ThemeItem(
-            title = stringResource(Res.string.theme_system),
-            isSelected = currentMode == AppThemeMode.SYSTEM,
-            onClick = { onThemeSelected(AppThemeMode.SYSTEM) }
-        )
-        ThemeItem(
-            title = stringResource(Res.string.theme_light),
-            isSelected = currentMode == AppThemeMode.LIGHT,
-            onClick = { onThemeSelected(AppThemeMode.LIGHT) }
-        )
-        ThemeItem(
-            title = stringResource(Res.string.theme_dark),
-            isSelected = currentMode == AppThemeMode.DARK,
-            onClick = { onThemeSelected(AppThemeMode.DARK) }
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-    }
-}
-
-@Composable
-private fun ThemeItem(
-    title: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        RadioButton(
-            selected = isSelected,
-            onClick = onClick
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge
-        )
     }
 }
 

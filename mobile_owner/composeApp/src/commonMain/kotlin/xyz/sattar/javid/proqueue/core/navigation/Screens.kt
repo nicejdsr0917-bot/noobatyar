@@ -96,6 +96,12 @@ sealed class AppScreens {
     ) : AppScreens()
     @Serializable
     object AboutUs : AppScreens()
+    /** Owner promo-SMS campaign composer + history. */
+    @Serializable
+    object PromoCampaign : AppScreens()
+    /** Light/dark/system picker with a schematic phone preview. */
+    @Serializable
+    object Theme : AppScreens()
     /** The three ways to hand a customer the booking link — QR card, bare
      *  link, profile card. Reads the selected business from
      *  BusinessStateHolder, so it carries no arguments. */
