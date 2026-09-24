@@ -10,6 +10,22 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.9.3 — 2026-09-24
+
+<!-- fa:start -->
+این نسخه تغییری در اپلیکیشن ندارد — فقط برای تست عملکرد مسیر انتشار
+(آپلود خودکار روی سایت و ارسال به کانال تلگرام) منتشر شده است.
+<!-- fa:end -->
+
+### infra
+- `.github/workflows/android-release.yml` — آپلود APK به `noobatyar.ir` از مسیر اشتباه (`public_html/...`) به مسیر درست
+  (ریشه‌ی همان اکانت FTP jail‌شده) اصلاح شد؛ ارسال هم از `curl` به `ftplib.FTP_TLS` تغییر کرد چون `curl` روی این
+  هاست آپلودهای چند-مگابایتی را بی‌صدا ناقص می‌گذاشت.
+- کانال مقصد ارسال در تلگرام از کانال مشتریان به کانال بکاپ (`TELEGRAM_CHAT_ID`) تغییر کرد.
+- کد اپ (`mobile_owner`) نسبت به v1.9.2 بدون تغییر است؛ این تگ فقط برای آزمودن مسیر جدید انتشار زده شده.
+
+Full commit range: [`v1.9.2...v1.9.3`](https://github.com/javiddeveloper/Noobatyar-automation/compare/v1.9.2...v1.9.3)
+
 ## v1.9.2 — 2026-09-22
 
 <!-- fa:start -->
