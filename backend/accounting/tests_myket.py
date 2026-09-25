@@ -50,7 +50,28 @@ class MyketBillingTests(TestCase):
         self.assertEqual(Transaction.objects.get(user=self.user).status, "success")
         self.assertIsNotNone(StorePurchase.objects.get(purchase_token="tok-1").consumed_at)
 
+    def subscribe(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        Subscription.objects.create(user=self.user, plan=self.plan, status="active",
+                                    ends_at=timezone.now() + timedelta(days=30))
+
+    def test_addon_needs_an_active_subscription(self):
+        with self.assertRaises(myket.StoreError) as ctx:
+            myket.create_intent(self.user, StorePurchase.KIND_ADDON, self.pack.id)
+        self.assertEqual(ctx.exception.status, 403)
+        self.assertFalse(StorePurchase.objects.exists())
+
+    def test_zibal_addon_needs_an_active_subscription(self):
+        client = APIClient()
+        client.force_authenticate(self.user)
+        with patch("accounting.views.AddOnPaymentService") as service:
+            r = client.post("/api/accounting/addons/buy/", {"pack_id": self.pack.id}, format="json")
+        self.assertEqual(r.status_code, 403, r.content)
+        service.assert_not_called()
+
     def test_addon_purchase_uses_the_zibal_grant_path(self):
+        self.subscribe()
         intent = myket.create_intent(self.user, StorePurchase.KIND_ADDON, self.pack.id)
         with self.verify(), patch("accounting.usage.add_wallet") as add_wallet:
             myket.verify_and_grant(self.user, intent["payload"], "sms_100", "tok-2")

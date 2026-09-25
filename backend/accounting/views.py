@@ -9,7 +9,9 @@ from api.views import _extract_error
 from .models import Plan, Subscription, AddOnPack
 from .payment.zibal_payment import ZibalPaymentService
 from .payment.zibal_payment_verification import PaymentVerificationService
-from .payment.addon_payment import AddOnPaymentService, AddOnVerificationService
+from .payment.addon_payment import (
+    NO_SUBSCRIPTION_MESSAGE, AddOnPaymentService, AddOnVerificationService, can_buy_addon,
+)
 from .serializers import (
     PlanSerializer, SubscriptionSerializer, BuyPlanSerializer,
     AddOnPackSerializer, BuyAddOnSerializer,
@@ -181,6 +183,9 @@ def buy_addon(request):
         pack = AddOnPack.objects.get(id=serializer.validated_data['pack_id'], is_active=True)
     except AddOnPack.DoesNotExist:
         return APIResponse.error(message='بسته پیدا نشد', code=404)
+
+    if not can_buy_addon(request.user):
+        return APIResponse.error(message=NO_SUBSCRIPTION_MESSAGE, code=403)
 
     result = AddOnPaymentService().create_payment(
         user=request.user,

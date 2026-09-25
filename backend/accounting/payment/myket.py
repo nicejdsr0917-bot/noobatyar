@@ -123,6 +123,10 @@ def _item(kind, item_id):
 
 def create_intent(user, kind, item_id):
     plan, pack, sku = _item(kind, item_id)
+    if pack is not None:
+        from accounting.payment.addon_payment import NO_SUBSCRIPTION_MESSAGE, can_buy_addon
+        if not can_buy_addon(user):
+            raise StoreError(NO_SUBSCRIPTION_MESSAGE, status=403)
     purchase = StorePurchase.objects.create(
         user=user, store=StorePurchase.STORE_MYKET, kind=kind,
         plan=plan, pack=pack, sku=sku, payload=secrets.token_hex(16),

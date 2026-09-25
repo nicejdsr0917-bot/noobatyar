@@ -29,6 +29,18 @@ SUCCESS_CODE = 100
 TIMEOUT = 10.0
 
 
+# Add-on packs top up a plan; they are not a plan of their own. Without an
+# active subscription (the trial counts) there is nothing to top up, so a
+# purchase is refused before any money moves. Only the *start* of a purchase
+# checks this — verifying one already paid never does.
+NO_SUBSCRIPTION_MESSAGE = "برای خرید بسته‌ی افزودنی ابتدا باید اشتراک فعال داشته باشید."
+
+
+def can_buy_addon(user) -> bool:
+    from accounting.entitlements import get_active_subscription
+    return get_active_subscription(user) is not None
+
+
 def grant_addon_benefit(purchase: AddOnPurchase, response_data: Optional[Dict] = None) -> Dict[str, Any]:
     """
     Mark ``purchase`` as successful and apply its benefit:
