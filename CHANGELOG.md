@@ -10,6 +10,24 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.9.4 — 2026-09-25
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- نسخه‌ی ویژه‌ی مایکت: خرید اشتراک و بسته‌ها در نسخه‌ی مایکت از طریق پرداخت درون‌برنامه‌ای مایکت انجام می‌شود.
+- نسخه‌ی سایت و iOS بدون تغییر، با همان درگاه پرداخت نوبت‌یار.
+- اگر برنامه وسط خرید بسته شود، خرید پرداخت‌شده در اجرای بعدی خودکار ثبت می‌شود.
+<!-- fa:end -->
+
+### mobile_owner
+- Android flavor dimension `store`: `site` (Zibal, as before) and `myket` (`myket-billing-client` 1.19, `MyketStoreBilling`).
+  `PurchaseUseCase` picks the store only when `StoreBillingProvider.billing` is set, which only the myket flavor does.
+- Release workflow also publishes `Noobatyar-Owner-<version>-myket.apk` for upload to Myket.
+
+### backend
+- `accounting/payment/myket.py` — intent/verify endpoints (`accounting/store/myket/...`), server-to-server verification and
+  consume, `StorePurchase` model, `myket_sku` on `Plan`/`AddOnPack`; `MYKET_ACCESS_TOKEN` from `.env`.
+
 ## v1.9.3 — 2026-09-24
 
 <!-- fa:start -->
