@@ -16,6 +16,8 @@ import xyz.sattar.javid.proqueue.core.navigation.parseDeepLink
 import xyz.sattar.javid.proqueue.core.billing.AndroidStoreBilling
 import xyz.sattar.javid.proqueue.core.billing.StoreBillingProvider
 import xyz.sattar.javid.proqueue.core.billing.createStoreBilling
+import xyz.sattar.javid.proqueue.core.store.AndroidSiteVersionPrompt
+import xyz.sattar.javid.proqueue.core.store.SiteVersionPromptProvider
 
 class MainActivity : ComponentActivity() {
     // Non-null only in store builds (Myket); see core/billing/StoreBilling.kt.
@@ -27,6 +29,9 @@ class MainActivity : ComponentActivity() {
 
         storeBilling = createStoreBilling(this)
         StoreBillingProvider.billing = storeBilling
+        // Store builds (Myket, Bazaar) suggest the site build after a few days.
+        SiteVersionPromptProvider.prompt =
+            if (BuildConfig.STORE != "site") AndroidSiteVersionPrompt(this) else null
 
         handleNotificationIntent(intent)
         handlePaymentDeepLink(intent)
