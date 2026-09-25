@@ -14,9 +14,9 @@ class Visitor(models.Model):
     # is identified by phone_number alone (globally, across the whole
     # platform), not scoped per-owner, so the same person booking at two
     # different businesses is still a single Visitor row.
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='visitors', null=True, blank=True)
-    full_name = models.CharField(max_length=255)
-    phone_number = models.CharField(max_length=20, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='visitors', null=True, blank=True, verbose_name='کاربر')
+    full_name = models.CharField(max_length=255, verbose_name='نام و نام خانوادگی')
+    phone_number = models.CharField(max_length=20, unique=True, verbose_name='شماره موبایل')
     # Platform-wide marketing consent — distinct from Business.enable_promotional_sms,
     # which only governs whether *a given business* may send promotional SMS to its
     # own clients. This flag is the one that matters to core/segments.py: the audience
@@ -30,11 +30,14 @@ class Visitor(models.Model):
         db_index=True,
         help_text="اگر فعال باشد، این مراجع در فهرست‌های بازاریابی پلتفرم (خارج از پیامک‌های "
                   "خودِ کسب‌وکار) قرار نمی‌گیرد.",
+                  verbose_name='انصراف از پیام تبلیغاتی',
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:
+        verbose_name = 'مشتری'
+        verbose_name_plural = 'مشتریان'
         db_table = 'visitor'
         ordering = ['-created_at']
 
@@ -102,7 +105,7 @@ class SmsLog(models.Model):
         ('SKIPPED_QUOTA', 'Skipped (quota exhausted)'),
     ]
     
-    business = models.ForeignKey('business.Business', on_delete=models.CASCADE, related_name='sms_logs')
+    business = models.ForeignKey('business.Business', on_delete=models.CASCADE, related_name='sms_logs', verbose_name='کسب‌وکار')
     # Null when the recipient is the owner rather than a client (e.g. the
     # "new booking" notification). Those are billed to the owner's quota too, so
     # they belong in this log — leaving them out made the SMS report undercount
@@ -110,13 +113,16 @@ class SmsLog(models.Model):
     visitor = models.ForeignKey(
         Visitor, on_delete=models.CASCADE, related_name='sms_logs',
         null=True, blank=True,
+        verbose_name='مشتری',
     )
-    message_text = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SENT')
-    error_detail = models.TextField(blank=True, null=True)
-    sent_at = models.DateTimeField(auto_now_add=True)
+    message_text = models.TextField(verbose_name='متن پیام')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SENT', verbose_name='وضعیت')
+    error_detail = models.TextField(blank=True, null=True, verbose_name='جزئیات خطا')
+    sent_at = models.DateTimeField(auto_now_add=True, verbose_name='زمان ارسال')
     
     class Meta:
+        verbose_name = 'پیامک'
+        verbose_name_plural = 'پیامک‌ها'
         db_table = 'sms_log'
         ordering = ['-sent_at']
 

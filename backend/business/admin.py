@@ -21,6 +21,7 @@ Two rules shape the rest of this module:
 """
 
 from django.contrib import admin, messages
+from unfold.admin import ModelAdmin, TabularInline
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import F
@@ -112,7 +113,7 @@ def _safe_redirect(request, fallback):
     return HttpResponseRedirect(fallback)
 
 
-class BusinessModerationLogInline(admin.TabularInline):
+class BusinessModerationLogInline(TabularInline):
     """The decision history, shown read-only on the business change page.
 
     An inline rather than a separate screen because the first question a
@@ -150,7 +151,7 @@ class BusinessModerationLogInline(admin.TabularInline):
 
 
 @admin.register(Business)
-class BusinessAdmin(admin.ModelAdmin):
+class BusinessAdmin(ModelAdmin):
     list_display = (
         'title', 'user', 'unique_code', 'category',
         'moderation_badge', 'lock_badge', 'created_at',
@@ -468,7 +469,7 @@ class BusinessAdmin(admin.ModelAdmin):
 
 
 @admin.register(BusinessModerationLog)
-class BusinessModerationLogAdmin(admin.ModelAdmin):
+class BusinessModerationLogAdmin(ModelAdmin):
     """Browse-only view of the audit trail.
 
     No add, no change, and no deleting a log on its own — including for
@@ -543,7 +544,7 @@ class BusinessModerationLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(BannedKeyword)
-class BannedKeywordAdmin(admin.ModelAdmin):
+class BannedKeywordAdmin(ModelAdmin):
     """Full CRUD — this list is meant to be tuned by the people using it.
 
     `is_active` is inline-editable because turning off a term that is flagging
@@ -565,7 +566,7 @@ class BannedKeywordAdmin(admin.ModelAdmin):
 
 
 @admin.register(ContentReport)
-class ContentReportAdmin(admin.ModelAdmin):
+class ContentReportAdmin(ModelAdmin):
     """Queue-style view of reports filed against businesses.
 
     Reports arrive from the public booking page, so the working order is

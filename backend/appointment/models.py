@@ -40,53 +40,58 @@ class Appointment(models.Model):
         related_name='appointments',
         null=True,
         blank=True,
-        help_text="Set when an owner creates this appointment on a visitor's "
-                  "behalf (the acting owner). Null for appointments a visitor "
-                  "books themselves through the client app — there is no "
-                  "account to point at, only Appointment.visitor."
+        help_text="وقتی مالک به‌جای مشتری نوبت ثبت کند، همان مالک. برای نوبتی "
+                  "که مشتری خودش از سایت گرفته خالی است.",
+                  verbose_name='کاربر',
     )
     business = models.ForeignKey(
         Business,
         on_delete=models.CASCADE,
         related_name='appointments',
-        db_index=True
+        db_index=True,
+        verbose_name='کسب‌وکار',
     )
     visitor = models.ForeignKey(
         Visitor,
         on_delete=models.CASCADE,
         related_name='appointments',
-        db_index=True
+        db_index=True,
+        verbose_name='مشتری',
     )
-    appointment_date = models.DateTimeField(db_index=True)
+    appointment_date = models.DateTimeField(db_index=True, verbose_name='زمان نوبت')
     service_duration = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Duration in minutes. If null, uses business default."
+        help_text='مدت به دقیقه؛ خالی یعنی مدت پیش‌فرض کسب‌وکار.',
+        verbose_name='مدت خدمت (دقیقه)',
     )
     status = models.CharField(
         max_length=25,
         choices=STATUS_CHOICES,
         default='WAITING',
-        db_index=True
+        db_index=True,
+        verbose_name='وضعیت',
     )
-    description = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
     # Comma-separated names picked from the business-category's service
     # catalog (business.models.ServiceCatalogItem) — additive to
     # `description`, not a replacement: description stays free text, this is
     # the structured "what did they actually get" chips the owner tapped.
-    selected_services = models.CharField(max_length=500, blank=True, default='')
+    selected_services = models.CharField(max_length=500, blank=True, default='', verbose_name='خدمات انتخاب‌شده')
 
     # ── Slot-lock fields (Red Line #2) ────────────────────────────────────
     locked_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="Timestamp when this slot was locked by a client"
+        help_text='زمانی که مشتری این ساعت را قفل کرد',
+        verbose_name='زمان قفل',
     )
     expires_at = models.DateTimeField(
         null=True,
         blank=True,
         db_index=True,
-        help_text="Lock expiry time (locked_at + 15 min). Slot is freed after this."
+        help_text='پایان قفل (۱۵ دقیقه پس از قفل)؛ پس از آن ساعت آزاد می‌شود.',
+        verbose_name='انقضا',
     )
 
     # ── Payment tracking fields ───────────────────────────────────────────
@@ -95,19 +100,22 @@ class Appointment(models.Model):
         blank=True,
         null=True,
         unique=True,
-        help_text="Auto-generated code shown to client as their booking reference"
+        help_text='کد خودکار که به‌عنوان شماره‌ی پیگیری نوبت به مشتری نشان داده می‌شود',
+        verbose_name='کد پیگیری',
     )
     payment_reference = models.CharField(
         max_length=100,
         blank=True,
         null=True,
-        help_text="Receipt / transaction number submitted by the client for card-to-card payment"
+        help_text='شماره پیگیری که مشتری برای پرداخت کارت‌به‌کارت ثبت کرده',
+        verbose_name='شماره پیگیری پرداخت',
     )
     payment_receipt = models.ImageField(
         upload_to='payment_receipts/',
         blank=True,
         null=True,
-        help_text="Uploaded receipt image for card-to-card payment"
+        help_text='تصویر رسید بارگذاری‌شده برای پرداخت کارت‌به‌کارت',
+        verbose_name='رسید پرداخت',
     )
 
     DEPOSIT_METHOD_CHOICES = [
@@ -119,24 +127,26 @@ class Appointment(models.Model):
         max_length=10,
         choices=DEPOSIT_METHOD_CHOICES,
         default='NONE',
-        help_text="How the deposit (if any) was paid — so an owner seeing the "
-                  "client in person for the remainder knows a deposit was "
-                  "already collected, and through which channel."
+        help_text="بیعانه (اگر گرفته شده) چطور پرداخت شده؛ تا مالک هنگام دریافت "
+                  "باقی مبلغ بداند بیعانه قبلاً و از چه راهی پرداخت شده.",
+                  verbose_name='روش پرداخت بیعانه',
     )
 
     quota_source = models.CharField(
         max_length=10,
         blank=True,
         default='',
-        help_text="Which credit paid for this booking ('monthly'/'wallet'), so a "
-                  "cancellation refunds the right one. Empty = nothing was charged."
+        help_text="هزینه‌ی این نوبت از کدام اعتبار کم شده (ماهانه یا کیف پول) تا "
+                  "هنگام لغو همان برگردد. خالی = چیزی کم نشده.",
+                  verbose_name='منبع سهمیه',
     )
 
     reminder_sent_at = models.DateTimeField(
         null=True,
         blank=True,
         db_index=True,
-        help_text="When the pre-appointment reminder SMS was sent (null = not yet)"
+        help_text='زمان ارسال پیامک یادآوری پیش از نوبت (خالی = هنوز ارسال نشده)',
+        verbose_name='زمان ارسال یادآوری',
     )
 
     reminder_push_sent_at = models.DateTimeField(
@@ -150,7 +160,8 @@ class Appointment(models.Model):
             "businesses and costs quota, while the owner's push is free and goes "
             "out for every business with notifications on. One shared stamp "
             "would make a sent SMS suppress the push, and vice versa."
-        )
+        ),
+        verbose_name='زمان اعلان یادآوری',
     )
 
     reminder_visitor_push_sent_at = models.DateTimeField(
@@ -162,14 +173,17 @@ class Appointment(models.Model):
             "third, independent stamp alongside reminder_sent_at (client SMS) "
             "and reminder_push_sent_at (owner's push) — same reasoning: one "
             "shared stamp would make one channel silently suppress another."
-        )
+        ),
+        verbose_name='زمان اعلان یادآوری مشتری',
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
 
     class Meta:
+        verbose_name = 'نوبت'
+        verbose_name_plural = 'نوبت‌ها'
         ordering = ['-appointment_date']
         indexes = [
             models.Index(fields=['business', 'appointment_date']),

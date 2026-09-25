@@ -1,0 +1,424 @@
+/*
+ * admin_custom/css/unfold.css — the project's layer on top of django-unfold.
+ * Loaded on every admin page through UNFOLD["STYLES"] (core/settings.py).
+ *
+ * Three jobs, in this order:
+ *   1. Persian type: self-hosted Vazirmatn as unfold's base font.
+ *   2. Compatibility: the custom pages (reports, segment builder, campaigns,
+ *      moderation queue, …) were written for the stock Django admin and style
+ *      themselves with its CSS variables and a handful of its classes. Those
+ *      are mapped onto unfold's palette here, light and dark, so the pages sit
+ *      inside the new layout instead of rendering as unstyled leftovers.
+ *   3. The home dashboard (templates/admin/nobatyar_dashboard.html).
+ *
+ * Self-hosted font, no CDN: the production server sits in Iran, where Google
+ * Fonts and most public CDNs are unreachable.
+ */
+
+/* ── 1. Type ──────────────────────────────────────────────────────────────── */
+
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/Vazirmatn-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/Vazirmatn-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/Vazirmatn-Bold.woff2') format('woff2');
+    font-weight: 600 700;
+    font-display: swap;
+}
+
+:root {
+    --default-font-family: 'Vazirmatn', Tahoma, 'Segoe UI', sans-serif;
+}
+
+body,
+input, select, textarea, button {
+    font-family: var(--default-font-family);
+}
+
+/* ── 2. Stock-admin compatibility ─────────────────────────────────────────── */
+
+:root {
+    --primary: var(--color-primary-600);
+    --secondary: var(--color-primary-700);
+    --accent: var(--color-primary-500);
+    --primary-fg: #fff;
+    --body-fg: var(--color-base-700);
+    --body-bg: #fff;
+    --body-quiet-color: var(--color-base-500);
+    --body-loud-color: var(--color-base-900);
+    --link-fg: var(--color-primary-600);
+    --link-hover-color: var(--color-primary-700);
+    --link-selected-fg: var(--color-primary-700);
+    --hairline-color: var(--color-base-200);
+    --border-color: var(--color-base-200);
+    --darkened-bg: var(--color-base-50);
+    --selected-bg: var(--color-primary-50);
+    --selected-row: var(--color-primary-50);
+    --error-fg: #b91c1c;
+    --message-success-bg: #dcfce7;
+    --message-warning-bg: #fef3c7;
+    --message-error-bg: #fee2e2;
+    --button-fg: #fff;
+    --button-bg: var(--color-primary-600);
+    --button-hover-bg: var(--color-primary-700);
+    --default-button-bg: var(--color-primary-600);
+    --default-button-hover-bg: var(--color-primary-700);
+    --close-button-bg: var(--color-base-400);
+    --close-button-hover-bg: var(--color-base-500);
+    --delete-button-bg: #dc2626;
+    --delete-button-hover-bg: #b91c1c;
+    --object-tools-fg: #fff;
+    --object-tools-bg: var(--color-base-500);
+    --object-tools-hover-bg: var(--color-base-600);
+}
+
+.dark {
+    --body-fg: var(--color-base-300);
+    --body-bg: var(--color-base-900);
+    --body-quiet-color: var(--color-base-400);
+    --body-loud-color: var(--color-base-100);
+    --link-fg: var(--color-primary-400);
+    --link-hover-color: var(--color-primary-300);
+    --hairline-color: var(--color-base-700);
+    --border-color: var(--color-base-700);
+    --darkened-bg: var(--color-base-800);
+    --selected-bg: color-mix(in oklch, var(--color-primary-500) 18%, transparent);
+    --selected-row: color-mix(in oklch, var(--color-primary-500) 18%, transparent);
+    --error-fg: #f87171;
+    --message-success-bg: #14532d;
+    --message-warning-bg: #713f12;
+    --message-error-bg: #7f1d1d;
+}
+
+/* Buttons the custom pages use (a.button, input.button, submit rows). */
+#main .button,
+#main a.button,
+#main input[type=submit],
+#main button.button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--color-primary-600);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+#main .button:hover,
+#main a.button:hover,
+#main input[type=submit]:hover {
+    background: var(--color-primary-700);
+    color: #fff;
+}
+#main .button.default,
+#main input[type=submit].default {
+    background: var(--color-primary-600);
+}
+#main .submit-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 0;
+}
+
+#main .errornote {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in oklch, var(--error-fg) 40%, transparent);
+    background: var(--message-error-bg);
+    color: var(--error-fg);
+    font-weight: 500;
+}
+
+/* Tailwind's preflight strips table and heading styling; the custom pages
+   rely on the browser defaults being roughly there. */
+#main .nb-legacy table,
+#main table.nb-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+#main .paginator {
+    padding: 12px 0;
+    color: var(--body-quiet-color);
+}
+
+/* ── 3. Dashboard ─────────────────────────────────────────────────────────── */
+
+.nb-banner {
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+.nb-banner--error {
+    background: var(--message-error-bg);
+    color: var(--error-fg);
+}
+
+.nb-dash {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    color: var(--body-fg);
+}
+
+.nb-dash-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px 24px;
+}
+.nb-dash-head h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--body-loud-color);
+}
+.nb-dash-meta {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--body-quiet-color);
+}
+.nb-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.nb-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--body-bg);
+    color: var(--body-loud-color);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .15s ease, border-color .15s ease;
+}
+.nb-btn:hover {
+    border-color: var(--color-primary-400);
+    color: var(--body-loud-color);
+}
+.nb-btn .material-symbols-outlined { font-size: 18px; }
+.nb-btn--primary {
+    background: var(--color-primary-600);
+    border-color: var(--color-primary-600);
+    color: #fff;
+}
+.nb-btn--primary:hover {
+    background: var(--color-primary-700);
+    color: #fff;
+}
+
+.nb-section h2 {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--body-loud-color);
+}
+
+/* Headline counts. */
+.nb-status {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+}
+.nb-status-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--body-bg);
+    color: var(--body-fg);
+    text-decoration: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+a.nb-status-card:hover {
+    border-color: var(--color-primary-400);
+    box-shadow: 0 2px 10px color-mix(in oklch, var(--color-primary-500) 12%, transparent);
+    color: var(--body-fg);
+}
+.nb-status-card.nb-urgent { border-inline-start: 4px solid #dc2626; }
+.nb-status-value {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-primary-600);
+}
+.dark .nb-status-value { color: var(--color-primary-400); }
+.nb-status-card.nb-urgent .nb-status-value { color: #dc2626; }
+.nb-status-title {
+    font-size: 13px;
+    color: var(--body-quiet-color);
+}
+
+/* KPI cards: one title, four aligned windows. */
+.nb-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+}
+.nb-card,
+.nb-panel,
+.nb-alert {
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--body-bg);
+}
+.nb-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--body-loud-color);
+}
+.nb-card-unit {
+    margin-inline-start: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--body-quiet-color);
+}
+.nb-card-hint {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--body-quiet-color);
+}
+.nb-cells {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+}
+.nb-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--darkened-bg);
+}
+.nb-cell-label {
+    font-size: 11px;
+    color: var(--body-quiet-color);
+}
+.nb-cell-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--body-loud-color);
+    font-variant-numeric: tabular-nums;
+}
+.nb-note {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--body-quiet-color);
+}
+
+/* Charts. */
+.nb-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 12px;
+}
+.nb-chart-box {
+    position: relative;
+    height: 240px;
+    margin-top: 12px;
+}
+
+/* Needs-handling panels. */
+.nb-alerts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 12px;
+}
+.nb-alert.nb-urgent { border-inline-start: 4px solid #dc2626; }
+.nb-alert-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.nb-alert-head h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--body-loud-color);
+}
+.nb-alert-count {
+    min-width: 24px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--selected-bg);
+    color: var(--color-primary-700);
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+.dark .nb-alert-count { color: var(--color-primary-300); }
+.nb-alert.nb-urgent .nb-alert-count {
+    background: var(--message-error-bg);
+    color: var(--error-fg);
+}
+.nb-spacer { flex: 1 1 auto; }
+.nb-alert-head a {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--link-fg);
+}
+.nb-table-scroll { overflow-x: auto; }
+.nb-alert table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.nb-alert th,
+.nb-alert td {
+    padding: 7px 8px;
+    text-align: start;
+    border-bottom: 1px solid var(--hairline-color);
+    white-space: nowrap;
+}
+.nb-alert th {
+    color: var(--body-quiet-color);
+    font-weight: 500;
+}
+.nb-alert tbody tr:last-child td { border-bottom: 0; }
+.nb-alert-empty,
+.nb-alert-more {
+    padding-top: 6px;
+    font-size: 12px;
+    color: var(--body-quiet-color);
+}
+
+@media (max-width: 640px) {
+    .nb-cards,
+    .nb-alerts,
+    .nb-charts { grid-template-columns: 1fr; }
+    .nb-cells { grid-template-columns: repeat(2, 1fr); }
+}

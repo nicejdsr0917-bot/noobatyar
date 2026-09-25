@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 
-{# ---------------------------------------------------------------------------
+{% comment %} ---------------------------------------------------------------------------
   Promotional push campaigns
   (core.admin_site.NobatyarAdminSite.campaign_view / campaign_send_view).
 
@@ -14,52 +14,52 @@
   that page is scoped to one audience at a time by construction (its whole
   querystring carries a single `kind`), and the thing operators want here —
   one announcement to customers *and* owners — cannot be expressed there.
---------------------------------------------------------------------------- #}
+--------------------------------------------------------------------------- {% endcomment %}
 
 {% block extrastyle %}{{ block.super }}
 <style>
   .pc-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,340px); gap:20px; align-items:start; }
   @media (max-width:1000px){ .pc-grid { grid-template-columns:1fr; } }
-  .pc-box { border:1px solid #e3e3e3; border-radius:8px; background:#fff; padding:16px; margin-block-end:20px; }
-  .pc-box h2 { font-size:14px; margin:0 0 14px; padding:0 0 8px; border-block-end:1px solid #eee; }
-  .pc-field { display:flex; flex-direction:column; gap:4px; margin-block-end:14px; font-size:12px; color:#555; }
+  .pc-box { border:1px solid var(--border-color); border-radius:8px; background:var(--body-bg); padding:16px; margin-block-end:20px; }
+  .pc-box h2 { font-size:14px; margin:0 0 14px; padding:0 0 8px; border-block-end:1px solid var(--border-color); }
+  .pc-field { display:flex; flex-direction:column; gap:4px; margin-block-end:14px; font-size:12px; color:var(--body-quiet-color); }
   .pc-field input[type=text], .pc-field input[type=url], .pc-field textarea, .pc-field select {
-    padding:8px; border:1px solid #ccc; border-radius:4px; font-family:inherit; font-size:13px; width:100%;
+    padding:8px; border:1px solid var(--border-color); border-radius:4px; font-family:inherit; font-size:13px; width:100%;
     box-sizing:border-box; }
   .pc-field textarea { min-height:96px; resize:vertical; line-height:1.9; }
   .pc-ltr { direction:ltr; text-align:left; }
-  .pc-hint { font-size:11px; color:#888; }
+  .pc-hint { font-size:11px; color:var(--body-quiet-color); }
   .pc-audiences { display:flex; flex-wrap:wrap; gap:10px; margin-block-end:14px; }
-  .pc-aud { display:flex; align-items:center; gap:8px; border:1px solid #ccc; border-radius:8px;
-            padding:10px 14px; cursor:pointer; font-size:13px; background:#fafafa; }
+  .pc-aud { display:flex; align-items:center; gap:8px; border:1px solid var(--border-color); border-radius:8px;
+            padding:10px 14px; cursor:pointer; font-size:13px; background:var(--darkened-bg); }
   .pc-aud input { margin:0; }
   .pc-counts { display:flex; flex-wrap:wrap; gap:10px; margin-block-end:14px; }
-  .pc-card { border:1px solid #ddd; border-radius:8px; padding:10px 14px; min-width:150px; background:#fff; }
-  .pc-card-title { font-size:11px; color:#666; margin-block-end:4px; }
+  .pc-card { border:1px solid var(--border-color); border-radius:8px; padding:10px 14px; min-width:150px; background:var(--body-bg); }
+  .pc-card-title { font-size:11px; color:var(--body-quiet-color); margin-block-end:4px; }
   .pc-card-value { font-size:20px; font-weight:700; direction:ltr; text-align:end; }
   .pc-warn { border:1px solid #e0a800; background:#fff8e6; border-radius:8px; padding:10px 14px;
              font-size:12px; color:#7a5c00; margin-block-end:16px; line-height:1.9; }
   .pc-err { border:1px solid #d9534f; background:#fdf3f3; border-radius:8px; padding:10px 14px;
             font-size:12px; color:#a94442; margin-block-end:16px; }
-  .pc-table { width:100%; border-collapse:collapse; background:#fff; }
-  .pc-table th, .pc-table td { border:1px solid #e6e6e6; padding:6px 9px; font-size:12px; }
-  .pc-table th { background:#fafafa; text-align:start; }
+  .pc-table { width:100%; border-collapse:collapse; background:var(--body-bg); }
+  .pc-table th, .pc-table td { border:1px solid var(--border-color); padding:6px 9px; font-size:12px; }
+  .pc-table th { background:var(--darkened-bg); text-align:start; }
   .pc-num { direction:ltr; text-align:end; font-variant-numeric:tabular-nums; }
-  .pc-campaign { border:1px solid #e3e3e3; border-radius:8px; margin-block-end:14px; overflow:hidden; }
-  .pc-campaign-head { background:#fafafa; padding:10px 14px; border-block-end:1px solid #e6e6e6; }
+  .pc-campaign { border:1px solid var(--border-color); border-radius:8px; margin-block-end:14px; overflow:hidden; }
+  .pc-campaign-head { background:var(--darkened-bg); padding:10px 14px; border-block-end:1px solid var(--border-color); }
   .pc-campaign-title { font-size:13px; font-weight:700; }
-  .pc-campaign-meta { font-size:11px; color:#777; margin-block-start:3px; }
-  .pc-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; background:#eef3f6; color:#417690; }
-  .pc-preview { border:1px solid #ddd; border-radius:10px; padding:12px; background:#fff; }
+  .pc-campaign-meta { font-size:11px; color:var(--body-quiet-color); margin-block-start:3px; }
+  .pc-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; background:#eef3f6; color:var(--link-fg); }
+  .pc-preview { border:1px solid var(--border-color); border-radius:10px; padding:12px; background:var(--body-bg); }
   .pc-preview-title { font-size:13px; font-weight:700; }
-  .pc-preview-body { font-size:12px; color:#444; line-height:1.9; white-space:pre-line; margin-block-start:4px; }
+  .pc-preview-body { font-size:12px; color:var(--body-loud-color); line-height:1.9; white-space:pre-line; margin-block-start:4px; }
   .pc-preview-img { max-width:100%; border-radius:6px; margin-block-start:8px; display:block; }
 </style>
 {% endblock %}
 
 {% block content %}
-{# No <h1> here: base_site.html already renders one from the `title` context
-   key, same as segment_builder.html. #}
+{% comment %} No <h1> here: base_site.html already renders one from the `title` context
+   key, same as segment_builder.html. {% endcomment %}
 
 {% if not push_configured %}
   <div class="pc-warn">
@@ -185,9 +185,9 @@
   </div>
 </div>
 
-{# ── Expiry-SMS blast: manual counterpart to the cron-run reminder in
+{% comment %} ── Expiry-SMS blast: manual counterpart to the cron-run reminder in
    accounting.SubscriptionReminderSettings — same "subscription ending soon"
-   audience, but the operator writes the wording fresh and sends on demand. #}
+   audience, but the operator writes the wording fresh and sends on demand. {% endcomment %}
 <div class="pc-box">
   <h2>پیامک یادآوری انقضای اشتراک</h2>
   <form method="post" id="es-form">
@@ -222,7 +222,7 @@
       ارسال بلافاصله و بدون تأیید دوم انجام می‌شود.
     </span>
 
-    <div style="margin-block-start:16px; padding-block-start:14px; border-block-start:1px solid #eee">
+    <div style="margin-block-start:16px; padding-block-start:14px; border-block-start:1px solid var(--border-color)">
       <label class="pc-aud" style="width:fit-content">
         <input type="checkbox" name="auto_enabled" value="1" {% if reminder_settings.is_enabled %}checked{% endif %}>
         ارسال خودکار فعال باشد
@@ -265,7 +265,7 @@
         </div>
         {% if l.recipients %}
           <details>
-            <summary style="cursor:pointer; padding:8px 14px; font-size:12px; color:#417690">
+            <summary style="cursor:pointer; padding:8px 14px; font-size:12px; color:var(--link-fg)">
               فهرست گیرندگان ({{ l.recipients|length }} نفر)
             </summary>
             <table class="pc-table">

@@ -11,6 +11,7 @@ BusinessModerationLog registered *and* linked into a bespoke queue view.
 """
 
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
 from .models import (
     AdminMessageLog, AudienceSegment, AudienceSegmentExport, ExpirySmsLog, MarketingPushLog,
@@ -18,7 +19,7 @@ from .models import (
 
 
 @admin.register(AudienceSegment)
-class AudienceSegmentAdmin(admin.ModelAdmin):
+class AudienceSegmentAdmin(ModelAdmin):
     list_display = ['name', 'kind', 'created_by', 'created_at', 'last_run_at']
     list_filter = ['kind']
     search_fields = ['name']
@@ -34,7 +35,7 @@ class AudienceSegmentAdmin(admin.ModelAdmin):
 
 
 @admin.register(AudienceSegmentExport)
-class AudienceSegmentExportAdmin(admin.ModelAdmin):
+class AudienceSegmentExportAdmin(ModelAdmin):
     """Read-only: this is an audit trail, not something staff edit.
 
     Same rationale as accounting.TransactionAdmin — a record with no
@@ -61,7 +62,7 @@ class AudienceSegmentExportAdmin(admin.ModelAdmin):
 
 
 @admin.register(AdminMessageLog)
-class AdminMessageLogAdmin(admin.ModelAdmin):
+class AdminMessageLogAdmin(ModelAdmin):
     """Read-only audit trail — same reasoning as AudienceSegmentExportAdmin
     above. The actual compose/send UI is business_detail_view's form; this
     registration exists so the full cross-business history is browsable/
@@ -85,7 +86,7 @@ class AdminMessageLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(MarketingPushLog)
-class MarketingPushLogAdmin(admin.ModelAdmin):
+class MarketingPushLogAdmin(ModelAdmin):
     """Read-only campaign audit — same reasoning as the other two logs above."""
     list_display = [
         'sent_at', 'audience', 'title',
@@ -109,7 +110,7 @@ class MarketingPushLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(ExpirySmsLog)
-class ExpirySmsLogAdmin(admin.ModelAdmin):
+class ExpirySmsLogAdmin(ModelAdmin):
     """Read-only audit — same reasoning as the other logs above. The compose/
     send UI is the expiry-SMS box on the campaigns page
     (NobatyarAdminSite.expiry_sms_send_view)."""

@@ -21,6 +21,7 @@ from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.http import urlencode
+from unfold.sites import UnfoldAdminSite
 
 # core.dashboard is imported inside the views, never here. This module is
 # imported while the app registry is still populating (AdminConfig resolves
@@ -31,7 +32,7 @@ from django.utils.http import urlencode
 logger = logging.getLogger(__name__)
 
 
-class NobatyarAdminSite(admin.AdminSite):
+class NobatyarAdminSite(UnfoldAdminSite):
     site_header = 'نوبت‌یار — پنل مدیریت'
     site_title = 'نوبت‌یار'
     index_title = 'مدیریت سامانه'

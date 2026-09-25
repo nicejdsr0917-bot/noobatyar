@@ -1,6 +1,6 @@
 {% extends "admin/change_list.html" %}
 
-{# ---------------------------------------------------------------------------
+{% comment %} ---------------------------------------------------------------------------
   Adds the review-queue entry point to the Business changelist's object-tools.
 
   The queue lives here rather than only on the admin index because the pending
@@ -8,7 +8,7 @@
   immediately whether anything is waiting, without navigating back home.
   `moderation_pending_count` / `moderation_queue_url` come from
   BusinessAdmin.changelist_view().
---------------------------------------------------------------------------- #}
+--------------------------------------------------------------------------- {% endcomment %}
 
 {% block object-tools-items %}
   <li>

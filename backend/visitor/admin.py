@@ -12,6 +12,7 @@ import csv
 import io
 
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.template.response import TemplateResponse
@@ -38,12 +39,12 @@ def _add_display_percentages(report):
 
 
 @admin.register(Visitor)
-class VisitorAdmin(admin.ModelAdmin):
+class VisitorAdmin(ModelAdmin):
     list_display = ('phone_number', 'full_name', 'created_at')
     search_fields = ('phone_number', 'full_name')
 
 @admin.register(SmsLog)
-class SmsLogAdmin(admin.ModelAdmin):
+class SmsLogAdmin(ModelAdmin):
     list_display = ('visitor', 'business', 'status', 'sent_at')
     list_filter = ('status',)
     search_fields = ('visitor__phone_number',)

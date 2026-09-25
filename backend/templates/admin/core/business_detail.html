@@ -1,33 +1,33 @@
 {% extends "admin/base_site.html" %}
 
-{# ---------------------------------------------------------------------------
+{% comment %} ---------------------------------------------------------------------------
   Business 360 page (core.admin_site.NobatyarAdminSite.business_detail_view).
   Panels gated by `detail.can.*` (core/detail_views.permissions_for_business),
   same degrade-per-panel rule as user_detail.html.
---------------------------------------------------------------------------- #}
+--------------------------------------------------------------------------- {% endcomment %}
 
 {% block extrastyle %}{{ block.super }}
 <style>
   .bd-head { display:flex; flex-wrap:wrap; gap:18px; align-items:baseline; margin-block-end:18px; }
   .bd-head h2 { margin:0; }
-  .bd-meta { font-size:13px; color:#666; }
+  .bd-meta { font-size:13px; color:var(--body-quiet-color); }
   .bd-section { margin-block-end:26px; }
   .bd-section h3 { margin-block-end:10px; }
-  .bd-table { width:100%; border-collapse:collapse; background:#fff; }
-  .bd-table th, .bd-table td { border:1px solid #e6e6e6; padding:7px 10px; font-size:13px; }
-  .bd-table th { background:#fafafa; text-align:start; }
+  .bd-table { width:100%; border-collapse:collapse; background:var(--body-bg); }
+  .bd-table th, .bd-table td { border:1px solid var(--border-color); padding:7px 10px; font-size:13px; }
+  .bd-table th { background:var(--darkened-bg); text-align:start; }
   .bd-table td.num { direction:ltr; text-align:end; }
-  .bd-empty { padding:14px; text-align:center; color:#888; border:1px dashed #ddd; border-radius:8px; }
+  .bd-empty { padding:14px; text-align:center; color:var(--body-quiet-color); border:1px dashed var(--border-color); border-radius:8px; }
   .bd-cards { display:flex; flex-wrap:wrap; gap:14px; }
-  .bd-card { border:1px solid #ddd; border-radius:8px; padding:12px 16px; min-width:150px; background:#fff; }
-  .bd-card-title { font-size:12px; color:#666; margin-block-end:6px; }
+  .bd-card { border:1px solid var(--border-color); border-radius:8px; padding:12px 16px; min-width:150px; background:var(--body-bg); }
+  .bd-card-title { font-size:12px; color:var(--body-quiet-color); margin-block-end:6px; }
   .bd-card-value { font-size:18px; font-weight:700; direction:ltr; text-align:end; }
   .bd-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
   .bd-b-approved { background:#d9f2e3; color:#0b6b34; }
   .bd-b-pending  { background:#fff3cd; color:#7a5c00; }
   .bd-b-rejected { background:#fbdddd; color:#8b1a1a; }
-  .bd-b-suspended{ background:#e4e4e4; color:#3d3d3d; }
-  .bd-note { font-size:12px; color:#666; margin-block-start:6px; }
+  .bd-b-suspended{ background:var(--hairline-color); color:var(--body-loud-color); }
+  .bd-note { font-size:12px; color:var(--body-quiet-color); margin-block-start:6px; }
 </style>
 {% endblock %}
 

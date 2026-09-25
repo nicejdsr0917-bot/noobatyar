@@ -22,6 +22,7 @@ import io
 from uuid import uuid4
 
 from django.contrib import admin, messages
+from unfold.admin import ModelAdmin
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.template.response import TemplateResponse
@@ -58,7 +59,7 @@ def _add_display_percentages(report):
 
 
 @admin.register(Plan)
-class PlanAdmin(admin.ModelAdmin):
+class PlanAdmin(ModelAdmin):
     list_display = ['name', 'price', 'duration_value', 'duration_unit', 'is_vip', 'is_active', 'myket_sku', 'feature_count']
     list_editable = ['is_active']  # مستقیم از لیست تغییر بده
     search_fields = ['name']
@@ -69,7 +70,7 @@ class PlanAdmin(admin.ModelAdmin):
 
 
 @admin.register(Subscription)
-class SubscriptionAdmin(admin.ModelAdmin):
+class SubscriptionAdmin(ModelAdmin):
     list_display = ['user', 'plan', 'status', 'started_at', 'ends_at', 'is_valid_display', 'reminder_sent']
     list_filter = ['status', 'plan']
     search_fields = ['user__phone', 'user__name']
@@ -106,7 +107,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
 
 
 @admin.register(AddOnPack)
-class AddOnPackAdmin(admin.ModelAdmin):
+class AddOnPackAdmin(ModelAdmin):
     list_display = ['name', 'price', 'kind', 'sms_amount', 'appointment_amount', 'feature_key', 'duration_days', 'is_active', 'myket_sku']
     list_editable = ['is_active']
     list_filter = ['kind', 'is_active']
@@ -114,7 +115,7 @@ class AddOnPackAdmin(admin.ModelAdmin):
 
 
 @admin.register(AddOnPurchase)
-class AddOnPurchaseAdmin(admin.ModelAdmin):
+class AddOnPurchaseAdmin(ModelAdmin):
     list_display = ['order_id', 'user', 'pack', 'amount', 'status', 'expires_at', 'created_at']
     list_filter = ['status', 'pack']
     search_fields = ['order_id', 'track_id', 'user__phone', 'user__name']
@@ -152,7 +153,7 @@ class AddOnPurchaseAdmin(admin.ModelAdmin):
 
 
 @admin.register(Transaction)
-class TransactionAdmin(admin.ModelAdmin):
+class TransactionAdmin(ModelAdmin):
     """Read-only browsing of subscription payments, plus the financial report.
 
     Known gap this closes: phase 2's dashboard (``core/dashboard/panels.py``)
@@ -340,7 +341,7 @@ class TransactionAdmin(admin.ModelAdmin):
 
 
 @admin.register(SubscriptionReminderSettings)
-class SubscriptionReminderSettingsAdmin(admin.ModelAdmin):
+class SubscriptionReminderSettingsAdmin(ModelAdmin):
     list_display = ('__str__', 'is_enabled', 'days_before', 'updated_at')
     readonly_fields = ('updated_at',)
     fieldsets = (
@@ -369,7 +370,7 @@ class SubscriptionReminderSettingsAdmin(admin.ModelAdmin):
 
 
 @admin.register(CreditLedger)
-class CreditLedgerAdmin(admin.ModelAdmin):
+class CreditLedgerAdmin(ModelAdmin):
     """Read-only browsing of the SMS/appointment wallet audit trail.
 
     This is the one piece phase 5 (CreditLedger) never actually connected to
@@ -408,7 +409,7 @@ class CreditLedgerAdmin(admin.ModelAdmin):
 
 
 @admin.register(StorePurchase)
-class StorePurchaseAdmin(admin.ModelAdmin):
+class StorePurchaseAdmin(ModelAdmin):
     """Read-only audit of in-app store purchases (Myket), same reasoning as
     TransactionAdmin: each row is the record of a real store payment."""
     list_display = ['created_at', 'store', 'user', 'kind', 'sku', 'status', 'consumed_at']

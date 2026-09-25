@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 
-{# ---------------------------------------------------------------------------
+{% comment %} ---------------------------------------------------------------------------
   Financial reporting page for the Finance/Superadmin roles.
 
   Reachable from the Transaction changelist's "گزارش مالی" object-tool button
@@ -12,40 +12,40 @@
   Styling stays close to the moderation queue's inline <style> block
   (business/templates/admin/business/moderation_queue.html): logical
   properties (inline-start/end) so RTL is free, no new stylesheet.
---------------------------------------------------------------------------- #}
+--------------------------------------------------------------------------- {% endcomment %}
 
 {% block extrastyle %}{{ block.super }}
 <style>
   .fr-filters { display:flex; flex-wrap:wrap; gap:10px; align-items:end;
-                margin-block-end:20px; padding:14px; background:#f8f8f8;
-                border:1px solid #e3e3e3; border-radius:8px; }
+                margin-block-end:20px; padding:14px; background:var(--darkened-bg);
+                border:1px solid var(--border-color); border-radius:8px; }
   .fr-filters label { display:flex; flex-direction:column; gap:4px;
-                       font-size:12px; color:#555; }
-  .fr-filters input[type=text] { padding:6px 8px; border:1px solid #ccc;
+                       font-size:12px; color:var(--body-quiet-color); }
+  .fr-filters input[type=text] { padding:6px 8px; border:1px solid var(--border-color);
                                   border-radius:4px; font-family:inherit;
                                   direction:ltr; text-align:end; width:110px; }
   .fr-filters .button { align-self:end; }
-  .fr-meta { font-size:12px; color:#777; margin-inline-start:auto;
+  .fr-meta { font-size:12px; color:var(--body-quiet-color); margin-inline-start:auto;
              align-self:center; }
   .fr-section { margin-block-end:28px; }
   .fr-section h3 { margin-block-end:10px; }
   .fr-cards { display:flex; flex-wrap:wrap; gap:14px; }
-  .fr-card { border:1px solid #ddd; border-radius:8px; padding:14px 16px;
-             min-width:170px; background:#fff; }
-  .fr-card-title { font-size:12px; color:#666; margin-block-end:6px; }
+  .fr-card { border:1px solid var(--border-color); border-radius:8px; padding:14px 16px;
+             min-width:170px; background:var(--body-bg); }
+  .fr-card-title { font-size:12px; color:var(--body-quiet-color); margin-block-end:6px; }
   .fr-card-value { font-size:22px; font-weight:700; direction:ltr;
                     text-align:end; }
-  .fr-card-unit { font-size:12px; color:#888; margin-inline-start:4px; }
-  .fr-table { width:100%; border-collapse:collapse; background:#fff; }
-  .fr-table th, .fr-table td { border:1px solid #e6e6e6; padding:7px 10px;
+  .fr-card-unit { font-size:12px; color:var(--body-quiet-color); margin-inline-start:4px; }
+  .fr-table { width:100%; border-collapse:collapse; background:var(--body-bg); }
+  .fr-table th, .fr-table td { border:1px solid var(--border-color); padding:7px 10px;
                                 font-size:13px; }
-  .fr-table th { background:#fafafa; text-align:start; }
+  .fr-table th { background:var(--darkened-bg); text-align:start; }
   .fr-table td.num { direction:ltr; text-align:end; }
-  .fr-note { font-size:12px; color:#666; margin-block-start:8px; }
+  .fr-note { font-size:12px; color:var(--body-quiet-color); margin-block-start:8px; }
   .fr-deposit { border:1px solid #e0a800; background:#fff8e6; border-radius:8px;
                 padding:14px 16px; }
   .fr-deposit h3 { margin-block-start:0; color:#7a5c00; }
-  .fr-empty { padding:16px; text-align:center; color:#888; border:1px dashed #ddd;
+  .fr-empty { padding:16px; text-align:center; color:var(--body-quiet-color); border:1px dashed var(--border-color);
               border-radius:8px; }
   .fr-error { color:#8b1a1a; }
 </style>

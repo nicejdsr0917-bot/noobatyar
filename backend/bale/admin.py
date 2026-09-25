@@ -8,12 +8,13 @@ the review bot at their own chat.
 """
 
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
 from .models import BaleSettings
 
 
 @admin.register(BaleSettings)
-class BaleSettingsAdmin(admin.ModelAdmin):
+class BaleSettingsAdmin(ModelAdmin):
     list_display = ('__str__', 'is_enabled', 'masked_token', 'chat_id', 'updated_at')
     readonly_fields = ('webhook_secret', 'updated_at', 'webhook_url')
     fieldsets = (

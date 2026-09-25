@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 
-{# ---------------------------------------------------------------------------
+{% comment %} ---------------------------------------------------------------------------
   Audience segment builder (core.admin_site.NobatyarAdminSite.segment_builder_view).
 
   Plain GET-form + server round-trip, same pattern as
@@ -10,34 +10,34 @@
   export triggered blind. Exporting is a *separate* link built from the same
   querystring (`export_url`), gated on a different, stricter permission than
   viewing this page — see segment_export_view()'s docstring for why.
---------------------------------------------------------------------------- #}
+--------------------------------------------------------------------------- {% endcomment %}
 
 {% block extrastyle %}{{ block.super }}
 <style>
   .sg-tabs { display:flex; gap:8px; margin-block-end:16px; }
-  .sg-tab { padding:6px 16px; border-radius:16px; border:1px solid #ccc; text-decoration:none;
-            color:#333; font-size:13px; }
-  .sg-tab.active { background:#417690; color:#fff; border-color:#417690; }
+  .sg-tab { padding:6px 16px; border-radius:16px; border:1px solid var(--border-color); text-decoration:none;
+            color:var(--body-loud-color); font-size:13px; }
+  .sg-tab.active { background:var(--primary); color:#fff; border-color:var(--border-color); }
   .sg-filters { display:flex; flex-wrap:wrap; gap:14px; align-items:end; padding:14px;
-                background:#f8f8f8; border:1px solid #e3e3e3; border-radius:8px; margin-block-end:16px; }
-  .sg-filters label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#555; }
+                background:var(--darkened-bg); border:1px solid var(--border-color); border-radius:8px; margin-block-end:16px; }
+  .sg-filters label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--body-quiet-color); }
   .sg-filters input[type=text], .sg-filters input[type=number], .sg-filters select {
-    padding:6px 8px; border:1px solid #ccc; border-radius:4px; font-family:inherit; min-width:120px; }
+    padding:6px 8px; border:1px solid var(--border-color); border-radius:4px; font-family:inherit; min-width:120px; }
   .sg-filters input[direction-ltr] { direction:ltr; }
   .sg-checkbox { flex-direction:row !important; align-items:center; gap:6px !important; }
   .sg-filters .button { align-self:end; }
   .sg-counts { display:flex; flex-wrap:wrap; gap:14px; margin-block-end:16px; }
-  .sg-card { border:1px solid #ddd; border-radius:8px; padding:12px 16px; min-width:160px; background:#fff; }
-  .sg-card-title { font-size:12px; color:#666; margin-block-end:6px; }
+  .sg-card { border:1px solid var(--border-color); border-radius:8px; padding:12px 16px; min-width:160px; background:var(--body-bg); }
+  .sg-card-title { font-size:12px; color:var(--body-quiet-color); margin-block-end:6px; }
   .sg-card-value { font-size:22px; font-weight:700; direction:ltr; text-align:end; }
   .sg-warn { border:1px solid #e0a800; background:#fff8e6; border-radius:8px; padding:10px 14px;
              font-size:12px; color:#7a5c00; margin-block-end:16px; }
-  .sg-table { width:100%; border-collapse:collapse; background:#fff; margin-block-end:16px; }
-  .sg-table th, .sg-table td { border:1px solid #e6e6e6; padding:6px 10px; font-size:13px; }
-  .sg-table th { background:#fafafa; text-align:start; }
+  .sg-table { width:100%; border-collapse:collapse; background:var(--body-bg); margin-block-end:16px; }
+  .sg-table th, .sg-table td { border:1px solid var(--border-color); padding:6px 10px; font-size:13px; }
+  .sg-table th { background:var(--darkened-bg); text-align:start; }
   .sg-section { margin-block-end:24px; }
-  .sg-save { display:flex; gap:10px; align-items:end; padding:12px; border:1px dashed #ccc; border-radius:8px; }
-  .sg-note { font-size:12px; color:#666; }
+  .sg-save { display:flex; gap:10px; align-items:end; padding:12px; border:1px dashed var(--border-color); border-radius:8px; }
+  .sg-note { font-size:12px; color:var(--body-quiet-color); }
   .sg-error { color:#8b1a1a; }
 </style>
 {% endblock %}

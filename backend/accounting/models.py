@@ -7,30 +7,33 @@ from django.contrib.auth import get_user_model
 
 class Plan(models.Model):
     """پلن‌های اشتراک — داده‌ها از اینجا میان"""
+    class Meta:
+        verbose_name = 'پلن'
+        verbose_name_plural = 'پلن‌ها'
 
     DURATION_UNIT = [
         ('day', 'روز'),
         ('month', 'ماه'),
     ]
 
-    name = models.CharField(max_length=100)           # نام پلن
-    price = models.PositiveIntegerField()              # قیمت اصلی به تومان
-    discount_price = models.PositiveIntegerField(null=True, blank=True)  # قیمت با تخفیف
-    description = models.JSONField(default=list)       # لیست توضیحات پلن
-    duration_value = models.PositiveIntegerField()     # عدد مدت
-    duration_unit = models.CharField(max_length=10, choices=DURATION_UNIT)
-    is_vip = models.BooleanField(default=False)        # آیا VIP میشه؟
-    is_active = models.BooleanField(default=True)      # نمایش داده بشه؟
+    name = models.CharField(max_length=100, verbose_name='نام')           # نام پلن
+    price = models.PositiveIntegerField(verbose_name='قیمت')              # قیمت اصلی به تومان
+    discount_price = models.PositiveIntegerField(null=True, blank=True, verbose_name='قیمت با تخفیف')  # قیمت با تخفیف
+    description = models.JSONField(default=list, verbose_name='توضیحات')       # لیست توضیحات پلن
+    duration_value = models.PositiveIntegerField(verbose_name='مدت')     # عدد مدت
+    duration_unit = models.CharField(max_length=10, choices=DURATION_UNIT, verbose_name='واحد مدت')
+    is_vip = models.BooleanField(default=False, verbose_name='ویژه')        # آیا VIP میشه؟
+    is_active = models.BooleanField(default=True, verbose_name='فعال')      # نمایش داده بشه؟
     # شناسه‌ی همین پلن در پنل «محصولات درون‌برنامه‌ای» مایکت (مصرف‌شدنی).
     # خالی = این پلن در نسخه‌ی مایکت قابل خرید نیست.
     myket_sku = models.CharField(max_length=100, blank=True, default='',
-                                 help_text="شناسه‌ی محصول در مایکت؛ خالی یعنی در نسخه‌ی مایکت فروخته نمی‌شود")
+                                 help_text="شناسه‌ی محصول در مایکت؛ خالی یعنی در نسخه‌ی مایکت فروخته نمی‌شود", verbose_name='شناسه محصول مایکت')
 
     # قابلیت‌ها و سقف‌هایی که این پلن باز می‌کند (نردبان تعهد).
     # کلیدها در accounting/entitlements.py تعریف شده‌اند. مثال:
     #   {"max_businesses": 3, "monthly_appointments": -1, "online_gateway": true}
     # مقدار -1 در سقف‌ها یعنی «نامحدود». هرچه خالی بماند از مقدار پایه پر می‌شود.
-    features = models.JSONField(default=dict, blank=True)
+    features = models.JSONField(default=dict, blank=True, verbose_name='قابلیت‌ها')
 
     def __str__(self):
         return f"{self.name} - {self.price:,} تومان"
@@ -56,15 +59,17 @@ class Subscription(models.Model):
         ('cancelled', 'لغو شده'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subscriptions')
-    plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
-    status = models.CharField(max_length=20, choices=STATUS, default='active')
-    started_at = models.DateTimeField(auto_now_add=True)
-    ends_at = models.DateTimeField()                   # تاریخ پایان
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subscriptions', verbose_name='کاربر')
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, verbose_name='پلن')
+    status = models.CharField(max_length=20, choices=STATUS, default='active', verbose_name='وضعیت')
+    started_at = models.DateTimeField(auto_now_add=True, verbose_name='شروع')
+    ends_at = models.DateTimeField(verbose_name='پایان')                   # تاریخ پایان
     # آیا پیامک یادآوری تمدید برای این اشتراک ارسال شده؟ (چرخه‌ی عمر پلن)
-    reminder_sent = models.BooleanField(default=False)
+    reminder_sent = models.BooleanField(default=False, verbose_name='یادآوری ارسال‌شده')
 
     class Meta:
+        verbose_name = 'اشتراک'
+        verbose_name_plural = 'اشتراک‌ها'
         ordering = ['-started_at']
 
     def __str__(self):
@@ -87,17 +92,19 @@ class Transaction(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='transactions')
-    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name='transactions')  # Changed from plan_id
-    amount = models.PositiveIntegerField()
-    track_id = models.CharField(max_length=100, unique=True, db_index=True)
-    order_id = models.CharField(max_length=100, unique=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='transactions', verbose_name='کاربر')
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name='transactions', verbose_name='پلن')  # Changed from plan_id
+    amount = models.PositiveIntegerField(verbose_name='مبلغ')
+    track_id = models.CharField(max_length=100, unique=True, db_index=True, verbose_name='شناسه پیگیری')
+    order_id = models.CharField(max_length=100, unique=True, verbose_name='شماره سفارش')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='وضعیت')
     zibal_response = models.JSONField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:
+        verbose_name = 'تراکنش'
+        verbose_name_plural = 'تراکنش‌ها'
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['track_id']),
@@ -119,6 +126,10 @@ class AddOnPack(models.Model):
     نوع «feature» (قابلیت موقت) دیگر برای فروش ساخته نمی‌شود؛ فقط برای سازگاری با
     خریدهای قدیمی باقی مانده است.
     """
+    class Meta:
+        verbose_name = 'بسته‌ی افزودنی'
+        verbose_name_plural = 'بسته‌های افزودنی'
+
     KIND_SMS = 'sms_pack'
     KIND_APPOINTMENT = 'appointment_pack'
     KIND_FEATURE = 'feature'
@@ -128,16 +139,16 @@ class AddOnPack(models.Model):
         (KIND_FEATURE, 'قابلیت موقت'),
     ]
 
-    name = models.CharField(max_length=100)
-    price = models.PositiveIntegerField(help_text="قیمت به تومان")
-    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
-    sms_amount = models.PositiveIntegerField(default=0, help_text="تعداد پیامک برای بسته‌ی پیامکی")
-    appointment_amount = models.PositiveIntegerField(default=0, help_text="تعداد نوبت برای بسته‌ی نوبت")
-    feature_key = models.CharField(max_length=50, blank=True, default='', help_text="کلید قابلیت برای بسته‌ی قابلیتی")
-    duration_days = models.PositiveIntegerField(default=30, help_text="مدت اعتبار بسته‌ی قابلیتی (روز)")
-    is_active = models.BooleanField(default=True)
+    name = models.CharField(max_length=100, verbose_name='نام')
+    price = models.PositiveIntegerField(help_text="قیمت به تومان", verbose_name='قیمت')
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, verbose_name='نوع')
+    sms_amount = models.PositiveIntegerField(default=0, help_text="تعداد پیامک برای بسته‌ی پیامکی", verbose_name='تعداد پیامک')
+    appointment_amount = models.PositiveIntegerField(default=0, help_text="تعداد نوبت برای بسته‌ی نوبت", verbose_name='تعداد نوبت')
+    feature_key = models.CharField(max_length=50, blank=True, default='', help_text="کلید قابلیت برای بسته‌ی قابلیتی", verbose_name='کلید قابلیت')
+    duration_days = models.PositiveIntegerField(default=30, help_text="مدت اعتبار بسته‌ی قابلیتی (روز)", verbose_name='مدت (روز)')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
     myket_sku = models.CharField(max_length=100, blank=True, default='',
-                                 help_text="شناسه‌ی محصول در مایکت؛ خالی یعنی در نسخه‌ی مایکت فروخته نمی‌شود")
+                                 help_text="شناسه‌ی محصول در مایکت؛ خالی یعنی در نسخه‌ی مایکت فروخته نمی‌شود", verbose_name='شناسه محصول مایکت')
 
     def __str__(self):
         return f"{self.name} - {self.price:,} تومان"
@@ -151,20 +162,22 @@ class AddOnPurchase(models.Model):
         ('failed', 'Failed'),
     ]
 
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='addon_purchases')
-    pack = models.ForeignKey(AddOnPack, on_delete=models.PROTECT, related_name='purchases')
-    amount = models.PositiveIntegerField()
-    track_id = models.CharField(max_length=100, unique=True, db_index=True)
-    order_id = models.CharField(max_length=100, unique=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='addon_purchases', verbose_name='کاربر')
+    pack = models.ForeignKey(AddOnPack, on_delete=models.PROTECT, related_name='purchases', verbose_name='بسته')
+    amount = models.PositiveIntegerField(verbose_name='مبلغ')
+    track_id = models.CharField(max_length=100, unique=True, db_index=True, verbose_name='شناسه پیگیری')
+    order_id = models.CharField(max_length=100, unique=True, verbose_name='شماره سفارش')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='وضعیت')
     zibal_response = models.JSONField(null=True, blank=True)
     # برای بسته‌های قابلیتی: بازه‌ی اعتبار پس از پرداخت موفق
-    activated_at = models.DateTimeField(null=True, blank=True)
-    expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    activated_at = models.DateTimeField(null=True, blank=True, verbose_name='زمان فعال‌سازی')
+    expires_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name='انقضا')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:
+        verbose_name = 'خرید بسته'
+        verbose_name_plural = 'خرید بسته‌ها'
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['track_id']),
@@ -240,16 +253,18 @@ class CreditLedger(models.Model):
         (METRIC_APPOINTMENT_WALLET, 'نوبت — کیف‌پول'),
     ]
 
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='credit_ledger_entries')
-    metric = models.CharField(max_length=20, choices=METRIC_CHOICES)
-    delta = models.IntegerField(help_text="تغییر (می‌تواند منفی باشد) — به کنوانسیون در docstring مدل توجه کنید")
-    balance_after = models.IntegerField(help_text="مقدار دقیقی که باید بلافاصله پس از این رویداد در Redis باشد")
-    reason = models.CharField(max_length=50, help_text="کد ماشین‌خوان، مثل booking / sms_send / addon_purchase")
-    ref_type = models.CharField(max_length=50, blank=True, default='')
-    ref_id = models.IntegerField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='credit_ledger_entries', verbose_name='کاربر')
+    metric = models.CharField(max_length=20, choices=METRIC_CHOICES, verbose_name='نوع اعتبار')
+    delta = models.IntegerField(help_text="تغییر (می‌تواند منفی باشد) — به کنوانسیون در docstring مدل توجه کنید", verbose_name='تغییر')
+    balance_after = models.IntegerField(help_text="مقدار دقیقی که باید بلافاصله پس از این رویداد در Redis باشد", verbose_name='مانده پس از تغییر')
+    reason = models.CharField(max_length=50, help_text="کد ماشین‌خوان، مثل booking / sms_send / addon_purchase", verbose_name='دلیل')
+    ref_type = models.CharField(max_length=50, blank=True, default='', verbose_name='نوع مرجع')
+    ref_id = models.IntegerField(null=True, blank=True, verbose_name='شناسه مرجع')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
 
     class Meta:
+        verbose_name = 'ردیف دفتر اعتبار'
+        verbose_name_plural = 'دفتر اعتبار'
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['user', 'metric', 'created_at']),
@@ -275,18 +290,21 @@ class SubscriptionReminderSettings(models.Model):
     is_enabled = models.BooleanField(
         default=False,
         help_text='تا وقتی خاموش است، هیچ پیامک یادآوری تمدید ارسال نمی‌شود',
+        verbose_name='فعال',
     )
     days_before = models.PositiveIntegerField(
         default=3,
         help_text='چند روز قبل از پایان اشتراک پیامک ارسال شود',
+        verbose_name='چند روز قبل',
     )
     message_template = models.TextField(
         default='{full_name} عزیز، {days} روز دیگر تا پایان اشتراک شما در نوبت‌یار باقی مانده است\n'
                 'برای جلوگیری از قطع خدمات، همین حالا تمدید کنید',
         help_text='متن پیامک. جاهای خالی مجاز: {full_name} نام صاحب‌حساب، '
                   '{days} تعداد روز باقی‌مانده، {plan} نام پلن.',
+                  verbose_name='قالب پیام',
     )
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:
         db_table = 'accounting_subscription_reminder_settings'
@@ -347,23 +365,25 @@ class StorePurchase(models.Model):
         ('failed', 'ناموفق'),
     ]
 
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='store_purchases')
-    store = models.CharField(max_length=20, choices=STORE_CHOICES)
-    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
-    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, null=True, blank=True, related_name='store_purchases')
-    pack = models.ForeignKey('AddOnPack', on_delete=models.PROTECT, null=True, blank=True, related_name='store_purchases')
-    sku = models.CharField(max_length=100)
-    payload = models.CharField(max_length=64, unique=True)
-    purchase_token = models.CharField(max_length=255, null=True, blank=True, unique=True)
-    order_id = models.CharField(max_length=255, blank=True, default='')
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', db_index=True)
-    store_response = models.JSONField(null=True, blank=True)
-    error_detail = models.TextField(blank=True, default='')
-    consumed_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='store_purchases', verbose_name='کاربر')
+    store = models.CharField(max_length=20, choices=STORE_CHOICES, verbose_name='فروشگاه')
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, verbose_name='نوع')
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, null=True, blank=True, related_name='store_purchases', verbose_name='پلن')
+    pack = models.ForeignKey('AddOnPack', on_delete=models.PROTECT, null=True, blank=True, related_name='store_purchases', verbose_name='بسته')
+    sku = models.CharField(max_length=100, verbose_name='شناسه محصول')
+    payload = models.CharField(max_length=64, unique=True, verbose_name='داده‌ها')
+    purchase_token = models.CharField(max_length=255, null=True, blank=True, unique=True, verbose_name='توکن خرید')
+    order_id = models.CharField(max_length=255, blank=True, default='', verbose_name='شماره سفارش')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', db_index=True, verbose_name='وضعیت')
+    store_response = models.JSONField(null=True, blank=True, verbose_name='پاسخ فروشگاه')
+    error_detail = models.TextField(blank=True, default='', verbose_name='جزئیات خطا')
+    consumed_at = models.DateTimeField(null=True, blank=True, verbose_name='زمان مصرف')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:
+        verbose_name = 'خرید مایکت'
+        verbose_name_plural = 'خریدهای مایکت'
         ordering = ['-created_at']
 
     def __str__(self):

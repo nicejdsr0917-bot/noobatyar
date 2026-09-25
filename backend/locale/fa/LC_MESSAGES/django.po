@@ -1,0 +1,173 @@
+# Persian strings for django-unfold, which ships no fa translation.
+# Compile with: msgfmt -o django.mo django.po  (the .mo is committed;
+# the production image has no gettext).
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: fa\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "%(class_name)s %(instance)s"
+msgstr "%(class_name)s %(instance)s"
+
+msgid "Add row"
+msgstr "افزودن ردیف"
+
+msgid "After you"
+msgstr "پس از شما"
+
+msgid "All applications"
+msgstr "همه‌ی بخش‌ها"
+
+msgid "Apply Filters"
+msgstr "اعمال فیلترها"
+
+msgid "Choose file to upload"
+msgstr "انتخاب فایل برای بارگذاری"
+
+msgid "Click to cancel"
+msgstr "برای لغو کلیک کنید"
+
+msgid "Click to download"
+msgstr "برای دانلود کلیک کنید"
+
+msgid "Dark"
+msgstr "تیره"
+
+msgid "Dataset not found. No action performed."
+msgstr "داده‌ای پیدا نشد؛ کاری انجام نشد."
+
+msgid "Date"
+msgstr "تاریخ"
+
+msgid "Date from"
+msgstr "از تاریخ"
+
+msgid "Date to"
+msgstr "تا تاریخ"
+
+msgid "Expand row"
+msgstr "باز کردن ردیف"
+
+msgid "False"
+msgstr "خیر"
+
+msgid "Filters"
+msgstr "فیلترها"
+
+msgid "From"
+msgstr "از"
+
+msgid "General"
+msgstr "عمومی"
+
+msgid "Go back"
+msgstr "بازگشت"
+
+msgid "Hide counts"
+msgstr "پنهان کردن تعداد"
+
+msgid "Image preview"
+msgstr "پیش‌نمایش تصویر"
+
+msgid "Light"
+msgstr "روشن"
+
+msgid "Loading more results..."
+msgstr "در حال بارگذاری نتایج بیشتر…"
+
+msgid "More actions"
+msgstr "اقدامات بیشتر"
+
+msgid "Next"
+msgstr "بعدی"
+
+msgid "No data"
+msgstr "داده‌ای نیست"
+
+msgid "No recent searches"
+msgstr "جستجوی اخیری نیست"
+
+msgid "No results found"
+msgstr "نتیجه‌ای پیدا نشد"
+
+msgid "No results matching your query"
+msgstr "نتیجه‌ای برای این جستجو پیدا نشد"
+
+msgid "Previous"
+msgstr "قبلی"
+
+msgid "Recent searches"
+msgstr "جستجوهای اخیر"
+
+msgid "Record picture"
+msgstr "تصویر رکورد"
+
+msgid "Reset filters"
+msgstr "حذف فیلترها"
+
+msgid "Return to site"
+msgstr "بازگشت به سایت"
+
+msgid "Run"
+msgstr "اجرا"
+
+msgid "Search apps and models..."
+msgstr "جستجو در بخش‌ها…"
+
+msgid "Select action"
+msgstr "انتخاب اقدام"
+
+msgid "Select action to run"
+msgstr "اقدام مورد نظر را انتخاب کنید"
+
+msgid "Select all objects on this page for an action"
+msgstr "انتخاب همه‌ی موارد این صفحه"
+
+msgid "Select all rows"
+msgstr "انتخاب همه‌ی ردیف‌ها"
+
+msgid "Select currency"
+msgstr "انتخاب واحد پول"
+
+msgid "Select record"
+msgstr "انتخاب رکورد"
+
+msgid "Select value"
+msgstr "انتخاب مقدار"
+
+msgid "Show counts"
+msgstr "نمایش تعداد"
+
+msgid "System"
+msgstr "سیستم"
+
+msgid "This item will be deleted."
+msgstr "این مورد حذف خواهد شد."
+
+msgid "This page yielded into no results. Create a new item or reset your filters."
+msgstr "موردی پیدا نشد. مورد جدیدی بسازید یا فیلترها را حذف کنید."
+
+msgid "To"
+msgstr "تا"
+
+msgid "Toggle password visibility"
+msgstr "نمایش/پنهان کردن رمز"
+
+msgid "True"
+msgstr "بله"
+
+msgid "Type to search"
+msgstr "برای جستجو تایپ کنید"
+
+msgid "Value"
+msgstr "مقدار"
+
+msgid "Welcome"
+msgstr "خوش آمدید"
+
+msgid "You can not create nested object without parent"
+msgstr "بدون والد نمی‌توان مورد زیرمجموعه ساخت"
+
+msgid "You have been successfully logged out from the administration"
+msgstr "با موفقیت از پنل مدیریت خارج شدید"
