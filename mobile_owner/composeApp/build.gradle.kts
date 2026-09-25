@@ -173,11 +173,14 @@ android {
         create("myket") {
             dimension = "store"
             buildConfigField("String", "STORE", "\"myket\"")
-            // The RSA key from Myket's panel (برنامه ← پرداخت درون‌برنامه‌ای).
-            // Public by design (it only verifies Myket's signatures), but kept
-            // out of the repo so it can change without a commit.
-            val myketKey = (System.getenv("MYKET_IAB_PUBLIC_KEY")
-                ?: project.findProperty("myketIabPublicKey") as String?).orEmpty()
+            // The RSA key from Myket's panel (کلید عمومی). Public by design —
+            // it only verifies Myket's signatures — so it lives here: without
+            // it IabHelper drops every paid purchase as "signature verification
+            // FAILED" and the app never tells the server. MYKET_IAB_PUBLIC_KEY
+            // (CI secret) or -PmyketIabPublicKey override it if it ever changes.
+            val myketKey = System.getenv("MYKET_IAB_PUBLIC_KEY")?.takeIf { it.isNotBlank() }
+                ?: (project.findProperty("myketIabPublicKey") as String?)?.takeIf { it.isNotBlank() }
+                ?: "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCT57YI5UlYVqFPzU2gwGgXlkV9IBDEwKGhrXw3W7cHZZiPuExrNOfm1c1zticeUMn+YXw3iEt+szd8h03kcvHM6iWfXxunxCXYD9XRLCAbQAC8wUYfeN2kRNuIab9A9ZSzKsc2rWQXR0X93zziIJToJ5/Z79OpfvfHrAapWxlXGwIDAQAB"
             buildConfigField("String", "MYKET_IAB_PUBLIC_KEY", "\"$myketKey\"")
             // Required by myket-billing-client's merged manifest.
             val marketApplicationId = "ir.mservices.market"
