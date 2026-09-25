@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.notifications
 
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -22,7 +24,7 @@ class NotificationsViewModel(
     private val businessRepository: BusinessRepository,
     private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase,
     private val getPlansUseCase: GetPlansUseCase,
-    private val createPaymentUseCase: CreatePaymentUseCase
+    private val purchaseUseCase: PurchaseUseCase
 ) :
     BaseViewModel<NotificationsState, NotificationsState.PartialState, NotificationsEvent, NotificationsIntent>(
         initialState = NotificationsState()
@@ -202,9 +204,14 @@ class NotificationsViewModel(
 
     private fun upgradePlan(planId: Int): Flow<NotificationsState.PartialState> = flow {
         try {
-            when (val response = createPaymentUseCase(planId)) {
-                is ApiResponse.Success -> sendEvent(NotificationsEvent.OpenUrl(response.data.paymentUrl))
-                is ApiResponse.Error -> emit(NotificationsState.PartialState.Error(response.message))
+            when (val outcome = purchaseUseCase.plan(planId)) {
+                is PurchaseOutcome.Redirect -> sendEvent(NotificationsEvent.OpenUrl(outcome.url))
+                is PurchaseOutcome.Completed -> {
+                    sendEvent(NotificationsEvent.ShowError(outcome.message))
+                    sendIntent(NotificationsIntent.LoadSettings)
+                }
+                PurchaseOutcome.Cancelled -> Unit
+                is PurchaseOutcome.Failed -> emit(NotificationsState.PartialState.Error(outcome.message))
             }
         } catch (e: Exception) {
             emit(NotificationsState.PartialState.Error(e.message ?: "خطا در برقراری ارتباط"))

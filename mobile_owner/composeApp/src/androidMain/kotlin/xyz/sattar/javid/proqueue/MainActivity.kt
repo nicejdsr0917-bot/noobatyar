@@ -13,11 +13,20 @@ import xyz.sattar.javid.proqueue.core.navigation.NavigationEvent
 import xyz.sattar.javid.proqueue.core.navigation.PaymentNavigationManager
 import xyz.sattar.javid.proqueue.core.navigation.PaymentResultEvent
 import xyz.sattar.javid.proqueue.core.navigation.parseDeepLink
+import xyz.sattar.javid.proqueue.core.billing.AndroidStoreBilling
+import xyz.sattar.javid.proqueue.core.billing.StoreBillingProvider
+import xyz.sattar.javid.proqueue.core.billing.createStoreBilling
 
 class MainActivity : ComponentActivity() {
+    // Non-null only in store builds (Myket); see core/billing/StoreBilling.kt.
+    private var storeBilling: AndroidStoreBilling? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        storeBilling = createStoreBilling(this)
+        StoreBillingProvider.billing = storeBilling
 
         handleNotificationIntent(intent)
         handlePaymentDeepLink(intent)
@@ -26,6 +35,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             App()
         }
+    }
+
+    override fun onDestroy() {
+        if (StoreBillingProvider.billing === storeBilling) StoreBillingProvider.billing = null
+        storeBilling?.dispose()
+        storeBilling = null
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {

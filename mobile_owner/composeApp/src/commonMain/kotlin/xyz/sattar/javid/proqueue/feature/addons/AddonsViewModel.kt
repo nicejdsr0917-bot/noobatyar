@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.addons
 
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
@@ -9,7 +11,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.GetAddonsUseCase
 
 class AddonsViewModel(
     private val getAddonsUseCase: GetAddonsUseCase,
-    private val buyAddonUseCase: BuyAddonUseCase
+    private val purchaseUseCase: PurchaseUseCase
 ) : BaseViewModel<AddonsState, AddonsState.PartialState, AddonsEvent, AddonsIntent>(
     initialState = AddonsState()
 ) {
@@ -36,9 +38,11 @@ class AddonsViewModel(
     private fun buy(packId: Int): Flow<AddonsState.PartialState> = flow {
         emit(AddonsState.PartialState.SetPurchasing(packId))
         try {
-            when (val response = buyAddonUseCase(packId)) {
-                is ApiResponse.Success -> sendEvent(AddonsEvent.OpenUrl(response.data.paymentUrl))
-                is ApiResponse.Error -> emit(AddonsState.PartialState.ShowMessage(response.message))
+            when (val outcome = purchaseUseCase.addon(packId)) {
+                is PurchaseOutcome.Redirect -> sendEvent(AddonsEvent.OpenUrl(outcome.url))
+                is PurchaseOutcome.Completed -> emit(AddonsState.PartialState.ShowMessage(outcome.message))
+                PurchaseOutcome.Cancelled -> Unit
+                is PurchaseOutcome.Failed -> emit(AddonsState.PartialState.ShowMessage(outcome.message))
             }
         } catch (e: Exception) {
             emit(AddonsState.PartialState.ShowMessage(e.message ?: "خطا در برقراری ارتباط"))

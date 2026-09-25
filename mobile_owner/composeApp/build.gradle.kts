@@ -135,6 +135,8 @@ android {
         // the buildkonfig{} block instead.
         buildConfigField("String", "BASE_URL", "\"https://api.noobatyar.ir\"")
         buildConfigField("String", "BOOKING_BASE_URL", "\"https://app.noobatyar.ir\"")
+        buildConfigField("String", "STORE", "\"site\"")
+        buildConfigField("String", "MYKET_IAB_PUBLIC_KEY", "\"\"")
     }
 
     // "prod" talks to the real server and is what release builds/CI use by
@@ -153,8 +155,31 @@ android {
     // BuildKonfig's un-flavored `defaultConfigs { }` — i.e. the production
     // URL — regardless of which Android flavor it was. AGP's own
     // buildConfigField, by contrast, genuinely varies per product flavor.
-    flavorDimensions += "env"
+    // "store" decides how plans and packs are paid for. "site" (the APK on
+    // noobatyar.ir and Telegram) uses the Zibal gateway. "myket" is the build
+    // uploaded to Myket, which requires its own in-app billing for digital
+    // products and rejects apps that send users to a bank gateway — see
+    // core/billing/ and accounting/payment/myket.py on the server.
+    flavorDimensions += listOf("env", "store")
     productFlavors {
+        create("site") {
+            dimension = "store"
+        }
+        create("myket") {
+            dimension = "store"
+            buildConfigField("String", "STORE", "\"myket\"")
+            // The RSA key from Myket's panel (برنامه ← پرداخت درون‌برنامه‌ای).
+            // Public by design (it only verifies Myket's signatures), but kept
+            // out of the repo so it can change without a commit.
+            val myketKey = (System.getenv("MYKET_IAB_PUBLIC_KEY")
+                ?: project.findProperty("myketIabPublicKey") as String?).orEmpty()
+            buildConfigField("String", "MYKET_IAB_PUBLIC_KEY", "\"$myketKey\"")
+            // Required by myket-billing-client's merged manifest.
+            val marketApplicationId = "ir.mservices.market"
+            manifestPlaceholders["marketApplicationId"] = marketApplicationId
+            manifestPlaceholders["marketBindAddress"] = "$marketApplicationId.InAppBillingService.BIND"
+            manifestPlaceholders["marketPermission"] = "$marketApplicationId.BILLING"
+        }
         create("prod") {
             dimension = "env"
         }
@@ -250,6 +275,10 @@ dependencies {
     // Chucker
     debugImplementation(libs.chucker.library)
     releaseImplementation(libs.chucker.library.no.op)
+
+    // Myket in-app billing — only in the Myket build, so the site APK carries
+    // none of its manifest entries (billing permission, receiver, queries).
+    add("myketImplementation", "com.github.myketstore:myket-billing-client:1.19")
 
     // After running find ksp generated directories on: composeApp/build/generated/...
     add("kspAndroid", libs.androidx.room.compiler) // Android

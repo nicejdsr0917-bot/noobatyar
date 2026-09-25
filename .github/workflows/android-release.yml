@@ -43,12 +43,13 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build signed release APK
-        # "prod" flavor only — mobile_owner/composeApp/build.gradle.kts also
-        # defines a "local" flavor for pointing at a dev backend (see
-        # docs/ENVIRONMENTS.md); assembleRelease (no flavor) would build both
-        # and land APKs under apk/{prod,local}/release instead of apk/release.
-        run: ./gradlew :composeApp:assembleProdRelease --no-daemon
+        # "prod" env only (build.gradle.kts also defines "local" for a dev
+        # backend, see docs/ENVIRONMENTS.md), in both store flavors: "site"
+        # (Zibal gateway — noobatyar.ir, Telegram) and "myket" (Myket in-app
+        # billing — uploaded to Myket by hand).
+        run: ./gradlew :composeApp:assembleProdSiteRelease :composeApp:assembleProdMyketRelease --no-daemon
         env:
+          MYKET_IAB_PUBLIC_KEY: ${{ secrets.MYKET_IAB_PUBLIC_KEY }}
           ANDROID_KEYSTORE_PATH: release.keystore.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -64,18 +65,21 @@ jobs:
       - name: Rename split APKs
         id: apk
         run: |
-          OUT_DIR="composeApp/build/outputs/apk/prod/release"
-          DEST_DIR="composeApp/build/outputs/apk/prod/release/dist"
+          OUT_DIR="composeApp/build/outputs/apk/prodSite/release"
+          DEST_DIR="composeApp/build/outputs/apk/dist"
           mkdir -p "$DEST_DIR"
           VERSION="${{ steps.version.outputs.version_name }}"
           for f in "$OUT_DIR"/*.apk; do
             base=$(basename "$f" .apk)
-            # AGP names these composeApp-prod-arm64-v8a-release.apk and
-            # composeApp-prod-universal-release.apk (splits.abi.isUniversalApk
+            # AGP names these composeApp-prod-site-arm64-v8a-release.apk and
+            # composeApp-prod-site-universal-release.apk (splits.abi.isUniversalApk
             # makes "universal" an explicit abi name, not a special case)
-            arch=$(echo "$base" | sed -E 's/composeApp-prod-(.*)-release/\1/')
+            arch=$(echo "$base" | sed -E 's/composeApp-prod-site-(.*)-release/\1/')
             cp "$f" "$DEST_DIR/Noobatyar-Owner-${VERSION}-${arch}.apk"
           done
+          # Myket gets one universal APK of its own flavor.
+          cp composeApp/build/outputs/apk/prodMyket/release/composeApp-prod-myket-universal-release.apk \
+            "$DEST_DIR/Noobatyar-Owner-${VERSION}-myket.apk"
           echo "dir=mobile_owner/$DEST_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Extract Persian release notes

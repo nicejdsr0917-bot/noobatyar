@@ -126,6 +126,7 @@ val appModule: Module = module {
     factory { GetCurrentUserUseCase(get()) }
     factory { GetPlansUseCase(get()) }
     factory { CreatePaymentUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase(get(), get(), get()) }
     factory { GetMyEntitlementsUseCase(get()) }
     factory { GetAddonsUseCase(get()) }
     factory { BuyAddonUseCase(get()) }

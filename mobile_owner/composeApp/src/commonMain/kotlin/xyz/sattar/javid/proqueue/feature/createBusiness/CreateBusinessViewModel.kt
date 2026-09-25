@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
@@ -22,7 +24,7 @@ class CreateBusinessViewModel(
     private val businessRepository: xyz.sattar.javid.proqueue.domain.BusinessRepository,
     private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase,
     private val getPlansUseCase: GetPlansUseCase,
-    private val createPaymentUseCase: CreatePaymentUseCase,
+    private val purchaseUseCase: PurchaseUseCase,
     private val getServiceCatalogUseCase: GetServiceCatalogUseCase,
     private val addServiceCatalogItemUseCase: AddServiceCatalogItemUseCase
 ) : BaseViewModel<CreateBusinessState, CreateBusinessState.PartialState, CreateBusinessEvent, CreateBusinessIntent>(
@@ -139,9 +141,14 @@ class CreateBusinessViewModel(
 
     private fun upgradePlan(planId: Int): Flow<CreateBusinessState.PartialState> = flow {
         try {
-            when (val response = createPaymentUseCase(planId)) {
-                is ApiResponse.Success -> sendEvent(CreateBusinessEvent.OpenUrl(response.data.paymentUrl))
-                is ApiResponse.Error -> emit(CreateBusinessState.PartialState.ShowMessage(response.message))
+            when (val outcome = purchaseUseCase.plan(planId)) {
+                is PurchaseOutcome.Redirect -> sendEvent(CreateBusinessEvent.OpenUrl(outcome.url))
+                is PurchaseOutcome.Completed -> {
+                    emit(CreateBusinessState.PartialState.ShowMessage(outcome.message))
+                    sendIntent(CreateBusinessIntent.LoadEntitlements)
+                }
+                PurchaseOutcome.Cancelled -> Unit
+                is PurchaseOutcome.Failed -> emit(CreateBusinessState.PartialState.ShowMessage(outcome.message))
             }
         } catch (e: Exception) {
             emit(CreateBusinessState.PartialState.ShowMessage(e.message ?: "خطا در برقراری ارتباط"))

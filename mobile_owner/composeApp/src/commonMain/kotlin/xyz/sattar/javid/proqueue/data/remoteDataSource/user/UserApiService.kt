@@ -96,6 +96,20 @@ class UserApiService(private val httpClient: HttpClient) {
         }.toApiResponse()
     }
 
+    suspend fun storeIntent(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentDto> {
+        return httpClient.post("accounting/store/$store/intent/") {
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }.toApiResponse()
+    }
+
+    suspend fun storeVerify(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyDto> {
+        return httpClient.post("accounting/store/$store/verify/") {
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }.toApiResponse()
+    }
+
     suspend fun createPayment(body: PaymentRequestDto): ApiResponse<PaymentResponseDto> {
         return httpClient.post("accounting/plans/payment/") {
             contentType(ContentType.Application.Json)

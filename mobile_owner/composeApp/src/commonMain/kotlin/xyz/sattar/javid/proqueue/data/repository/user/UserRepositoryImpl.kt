@@ -101,6 +101,12 @@ class UserRepositoryImpl(
         return userApiService.buyAddon(packId)
     }
 
+    override suspend fun storeIntent(store: String, kind: String, id: Int) =
+        userApiService.storeIntent(store, xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto(kind, id))
+
+    override suspend fun storeVerify(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyRequestDto) =
+        userApiService.storeVerify(store, body)
+
     override fun getLocalUser(id: Int): Flow<UserDto?> {
         return userDao.getUserById(id).map { entity ->
             entity?.let {
