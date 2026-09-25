@@ -10,6 +10,18 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.9.5 — 2026-09-25
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- سه نسخه‌ی اندروید: سایت، بازار و مایکت.
+- نسخه‌ی سایت و بازار (و iOS) با درگاه پرداخت نوبت‌یار؛ نسخه‌ی مایکت با پرداخت درون‌برنامه‌ای مایکت.
+<!-- fa:end -->
+
+### mobile_owner
+- New `bazaar` store flavor (`STORE="bazaar"`, `src/androidBazaar` returns no store billing → Zibal gateway).
+- Release workflow also publishes `Noobatyar-Owner-<version>-bazaar.apk` for upload to Cafe Bazaar.
+
 ## v1.9.4 — 2026-09-25
 
 <!-- fa:start -->

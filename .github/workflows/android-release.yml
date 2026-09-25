@@ -44,10 +44,11 @@ jobs:
 
       - name: Build signed release APK
         # "prod" env only (build.gradle.kts also defines "local" for a dev
-        # backend, see docs/ENVIRONMENTS.md), in both store flavors: "site"
-        # (Zibal gateway — noobatyar.ir, Telegram) and "myket" (Myket in-app
-        # billing — uploaded to Myket by hand).
-        run: ./gradlew :composeApp:assembleProdSiteRelease :composeApp:assembleProdMyketRelease --no-daemon
+        # backend, see docs/ENVIRONMENTS.md), in all store flavors: "site"
+        # (Zibal gateway — noobatyar.ir, Telegram), "bazaar" (Zibal gateway —
+        # uploaded to Cafe Bazaar by hand) and "myket" (Myket in-app billing —
+        # uploaded to Myket by hand).
+        run: ./gradlew :composeApp:assembleProdSiteRelease :composeApp:assembleProdBazaarRelease :composeApp:assembleProdMyketRelease --no-daemon
         env:
           MYKET_IAB_PUBLIC_KEY: ${{ secrets.MYKET_IAB_PUBLIC_KEY }}
           ANDROID_KEYSTORE_PATH: release.keystore.jks
@@ -77,7 +78,9 @@ jobs:
             arch=$(echo "$base" | sed -E 's/composeApp-prod-site-(.*)-release/\1/')
             cp "$f" "$DEST_DIR/Noobatyar-Owner-${VERSION}-${arch}.apk"
           done
-          # Myket gets one universal APK of its own flavor.
+          # Each store gets one universal APK of its own flavor.
+          cp composeApp/build/outputs/apk/prodBazaar/release/composeApp-prod-bazaar-universal-release.apk \
+            "$DEST_DIR/Noobatyar-Owner-${VERSION}-bazaar.apk"
           cp composeApp/build/outputs/apk/prodMyket/release/composeApp-prod-myket-universal-release.apk \
             "$DEST_DIR/Noobatyar-Owner-${VERSION}-myket.apk"
           echo "dir=mobile_owner/$DEST_DIR" >> "$GITHUB_OUTPUT"

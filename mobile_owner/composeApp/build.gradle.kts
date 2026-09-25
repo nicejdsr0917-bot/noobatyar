@@ -156,7 +156,8 @@ android {
     // URL — regardless of which Android flavor it was. AGP's own
     // buildConfigField, by contrast, genuinely varies per product flavor.
     // "store" decides how plans and packs are paid for. "site" (the APK on
-    // noobatyar.ir and Telegram) uses the Zibal gateway. "myket" is the build
+    // noobatyar.ir and Telegram) and "bazaar" (uploaded to Cafe Bazaar) use
+    // the Zibal gateway. "myket" is the build
     // uploaded to Myket, which requires its own in-app billing for digital
     // products and rejects apps that send users to a bank gateway — see
     // core/billing/ and accounting/payment/myket.py on the server.
@@ -164,6 +165,10 @@ android {
     productFlavors {
         create("site") {
             dimension = "store"
+        }
+        create("bazaar") {
+            dimension = "store"
+            buildConfigField("String", "STORE", "\"bazaar\"")
         }
         create("myket") {
             dimension = "store"
