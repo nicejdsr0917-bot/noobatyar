@@ -363,7 +363,7 @@ class LastVisitorsViewModel(
                     )
                 )
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("لطفاً ابتدا یک کسب‌وکار انتخاب کنید")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.warning("لطفاً ابتدا یک کسب‌وکار انتخاب کنید")))
             }
         } catch (e: Exception) {
             emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در بارگذاری نوبت‌ها")))

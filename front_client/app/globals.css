@@ -463,6 +463,35 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   opacity: 0.7;
 }
 
+/* Two actions sharing the fixed bottom bar: the main one (booking) takes the
+   room, "نوبت‌های من" sits beside it as an outlined companion. */
+.btn-row {
+  display: flex;
+  gap: 10px;
+}
+.btn-row .btn-primary { flex: 1; min-width: 0; }
+
+.btn-secondary {
+  flex-shrink: 0;
+  height: 54px;
+  padding: 0 16px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-btn);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-base);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.btn-secondary:active { transform: scale(0.98); }
+
 /* ── Form Inputs ── */
 .form-group { margin-bottom: 16px; }
 

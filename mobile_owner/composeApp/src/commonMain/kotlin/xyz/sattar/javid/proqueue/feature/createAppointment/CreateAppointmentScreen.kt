@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createAppointment
 
+import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -160,7 +161,7 @@ fun CreateAppointmentScreenContent(
     LaunchedEffect(uiState.message) {
         val msg = uiState.message
         if (msg != null) {
-            snackbarHostState.showSnackbar(msg)
+            snackbarHostState.showToasty(msg)
         }
     }
     Scaffold(

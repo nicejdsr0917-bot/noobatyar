@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.aboutUs
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -219,10 +221,11 @@ fun AboutUsContent(
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                         SocialRow(
-                            title = stringResource(Res.string.about_us_developer_instagram),
+                            title = stringResource(Res.string.about_us_developer),
                             handle = "@javiddev",
-                            painter = painterResource(Res.drawable.ic_social_instagram),
-                            tile = InstagramGradient,
+                            painter = null,
+                            badge = "</>",
+                            tile = Brush.linearGradient(listOf(Color(0xFF1E1B4B), Color(0xFF6D28D9))),
                             iconPadding = 11.dp,
                             index = 5,
                             onClick = { uriHandler.openUri("https://instagram.com/javiddev") }
@@ -523,10 +526,12 @@ private val InstagramGradient = Brush.linearGradient(
 private fun SocialRow(
     title: String,
     handle: String,
-    painter: Painter,
+    painter: Painter?,
     tile: Brush,
     iconPadding: Dp,
     index: Int,
+    /** Short code-style glyph (e.g. "</>") drawn in the tile instead of [painter]. */
+    badge: String? = null,
     onClick: () -> Unit
 ) {
     // Same sheen as the hero card, staggered down the list so it reads as one
@@ -572,14 +577,27 @@ private fun SocialRow(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                painter = painter,
-                contentDescription = title,
-                tint = Color.Unspecified,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(iconPadding)
-            )
+            if (badge != null) {
+                Text(
+                    // Same LTR isolate as the handle below: "</>" is all
+                    // neutrals and would render mirrored in RTL.
+                    text = "\u2066$badge\u2069",
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    maxLines = 1
+                )
+            } else if (painter != null) {
+                Icon(
+                    painter = painter,
+                    contentDescription = title,
+                    tint = Color.Unspecified,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(iconPadding)
+                )
+            }
         }
 
         Spacer(Modifier.width(14.dp))

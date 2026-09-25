@@ -11,6 +11,7 @@ import xyz.sattar.javid.proqueue.core.notifications.NotificationScheduler
 import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementKeys
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.domain.model.business.DEFAULT_REMINDER_MINUTES
@@ -64,13 +65,14 @@ class NotificationsViewModel(
             // owner never reaches a state the server would answer with a 403.
             is NotificationsIntent.SetDelivery -> flow {
                 if (intent.delivery == ReminderDelivery.PANEL.value && !uiState.value.canUsePanelDelivery) {
-                    emit(NotificationsState.PartialState.Error("ارسال خودکار یادآوری در پلن فعلی شما نیست"))
+                    emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning("ارسال خودکار یادآوری در پلن فعلی شما نیست")))
                     return@flow
                 }
                 emit(NotificationsState.PartialState.DeliveryChanged(intent.delivery))
             }
 
             is NotificationsIntent.SaveSettings -> saveSettings()
+            NotificationsIntent.ClearMessage -> flow { emit(NotificationsState.PartialState.ClearMessage) }
             is NotificationsIntent.UpgradePlan -> upgradePlan(intent.planId)
             is NotificationsIntent.PermissionResult -> flow {
                 emit(NotificationsState.PartialState.PermissionStatusChanged(intent.isGranted))
@@ -84,8 +86,8 @@ class NotificationsViewModel(
                     // owner has to flip it in their own browser/system
                     // settings, so at least tell them that instead of nothing.
                     sendEvent(
-                        NotificationsEvent.ShowError(
-                            "اجازه ارسال اعلان داده نشد. برای فعال‌سازی، دسترسی اعلان این برنامه را از تنظیمات مرورگر یا سیستم خود فعال کنید."
+                        NotificationsEvent.ShowToast(
+                            UiMessage.warning("اجازه ارسال اعلان داده نشد. برای فعال‌سازی، دسترسی اعلان این برنامه را از تنظیمات مرورگر یا سیستم خود فعال کنید.")
                         )
                     )
                 }
@@ -107,8 +109,11 @@ class NotificationsViewModel(
             is NotificationsState.PartialState.ReminderMinutesChanged ->
                 currentState.copy(reminderMinutes = partialState.minutes)
 
-            is NotificationsState.PartialState.Error ->
-                currentState.copy(error = partialState.message, isLoading = false)
+            is NotificationsState.PartialState.ShowMessage ->
+                currentState.copy(message = partialState.message, isLoading = false)
+
+            NotificationsState.PartialState.ClearMessage ->
+                currentState.copy(message = null)
 
             is NotificationsState.PartialState.PermissionStatusChanged ->
                 currentState.copy(hasPermission = partialState.hasPermission)
@@ -131,7 +136,7 @@ class NotificationsViewModel(
     }
 
     override fun createErrorState(message: String): NotificationsState.PartialState =
-        NotificationsState.PartialState.Error(message)
+        NotificationsState.PartialState.ShowMessage(UiMessage.error(message))
 
     private fun loadSettings(): Flow<NotificationsState.PartialState> = flow {
         emit(NotificationsState.PartialState.IsLoading(true))
@@ -154,10 +159,10 @@ class NotificationsViewModel(
                 emit(NotificationsState.PartialState.PanelAllowedChanged(loadPanelEntitlement()))
                 emitAll(loadPushFeatureGate())
             } else {
-                emit(NotificationsState.PartialState.Error("کسب و کاری انتخاب نشده است"))
+                emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning("کسب و کاری انتخاب نشده است")))
             }
         } catch (e: Exception) {
-            emit(NotificationsState.PartialState.Error(e.message ?: "خطا در بارگذاری تنظیمات"))
+            emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در بارگذاری تنظیمات")))
         } finally {
             emit(NotificationsState.PartialState.IsLoading(false))
         }
@@ -207,14 +212,14 @@ class NotificationsViewModel(
             when (val outcome = purchaseUseCase.plan(planId)) {
                 is PurchaseOutcome.Redirect -> sendEvent(NotificationsEvent.OpenUrl(outcome.url))
                 is PurchaseOutcome.Completed -> {
-                    sendEvent(NotificationsEvent.ShowError(outcome.message))
+                    sendEvent(NotificationsEvent.ShowToast(UiMessage.success(outcome.message)))
                     sendIntent(NotificationsIntent.LoadSettings)
                 }
                 PurchaseOutcome.Cancelled -> Unit
-                is PurchaseOutcome.Failed -> emit(NotificationsState.PartialState.Error(outcome.message))
+                is PurchaseOutcome.Failed -> emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(outcome.message)))
             }
         } catch (e: Exception) {
-            emit(NotificationsState.PartialState.Error(e.message ?: "خطا در برقراری ارتباط"))
+            emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در برقراری ارتباط")))
         }
     }
 
@@ -225,7 +230,7 @@ class NotificationsViewModel(
             val currentBusiness = BusinessStateHolder.selectedBusiness.value
 
             if (currentBusiness == null) {
-                emit(NotificationsState.PartialState.Error("کسب و کاری انتخاب نشده است"))
+                emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning("کسب و کاری انتخاب نشده است")))
                 return@flow
             }
 
@@ -245,9 +250,12 @@ class NotificationsViewModel(
                 reminderDelivery = delivery
             )
 
-            val success = businessRepository.upsertBusiness(updatedBusiness)
-            if (success) {
-                BusinessStateHolder.selectBusiness(updatedBusiness)
+            // updateBusiness, not upsertBusiness: the latter only writes the
+            // local Room cache, so these settings never reached the server —
+            // and the server is what sends PANEL reminders.
+            val saved = businessRepository.updateBusiness(updatedBusiness)
+            if (saved != null) {
+                BusinessStateHolder.selectBusiness(saved)
                 // The lead time also drives the {minutes} token in the message
                 // templates, which reads it back out of preferences.
                 PreferencesManager.setNotificationReminderMinutes(minutes)
@@ -255,21 +263,31 @@ class NotificationsViewModel(
                 emit(NotificationsState.PartialState.DeliveryChanged(delivery))
                 sendEvent(NotificationsEvent.ShowSavedConfirmation)
             } else {
-                emit(NotificationsState.PartialState.Error("خطا در ذخیره تنظیمات"))
+                emit(NotificationsState.PartialState.ShowMessage(UiMessage.error("خطا در ذخیره تنظیمات")))
             }
         } catch (e: ApiException) {
-            // 403 = the server disagrees with what we believed about the plan
-            // (expired mid-session, say). Drop back to the mode that always
-            // works instead of leaving the UI claiming PANEL is on.
-            if (e.code == 403) {
+            // The whole business goes out on this save, so a 403 can be about
+            // any plan-gated setting — the server's message says which. Only
+            // when this save was the one switching PANEL on can the refusal be
+            // about it (the server lets a setting that is already saved
+            // through): drop back to the mode that always works instead of
+            // leaving the UI claiming PANEL is on.
+            val business = BusinessStateHolder.selectedBusiness.value
+            val switchingPanelOn = uiState.value.reminderDelivery == ReminderDelivery.PANEL.value &&
+                business?.reminderDelivery != ReminderDelivery.PANEL.value
+            if (e.code == 403 && switchingPanelOn) {
                 emit(NotificationsState.PartialState.DeliveryChanged(ReminderDelivery.MANUAL.value))
                 emit(NotificationsState.PartialState.PanelAllowedChanged(false))
-                emit(NotificationsState.PartialState.Error("پلن فعلی شما ارسال خودکار یادآوری را پوشش نمی‌دهد"))
-            } else {
-                emit(NotificationsState.PartialState.Error(e.message ?: "خطا در ذخیره تنظیمات"))
             }
+            // 403 is the plan saying no, not something breaking.
+            val text = e.message ?: "خطا در ذخیره تنظیمات"
+            emit(
+                NotificationsState.PartialState.ShowMessage(
+                    if (e.code == 403) UiMessage.warning(text) else UiMessage.error(text)
+                )
+            )
         } catch (e: Exception) {
-            emit(NotificationsState.PartialState.Error(e.message ?: "خطا در ذخیره تنظیمات"))
+            emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در ذخیره تنظیمات")))
         } finally {
             emit(NotificationsState.PartialState.IsLoading(false))
         }

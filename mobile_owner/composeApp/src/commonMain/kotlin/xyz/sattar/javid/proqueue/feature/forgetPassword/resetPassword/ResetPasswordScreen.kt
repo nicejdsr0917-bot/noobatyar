@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.resetPassword
 
+import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -219,6 +220,6 @@ fun HandleResetPasswordEvents(
     events.collectWithLifecycleAware { event ->
         when (event) {
             ResetPasswordEvent.NavigateToLogin -> onNavigateToLogin()
-            is ResetPasswordEvent.ShowToast -> snackbarHostState.showSnackbar(event.message)}
+            is ResetPasswordEvent.ShowToast -> snackbarHostState.showToasty(event.message)}
     }
 }

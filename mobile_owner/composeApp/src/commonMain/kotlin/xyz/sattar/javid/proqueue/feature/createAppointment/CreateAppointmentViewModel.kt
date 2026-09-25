@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.createAppointment
 
+import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -101,7 +103,7 @@ class CreateAppointmentViewModel(
                 currentState.copy(isLoading = partialState.isLoading)
 
             is ShowMessage ->
-                currentState.copy(message = partialState.message, isLoading = false)
+                currentState.copy(message = UiMessage(partialState.message, partialState.type), isLoading = false)
 
             is LoadVisitor ->
                 currentState.copy(
@@ -254,7 +256,7 @@ class CreateAppointmentViewModel(
         try {
             val business = BusinessStateHolder.selectedBusiness.value
             if (business == null) {
-                emit(CreateAppointmentState.PartialState.ShowMessage(getString(Res.string.select_business_error)))
+                emit(CreateAppointmentState.PartialState.ShowMessage(getString(Res.string.select_business_error), ToastyType.Warning))
                 return@flow
             }
 

@@ -272,40 +272,38 @@ internal fun BusinessAvatar(
 @Composable
 internal fun AppSignature(onDark: Boolean) {
     val tone = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-    // Laid out left-to-right regardless of the app's RTL: the mark, the name
-    // and the domain are one brand lockup, and a lockup that flips with the
-    // reading direction of the page around it is two different lockups.
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Column(
-            horizontalAlignment = Alignment.Start,
-            modifier = Modifier.alpha(if (onDark) 0.75f else 0.6f),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = painterResource(Res.drawable.main_icon),
-                    contentDescription = null,
-                    modifier = Modifier.size(15.dp),
-                )
-                Spacer(Modifier.width(5.dp))
-                Text(
-                    text = "نوبت‌یار",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = tone,
-                    maxLines = 1,
-                )
-            }
-            Spacer(Modifier.height(1.dp))
-            // The name alone is a brand nobody can look up. The domain under
-            // it is the whole point of signing a card that will be reposted,
-            // screenshotted and forwarded away from any link.
-            LtrText(
-                text = "noobatyar.ir",
-                fontSize = 9.sp,
-                weight = FontWeight.SemiBold,
-                color = tone.copy(alpha = 0.9f),
+    // Right-to-left like everything else on the card: the mark sits at the
+    // start of the name, where a Persian reader meets it first. Only the
+    // domain under it is LTR (it's Latin), via LtrText.
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.alpha(if (onDark) 0.8f else 0.6f),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(Res.drawable.main_icon),
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(5.dp))
+            Text(
+                text = "نوبت‌یار",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = tone,
+                maxLines = 1,
             )
         }
+        Spacer(Modifier.height(1.dp))
+        // The name alone is a brand nobody can look up. The domain under
+        // it is the whole point of signing a card that will be reposted,
+        // screenshotted and forwarded away from any link.
+        LtrText(
+            text = "noobatyar.ir",
+            fontSize = 9.sp,
+            weight = FontWeight.SemiBold,
+            color = tone.copy(alpha = 0.9f),
+        )
     }
 }
 

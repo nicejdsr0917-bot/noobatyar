@@ -101,7 +101,7 @@ class PromoCampaignViewModel(
 
     private fun load(): Flow<PromoCampaignState.Partial> = flow {
         val id = businessId() ?: run {
-            emit(PromoCampaignState.Partial.Toast(UiMessage.error("کسب‌وکار انتخاب نشده")))
+            emit(PromoCampaignState.Partial.Toast(UiMessage.warning("کسب‌وکار انتخاب نشده")))
             return@flow
         }
         when (val r = promoSms.overview(id)) {
@@ -136,14 +136,14 @@ class PromoCampaignViewModel(
         val id = businessId() ?: return@flow
         val state = uiState.value
         if (state.message.isBlank()) {
-            emit(PromoCampaignState.Partial.Toast(UiMessage.error("متن پیامک را بنویسید.")))
+            emit(PromoCampaignState.Partial.Toast(UiMessage.warning("متن پیامک را بنویسید.")))
             return@flow
         }
         emit(PromoCampaignState.Partial.Previewing(true))
         when (val r = promoSms.preview(id, state.audience, state.message)) {
             is ApiResponse.Success -> {
                 if (r.data.recipientCount == 0) {
-                    emit(PromoCampaignState.Partial.Toast(UiMessage.error("در این گروه مشتری‌ای با شماره‌ی معتبر نیست.")))
+                    emit(PromoCampaignState.Partial.Toast(UiMessage.warning("در این گروه مشتری‌ای با شماره‌ی معتبر نیست.")))
                 } else {
                     emit(PromoCampaignState.Partial.Confirm(r.data))
                 }

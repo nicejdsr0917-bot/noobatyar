@@ -13,14 +13,33 @@
 ## v1.9.5 — 2026-09-25
 
 <!-- fa:start -->
+⚠️ برای نصب این نسخه، ابتدا برنامه‌ی فعلی را حذف کنید و سپس نسخه‌ی جدید را نصب کنید.
+
 تغییرات این نسخه:
 - سه نسخه‌ی اندروید: سایت، بازار و مایکت.
 - نسخه‌ی سایت و بازار (و iOS) با درگاه پرداخت نوبت‌یار؛ نسخه‌ی مایکت با پرداخت درون‌برنامه‌ای مایکت.
+- پیام‌ها بر اساس نوع رنگ‌بندی شدند: موفق، خطا و هشدار.
+- کارت‌های صف و مراجعین مرتب‌تر و خواناتر شدند.
+- اشتراک‌گذاری: استوری آموزش نوبت‌گرفتن، و کارت شماره‌کارت راست‌چین و خواناتر.
+- تنظیمات اعلان‌ها حالا روی سرور ذخیره می‌شود.
 <!-- fa:end -->
 
 ### mobile_owner
 - New `bazaar` store flavor (`STORE="bazaar"`, `src/androidBazaar` returns no store billing → Zibal gateway).
 - Release workflow also publishes `Noobatyar-Owner-<version>-bazaar.apk` for upload to Cafe Bazaar.
+- Typed toasts (`UiMessage`) on every screen that still showed plain red strings; 403s show the server's message.
+- Notifications screen saves through `updateBusiness` (it only wrote the local Room cache before).
+- Queue / visitors appointment cards restructured; share cards RTL, story card is the booking guide.
+- Room database version 18 (no schema change; clean cache).
+- `local` flavor derives `BOOKING_BASE_URL` from `-PlocalBaseUrl`.
+
+### backend
+- Business update only gates plan features that are newly enabled (a saved card number no longer blocks every edit).
+- Dev OTP code works without a prior send and never counts towards a ban (DEBUG only).
+
+### front_client
+- Signed-out visitors go to sign in / sign up before booking; "نوبت‌های من" beside the booking actions.
+- Appointment details show the business logo; `allowedDevOrigins` for emulator testing.
 
 ## v1.9.4 — 2026-09-25
 

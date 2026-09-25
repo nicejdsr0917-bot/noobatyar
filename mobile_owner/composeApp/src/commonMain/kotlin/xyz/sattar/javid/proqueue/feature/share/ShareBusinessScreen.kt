@@ -121,7 +121,7 @@ import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessViewModel
  *  - *QR poster* → a 1080×1350 PNG, the square-ish format an Instagram feed
  *    post wants. Something to print for the counter or post as content.
  *  - *Link* → plain text, for a chat.
- *  - *Profile story* → a 1080×1920 PNG, exactly Instagram/WhatsApp story size,
+ *  - *Story* → a 1080×1920 PNG, exactly Instagram/WhatsApp story size,
  *    which is where these businesses' customers actually are.
  *
  * A text share of a link is useless to an owner whose whole audience is on
@@ -318,6 +318,11 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                 } else {
                     link
                 },
+                copyLabel = if (mode == ShareMode.CARD && b.cardNumber.isNotBlank()) {
+                    "کپی شماره کارت"
+                } else {
+                    "کپی لینک"
+                },
             )
 
             if (addingCard) {
@@ -362,7 +367,7 @@ private fun ShareModeSelector(
             { onSelect(ShareMode.QR) }, Modifier.weight(1f))
         ShareModePill("لینک", Icons.Rounded.Link, selected == ShareMode.LINK,
             { onSelect(ShareMode.LINK) }, Modifier.weight(1f))
-        ShareModePill("پروفایل", Icons.Rounded.Person, selected == ShareMode.PROFILE,
+        ShareModePill("استوری", Icons.Rounded.Person, selected == ShareMode.PROFILE,
             { onSelect(ShareMode.PROFILE) }, Modifier.weight(1f))
         ShareModePill("شماره کارت", Icons.Rounded.CreditCard, selected == ShareMode.CARD,
             { onSelect(ShareMode.CARD) }, Modifier.weight(1f))
@@ -572,12 +577,8 @@ private fun LinkShareCard(business: Business, link: String) {
  * story, a Bale channel, a WhatsApp status.
  *
  * Laid out like a profile on purpose: someone scrolling past recognises the
- * shape before they read a word of it. Under the profile, the three-step guide
- * answers the question that actually stops people booking online for the first
- * time — not "what is this" but "what happens after I tap". The small QR in
- * the footer is there because a story is *screenshotted* as often as it is
- * tapped, and a screenshot of a link is useless while a screenshot of a QR
- * still works.
+ * shape before they read a word of it. Under it is only the booking guide:
+ * the steps a first-time customer goes through, in the site's real order.
  */
 @Composable
 private fun ProfileStoryCard(business: Business, link: String) {
@@ -591,7 +592,7 @@ private fun ProfileStoryCard(business: Business, link: String) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 26.dp, vertical = 28.dp),
+                .padding(start = 26.dp, end = 26.dp, top = 28.dp, bottom = 70.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.weight(0.6f))
@@ -609,109 +610,37 @@ private fun ProfileStoryCard(business: Business, link: String) {
                 textAlign = TextAlign.Center,
                 maxLines = 2,
             )
-            Spacer(Modifier.height(8.dp))
-            NeonGlass(shape = RoundedCornerShape(12.dp), glowRadius = 7.dp, glowWidth = 2.dp) {
-                Text(
-                    text = "آموزش نوبت‌دهی",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
+            Spacer(Modifier.weight(0.5f))
+
+            // The whole point of this card: how a customer books, step by
+            // step, in the order the booking site actually walks them through
+            // (profile → sign in with an SMS code → day and time → confirm).
+            NeonHalo(shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
-
-            if (business.bio.isNotBlank()) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = business.bio.trim(),
-                    fontSize = 13.sp,
-                    lineHeight = 22.sp,
-                    color = Color.White.copy(alpha = 0.85f),
-                    textAlign = TextAlign.Center,
-                    // Clamped, unlike the booking page's own "درباره‌ی ما"
-                    // section: that page can scroll, a story is one fixed
-                    // frame, and a bio long enough to fill it would push the
-                    // guide and the QR off the bottom of the image.
-                    maxLines = 3,
-                )
-            }
-
-            Spacer(Modifier.weight(0.7f))
-
-            // White card for the guide: the one part a first-time customer
-            // actually has to read, so it gets the highest contrast on the
-            // whole story instead of being another line of text on violet.
-            NeonHalo(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
-              Surface(
-                shape = RoundedCornerShape(22.dp),
-                color = Color.White,
-                modifier = Modifier.fillMaxWidth(),
-              ) {
-                Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
-                    Text(
-                        text = "چطور نوبت بگیرم؟",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ShareVioletDeep,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    // Written for where this is actually read: a story or a
-                    // post on the business's own page. "Tap the link" means
-                    // nothing there — Instagram doesn't make story text
-                    // tappable — so step one is the route that does work,
-                    // which is the link in the page's bio.
-                    GuideStep(1, "روی لینک داخل بایو بزنید.")
-                    GuideStep(2, "خدمت، روز و ساعت دلخواه‌تان را انتخاب کنید.")
-                    GuideStep(3, "شماره موبایل‌تان را وارد کنید؛ نوبت ثبت می‌شود.")
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
+                        Text(
+                            text = "چطور نوبت بگیرم؟",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ShareVioletDeep,
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        GuideStep(1, "روی لینک داخل بایو بزنید تا صفحه‌ی نوبت‌دهی باز شود.")
+                        GuideStep(2, "با شماره موبایل‌تان وارد شوید؛ کد تأیید برایتان پیامک می‌شود.")
+                        GuideStep(3, "روز و ساعت خالی را انتخاب کنید.")
+                        GuideStep(4, "نوبت را تأیید کنید؛ وضعیتش را در «نوبت‌های من» می‌بینید.")
+                    }
                 }
-              }
             }
 
             Spacer(Modifier.weight(0.6f))
-
-            // Footer: the code and what to do with it on the reading side,
-            // the maker's mark alone in the opposite corner. This card can't
-            // take the overlaid CardSignatureCorner the other three use — the
-            // bottom left is where the QR would otherwise sit — so the row
-            // places the two against each other instead.
-            //
-            // No URL here on purpose: the story is a picture, so a URL printed
-            // on it can only be retyped, and the two routes that actually work
-            // from a story — the bio link and the QR — are both already on the
-            // card. The QR poster is the one place the address is spelled out,
-            // because that is the card that gets printed and read off paper.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    NeonHalo(shape = RoundedCornerShape(14.dp), glowRadius = 10.dp) {
-                        Surface(shape = RoundedCornerShape(14.dp), color = Color.White) {
-                            Box(Modifier.padding(7.dp)) {
-                                BookingQrCode(link, size = 64)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = "لینک نوبت‌دهی، داخل بایو",
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White.copy(alpha = 0.85f),
-                        maxLines = 2,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-
-                Spacer(Modifier.width(12.dp))
-
-                AppSignature(onDark = true)
-            }
         }
+
+        CardSignatureCorner(padding = 22.dp)
     }
 }
 
@@ -720,29 +649,30 @@ private fun GuideStep(number: Int, text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Box(
             modifier = Modifier
-                .size(22.dp)
+                .size(26.dp)
                 .clip(CircleShape)
-                .background(ShareViolet.copy(alpha = 0.14f)),
+                .background(ShareViolet),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = "۰۱۲۳۴۵۶۷۸۹"[number].toString(),
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = ShareViolet,
+                color = Color.White,
             )
         }
-        Spacer(Modifier.width(9.dp))
+        Spacer(Modifier.width(10.dp))
         Text(
             text = text,
-            fontSize = 12.sp,
-            lineHeight = 21.sp,
-            color = Color(0xFF3F3D56),
+            fontSize = 14.sp,
+            lineHeight = 23.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFF2E2B45),
             modifier = Modifier.weight(1f),
         )
     }
@@ -878,21 +808,13 @@ private fun CardNumberPosterCard(business: Business) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(
-                            text = bank?.name ?: "کارت بانکی",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        // Null whenever the BIN isn't in the (deliberately
-                        // partial) table — no logo at all, never a guessed
-                        // one next to a real card number.
+                        // Logo first: in RTL that is the right-hand edge, so
+                        // it reads logo → bank name, as on the plastic. Null
+                        // whenever the BIN isn't in the (deliberately partial)
+                        // table — no logo at all, never a guessed one next to
+                        // a real card number.
                         bank?.let {
-                            Spacer(Modifier.width(8.dp))
                             Image(
                                 painter = painterResource(it.logo),
                                 contentDescription = it.name,
@@ -901,7 +823,16 @@ private fun CardNumberPosterCard(business: Business) {
                                     .clip(CircleShape),
                                 contentScale = ContentScale.Crop,
                             )
+                            Spacer(Modifier.width(8.dp))
                         }
+                        Text(
+                            text = bank?.name ?: "کارت بانکی",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
 
                     // Number and holder as one block at the foot of the card,
@@ -929,18 +860,32 @@ private fun CardNumberPosterCard(business: Business) {
                 }
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(16.dp))
 
-            // One line. The two-line version ("...و تصویر رسید را برای ما
-            // بفرستید") wrapped, and a wrapped sentence under a card is the
-            // part of the image that looks unfinished.
-            Text(
-                text = "مبلغ را به این کارت واریز کنید.",
-                fontSize = 12.sp,
-                color = Color.White.copy(alpha = 0.82f),
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-            )
+            // Directly under the card and on a solid panel — the one
+            // instruction on this image, so it gets the same contrast as the
+            // number itself rather than 12sp at 80% alpha down by the footer.
+            NeonHalo(shape = RoundedCornerShape(18.dp), glowRadius = 10.dp, modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "لطفاً مبلغ را به این کارت واریز کنید",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ShareVioletDeep,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 13.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
         }
 
         CardSignatureCorner(padding = 22.dp)
@@ -1076,6 +1021,7 @@ private fun ShareActionBar(
     exporting: Boolean,
     onShare: () -> Unit,
     copyValue: String,
+    copyLabel: String,
 ) {
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
@@ -1117,7 +1063,7 @@ private fun ShareActionBar(
             ) {
                 Icon(
                     imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                    contentDescription = "کپی لینک",
+                    contentDescription = copyLabel,
                     tint = if (copied) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(22.dp),
                 )

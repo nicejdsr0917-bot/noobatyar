@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.resetPassword
 
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import androidx.compose.runtime.Immutable
 
 
@@ -28,7 +29,7 @@ data class ResetPasswordState(
 
 sealed interface ResetPasswordEvent {
     data object NavigateToLogin : ResetPasswordEvent
-    data class ShowToast(val message: String) : ResetPasswordEvent
+    data class ShowToast(val message: UiMessage) : ResetPasswordEvent
 }
 
 sealed interface ResetPasswordIntent {

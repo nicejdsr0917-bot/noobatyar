@@ -37,7 +37,7 @@ import xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.components.ChoiceTile
-import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.feature.messages.reminderLeadTimeOptions
@@ -65,7 +65,7 @@ fun NotificationsScreen(
         events = viewModel.events,
         onNavigateBack = onNavigateBack,
         showSnackbar = { message ->
-            scope.launch { snackbarHostState.showSnackbar(message) }
+            scope.launch { snackbarHostState.showToasty(message) }
         },
         onRequestPermission = { permissionLauncher.launch() },
         onOpenPaymentUrl = onNavigateToPayment
@@ -73,8 +73,11 @@ fun NotificationsScreen(
 
     // Error partials (e.g. "PANEL isn't in your plan") were written to state
     // and never rendered anywhere, so the tap just silently did nothing.
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let { snackbarHostState.showToasty(it, ToastyType.Warning) }
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            snackbarHostState.showToasty(it)
+            viewModel.sendIntent(NotificationsIntent.ClearMessage)
+        }
     }
 
     NotificationsPhoneContent(
@@ -352,7 +355,7 @@ private fun ClientCard(
 fun HandleEffects(
     events: Flow<NotificationsEvent>,
     onNavigateBack: () -> Unit,
-    showSnackbar: (String) -> Unit,
+    showSnackbar: (UiMessage) -> Unit,
     onRequestPermission: () -> Unit,
     onOpenPaymentUrl: (String) -> Unit = {}
 ) {
@@ -360,9 +363,9 @@ fun HandleEffects(
     events.collectWithLifecycleAware { event ->
         when (event) {
             NotificationsEvent.NavigateBack -> onNavigateBack()
-            NotificationsEvent.ShowSavedConfirmation -> showSnackbar(savedMessage)
+            NotificationsEvent.ShowSavedConfirmation -> showSnackbar(UiMessage.success(savedMessage))
             NotificationsEvent.RequestPermission -> onRequestPermission()
-            is NotificationsEvent.ShowError -> showSnackbar(event.message)
+            is NotificationsEvent.ShowToast -> showSnackbar(event.message)
             is NotificationsEvent.OpenUrl -> onOpenPaymentUrl(event.url)
         }
     }

@@ -45,7 +45,7 @@ class MessagesViewModel(
     private fun load(): Flow<MessagesState.PartialState> = flow {
         val business = BusinessStateHolder.selectedBusiness.value
         if (business == null) {
-            emit(MessagesState.PartialState.ShowMessage(UiMessage.error("کسب‌وکار انتخاب نشده")))
+            emit(MessagesState.PartialState.ShowMessage(UiMessage.warning("کسب‌وکار انتخاب نشده")))
             return@flow
         }
         emit(MessagesState.PartialState.IsLoading(true))
@@ -106,7 +106,7 @@ class MessagesViewModel(
      */
     private fun setDelivery(delivery: String): Flow<MessagesState.PartialState> = flow {
         if (delivery == ReminderDelivery.PANEL.value && !uiState.value.canUsePanelDelivery) {
-            emit(MessagesState.PartialState.ShowMessage(UiMessage.error("ارسال خودکار یادآوری در پلن فعلی شما نیست.")))
+            emit(MessagesState.PartialState.ShowMessage(UiMessage.warning("ارسال خودکار یادآوری در پلن فعلی شما نیست.")))
             return@flow
         }
         emit(MessagesState.PartialState.SetDelivery(delivery))
@@ -115,7 +115,7 @@ class MessagesViewModel(
     private fun save(): Flow<MessagesState.PartialState> = flow {
         val business = BusinessStateHolder.selectedBusiness.value
         if (business == null) {
-            emit(MessagesState.PartialState.ShowMessage(UiMessage.error("کسب‌وکار انتخاب نشده")))
+            emit(MessagesState.PartialState.ShowMessage(UiMessage.warning("کسب‌وکار انتخاب نشده")))
             return@flow
         }
         val state = uiState.value
@@ -137,16 +137,25 @@ class MessagesViewModel(
                 val saved = businessUpsertUseCase(updated)
                 if (saved != null) BusinessStateHolder.selectBusiness(saved)
             } catch (e: ApiException) {
-                // 403 = the server disagrees with what we believed about the
-                // plan (expired mid-session, for instance). Fall back to the
-                // mode that always works instead of leaving the UI lying.
-                if (e.code == 403) {
+                // The whole business goes out on this save, so a 403 can be
+                // about any plan-gated setting — the server's message says
+                // which. Only when this save was the one switching PANEL on
+                // can the refusal be about it (the server lets a setting that
+                // is already saved through): fall back to the mode that always
+                // works instead of leaving the UI claiming PANEL is on.
+                val switchingPanelOn = updated.reminderDelivery == ReminderDelivery.PANEL.value &&
+                    business.reminderDelivery != ReminderDelivery.PANEL.value
+                if (e.code == 403 && switchingPanelOn) {
                     emit(MessagesState.PartialState.SetDelivery(ReminderDelivery.MANUAL.value))
                     emit(MessagesState.PartialState.SetPanelAllowed(false))
-                    emit(MessagesState.PartialState.ShowMessage(UiMessage.error("پلن فعلی شما ارسال خودکار یادآوری را پوشش نمی‌دهد.")))
-                } else {
-                    emit(MessagesState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در ذخیره تنظیمات")))
                 }
+                // 403 is the plan saying no, not something breaking.
+                val text = e.message ?: "خطا در ذخیره تنظیمات"
+                emit(
+                    MessagesState.PartialState.ShowMessage(
+                        if (e.code == 403) UiMessage.warning(text) else UiMessage.error(text)
+                    )
+                )
                 emit(MessagesState.PartialState.IsSaving(false))
                 return@flow
             } catch (e: Exception) {

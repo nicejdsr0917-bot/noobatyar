@@ -1,38 +1,18 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getMyAppointments, type Appointment } from '@/lib/api';
 import SupportLinks from '@/app/components/SupportLinks';
 import AppointmentCard from '@/app/components/AppointmentCard';
 import Icon from '@/app/components/Icon';
 import AppBanner from '@/app/components/AppBanner';
+import { useVisitorToken } from '@/lib/visitorToken';
 
 /** Statuses that are over and done with — never "upcoming". */
 const CLOSED = ['COMPLETED', 'CANCELLED', 'NO_SHOW'];
 /** How many appointments the home screen shows before deferring to the full list. */
 const HOME_LIMIT = 3;
-
-/**
- * The token only changes through login or logout, both of which navigate away
- * and remount this screen — so there is nothing to subscribe to for the life
- * of one mount.
- */
-const NEVER_CHANGES = () => () => {};
-const readToken = () => localStorage.getItem('visitor_token');
-/** `undefined` = not known yet (server render + the hydration pass). */
-const noTokenOnServer = () => undefined;
-
-/**
- * Read the stored visitor token without a setState-in-effect cascade.
- *
- * localStorage is an external store, so this is what useSyncExternalStore is
- * for: the server snapshot keeps SSR and the hydration render agreeing on
- * "unknown", and the real value arrives on the first post-hydration render.
- */
-function useVisitorToken(): string | null | undefined {
-  return useSyncExternalStore(NEVER_CHANGES, readToken, noTokenOnServer);
-}
 
 /**
  * The home screen.

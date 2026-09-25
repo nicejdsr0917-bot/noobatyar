@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import androidx.compose.material3.Surface
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -609,7 +610,7 @@ fun AppointmentCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
             val durationMinutes = appointment.serviceDuration
                 ?: appointmentWithDetails.business.defaultServiceDuration
@@ -620,14 +621,14 @@ fun AppointmentCard(
             val overdue =
                 DateTimeUtils.systemCurrentMilliseconds() > endTimeMs && appointment.status == "WAITING"
 
-            // Two lines: who and where the booking stands, then when. The
-            // phone number, and the separate tinted strip the time/date/
-            // duration sat in, made every row ~120dp; the number is one tap
-            // away on the visitor's page, which is where tapping the card goes.
+            // Who, then where the booking stands, then when — each on its own
+            // line. Name and status badge side by side left the name squeezed
+            // against the badge, and the time/date/duration crammed in beside
+            // the avatar were too small to read at a glance.
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
@@ -639,34 +640,41 @@ fun AppointmentCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = visitor.fullName,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        StatusBadge(status = appointment.status, overdue = overdue)
-                    }
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        MetaItem(
-                            icon = Icons.Rounded.Schedule,
-                            text = "$endTimeOnly ${stringResource(Res.string.to_label)} $startTimeOnly",
-                            emphasized = true
-                        )
-                        MetaItem(icon = Icons.Rounded.CalendarToday, text = dateText)
-                        MetaItem(icon = Icons.Rounded.Timer, text = "$durationMinutes دقیقه")
-                    }
+                    Text(
+                        text = visitor.fullName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    StatusBadge(status = appointment.status, overdue = overdue)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // When, on a tinted strip of its own across the card's full width.
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    MetaItem(
+                        icon = Icons.Rounded.Schedule,
+                        text = "$endTimeOnly ${stringResource(Res.string.to_label)} $startTimeOnly",
+                        emphasized = true
+                    )
+                    MetaItem(icon = Icons.Rounded.CalendarToday, text = dateText)
+                    MetaItem(icon = Icons.Rounded.Timer, text = "$durationMinutes دقیقه")
                 }
             }
 
@@ -677,8 +685,8 @@ fun AppointmentCard(
             val receipt = appointment.paymentReceipt
             if (hasNote || hasDeposit || receipt != null) {
                 Column(
-                    modifier = Modifier.padding(start = 48.dp, top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier = Modifier.padding(top = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (hasNote) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -723,7 +731,10 @@ fun AppointmentCard(
                                     ?.let { " · ${stringResource(Res.string.tracking_number_label)}: $it" } ?: ""),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
+                                // Two lines, not an ellipsis: the tracking
+                                // number is at the end, and a cut-off one is
+                                // useless to an owner checking a payment.
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
@@ -747,14 +758,14 @@ private fun MetaItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(14.dp),
+            modifier = Modifier.size(16.dp),
             tint = if (emphasized) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(5.dp))
         Text(
             text = text,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Medium,
             color = if (emphasized) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurface,

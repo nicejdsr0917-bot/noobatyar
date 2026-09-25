@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -108,7 +109,7 @@ fun AdvancedSettingsRoute(
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showToasty(it)
             viewModel.sendIntent(CreateBusinessIntent.ClearMessage)
         }
     }

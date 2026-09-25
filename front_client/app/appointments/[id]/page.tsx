@@ -6,7 +6,7 @@ import { getAppointment, cancelAppointment, businessCategoryLabel, type Appointm
 import { STATUS_LABELS, formatDate } from '@/lib/format';
 import Toolbar from '@/app/components/Toolbar';
 import Icon from '@/app/components/Icon';
-import { CategoryGlyph } from '@/app/components/CategoryArt';
+import { BusinessAvatar } from '@/app/components/AppointmentCard';
 
 // Anything still ahead of the appointment time can be cancelled by the client.
 const CANCELLABLE = ['LOCKED', 'PENDING_APPROVAL', 'PENDING_VERIFICATION', 'WAITING', 'CONFIRMED'];
@@ -59,7 +59,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
   if (loading) {
     return (
       <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
-        <Toolbar title="جزئیات نوبت" />
+        <Toolbar title="جزئیات نوبت" actions={[{ icon: 'calendar', label: 'نوبت‌های من', onClick: () => router.push('/appointments') }]} />
         <div style={{ padding: 24 }}>
           <div className="skeleton" style={{ width: 72, height: 72, borderRadius: '50%', margin: '8px auto 16px' }} />
           <div className="skeleton" style={{ height: 20, width: 160, borderRadius: 8, margin: '0 auto 24px' }} />
@@ -88,19 +88,16 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
   return (
     <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
 
-      <Toolbar title="جزئیات نوبت" />
+      <Toolbar title="جزئیات نوبت" actions={[{ icon: 'calendar', label: 'نوبت‌های من', onClick: () => router.push('/appointments') }]} />
 
       <div style={{ padding: '24px 24px' }}>
 
         {/* ── Header ── */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{
-            width: 76, height: 76, borderRadius: '50%', margin: '0 auto 12px',
-            background: 'var(--color-primary-tint)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            color: 'var(--color-primary)',
-          }}>
-            <CategoryGlyph category={biz.category} size={36} stroke={1.75} />
+          {/* The business's own logo, as on the booking pages; falls back to
+              the category glyph when there is none (or it fails to load). */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+            <BusinessAvatar logo={biz.logo} category={biz.category} size={76} />
           </div>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text)' }}>{biz.title}</h2>
           <div style={{ fontSize: 13, color: 'var(--color-muted)', marginTop: 4, marginBottom: 14 }}>

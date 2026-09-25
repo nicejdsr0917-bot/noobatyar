@@ -206,9 +206,14 @@ android {
             //   ./gradlew assembleLocalDebug -PlocalBaseUrl=http://127.0.0.1:8000
             // 127.0.0.1 works on any emulator (LDPlayer included, which has no
             // 10.0.2.2 alias) once `adb reverse tcp:8000 tcp:8000` is set up.
-            val localBaseUrl = (project.findProperty("localBaseUrl") as String?)
-                ?: "https://api.noobatyar.ir"
+            val localBaseUrlOverride = project.findProperty("localBaseUrl") as String?
+            val localBaseUrl = localBaseUrlOverride ?: "https://api.noobatyar.ir"
+            // Booking/share links follow the backend: pointed at a local API,
+            // they go to the local front_client (same host, `next dev`'s port
+            // 3000) rather than production. -PlocalBookingUrl still wins, and
+            // `adb reverse tcp:3000 tcp:3000` makes 127.0.0.1 reach it.
             val localBookingUrl = (project.findProperty("localBookingUrl") as String?)
+                ?: localBaseUrlOverride?.let { Regex(":\\d+$").replace(it.trimEnd('/'), "") + ":3000" }
                 ?: "https://app.noobatyar.ir"
             buildConfigField("String", "BASE_URL", "\"$localBaseUrl\"")
             buildConfigField("String", "BOOKING_BASE_URL", "\"$localBookingUrl\"")

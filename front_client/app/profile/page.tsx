@@ -85,7 +85,7 @@ export default function ProfilePage() {
     <div className="page-content">
       {/* No logout action here — the full-width button below is the one exit,
           kept singular rather than duplicated between the toolbar and the page. */}
-      <Toolbar title="پروفایل من" />
+      <Toolbar title="پروفایل من" actions={[{ icon: 'calendar', label: 'نوبت‌های من', onClick: () => router.push('/appointments') }]} />
 
       <div style={{ padding: '24px 24px' }}>
         {loading ? (

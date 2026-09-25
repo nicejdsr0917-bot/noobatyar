@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.resetPassword
 
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
@@ -91,12 +92,12 @@ class ResetPasswordViewModel(
         )) {
             is ApiResponse.Success -> {
                 emit(ResetPasswordSuccess)
-                sendEvent(ResetPasswordEvent.ShowToast("رمز عبور با موفقیت تغییر کرد"))
+                sendEvent(ResetPasswordEvent.ShowToast(UiMessage.success("رمز عبور با موفقیت تغییر کرد")))
                 sendEvent(ResetPasswordEvent.NavigateToLogin)
             }
             is ApiResponse.Error -> {
                 emit(ResetPasswordError(response.message))
-                sendEvent(ResetPasswordEvent.ShowToast(response.message))
+                sendEvent(ResetPasswordEvent.ShowToast(UiMessage.error(response.message)))
             }
         }
     }

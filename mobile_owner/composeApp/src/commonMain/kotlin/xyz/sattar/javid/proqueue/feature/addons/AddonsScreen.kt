@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.addons
 
+import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,7 +50,10 @@ fun AddonsScreen(
     }
 
     LaunchedEffect(uiState.message) {
-        uiState.message?.let { snackbarHostState.showSnackbar(it) }
+        uiState.message?.let {
+            snackbarHostState.showToasty(it)
+            viewModel.sendIntent(AddonsIntent.ClearMessage)
+        }
     }
 
     Scaffold(

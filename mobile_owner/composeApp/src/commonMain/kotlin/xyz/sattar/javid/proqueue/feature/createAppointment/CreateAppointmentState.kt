@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.createAppointment
 
+import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import androidx.compose.runtime.Immutable
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
 import xyz.sattar.javid.proqueue.domain.model.visitor.Visitor
@@ -7,7 +9,7 @@ import xyz.sattar.javid.proqueue.domain.model.visitor.Visitor
 @Immutable
 data class CreateAppointmentState(
     val isLoading: Boolean = false,
-    val message: String? = null,
+    val message: UiMessage? = null,
     val visitor: Visitor? = null,
     val selectedVisitorId: Long? = null,
     val appointmentDate: Long = 0L,
@@ -31,7 +33,7 @@ data class CreateAppointmentState(
 ) {
     sealed class PartialState {
         data class IsLoading(val isLoading: Boolean) : PartialState()
-        data class ShowMessage(val message: String) : PartialState()
+        data class ShowMessage(val message: String, val type: ToastyType = ToastyType.Error) : PartialState()
         data class LoadVisitor(val visitor: Visitor) : PartialState()
         data class UpdateDateTime(val date: Long?, val time: String?) : PartialState()
         data class LoadAppointmentDetails(
