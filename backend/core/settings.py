@@ -246,6 +246,13 @@ if not DEBUG:
                 CSRF_TRUSTED_ORIGINS.append(_origin)
 
 # Zibal Payment Gateway
+# Myket in-app billing (store builds of the owner app). The access token is
+# the "X-Access-Token" from the Myket developer panel's in-app products page;
+# it authorises server-side purchase verification/consumption and must never
+# ship inside the app. Empty = Myket purchases are refused with a clear error.
+MYKET_ACCESS_TOKEN = os.getenv('MYKET_ACCESS_TOKEN', '')
+MYKET_PACKAGE_NAME = os.getenv('MYKET_PACKAGE_NAME', 'xyz.sattar.javid.proqueue')
+
 ZIBAL_MERCHANT_ID = os.getenv('ZIBAL_MERCHANT_ID')
 if not ZIBAL_MERCHANT_ID:
     ZIBAL_MERCHANT_ID = '6a0d8775dc2e6664d8adf3fd'

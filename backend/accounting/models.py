@@ -21,6 +21,10 @@ class Plan(models.Model):
     duration_unit = models.CharField(max_length=10, choices=DURATION_UNIT)
     is_vip = models.BooleanField(default=False)        # آیا VIP میشه؟
     is_active = models.BooleanField(default=True)      # نمایش داده بشه؟
+    # شناسه‌ی همین پلن در پنل «محصولات درون‌برنامه‌ای» مایکت (مصرف‌شدنی).
+    # خالی = این پلن در نسخه‌ی مایکت قابل خرید نیست.
+    myket_sku = models.CharField(max_length=100, blank=True, default='',
+                                 help_text="شناسه‌ی محصول در مایکت؛ خالی یعنی در نسخه‌ی مایکت فروخته نمی‌شود")
 
     # قابلیت‌ها و سقف‌هایی که این پلن باز می‌کند (نردبان تعهد).
     # کلیدها در accounting/entitlements.py تعریف شده‌اند. مثال:
@@ -132,6 +136,8 @@ class AddOnPack(models.Model):
     feature_key = models.CharField(max_length=50, blank=True, default='', help_text="کلید قابلیت برای بسته‌ی قابلیتی")
     duration_days = models.PositiveIntegerField(default=30, help_text="مدت اعتبار بسته‌ی قابلیتی (روز)")
     is_active = models.BooleanField(default=True)
+    myket_sku = models.CharField(max_length=100, blank=True, default='',
+                                 help_text="شناسه‌ی محصول در مایکت؛ خالی یعنی در نسخه‌ی مایکت فروخته نمی‌شود")
 
     def __str__(self):
         return f"{self.name} - {self.price:,} تومان"
@@ -313,3 +319,52 @@ class SubscriptionReminderSettings(models.Model):
             return self._meta.get_field('message_template').default.format(
                 plan=plan_name, days=days_left, full_name=owner_name,
             )
+
+class StorePurchase(models.Model):
+    """One in-app purchase made through an Android store (Myket for now).
+
+    Store builds of the owner app are not allowed to use the Zibal gateway —
+    Myket requires its own in-app billing for "digital products" like our
+    plans and packs. The flow is: the app asks for an *intent* (we reserve a
+    row with a random ``payload``), the store's billing UI takes the money,
+    the app sends back the purchase token, and the server verifies that token
+    with the store's API before granting anything (see
+    accounting/payment/myket.py). A token is accepted once, ever.
+
+    The benefit itself is granted through the same code as a Zibal payment —
+    a ``Transaction`` for plans, an ``AddOnPurchase`` for packs — so revenue
+    reports, subscription ladders and wallets see no difference.
+    """
+
+    STORE_MYKET = 'myket'
+    STORE_CHOICES = [(STORE_MYKET, 'مایکت')]
+    KIND_PLAN = 'plan'
+    KIND_ADDON = 'addon'
+    KIND_CHOICES = [(KIND_PLAN, 'پلن'), (KIND_ADDON, 'بسته افزودنی')]
+    STATUS_CHOICES = [
+        ('pending', 'در انتظار پرداخت'),
+        ('success', 'موفق'),
+        ('failed', 'ناموفق'),
+    ]
+
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='store_purchases')
+    store = models.CharField(max_length=20, choices=STORE_CHOICES)
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, null=True, blank=True, related_name='store_purchases')
+    pack = models.ForeignKey('AddOnPack', on_delete=models.PROTECT, null=True, blank=True, related_name='store_purchases')
+    sku = models.CharField(max_length=100)
+    payload = models.CharField(max_length=64, unique=True)
+    purchase_token = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    order_id = models.CharField(max_length=255, blank=True, default='')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', db_index=True)
+    store_response = models.JSONField(null=True, blank=True)
+    error_detail = models.TextField(blank=True, default='')
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_store_display()} · {self.sku} · {self.status}"

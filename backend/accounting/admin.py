@@ -31,7 +31,7 @@ from django.utils import timezone
 from . import reports
 from .models import (
     Plan, Subscription, AddOnPack, AddOnPurchase, Transaction, CreditLedger,
-    SubscriptionReminderSettings,
+    SubscriptionReminderSettings, StorePurchase,
 )
 from .payment.addon_payment import grant_addon_benefit
 
@@ -59,7 +59,7 @@ def _add_display_percentages(report):
 
 @admin.register(Plan)
 class PlanAdmin(admin.ModelAdmin):
-    list_display = ['name', 'price', 'duration_value', 'duration_unit', 'is_vip', 'is_active', 'feature_count']
+    list_display = ['name', 'price', 'duration_value', 'duration_unit', 'is_vip', 'is_active', 'myket_sku', 'feature_count']
     list_editable = ['is_active']  # مستقیم از لیست تغییر بده
     search_fields = ['name']
 
@@ -107,7 +107,7 @@ class SubscriptionAdmin(admin.ModelAdmin):
 
 @admin.register(AddOnPack)
 class AddOnPackAdmin(admin.ModelAdmin):
-    list_display = ['name', 'price', 'kind', 'sms_amount', 'appointment_amount', 'feature_key', 'duration_days', 'is_active']
+    list_display = ['name', 'price', 'kind', 'sms_amount', 'appointment_amount', 'feature_key', 'duration_days', 'is_active', 'myket_sku']
     list_editable = ['is_active']
     list_filter = ['kind', 'is_active']
     search_fields = ['name']
@@ -405,3 +405,22 @@ class CreditLedgerAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
+
+
+@admin.register(StorePurchase)
+class StorePurchaseAdmin(admin.ModelAdmin):
+    """Read-only audit of in-app store purchases (Myket), same reasoning as
+    TransactionAdmin: each row is the record of a real store payment."""
+    list_display = ['created_at', 'store', 'user', 'kind', 'sku', 'status', 'consumed_at']
+    list_filter = ['store', 'kind', 'status']
+    search_fields = ['user__phone', 'user__name', 'sku', 'purchase_token', 'order_id', 'payload']
+    readonly_fields = [f.name for f in StorePurchase._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
