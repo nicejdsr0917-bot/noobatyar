@@ -1,5 +1,9 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -197,6 +201,9 @@ fun AdvancedSettingsRoute(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .wrapContentWidth(Alignment.CenterHorizontally)
+                            .widthIn(max = 480.dp)
+                            .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                             .navigationBarsPadding(),
                         isLoading = uiState.isLoading
@@ -223,16 +230,21 @@ fun AdvancedSettingsRoute(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(paddingValues)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = adaptivePagePadding())
                     .imePadding(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // What the plan unlocks as a narrow side panel on a wide
+                // window, so the tabs being edited keep most of the width.
+                AdaptiveColumns(
+                    startWeight = 0.75f,
+                    endWeight = 1.6f,
+                    start = {
                 PlanSummaryCard(entitlements = uiState.entitlements)
-
-                Spacer(modifier = Modifier.height(8.dp))
-
+                    },
+                    end = {
                 AdvancedSettingsTabs(
                     entitlements = uiState.entitlements,
                     plans = uiState.plans,
@@ -256,6 +268,8 @@ fun AdvancedSettingsRoute(
                     onPaymentLink = { paymentLink = it },
                     onOpenPromoCampaign = onOpenPromoCampaign,
                     onOpenReminders = onOpenReminders
+                )
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))

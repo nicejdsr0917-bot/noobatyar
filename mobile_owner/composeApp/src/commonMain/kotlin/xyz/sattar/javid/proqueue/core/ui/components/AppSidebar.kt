@@ -1,5 +1,12 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.ShoppingBag
+import proqueue.composeapp.generated.resources.about_us_label
+import xyz.sattar.javid.proqueue.core.navigation.AppScreens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -95,6 +102,8 @@ fun AppSidebar(
     onNavigateToSmsReport: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToLogin: () -> Unit,
+    /** Plain destinations that need no view-model round trip. */
+    onNavigate: (AppScreens) -> Unit = {},
     modifier: Modifier = Modifier,
     settingsViewModel: SettingsViewModel = koinViewModel(),
     userViewModel: UserViewModel = koinViewModel()
@@ -172,6 +181,13 @@ fun AppSidebar(
                 onClick = { onTabSelected(tab) }
             )
         }
+        // A phone reaches the calendar from Home's hero; on a desktop it is
+        // a destination in its own right, one click from anywhere.
+        SidebarItem(
+            icon = Icons.Rounded.CalendarMonth,
+            label = "تقویم و رزرو نوبت",
+            onClick = { onNavigate(AppScreens.Calendar()) }
+        )
 
         SidebarDivider()
 
@@ -186,6 +202,26 @@ fun AppSidebar(
             SidebarDivider()
         }
 
+        SidebarGroupLabel("جذب مشتری")
+        SidebarItem(
+            icon = Icons.Rounded.Share,
+            label = "اشتراک لینک نوبت",
+            onClick = { onNavigate(AppScreens.ShareBusiness) }
+        )
+        SidebarItem(
+            icon = Icons.Rounded.LocalOffer,
+            label = "پیامک تبلیغاتی",
+            onClick = { onNavigate(AppScreens.PromoCampaign) }
+        )
+        SidebarItem(
+            icon = Icons.Rounded.ShoppingBag,
+            label = "بسته‌های افزودنی",
+            onClick = { onNavigate(AppScreens.AddOns) }
+        )
+
+        SidebarDivider()
+
+        SidebarGroupLabel("ارتباط با مشتری")
         SidebarItem(
             icon = Icons.Rounded.Campaign,
             label = stringResource(Res.string.notice_section_title),
@@ -225,6 +261,11 @@ fun AppSidebar(
                 onClick = { onTabSelected(MainTab.Settings) }
             )
         }
+        SidebarItem(
+            icon = Icons.Rounded.Info,
+            label = stringResource(Res.string.about_us_label),
+            onClick = { onNavigate(AppScreens.AboutUs) }
+        )
 
         SidebarItem(
             icon = Icons.Rounded.Logout,
@@ -233,6 +274,18 @@ fun AppSidebar(
             onClick = { userViewModel.sendIntent(UserIntent.Logout) }
         )
     }
+}
+
+/** Small heading over a group of sidebar rows. */
+@Composable
+private fun SidebarGroupLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+        modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 6.dp)
+    )
 }
 
 @Composable

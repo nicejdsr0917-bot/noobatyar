@@ -155,13 +155,18 @@ fun PullToRefreshBox(
     // Read through a snapshot so the remembered connection never sees a stale
     // value of isRefreshing.
     val refreshing by rememberUpdatedState(isRefreshing)
+    // No pull gesture on a wide window. A mouse wheel scrolled up at the top of
+    // the list arrives here as UserInput too, so it pulled the page open, and
+    // with no touch release to fling from, it then stayed open. Wide windows
+    // get DesktopRefreshButton instead.
+    val pullEnabled by rememberUpdatedState(LocalWindowSize.current == WindowSize.Compact)
 
     val connection = remember(thresholdPx, maxPullPx, restingPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 // Dragging back up first gives back whatever pull is open, so the
                 // list doesn't start scrolling while the page is still pushed down.
-                if (refreshing) return Offset.Zero
+                if (refreshing || !pullEnabled) return Offset.Zero
                 if (available.y < 0 && offset.value > 0f) {
                     val consumed = -minOf(offset.value, -available.y)
                     scope.launch { offset.snapTo((offset.value + consumed).coerceAtLeast(0f)) }
@@ -175,7 +180,7 @@ fun PullToRefreshBox(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                if (refreshing) return Offset.Zero
+                if (refreshing || !pullEnabled) return Offset.Zero
                 if (source != NestedScrollSource.UserInput || available.y <= 0f) return Offset.Zero
                 // Rubber-band: the further it is open, the less each pixel moves it.
                 val resistance = 1f - (offset.value / maxPullPx).coerceIn(0f, 0.85f)
@@ -229,7 +234,11 @@ fun PullToRefreshBox(
                 isRefreshing = rememberMinDurationVisible(isRefreshing, MinRefreshVisibleMs),
                 onRefresh = onRefresh,
                 topPadding = indicatorTopPadding,
-                modifier = Modifier.align(Alignment.TopEnd)
+                // Bottom corner, not top: the top of every screen holds its own
+                // header content, which a floating button sat on top of. Start
+                // is the right-hand side under RTL, away from the FABs, which
+                // sit at End (the left).
+                modifier = Modifier.align(Alignment.BottomStart)
             )
         }
     }
@@ -274,7 +283,9 @@ private fun DesktopRefreshButton(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.padding(top = topPadding + 12.dp, end = 12.dp),
+        // topPadding is unused now that the button sits at the bottom; kept
+        // in the signature so the call site reads the same as the indicator.
+        modifier = modifier.padding(bottom = 20.dp, start = 20.dp),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 4.dp

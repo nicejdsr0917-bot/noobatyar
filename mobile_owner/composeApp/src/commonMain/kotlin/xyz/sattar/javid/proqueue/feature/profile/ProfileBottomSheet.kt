@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.profile
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,7 +56,7 @@ fun ProfileBottomSheet(
         )
     )
 
-    ModalBottomSheet(
+    AdaptiveSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,

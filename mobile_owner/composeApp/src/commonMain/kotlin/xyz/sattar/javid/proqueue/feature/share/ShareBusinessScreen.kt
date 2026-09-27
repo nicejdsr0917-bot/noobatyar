@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.share
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
+import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -192,12 +195,6 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            ShareModeSelector(
-                selected = mode,
-                onSelect = { mode = it },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
-
             val b = business
             if (b == null || link == null) {
                 // uniqueCode is assigned by the server on creation, so a null
@@ -213,117 +210,159 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                 return@Column
             }
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                AnimatedContent(
-                    targetState = mode,
-                    transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
-                    label = "share-card",
-                ) { current ->
-                    when (current) {
-                        ShareMode.QR -> ExportableCard(
-                            controller = posterCapture,
-                            designHeightDp = POSTER_HEIGHT_DP,
-                        ) { QrPosterCard(b, link) }
+            val selector: @Composable (Modifier) -> Unit = { m ->
+                ShareModeSelector(selected = mode, onSelect = { mode = it }, modifier = m)
+            }
+            val cardPreview: @Composable () -> Unit = {
+                    AnimatedContent(
+                        targetState = mode,
+                        transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
+                        label = "share-card",
+                    ) { current ->
+                        when (current) {
+                            ShareMode.QR -> ExportableCard(
+                                controller = posterCapture,
+                                designHeightDp = POSTER_HEIGHT_DP,
+                            ) { QrPosterCard(b, link) }
 
-                        ShareMode.LINK -> LinkShareCard(b, link)
+                            ShareMode.LINK -> LinkShareCard(b, link)
 
-                        ShareMode.PROFILE -> ExportableCard(
-                            controller = storyCapture,
-                            designHeightDp = STORY_HEIGHT_DP,
-                        ) { ProfileStoryCard(b, link) }
+                            ShareMode.PROFILE -> ExportableCard(
+                                controller = storyCapture,
+                                designHeightDp = STORY_HEIGHT_DP,
+                            ) { ProfileStoryCard(b, link) }
 
-                        ShareMode.CARD ->
-                            if (b.cardNumber.isBlank()) {
-                                MissingCardPrompt(onAdd = { addingCard = true })
-                            } else {
-                                ExportableCard(
-                                    controller = cardCapture,
-                                    designHeightDp = POSTER_HEIGHT_DP,
-                                ) { CardNumberPosterCard(b) }
-                            }
+                            ShareMode.CARD ->
+                                if (b.cardNumber.isBlank()) {
+                                    MissingCardPrompt(onAdd = { addingCard = true })
+                                } else {
+                                    ExportableCard(
+                                        controller = cardCapture,
+                                        designHeightDp = POSTER_HEIGHT_DP,
+                                    ) { CardNumberPosterCard(b) }
+                                }
+                        }
                     }
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = when (mode) {
-                        ShareMode.QR -> "مناسب پست اینستاگرام و چاپ روی میز پذیرش"
-                        ShareMode.LINK -> "مناسب پیام مستقیم به مشتری"
-                        ShareMode.PROFILE -> "مناسب استوری اینستاگرام و واتساپ"
-                        ShareMode.CARD ->
-                            if (b.cardNumber.isBlank()) "برای واریز بیعانه، شماره کارت‌تان را اینجا ثبت کنید"
-                            else "مناسب ارسال به مشتری برای واریز بیعانه"
+            }
+            val hintText: @Composable () -> Unit = {
+                    Text(
+                        text = when (mode) {
+                            ShareMode.QR -> "مناسب پست اینستاگرام و چاپ روی میز پذیرش"
+                            ShareMode.LINK -> "مناسب پیام مستقیم به مشتری"
+                            ShareMode.PROFILE -> "مناسب استوری اینستاگرام و واتساپ"
+                            ShareMode.CARD ->
+                                if (b.cardNumber.isBlank()) "برای واریز بیعانه، شماره کارت‌تان را اینجا ثبت کنید"
+                                else "مناسب ارسال به مشتری برای واریز بیعانه"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+            }
+            val actionBar: @Composable () -> Unit = {
+                ShareActionBar(
+                    primaryLabel = when {
+                        mode == ShareMode.LINK -> "ارسال لینک"
+                        mode == ShareMode.CARD && b.cardNumber.isBlank() -> "ثبت شماره کارت"
+                        else -> "اشتراک‌گذاری تصویر"
                     },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
+                    exporting = exporting,
+                    onShare = {
+                        when (mode) {
+                            ShareMode.LINK -> shareText(shareMessage(b, link))
+                            ShareMode.CARD -> if (b.cardNumber.isBlank()) {
+                                addingCard = true
+                            } else {
+                                exporting = true
+                                scope.launch {
+                                    shareImage(
+                                        bytes = encodePng(cardCapture.capture()),
+                                        fileName = "noobatyar-card-${b.uniqueCode}.png",
+                                        caption = cardShareMessage(b),
+                                    )
+                                    exporting = false
+                                }
+                            }
+
+                            else -> {
+                                exporting = true
+                                scope.launch {
+                                    val controller =
+                                        if (mode == ShareMode.QR) posterCapture else storyCapture
+                                    val bitmap = controller.capture()
+                                    shareImage(
+                                        bytes = encodePng(bitmap),
+                                        fileName = if (mode == ShareMode.QR) {
+                                            "noobatyar-qr-${b.uniqueCode}.png"
+                                        } else {
+                                            "noobatyar-story-${b.uniqueCode}.png"
+                                        },
+                                        caption = shareMessage(b, link),
+                                    )
+                                    exporting = false
+                                }
+                            }
+                        }
+                    },
+                    // The copy button copies whatever the visible card is *about*:
+                    // on the card-number tab that is the card number, not the
+                    // booking link the other three tabs are built around.
+                    copyValue = if (mode == ShareMode.CARD && b.cardNumber.isNotBlank()) {
+                        b.cardNumber
+                    } else {
+                        link
+                    },
+                    copyLabel = if (mode == ShareMode.CARD && b.cardNumber.isNotBlank()) {
+                        "کپی شماره کارت"
+                    } else {
+                        "کپی لینک"
+                    },
                 )
-                Spacer(Modifier.height(16.dp))
             }
 
-            ShareActionBar(
-                primaryLabel = when {
-                    mode == ShareMode.LINK -> "ارسال لینک"
-                    mode == ShareMode.CARD && b.cardNumber.isBlank() -> "ثبت شماره کارت"
-                    else -> "اشتراک‌گذاری تصویر"
-                },
-                exporting = exporting,
-                onShare = {
-                    when (mode) {
-                        ShareMode.LINK -> shareText(shareMessage(b, link))
-                        ShareMode.CARD -> if (b.cardNumber.isBlank()) {
-                            addingCard = true
-                        } else {
-                            exporting = true
-                            scope.launch {
-                                shareImage(
-                                    bytes = encodePng(cardCapture.capture()),
-                                    fileName = "noobatyar-card-${b.uniqueCode}.png",
-                                    caption = cardShareMessage(b),
-                                )
-                                exporting = false
-                            }
-                        }
-
-                        else -> {
-                            exporting = true
-                            scope.launch {
-                                val controller =
-                                    if (mode == ShareMode.QR) posterCapture else storyCapture
-                                val bitmap = controller.capture()
-                                shareImage(
-                                    bytes = encodePng(bitmap),
-                                    fileName = if (mode == ShareMode.QR) {
-                                        "noobatyar-qr-${b.uniqueCode}.png"
-                                    } else {
-                                        "noobatyar-story-${b.uniqueCode}.png"
-                                    },
-                                    caption = shareMessage(b, link),
-                                )
-                                exporting = false
-                            }
-                        }
+            if (isWideLayout()) {
+                // Desktop: pick and act on one side, the card itself large on
+                // the other, so the preview never scrolls away from the button
+                // that shares it.
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.width(360.dp).fillMaxHeight(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        selector(Modifier.fillMaxWidth())
+                        hintText()
+                        Spacer(Modifier.weight(1f))
+                        actionBar()
                     }
-                },
-                // The copy button copies whatever the visible card is *about*:
-                // on the card-number tab that is the card number, not the
-                // booking link the other three tabs are built around.
-                copyValue = if (mode == ShareMode.CARD && b.cardNumber.isNotBlank()) {
-                    b.cardNumber
-                } else {
-                    link
-                },
-                copyLabel = if (mode == ShareMode.CARD && b.cardNumber.isNotBlank()) {
-                    "کپی شماره کارت"
-                } else {
-                    "کپی لینک"
-                },
-            )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(Modifier.widthIn(max = 460.dp)) { cardPreview() }
+                    }
+                }
+            } else {
+                selector(Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    cardPreview()
+                    Spacer(Modifier.height(8.dp))
+                    hintText()
+                    Spacer(Modifier.height(16.dp))
+                }
+                actionBar()
+            }
 
             if (addingCard) {
                 AddCardDialog(

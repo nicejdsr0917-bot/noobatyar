@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -545,6 +548,12 @@ fun CreateBusinessScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            // Same measure as the form above it, so the buttons
+                            // line up under the fields instead of spanning a
+                            // desktop window. A no-op on a phone.
+                            .wrapContentWidth(Alignment.CenterHorizontally)
+                            .widthIn(max = BusinessFormMaxWidth)
+                            .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 16.dp)
                             .navigationBarsPadding(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -712,6 +721,10 @@ fun CreateBusinessScreen(
                 .padding(paddingValues)
                 .verticalScroll(formScrollState)
                 .imePadding()
+                // A form reads badly once a text field is wider than a line of
+                // text: centre it at a fixed measure on a desktop window.
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = BusinessFormMaxWidth)
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             // Top, not Center: each step holds a different amount of content, and
@@ -1196,7 +1209,7 @@ fun CreateBusinessScreen(
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
         var searchQuery by remember { mutableStateOf("") }
 
-        ModalBottomSheet(
+        AdaptiveSheet(
             onDismissRequest = { showCategorySheet = false },
             sheetState = sheetState
         ) {
@@ -1276,6 +1289,9 @@ fun CreateBusinessScreen(
         }
     }
 }
+
+/** Widest the business form and its button bar get on a desktop window. */
+internal val BusinessFormMaxWidth = 680.dp
 
 @Composable
 fun HandleEvents(

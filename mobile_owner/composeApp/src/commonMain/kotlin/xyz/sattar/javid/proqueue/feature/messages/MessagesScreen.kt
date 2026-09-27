@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.messages
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
+import xyz.sattar.javid.proqueue.core.utils.AppInfo
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -131,11 +134,19 @@ fun MessagesScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = adaptivePagePadding()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Spacer(Modifier.height(4.dp))
 
+            // Setup on one side, the resulting SMS on the other: on a wide
+            // window the preview stays in view while the owner edits, instead
+            // of sitting a scroll below the text box it reflects.
+            AdaptiveColumns(
+                startWeight = 1.25f,
+                endWeight = 1f,
+                spacing = 14.dp,
+                start = {
             // ── 1. Who sends ──
             Section(
                 step = 1,
@@ -147,8 +158,13 @@ fun MessagesScreen(
                         icon = Icons.Rounded.PhoneAndroid,
                         title = "دستی از گوشی شما",
                         badge = "رایگان",
+                        lockedBadge = "فقط در اپ موبایل",
                         selected = !uiState.isPanel,
-                        locked = false,
+                        // Manual delivery opens the phone's own SMS app. A
+                        // browser has no SIM card to hand that to, so on web
+                        // it is shown but can't be picked. An owner already on
+                        // MANUAL keeps it; only choosing PANEL changes it.
+                        locked = AppInfo.isWeb,
                         onClick = { viewModel.sendIntent(MessagesIntent.SetDelivery(ReminderDelivery.MANUAL.value)) },
                         modifier = Modifier.weight(1f)
                     )
@@ -311,6 +327,8 @@ fun MessagesScreen(
                 }
             }
 
+                },
+                end = {
             // ── 4. What the customer receives ──
             val body = if (uiState.isPanel) uiState.panelPreviews[uiState.reminderTemplateKey].orEmpty()
             else uiState.preview
@@ -337,6 +355,8 @@ fun MessagesScreen(
                     }
                 )
             }
+                }
+            )
 
             Spacer(Modifier.height(16.dp))
         }

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.share
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -142,7 +143,7 @@ fun ReminderCardDialog(
     // is a step in that flow rather than an interruption of it — it slides up
     // from where the tap happened, and a drag down is the same "not now" the
     // owner would have expressed by tapping outside a dialog.
-    ModalBottomSheet(
+    AdaptiveSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         // Straight to fully expanded, and scrollable inside: the card is a

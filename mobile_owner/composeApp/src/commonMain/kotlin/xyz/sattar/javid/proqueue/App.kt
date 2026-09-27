@@ -129,7 +129,8 @@ fun App() {
         }
 
         // Signed-in only, so the "days of use" count from the first real session.
-        if (onAuthComplete && !AppInfo.isIOS) {
+        // Not on web: the web panel already is the site build this invites to.
+        if (onAuthComplete && !AppInfo.isIOS && !AppInfo.isWeb) {
             SiteVersionHandler()
         }
 

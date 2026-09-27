@@ -1,5 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.smsReport
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
+import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -194,27 +200,54 @@ private fun ReportContent(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
+        val wide = isWideLayout()
+        val summaryBlock: @Composable () -> Unit = {
+            if (uiState.channel == ReportChannel.SMS) {
+                uiState.summary?.let { SmsSummaryHero(it) }
+            } else {
+                uiState.pushSummary?.let { PushSummaryHero(it) }
+            }
+        }
+        val filterBlock: @Composable () -> Unit = {
+            FilterBar(
+                channel = uiState.channel,
+                status = uiState.statusFilter,
+                range = uiState.dateRangeFilter,
+                onStatus = { onIntent(SmsReportIntent.SetStatusFilter(it)) },
+                onRange = { onIntent(SmsReportIntent.SetDateRangeFilter(it)) }
+            )
+        }
+        Row(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        // Wide: the totals and filters hold still in a side column while the
+        // log scrolls beside them, so changing a filter never scrolls the
+        // control you just used out of view.
+        if (wide) {
+            Column(
+                modifier = Modifier
+                    .width(340.dp)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, top = 4.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                summaryBlock()
+                filterBlock()
+            }
+        }
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            contentPadding = PaddingValues(
+                start = adaptivePagePadding(),
+                end = adaptivePagePadding(),
+                top = 4.dp,
+                bottom = 24.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            item(key = "summary") {
-                if (uiState.channel == ReportChannel.SMS) {
-                    uiState.summary?.let { SmsSummaryHero(it) }
-                } else {
-                    uiState.pushSummary?.let { PushSummaryHero(it) }
-                }
-            }
-            item(key = "filters") {
-                FilterBar(
-                    channel = uiState.channel,
-                    status = uiState.statusFilter,
-                    range = uiState.dateRangeFilter,
-                    onStatus = { onIntent(SmsReportIntent.SetStatusFilter(it)) },
-                    onRange = { onIntent(SmsReportIntent.SetDateRangeFilter(it)) }
-                )
+            if (!wide) {
+                item(key = "summary") { summaryBlock() }
+                item(key = "filters") { filterBlock() }
             }
             if (uiState.channel == ReportChannel.SMS) {
                 listBody(
@@ -271,6 +304,7 @@ private fun ReportContent(
                     }
                 }
             }
+        }
         }
     }
 }

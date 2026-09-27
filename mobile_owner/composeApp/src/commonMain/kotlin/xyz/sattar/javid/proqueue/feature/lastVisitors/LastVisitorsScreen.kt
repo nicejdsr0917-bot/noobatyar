@@ -1,5 +1,12 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
+import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
 import androidx.compose.material3.Surface
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import androidx.compose.animation.*
@@ -139,7 +146,10 @@ fun LastVisitorsScreenContent(
     // the list is moving so it doesn't sit on top of a row's action button.
     val topBarBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     val headerState = rememberCollapsingHeaderState()
-    var dateExpanded by rememberSaveable { mutableStateOf(false) }
+    // Open from the start on a wide window: there is room for it there, and
+    // a hidden panel is one more click for a mouse user to discover.
+    val wideLayout = isWideLayout()
+    var dateExpanded by rememberSaveable { mutableStateOf(wideLayout) }
 
     // Another tab or another window is another list: start it with the
     // header in view, so what the list covers is never off screen.
@@ -371,10 +381,15 @@ private fun QueueList(
     onIntent: (LastVisitorsIntent) -> Unit,
     onGenerateMessage: (Long, String, String, String, Long, String, Int?) -> String
 ) {
-    LazyColumn(
+    // A grid of cards rather than a list: one column on a phone, and as many
+    // ~340dp cards as fit on a desktop, so a busy queue reads at a glance
+    // instead of as a single 1100dp-wide strip.
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = VisitorCardMinWidth),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        contentPadding = PaddingValues(horizontal = adaptivePagePadding(), vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(waiting, key = { it.appointment.id }) { item ->
             val duration = (item.appointment.serviceDuration
@@ -427,7 +442,7 @@ private fun QueueList(
                 )
             }
         }
-        item { BottomBarSpacer() }
+        item(span = { GridItemSpan(maxLineSpan) }) { BottomBarSpacer() }
     }
 }
 
@@ -442,11 +457,8 @@ fun FilterBottomSheet(
     var selectedStatus by remember { mutableStateOf(filter.status) }
     var selectedOrdering by remember { mutableStateOf(filter.ordering) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface
-    ) {
+    // Centered dialog on a wide window, bottom sheet on a phone.
+    AdaptiveSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -540,10 +552,12 @@ fun AppointmentsList(
     onDeleteClick: (Long) -> Unit,
     onItemClick: (Long) -> Unit
 ) {
-    LazyColumn(
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = VisitorCardMinWidth),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        contentPadding = PaddingValues(horizontal = adaptivePagePadding(), vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(appointments, key = { it.appointment.id }) { appointment ->
             Box(modifier = Modifier.animateItem()) {
@@ -555,9 +569,13 @@ fun AppointmentsList(
                 )
             }
         }
-        item { BottomBarSpacer() }
+        item(span = { GridItemSpan(maxLineSpan) }) { BottomBarSpacer() }
     }
 }
+
+/** Narrowest a card may get before the grid drops a column. A 375dp phone
+ *  minus its padding stays under two of these, so phones keep one column. */
+private val VisitorCardMinWidth = 340.dp
 
 /** Index of the range-report tab, referenced from both layouts. */
 const val RANGE_REPORT_TAB = 2

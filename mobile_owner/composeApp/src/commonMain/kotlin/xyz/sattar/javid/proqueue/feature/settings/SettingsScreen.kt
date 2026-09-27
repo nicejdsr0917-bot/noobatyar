@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
+import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -211,11 +214,18 @@ fun SettingsContent(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = adaptivePagePadding()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Two related halves: who you are and which business you run on
+            // one side, how the business talks to customers and looks on the
+            // other. Stacked on a phone in that same order.
+            AdaptiveColumns(
+                startWeight = 1f,
+                endWeight = 1.15f,
+                start = {
             // Profile identity hero — the owner sees who they are and which
             // business they're currently managing, front and center.
             ProfileHeaderCard(
@@ -278,7 +288,24 @@ fun SettingsContent(
                 }
             }
 
-            // Options Card
+            // Logout (previously reached via the top-bar avatar, which this
+            // screen no longer shows). With the business card on a wide
+            // window, so the account actions sit together.
+            if (isWideLayout()) {
+                SettingsCard {
+                    SettingsItem(
+                        icon = Icons.Rounded.Logout,
+                        title = stringResource(Res.string.logout_label),
+                        subtitle = null,
+                        onClick = onLogout,
+                        tint = MaterialTheme.colorScheme.error,
+                        centerVertically = true
+                    )
+                }
+            }
+                },
+                end = {
+            SettingsGroupLabel("ارتباط با مشتری")
             SettingsCard {
                 Column {
                     // Its own row rather than an inline switch+textfield card —
@@ -330,7 +357,7 @@ fun SettingsContent(
                 }
             }
 
-            // Appearance & Info Card
+            SettingsGroupLabel("ظاهر و اطلاعات")
             SettingsCard {
                 Column {
                     SettingsItem(
@@ -351,18 +378,20 @@ fun SettingsContent(
                 }
             }
 
-            // Logout (previously reached via the top-bar avatar, which this screen
-            // no longer shows).
-            SettingsCard {
-                SettingsItem(
-                    icon = Icons.Rounded.Logout,
-                    title = stringResource(Res.string.logout_label),
-                    subtitle = null,
-                    onClick = onLogout,
-                    tint = MaterialTheme.colorScheme.error,
-                    centerVertically = true
-                )
+            if (!isWideLayout()) {
+                SettingsCard {
+                    SettingsItem(
+                        icon = Icons.Rounded.Logout,
+                        title = stringResource(Res.string.logout_label),
+                        subtitle = null,
+                        onClick = onLogout,
+                        tint = MaterialTheme.colorScheme.error,
+                        centerVertically = true
+                    )
+                }
             }
+                }
+            )
 
             // Subtle Noobatyar branding footer (moved out of the header, which now
             // belongs to the owner's own identity).
@@ -398,6 +427,19 @@ fun SettingsContent(
         }
         }
     }
+}
+
+/** A quiet heading over a group of settings rows, so related rows read as
+ *  one block instead of one long undifferentiated list. */
+@Composable
+private fun SettingsGroupLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp)
+    )
 }
 
 @Composable

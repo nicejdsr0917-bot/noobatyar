@@ -226,7 +226,8 @@ fun MainNavHost(
                 onNavigateToMessages = { navController.navigate(AppScreens.Messages) },
                 onNavigateToSmsReport = { navController.navigate(AppScreens.SmsReport) },
                 onNavigateToNotifications = { navController.navigate(AppScreens.Notifications) },
-                onNavigateToLogin = onNavigateToLogin
+                onNavigateToLogin = onNavigateToLogin,
+                onNavigate = { screen -> navController.navigate(screen) { launchSingleTop = true } }
             )
         }
         // Capped here rather than per-screen so every destination in the

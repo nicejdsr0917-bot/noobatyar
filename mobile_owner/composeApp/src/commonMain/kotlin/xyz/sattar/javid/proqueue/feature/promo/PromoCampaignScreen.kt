@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.promo
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -157,14 +160,27 @@ fun PromoCampaignScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = adaptivePagePadding()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Spacer(Modifier.height(4.dp))
             Hero(overview)
 
+            val historyBlock: @Composable () -> Unit = {
+                if (overview.campaigns.isNotEmpty()) {
+                    Section(title = "کمپین‌های قبلی", icon = Icons.Rounded.History) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            overview.campaigns.forEach { c ->
+                                CampaignRow(c) { viewModel.sendIntent(PromoCampaignIntent.OpenCampaign(c.id)) }
+                            }
+                        }
+                    }
+                }
+            }
+
             if (!overview.entitled) {
                 LockedCard(onUpgrade = { viewModel.sendIntent(PromoCampaignIntent.GetCredit) })
+                historyBlock()
             } else {
                 if (!overview.withinSendWindow) {
                     Banner(
@@ -175,6 +191,13 @@ fun PromoCampaignScreen(
                     )
                 }
 
+                // Composing (who, what) on one side; the result and what's
+                // been sent before on the other.
+                AdaptiveColumns(
+                    startWeight = 1.25f,
+                    endWeight = 1f,
+                    spacing = 14.dp,
+                    start = {
                 // ── 1. Audience ──
                 Section(title = "۱. به چه کسانی بفرستیم؟", icon = Icons.Rounded.Groups) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -231,6 +254,8 @@ fun PromoCampaignScreen(
                     )
                 }
 
+                    },
+                    end = {
                 // ── 3. Preview & cost ──
                 Section(title = "۳. پیش‌نمایش و هزینه", icon = Icons.Rounded.Campaign) {
                     SmsBubble(
@@ -244,17 +269,10 @@ fun PromoCampaignScreen(
                             "پیامکی آن را لینک حساب می‌کند. هر پیامک از اعتبار پیامک شما کسر می‌شود."
                     )
                 }
-            }
-
-            // ── History ──
-            if (overview.campaigns.isNotEmpty()) {
-                Section(title = "کمپین‌های قبلی", icon = Icons.Rounded.History) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        overview.campaigns.forEach { c ->
-                            CampaignRow(c) { viewModel.sendIntent(PromoCampaignIntent.OpenCampaign(c.id)) }
-                        }
+                // ── History ──
+                historyBlock()
                     }
-                }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
@@ -550,7 +568,7 @@ private fun ConfirmLine(label: String, value: String, bold: Boolean = false) {
 
 @Composable
 private fun CampaignSheet(campaign: PromoCampaignDto, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AdaptiveSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             Text("جزئیات کمپین", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))

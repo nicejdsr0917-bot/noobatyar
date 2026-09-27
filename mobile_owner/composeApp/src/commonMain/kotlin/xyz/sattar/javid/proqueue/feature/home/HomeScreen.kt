@@ -1,5 +1,9 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveGrid
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
+import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -263,131 +267,126 @@ fun HomeScreenContent(
                 onOpenShare = onNavigateToShare
             )
 
+            // Each block is written once; only the arrangement differs.
+            // Phone: the original single column, in priority order. Wide:
+            // two rows of paired blocks. Today's activity sits beside its
+            // trend, and what's been used sits beside what can be bought.
+            val queueBlock: @Composable () -> Unit = {
+                if (!uiState.statsLoaded) {
+                    HomeQueueRowShimmer()
+                } else {
+                    QueueStatRow(
+                        count = uiState.queue.size,
+                        // Today's queue, so the list opens on the same day
+                        // the count here was taken from.
+                        onClick = { onNavigateToVisitors(todayArgs(tab = 1)) }
+                    )
+                }
+            }
+            val statsBlock: @Composable () -> Unit = {
+                if (!uiState.statsLoaded) {
+                    HomeDashboardShimmer()
+                } else {
+                    DashboardStatsGrid(
+                        stats = uiState.stats,
+                        // tab = 0 (مراجعین/history) explicitly — LastVisitorsState
+                        // defaults selectedTab to 1 (صف/queue), where a status
+                        // filter like "cancelled" has nothing to show.
+                        // Scoped to today as well: these are today's
+                        // numbers, and the list used to open on the next
+                        // seven days, where the counts didn't match.
+                        onStatClick = { status ->
+                            onNavigateToVisitors(todayArgs(status = status, tab = 0))
+                        }
+                    )
+                }
+            }
+            val trendBlock: @Composable () -> Unit = {
+                if (!uiState.chartLoaded) {
+                    HomeChartShimmer()
+                } else {
+                    HomeTrendCard(
+                        weeklyCounts = uiState.dailyCounts.map { it.count },
+                        overview = uiState.monthOverview,
+                        onRangeClick = { start, endExclusive ->
+                            onNavigateToVisitors(
+                                VisitorsNavArgs(
+                                    dateFrom = start,
+                                    // endExclusive − 1ms so the range ends
+                                    // inside the last day shown rather than
+                                    // the day after it.
+                                    dateTo = endExclusive - 1
+                                )
+                            )
+                        }
+                    )
+                }
+            }
+            val usageBlock: @Composable () -> Unit = {
+                if (!uiState.entitlementsLoaded) {
+                    HomeUsageShimmer()
+                } else if (uiState.entitlements != null) {
+                    UsageMeterSection(
+                        entitlements = uiState.entitlements,
+                        onNavigateToAddons = onNavigateToAddons
+                    )
+                }
+            }
+            val plansBlock: @Composable () -> Unit = {
+                if (!uiState.plansLoaded) {
+                    HomePlanBannerShimmer()
+                } else if (uiState.plans.isNotEmpty()) {
+                    PlanBannerSection(
+                        plans = uiState.plans,
+                        onPlanClick = { plan ->
+                            onIntent(HomeIntent.PurchasePlan(plan.id))
+                        }
+                    )
+                }
+            }
+            val wide = isWideLayout()
+
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = adaptivePagePadding()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // ۱. صف امروز — تنها بخش «زنده»‌ی صفحه، پس اول می‌آید.
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 120)
-                        )
-                    ) {
-                        if (!uiState.statsLoaded) {
-                            HomeQueueRowShimmer()
-                        } else {
-                            QueueStatRow(
-                                count = uiState.queue.size,
-                                // Today's queue, so the list opens on the same day
-                                // the count here was taken from.
-                                onClick = { onNavigateToVisitors(todayArgs(tab = 1)) }
+                if (wide) {
+                    item {
+                        HomeReveal(visible, delayMillis = 120) {
+                            AdaptiveColumns(
+                                startWeight = 1f,
+                                endWeight = 1.25f,
+                                spacing = 14.dp,
+                                start = { queueBlock(); statsBlock() },
+                                end = { trendBlock() }
                             )
                         }
                     }
-                }
-
-                // ۲. آمار امروز (۲×۲)
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 180)
-                        )
-                    ) {
-                        if (!uiState.statsLoaded) {
-                            HomeDashboardShimmer()
-                        } else {
-                            DashboardStatsGrid(
-                                stats = uiState.stats,
-                                // tab = 0 (مراجعین/history) explicitly — LastVisitorsState
-                                // defaults selectedTab to 1 (صف/queue), where a status
-                                // filter like "cancelled" has nothing to show.
-                                // Scoped to today as well: these are today's
-                                // numbers, and the list used to open on the next
-                                // seven days, where the counts didn't match.
-                                onStatClick = { status ->
-                                    onNavigateToVisitors(todayArgs(status = status, tab = 0))
-                                }
+                    item {
+                        HomeReveal(visible, delayMillis = 240) {
+                            AdaptiveColumns(
+                                startWeight = 1f,
+                                endWeight = 1.25f,
+                                spacing = 14.dp,
+                                start = { usageBlock() },
+                                end = { plansBlock() }
                             )
                         }
                     }
-                }
-
-                // ۳. روند نوبت‌ها — هفتگی یا ماهانه.
-                //    نمودار خطی با دو حالت هفتگی/ماهانه، جای دو بخش جدا
-                //    (نمودار ۷ روزه + کارت ماه) را می‌گیرد.
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 240)
-                        )
-                    ) {
-                        if (!uiState.chartLoaded) {
-                            HomeChartShimmer()
-                        } else {
-                            HomeTrendCard(
-                                weeklyCounts = uiState.dailyCounts.map { it.count },
-                                overview = uiState.monthOverview,
-                                onRangeClick = { start, endExclusive ->
-                                    onNavigateToVisitors(
-                                        VisitorsNavArgs(
-                                            dateFrom = start,
-                                            // endExclusive − 1ms so the range ends
-                                            // inside the last day shown rather than
-                                            // the day after it.
-                                            dateTo = endExclusive - 1
-                                        )
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // ۴. مصرف‌سنج ماهانه
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 300)
-                        )
-                    ) {
-                        if (!uiState.entitlementsLoaded) {
-                            HomeUsageShimmer()
-                        } else if (uiState.entitlements != null) {
-                            UsageMeterSection(
-                                entitlements = uiState.entitlements,
-                                onNavigateToAddons = onNavigateToAddons
-                            )
-                        }
-                    }
-                }
-
-                // ۵. بنرهای پلن اشتراک
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 360)
-                        )
-                    ) {
-                        if (!uiState.plansLoaded) {
-                            HomePlanBannerShimmer()
-                        } else if (uiState.plans.isNotEmpty()) {
-                            PlanBannerSection(
-                                plans = uiState.plans,
-                                onPlanClick = { plan ->
-                                    onIntent(HomeIntent.PurchasePlan(plan.id))
-                                }
-                            )
-                        }
-                    }
+                } else {
+                    // ۱. صف امروز — تنها بخش «زنده»‌ی صفحه، پس اول می‌آید.
+                    item { HomeReveal(visible, delayMillis = 120) { queueBlock() } }
+                    // ۲. آمار امروز (۲×۲)
+                    item { HomeReveal(visible, delayMillis = 180) { statsBlock() } }
+                    // ۳. روند نوبت‌ها — هفتگی یا ماهانه.
+                    item { HomeReveal(visible, delayMillis = 240) { trendBlock() } }
+                    // ۴. مصرف‌سنج ماهانه
+                    item { HomeReveal(visible, delayMillis = 300) { usageBlock() } }
+                    // ۵. بنرهای پلن اشتراک
+                    item { HomeReveal(visible, delayMillis = 360) { plansBlock() } }
                 }
 
                 item { BottomBarSpacer() }
@@ -397,11 +396,40 @@ fun HomeScreenContent(
     }
 }
 
+/** The staggered slide-and-fade every home block enters with. */
+@Composable
+private fun HomeReveal(visible: Boolean, delayMillis: Int, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
+            animationSpec = tween(500, delayMillis = delayMillis)
+        )
+    ) {
+        content()
+    }
+}
+
 @Composable
 fun PlanBannerSection(
     plans: List<PlanDto>,
     onPlanClick: (PlanDto) -> Unit
 ) {
+    // A swipe pager needs a touch drag that a mouse can't give, and a wide
+    // window fits every plan at once anyway, so show them all as a grid.
+    if (isWideLayout()) {
+        AdaptiveGrid(
+            count = plans.size,
+            modifier = Modifier.padding(vertical = 8.dp),
+            mediumColumns = 2,
+            expandedColumns = 2,
+            spacing = 12.dp
+        ) { index ->
+            val plan = plans[index]
+            PlanBannerItem(plan = plan, onClick = { onPlanClick(plan) }, modifier = Modifier.fillMaxWidth())
+        }
+        return
+    }
+
     val pagerState = rememberPagerState(pageCount = { plans.size })
 
     Column(

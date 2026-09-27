@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.visitorDetails
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -237,7 +238,7 @@ fun VisitorDetailsScreenContent(
 
     if (showMessageSheet && uiState.visitor != null) {
         val visitor = uiState.visitor
-        ModalBottomSheet(
+        AdaptiveSheet(
             onDismissRequest = { showMessageSheet = false },
             sheetState = sheetState
         ) {

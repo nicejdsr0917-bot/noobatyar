@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.widthIn
@@ -36,12 +39,16 @@ import xyz.sattar.javid.proqueue.core.ui.WindowSize
 fun AdaptiveSheet(
     onDismissRequest: () -> Unit,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    containerColor: Color = BottomSheetDefaults.ContainerColor,
+    dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
     content: @Composable ColumnScope.() -> Unit
 ) {
     when (LocalWindowSize.current) {
         WindowSize.Compact -> ModalBottomSheet(
             onDismissRequest = onDismissRequest,
             sheetState = sheetState,
+            containerColor = containerColor,
+            dragHandle = dragHandle,
             content = content
         )
 
@@ -49,9 +56,11 @@ fun AdaptiveSheet(
             Surface(
                 modifier = Modifier.widthIn(max = 480.dp),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+                color = containerColor,
                 tonalElevation = 6.dp
             ) {
-                Column(content = content)
+                // Top padding stands in for the drag handle a dialog doesn't have.
+                Column(modifier = Modifier.padding(top = 20.dp), content = content)
             }
         }
     }

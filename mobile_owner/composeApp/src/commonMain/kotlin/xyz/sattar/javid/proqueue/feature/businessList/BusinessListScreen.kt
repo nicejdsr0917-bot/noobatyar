@@ -1,5 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.businessList
 
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -184,7 +190,7 @@ fun BusinessListScreenContent(
                 }
 
                 else -> {
-                    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    val listState = rememberLazyGridState()
                     val shouldLoadMore by androidx.compose.runtime.remember {
                         androidx.compose.runtime.derivedStateOf {
                             val totalItems = listState.layoutInfo.totalItemsCount
@@ -199,11 +205,15 @@ fun BusinessListScreenContent(
                         }
                     }
 
-                    LazyColumn(
+                    // One column on a phone; side-by-side cards on a desktop,
+                    // where an owner with several branches sees them all at once.
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 340.dp),
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        contentPadding = PaddingValues(adaptivePagePadding()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(uiState.businesses) { business ->
                             BusinessItem(
@@ -214,7 +224,7 @@ fun BusinessListScreenContent(
                             )
                         }
                         if (uiState.isPaginating) {
-                            item {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()

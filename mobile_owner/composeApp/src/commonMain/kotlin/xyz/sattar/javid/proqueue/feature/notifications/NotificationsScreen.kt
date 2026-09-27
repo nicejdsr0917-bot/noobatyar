@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.notifications
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
+import xyz.sattar.javid.proqueue.core.utils.AppInfo
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -136,11 +139,17 @@ private fun NotificationsPhoneContent(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = adaptivePagePadding()),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Spacer(modifier = Modifier.height(4.dp))
 
+            // The owner's own alerts beside the customer's reminder on a wide
+            // window: two independent settings, so neither should push the
+            // other below the fold.
+            AdaptiveColumns(
+                spacing = 14.dp,
+                start = {
             FeatureGate(
                 entitlements = uiState.entitlements,
                 plans = uiState.plans,
@@ -151,12 +160,15 @@ private fun NotificationsPhoneContent(
             ) {
                 OwnerCard(uiState = uiState, onIntent = onIntent)
             }
-
+                },
+                end = {
             // The client's reminder rides on the same schedule, so it only
             // makes sense once the business's notifications are on.
             if (uiState.isNotificationsEnabled) {
                 ClientCard(uiState = uiState, onIntent = onIntent, onNavigateToMessages = onNavigateToMessages)
             }
+                }
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
         }
@@ -308,7 +320,9 @@ private fun ClientCard(
                 title = "دستی از گوشی شما",
                 badge = "رایگان",
                 selected = !panel,
-                locked = false,
+                // A browser has no SIM card to send a manual SMS from.
+                locked = AppInfo.isWeb,
+                lockedBadge = "فقط در اپ موبایل",
                 onClick = { onIntent(NotificationsIntent.SetDelivery(ReminderDelivery.MANUAL.value)) },
                 modifier = Modifier.weight(1f)
             )

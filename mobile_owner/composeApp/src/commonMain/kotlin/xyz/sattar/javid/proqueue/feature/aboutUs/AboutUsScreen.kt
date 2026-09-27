@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.aboutUs
 
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -116,11 +118,14 @@ fun AboutUsContent(
                 modifier = modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = adaptivePagePadding()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Who we are on one side, how to reach us on the other.
+                AdaptiveColumns(
+                    start = {
                 HeroCard()
 
                 // Start-aligned, not Justify: Compose justifies Persian by
@@ -137,6 +142,8 @@ fun AboutUsContent(
                     )
                 }
 
+                    },
+                    end = {
                 // Contact list.
                 //
                 // Was a 3-per-row FlowRow of icon+label tiles, which left five
@@ -232,6 +239,8 @@ fun AboutUsContent(
                         )
                     }
                 }
+                    }
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
             }

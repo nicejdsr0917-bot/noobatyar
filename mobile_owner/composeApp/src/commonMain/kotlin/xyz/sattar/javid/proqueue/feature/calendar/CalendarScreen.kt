@@ -1,5 +1,10 @@
 package xyz.sattar.javid.proqueue.feature.calendar
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -117,6 +122,77 @@ fun CalendarScreenContent(
             )
         }
     ) { paddingValues ->
+        // The appointment being edited (if any) is dropped from the occupancy
+        // check, otherwise its own slot reads as "occupied" and the picker
+        // refuses to let it be reselected.
+        val visibleAppointments = if (excludeAppointmentId != null) {
+            uiState.appointments.filter { it.appointment.id != excludeAppointmentId }
+        } else {
+            uiState.appointments
+        }
+        val onSlotClick: (String) -> Unit = { time ->
+            if (isPicker) {
+                onSlotSelected(uiState.selectedDate, time)
+            } else {
+                onIntent(CalendarIntent.OnTimeSlotClick(time))
+            }
+        }
+        val onAppointmentClick: (Long) -> Unit = {
+            if (!isPicker) {
+                onIntent(CalendarIntent.OnAppointmentClick(it))
+            }
+        }
+        val business = BusinessStateHolder.selectedBusiness.value
+        val isClosedDay = business != null &&
+            DateTimeUtils.getWeekday(uiState.selectedDate) in business.closedWeekdays
+
+        if (isWideLayout()) {
+            // Desktop: the month and the day's numbers on one side, the day's
+            // slots on the other, so picking a date never scrolls the slots
+            // out of view.
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(paddingValues)
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .width(360.dp)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    MonthGridBlock(
+                        selectedDate = uiState.selectedDate,
+                        onDateSelected = { onIntent(CalendarIntent.SelectDate(it)) }
+                    )
+                    DaySummaryBlock(
+                        selectedDate = uiState.selectedDate,
+                        appointments = visibleAppointments
+                    )
+                }
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    if (isClosedDay) ClosedDayBanner()
+                    if (uiState.isLoading) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        TimeSlotsList(
+                            appointments = visibleAppointments,
+                            selectedDate = uiState.selectedDate,
+                            onSlotClick = onSlotClick,
+                            onAppointmentClick = onAppointmentClick
+                        )
+                    }
+                }
+            }
+            return@Scaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -142,36 +218,13 @@ fun CalendarScreenContent(
                 // Non-blocking: a day off does not stop the owner from adding a
                 // walk-in or a one-off exception themselves, it only tells them
                 // the calendar disagrees with what they're about to do.
-                val business = BusinessStateHolder.selectedBusiness.value
-                if (business != null &&
-                    DateTimeUtils.getWeekday(uiState.selectedDate) in business.closedWeekdays
-                ) {
-                    ClosedDayBanner()
-                }
+                if (isClosedDay) ClosedDayBanner()
 
-                // Time Slots. The appointment being edited (if any) is dropped
-                // from the occupancy check, otherwise its own slot reads as
-                // "occupied" and the picker refuses to let it be reselected.
-                val visibleAppointments = if (excludeAppointmentId != null) {
-                    uiState.appointments.filter { it.appointment.id != excludeAppointmentId }
-                } else {
-                    uiState.appointments
-                }
                 TimeSlotsList(
                     appointments = visibleAppointments,
                     selectedDate = uiState.selectedDate,
-                    onSlotClick = { time ->
-                        if (isPicker) {
-                            onSlotSelected(uiState.selectedDate, time)
-                        } else {
-                            onIntent(CalendarIntent.OnTimeSlotClick(time))
-                        }
-                    },
-                    onAppointmentClick = { 
-                        if (!isPicker) {
-                            onIntent(CalendarIntent.OnAppointmentClick(it))
-                        }
-                    }
+                    onSlotClick = onSlotClick,
+                    onAppointmentClick = onAppointmentClick
                 )
             }
         }

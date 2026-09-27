@@ -35,7 +35,10 @@ fun ChoiceTile(
     selected: Boolean,
     locked: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Why a locked tile is locked. A plan gate by default; the web build
+     *  passes its own reason for options a browser can't do at all. */
+    lockedBadge: String = "نیاز به ارتقا"
 ) {
     val primary = MaterialTheme.colorScheme.primary
     Column(
@@ -79,7 +82,7 @@ fun ChoiceTile(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
         ) {
             Text(
-                text = if (locked) "نیاز به ارتقا" else badge,
+                text = if (locked) lockedBadge else badge,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
