@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { categoryLabel, type Business } from '@/lib/api';
+import { businessCategoryLabel, type Business } from '@/lib/api';
 import BusinessNotice from '@/app/components/BusinessNotice';
-import Icon, { CATEGORY_ICON, type IconName } from '@/app/components/Icon';
+import Icon, { type IconName } from '@/app/components/Icon';
+import CategoryArt, { CategoryGlyph } from '@/app/components/CategoryArt';
+import AppBanner from '@/app/components/AppBanner';
 import { toPersianDigits as toFa } from '@/lib/validation';
 
 interface Props {
@@ -16,7 +18,10 @@ export default function BusinessProfileClient({ business, slug }: Props) {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
 
-  const categoryIcon: IconName = CATEGORY_ICON[business.category] ?? 'storefront';
+  // Derived from the logo server-side (Business.theme_color) and already
+  // contrast-clamped for white text there, so it can be used raw. Falls back
+  // to the brand purple for a business with no logo.
+  const heroColor = business.theme_color || '#8b5cf6';
   const bookingEnabled = business.booking_enabled !== false; // default true if undefined
 
   const logoUrl = business.logo
@@ -24,9 +29,50 @@ export default function BusinessProfileClient({ business, slug }: Props) {
       ? business.logo
       : `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}${business.logo}`
     : null;
+  // A logo URL that 404s (media file gone) otherwise renders the browser's
+  // broken-image glyph over the hero. Falling back to the category icon is
+  // the same thing a business with no logo at all already shows.
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [bioExpanded, setBioExpanded] = useState(false);
+
+  /**
+   * Where the bio goes depends on how many *lines* it is — not how many
+   * characters.
+   *
+   * A short bio is a tagline — it belongs under the name, and reads well
+   * there. A long one is prose, and the hero is the wrong place for prose:
+   * at 244 characters it pushed the hero to twice its height, buried the
+   * call buttons below the fold, and ran straight over the category artwork
+   * behind it. Centred long text is also the hardest way to read Persian,
+   * since both edges end up ragged.
+   *
+   * Character count alone gets this wrong in the other direction too: a bio
+   * of five short emoji-led lines ("💜رنگ مو\n💚کراتین\n...") is only ~45
+   * characters — nowhere near a length-based cutoff — but is still five
+   * lines, and the hero's subtitle is a 2-line clamp
+   * (-webkit-line-clamp in globals.css). The clamp doesn't know or care
+   * *why* a bio is long; a bio the owner wrote as a short list is exactly as
+   * unreadable, ellipsised at line 2, as one that is long text. So this
+   * counts line breaks first, and only falls back to a character estimate
+   * for a single unbroken line long enough to *wrap* past two lines on its
+   * own (~300px wide at 13px) — that case has no '\n' to count.
+   */
+  const bio = business.bio?.trim() ?? '';
+  const HERO_TAGLINE_MAX_LINES = 2;
+  const HERO_TAGLINE_MAX_CHARS = 90;
+  const bioIsProse =
+    bio.split('\n').length > HERO_TAGLINE_MAX_LINES || bio.length > HERO_TAGLINE_MAX_CHARS;
+  const heroTagline = bioIsProse
+    ? ''
+    : bio || `ارائه خدمات تخصصی در زمینه ${businessCategoryLabel(business)} توسط کادر مجرب.`;
 
   // ── Stat values (short, so they fit the compact cards) ──
-  const workHours = `${toFa(String(business.work_start_hour).padStart(2, '0'))} تا ${toFa(String(business.work_end_hour).padStart(2, '0'))}`;
+  // Minute suffix only when non-zero: "۹ تا ۲۱" reads better than "۹:۰۰ تا
+  // ۲۱:۰۰" for the (still-typical) whole-hour business, and a business that
+  // actually opens on a half hour is exactly when the suffix earns its space.
+  const formatWorkTime = (hour: number, minute: number | undefined) =>
+    minute ? `${toFa(String(hour).padStart(2, '0'))}:${toFa(String(minute).padStart(2, '0'))}` : toFa(String(hour).padStart(2, '0'));
+  const workHours = `${formatWorkTime(business.work_start_hour, business.work_start_minute)} تا ${formatWorkTime(business.work_end_hour, business.work_end_minute)}`;
 
   const depositText =
     business.deposit_mode === 'NONE'
@@ -67,29 +113,47 @@ export default function BusinessProfileClient({ business, slug }: Props) {
         : 'creditCard';
 
   return (
-    <div className="page-content">
+    // .themed re-points the primary tokens at this business's colour for the
+    // whole page — buttons, stat icons, the address pin, and the promo banner
+    // — so the header is not the only part that reflects their brand.
+    <div
+      className="page-content themed"
+      style={{ ['--hero-color' as string]: heroColor }}
+    >
 
       {/* ── Hero ── */}
       <div className="biz-hero">
+        {/* Category line-art, in place of the decorative blobs this used to
+            draw: it says what the business actually does. */}
+        <CategoryArt category={business.category} className="biz-hero-art" />
         <div className="biz-hero-avatar">
-          {logoUrl ? (
+          {logoUrl && !logoFailed ? (
             // eslint-disable-next-line @next/next/no-img-element -- remote media host, no loader configured
-            <img src={logoUrl} alt={business.title} />
+            <img
+              src={logoUrl}
+              alt={business.title}
+              onError={() => setLogoFailed(true)}
+              // onError alone misses the common case: the <img> ships in the
+              // SSR HTML, so a failing logo has usually already errored by the
+              // time React hydrates and attaches the handler. A decoded-but-
+              // zero-width image is exactly that already-failed state.
+              ref={(node) => {
+                if (node?.complete && node.naturalWidth === 0) setLogoFailed(true);
+              }}
+            />
           ) : (
-            <Icon name={categoryIcon} size={44} />
+            <CategoryGlyph category={business.category} size={44} stroke={1.5} />
           )}
         </div>
 
         <h1 className="biz-hero-title">{business.title}</h1>
 
         <span className="biz-hero-chip">
-          <Icon name={categoryIcon} size={14} />
-          <span>{categoryLabel(business.category)}</span>
+          <CategoryGlyph category={business.category} size={14} />
+          <span>{businessCategoryLabel(business)}</span>
         </span>
 
-        <p className="biz-hero-bio">
-          {business.bio || `ارائه خدمات تخصصی در زمینه ${categoryLabel(business.category)} توسط کادر مجرب.`}
-        </p>
+        {heroTagline && <p className="biz-hero-bio">{heroTagline}</p>}
 
         {business.phone && (
           <div className="biz-hero-actions">
@@ -97,6 +161,15 @@ export default function BusinessProfileClient({ business, slug }: Props) {
               <Icon name="call" size={16} />
               <span dir="ltr">{toFa(business.phone)}</span>
             </a>
+            {/* Same call button, repeated per extra number — a customer
+                calling the wrong line for a multi-number business is exactly
+                what having more than one number is meant to prevent. */}
+            {business.extra_phones?.map((extraPhone) => (
+              <a key={extraPhone} href={`tel:${extraPhone}`} className="biz-action call">
+                <Icon name="call" size={16} />
+                <span dir="ltr">{toFa(extraPhone)}</span>
+              </a>
+            ))}
           </div>
         )}
       </div>
@@ -124,6 +197,33 @@ export default function BusinessProfileClient({ business, slug }: Props) {
           </div>
         </div>
       </div>
+
+      {/* ── About ──
+          Sits after the stats, not before them: hours, deposit and payment
+          are what a visitor is deciding on, and the description supports
+          that decision rather than leading it. */}
+      {bioIsProse && (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-about">
+            <div className="biz-about-head">
+              <span className="ico"><Icon name="info" size={17} /></span>
+              <h2>درباره‌ی ما</h2>
+            </div>
+            <p className={bioExpanded ? 'biz-about-text' : 'biz-about-text clamped'}>
+              {bio}
+            </p>
+            <button
+              type="button"
+              className="biz-about-toggle"
+              onClick={() => setBioExpanded((v) => !v)}
+              aria-expanded={bioExpanded}
+            >
+              {bioExpanded ? 'کمتر' : 'بیشتر'}
+              <Icon name={bioExpanded ? 'chevronUp' : 'chevronDown'} size={15} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Address ── */}
       {business.address && (
@@ -167,32 +267,10 @@ export default function BusinessProfileClient({ business, slug }: Props) {
       )}
 
       {/* ── Noobatyar Promo ──
-          Same animated banner the home screen uses, so the product pitch looks
-          like one thing across the app rather than two near-identical cards. */}
+          Takes this business's colour rather than Noobatyar purple: the page is
+          .themed, and see `.themed .app-banner` in globals.css. */}
       <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
-        <a
-          className="app-banner"
-          href="https://noobatyar.ir"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span className="app-banner-blob one" aria-hidden="true" />
-          <span className="app-banner-blob two" aria-hidden="true" />
-
-          <span className="app-banner-logo">
-            {/* eslint-disable-next-line @next/next/no-img-element -- local static brand mark */}
-            <img src="/icons/icon-192.png" alt="" width={58} height={58} />
-          </span>
-
-          <span className="app-banner-body">
-            <h2>صاحب کسب‌وکار هستید؟</h2>
-            <p>نوبت‌دهی آنلاین با نوبت‌یار برای کسب‌وکار شما</p>
-            <span className="app-banner-cta">
-              شروع رایگان در noobatyar.ir
-              <Icon name="chevronLeft" size={14} />
-            </span>
-          </span>
-        </a>
+        <AppBanner variant="owner" />
       </div>
 
       {/* ── Fixed Bottom Button ── */}

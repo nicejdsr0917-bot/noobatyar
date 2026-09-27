@@ -4,14 +4,19 @@ expect object AppInfo {
     val versionCode: Int
     val versionName: String
     val isIOS: Boolean
-
     /**
-     * True only for the wasmJs build. Added alongside the web target so
-     * [xyz.sattar.javid.proqueue.App] can skip [xyz.sattar.javid.proqueue.feature.version.VersionHandler]
-     * on web the same way it already skips it on iOS — there is no app store
-     * version gate on the web, and per docs/OWNER_WEB_PLAN.md section 4 (row
-     * 10) that check must be fully disabled there, not just left pointed at
-     * an Android-shaped endpoint.
+     * True only for the wasmJs build, so App can skip the store version gate
+     * there the same way it already does on iOS.
      */
     val isWeb: Boolean
+
+    /**
+     * True for a debug build (an Android Studio "Run", not a signed release
+     * APK). A Studio run has no `ANDROID_VERSION_CODE` set at build time, so
+     * it falls back to the placeholder in build.gradle.kts (100) — far below
+     * whatever the production force-update gate requires, which made every
+     * local run hit the mandatory-update screen before anything else could be
+     * tested. See VersionViewModel, the one place this is read.
+     */
+    val isDebug: Boolean
 }

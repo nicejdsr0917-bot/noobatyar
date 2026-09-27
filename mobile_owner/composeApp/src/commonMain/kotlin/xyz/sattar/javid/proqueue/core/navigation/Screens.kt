@@ -96,6 +96,11 @@ sealed class AppScreens {
     ) : AppScreens()
     @Serializable
     object AboutUs : AppScreens()
+    /** The three ways to hand a customer the booking link — QR card, bare
+     *  link, profile card. Reads the selected business from
+     *  BusinessStateHolder, so it carries no arguments. */
+    @Serializable
+    object ShareBusiness : AppScreens()
     @Serializable
     object AddOns : AppScreens()
     /**

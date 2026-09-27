@@ -155,6 +155,7 @@ val appModule: Module = module {
     factory { CheckAppointmentConflictUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.SyncAppointmentsUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.GetDailyCountsUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.GetRangeReportUseCase(get()) }
 
     // --- Message UseCases ---
     factory { SendMessageUseCase(get()) }
@@ -193,6 +194,7 @@ val appModule: Module = module {
     }
     viewModel {
         LastVisitorsViewModel(
+            get(),
             get(),
             get(),
             get(),

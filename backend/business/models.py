@@ -6,16 +6,138 @@ from django.utils.crypto import get_random_string
 
 User = get_user_model()
 
+# How long a business description may be. Enforced by the serializer rather
+# than the column (see Business.bio), so raising it is a one-line change with
+# no migration. The owner app shows a counter against this same number, and
+# the client web's "درباره" card is built to clamp-and-expand whatever fits
+# under it — both were sized from this value, so move it deliberately.
+BIO_MAX_LENGTH = 1500
+
+
 class Business(models.Model):
     """
     Represents a business profile for appointment management.
     Each user can have multiple businesses.
     """
+    # ── Category vocabulary ──────────────────────────────────────────────────
+    # CATEGORY_GROUPS is the single definition; CATEGORY_CHOICES is derived
+    # from it below. The grouping is not decoration: this vocabulary is ~35
+    # entries, and the group headings are what make it browsable in the owner
+    # app's picker and scannable in the admin's flat <select>. Defining the
+    # groups here rather than in each client is what lets the categories
+    # endpoint (BusinessCategoriesView) serve them, so adding a category
+    # never needs a mobile release.
+    #
+    # Order is thematic (health → beauty → professional → education/sport →
+    # trades → other), not alphabetical, and every consumer renders it in
+    # this order.
+    #
+    # The four original keys (BEAUTY_SALON, DOCTOR, CONSULTANT, OTHER) keep
+    # their exact values *and* labels. Renaming one would silently
+    # re-categorize every existing business holding it, and re-labelling
+    # BEAUTY_SALON as women-only would mis-describe the men's barbershops
+    # already filed under it — BARBERSHOP is offered for new ones instead.
+    CATEGORY_GROUPS = [
+        ('MEDICAL', 'پزشکی و تخصص‌ها', [
+            # DOCTOR stays first and keeps its generic label: it is what every
+            # existing clinic is filed under, and a business that has not
+            # picked a specialty should still have somewhere correct to sit.
+            ('DOCTOR', 'پزشک و کلینیک'),
+            ('GENERAL_PRACTITIONER', 'پزشک عمومی'),
+            ('INTERNAL_MEDICINE', 'داخلی'),
+            ('CARDIOLOGY', 'قلب و عروق'),
+            ('DERMATOLOGY', 'پوست، مو و زیبایی (پزشک)'),
+            ('ORTHOPEDICS', 'ارتوپدی'),
+            ('PEDIATRICS', 'اطفال و کودکان'),
+            ('GYNECOLOGY', 'زنان و زایمان'),
+            ('ENT', 'گوش، حلق و بینی'),
+            ('OPHTHALMOLOGY', 'چشم‌پزشکی'),
+            ('NEUROLOGY', 'مغز و اعصاب'),
+            ('UROLOGY', 'اورولوژی'),
+            ('ENDOCRINOLOGY', 'غدد و دیابت'),
+            ('GASTROENTEROLOGY', 'گوارش و کبد'),
+            ('ONCOLOGY', 'انکولوژی'),
+            ('SURGERY', 'جراحی'),
+            ('PSYCHIATRY', 'روان‌پزشکی'),
+            ('INFERTILITY', 'ناباروری و IVF'),
+        ]),
+        ('DENTAL', 'دندان‌پزشکی', [
+            ('DENTIST', 'دندان‌پزشکی'),
+            ('ORTHODONTICS', 'ارتودنسی'),
+            ('DENTAL_IMPLANT', 'ایمپلنت و جراحی دهان'),
+            ('PEDIATRIC_DENTISTRY', 'دندان‌پزشکی کودکان'),
+        ]),
+        ('HEALTH', 'سلامت و درمان', [
+            ('PSYCHOLOGY', 'روان‌شناسی و مشاوره'),
+            ('PHYSIOTHERAPY', 'فیزیوتراپی و توان‌بخشی'),
+            ('NUTRITION', 'تغذیه و رژیم‌درمانی'),
+            ('LABORATORY', 'آزمایشگاه'),
+            ('RADIOLOGY', 'رادیولوژی و سونوگرافی'),
+            ('OPTOMETRY', 'بینایی‌سنجی و عینک'),
+            ('SPEECH_THERAPY', 'گفتاردرمانی'),
+            ('OCCUPATIONAL_THERAPY', 'کاردرمانی'),
+            ('MIDWIFERY', 'مامایی و سلامت بانوان'),
+            ('NURSING', 'پرستاری و خدمات در منزل'),
+            ('PHARMACY', 'داروخانه'),
+            ('VETERINARY', 'دامپزشکی'),
+        ]),
+        ('BEAUTY', 'آرایش و زیبایی', [
+            # BEAUTY_SALON keeps its original value and label — it is what
+            # every existing salon holds, and narrowing it now would
+            # re-describe businesses nobody re-picked a category for.
+            ('BEAUTY_SALON', 'آرایشگاه و سالن زیبایی'),
+            ('WOMENS_SALON', 'سالن زیبایی زنانه'),
+            ('BARBERSHOP', 'آرایشگاه مردانه'),
+            ('HAIR_SALON', 'سالن مو (رنگ و کراتین)'),
+            ('HAIR_TRANSPLANT', 'کاشت مو و ابرو'),
+            ('MAKEUP', 'میکاپ و گریم'),
+            ('BRIDAL', 'عروس و خدمات مجلسی'),
+            ('NAIL_SALON', 'سالن ناخن'),
+            ('EYEBROW_LASH', 'ابرو، مژه و میکروبلیدینگ'),
+            ('SKIN_LASER', 'پوست و لیزر'),
+            ('TATTOO', 'تتو و میکروپیگمنتیشن'),
+            ('MASSAGE_SPA', 'ماساژ و اسپا'),
+            ('SLIMMING', 'لاغری و تناسب اندام'),
+        ]),
+        ('PROFESSIONAL', 'خدمات حرفه‌ای', [
+            ('CONSULTANT', 'مشاوره'),
+            ('LAWYER', 'وکالت و مشاوره حقوقی'),
+            ('ACCOUNTING', 'حسابداری و مالیات'),
+            ('REAL_ESTATE', 'املاک و مستغلات'),
+            ('INSURANCE', 'بیمه'),
+            ('IMMIGRATION', 'مهاجرت و ویزا'),
+        ]),
+        ('EDUCATION', 'آموزش و ورزش', [
+            ('TUTORING', 'تدریس و کلاس خصوصی'),
+            ('LANGUAGE_SCHOOL', 'آموزشگاه زبان'),
+            ('MUSIC_SCHOOL', 'آموزش موسیقی'),
+            ('GYM', 'باشگاه ورزشی و مربی شخصی'),
+            ('YOGA_PILATES', 'یوگا و پیلاتس'),
+            ('DRIVING_SCHOOL', 'آموزشگاه رانندگی'),
+        ]),
+        ('TRADES', 'خدمات فنی و تعمیرات', [
+            ('AUTO_SERVICE', 'تعمیرگاه و خدمات خودرو'),
+            ('CAR_WASH', 'کارواش و دیتیلینگ'),
+            ('HOME_SERVICE', 'خدمات و تعمیرات منزل'),
+            ('DEVICE_REPAIR', 'تعمیر موبایل و لوازم برقی'),
+            ('TAILORING', 'خیاطی و طراحی لباس'),
+        ]),
+        ('OTHER', 'سایر', [
+            ('PHOTOGRAPHY', 'عکاسی و آتلیه'),
+            ('EVENT_SERVICES', 'تالار و خدمات مراسم'),
+            ('PET_GROOMING', 'آرایش و نگهداری حیوانات'),
+            ('OTHER', 'سایر'),
+        ]),
+    ]
+
+    # Flat, in group order. Deliberately *not* Django's grouped-choices form
+    # (`[('گروه', [(k, v), ...])]`): several consumers iterate this as
+    # `for value, label in CATEGORY_CHOICES` — core/segments.py's
+    # BUSINESS_CATEGORY_CHOICES, the segment builder and campaign templates,
+    # ServiceCatalogItem.category — and grouped choices would hand them a list
+    # where they expect a label.
     CATEGORY_CHOICES = [
-        ('BEAUTY_SALON', 'آرایشگاه و سالن زیبایی'),
-        ('DOCTOR', 'پزشک و کلینیک'),
-        ('CONSULTANT', 'مشاوره'),
-        ('OTHER', 'سایر'),
+        pair for _key, _label, pairs in CATEGORY_GROUPS for pair in pairs
     ]
 
     user = models.ForeignKey(
@@ -55,12 +177,62 @@ class Business(models.Model):
         ),
     )
     phone = models.CharField(max_length=20)
+    # Additional contact numbers, beyond the primary `phone`. Kept separate
+    # rather than turning `phone` itself into a list: `phone` is read as a
+    # single string in far too many places (SMS delivery, the moderation
+    # snapshot, every serializer, front_client) to safely widen its type, and
+    # every one of those call sites' "the" contact number is still correct
+    # once there is more than one — it is simply no longer the *only* one.
+    extra_phones = models.JSONField(
+        default=list, blank=True,
+        help_text="Additional contact numbers, normalized the same way as `phone`",
+    )
     address = models.TextField()
-    bio = models.CharField(max_length=50, blank=True, null=True)
+    # TextField, not CharField, because this cap has now moved twice (50 → 300
+    # → 1500) and every move cost a migration for a value that is really a
+    # product decision. The column is now unbounded and BIO_MAX_LENGTH is
+    # enforced in the serializer instead, so the next change is a one-line edit
+    # — the clients (owner app's input counter, client web's "درباره" card)
+    # read the same number.
+    bio = models.TextField(blank=True, null=True)
     logo = models.ImageField(upload_to='business_logos/', blank=True, null=True, help_text="Business logo image")
+    # Header colour derived from `logo` at save time — see business/theme_color.py
+    # for why this is computed here rather than sampled in the browser. Blank
+    # means "never computed"; the clients fall back to the brand purple.
+    theme_color = models.CharField(
+        max_length=7, blank=True, default='',
+        help_text="Hex colour derived from the logo, used as the public header background",
+    )
     default_service_duration = models.IntegerField(help_text="Default duration in minutes")
     work_start_hour = models.IntegerField(help_text="0-23")
     work_end_hour = models.IntegerField(help_text="0-23")
+    # Minute component of work_start_hour/work_end_hour, e.g. 19:30 is
+    # work_end_hour=19, work_end_minute=30. Separate fields rather than
+    # folding into a single "minutes since midnight" column: work_start_hour/
+    # work_end_hour are read as whole hours in several places already
+    # (validation, display), and every existing business's data stays valid
+    # and correct with minute=0 — no data migration needed for the ~14
+    # businesses that predate this field.
+    work_start_minute = models.IntegerField(default=0, help_text="0-59")
+    work_end_minute = models.IntegerField(default=0, help_text="0-59")
+    # Weekly recurring days off (e.g. every Friday) — NOT specific calendar
+    # dates. Stored as Python's date.weekday() ints (Monday=0 .. Sunday=6) so
+    # backend code can test membership with `date.weekday() in closed_weekdays`
+    # directly, with no conversion table. An empty list means "open every day",
+    # which is also the state a business is in before ever touching this
+    # setting — there is deliberately no separate "no day off" flag, since that
+    # would just be a second way to express the same thing and could drift out
+    # of sync with an empty list.
+    #
+    # Setting this never touches existing Appointment rows: it only removes
+    # future slots for that weekday going forward (available_slots_view.py).
+    # An appointment already booked on a day later marked closed is left
+    # exactly as it was — the owner decided to close going forward, not to
+    # cancel a commitment already made.
+    closed_weekdays = models.JSONField(
+        default=list, blank=True,
+        help_text="Weekly days off as date.weekday() ints (Mon=0..Sun=6), e.g. [4] for every Friday",
+    )
     notification_enabled = models.BooleanField(default=True)
     notification_types = models.CharField(
         max_length=100,
@@ -314,7 +486,11 @@ class Business(models.Model):
     # copies these onto the live fields and clears them; a REJECTED decision
     # leaves them so the owner's next edit still has something to start from.
     pending_title = models.CharField(max_length=255, null=True, blank=True)
-    pending_bio = models.CharField(max_length=50, null=True, blank=True)
+    # Mirrors `bio`'s type exactly: a moderated edit holds the same text, so a
+    # tighter column here would silently truncate an edit that was valid when
+    # the owner submitted it, and only for businesses that happen to be under
+    # review.
+    pending_bio = models.TextField(null=True, blank=True)
     pending_address = models.TextField(null=True, blank=True)
     pending_logo = models.ImageField(upload_to='business_logos/', null=True, blank=True)
 
@@ -402,6 +578,25 @@ class Business(models.Model):
             })
 
     def save(self, *args, **kwargs):
+        # Recompute only when the logo actually changed. Doing it on every save
+        # would decode an image on every unrelated field edit — and a booking
+        # toggle should not pay for image processing.
+        if self._logo_changed():
+            from .theme_color import color_from_logo
+            self.theme_color = color_from_logo(self.logo)
+            # apply_decision() (moderation.py) promotes pending_logo onto logo
+            # and saves with an explicit update_fields list built before this
+            # method runs, so it has no way to know theme_color needs to be in
+            # it too. With update_fields passed, Django's UPDATE only SETs the
+            # named columns — recomputing self.theme_color above changes the
+            # Python attribute but not what gets written, so the edit that
+            # changed the photo silently kept the old header colour in the DB.
+            # Add it here, the one place that knows the recompute happened,
+            # rather than requiring every caller to remember to list it.
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None and 'theme_color' not in update_fields:
+                kwargs['update_fields'] = [*update_fields, 'theme_color']
+
         if not self.unique_code:
             # Generate a random CODE_LENGTH-character code of uppercase letters
             # and digits. Compared case-insensitively so a generated code can
@@ -414,6 +609,28 @@ class Business(models.Model):
                     self.unique_code = code
                     break
         super().save(*args, **kwargs)
+
+    def _logo_changed(self) -> bool:
+        """True when `logo` differs from what is stored (or this is a create).
+
+        Compares against the DB rather than tracking state in __init__: the
+        moderation flow copies `pending_logo` onto `logo` and saves, which an
+        __init__ snapshot taken before that assignment would miss.
+        """
+        if not self.pk:
+            return bool(self.logo)
+        try:
+            stored = Business.objects.only('logo', 'theme_color').get(pk=self.pk)
+        except Business.DoesNotExist:
+            return bool(self.logo)
+        if stored.logo != self.logo:
+            return True
+        # Recompute whenever a logo exists but the colour is missing — on the
+        # instance *or* in the DB. Checking only the stored value meant
+        # clearing the field (a backfill script, or an admin blanking it to
+        # force a refresh) saved the blank straight back instead of
+        # regenerating, which is the opposite of what clearing it means.
+        return bool(self.logo) and not (self.theme_color and stored.theme_color)
 
     def __str__(self):
         return f"{self.title} ({self.user.phone})"

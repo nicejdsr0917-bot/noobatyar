@@ -37,6 +37,7 @@
   --color-on-primary:    #ffffff;
   --color-primary-tint:  #f5f3ff;   /* subtle purple hover ground */
   --color-primary-shadow: rgba(139, 92, 246, 0.35);
+  --color-focus-ring:     rgba(139, 92, 246, 0.18);
   /* Deep violet used by the promo banner (was undefined → transparent) */
   --color-purple:        #7c3aed;
   --color-purple-dark:   #5b21b6;
@@ -429,7 +430,13 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
 .btn-primary {
   width: 100%;
   height: 54px;
-  background: var(--color-primary);
+  /* A shade of travel rather than one flat fill. On a business page
+     --color-primary is that business's colour, and a single dark tone across
+     a 54px slab is the same flatness the hero had. */
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--color-primary) 88%, white) 0%,
+    var(--color-primary) 55%,
+    var(--color-primary-dark) 100%);
   color: white;
   border: none;
   border-radius: var(--radius-btn);
@@ -441,7 +448,13 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   box-shadow: var(--shadow-btn);
   letter-spacing: 0.3px;
 }
-.btn-primary:hover  { background: var(--color-primary-dark); }
+/* Flattens to the dark end on hover — a plain colour here would otherwise
+   replace the gradient above and make the button jump between two looks. */
+.btn-primary:hover {
+  background: linear-gradient(135deg,
+    var(--color-primary) 0%,
+    var(--color-primary-dark) 100%);
+}
 .btn-primary:active { transform: scale(0.98); }
 .btn-primary:disabled {
   background: var(--color-muted);
@@ -480,7 +493,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
 .form-input::placeholder { color: var(--color-faint); }
 .form-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
 /* Input for phone number (LTR, centered) */
@@ -672,6 +685,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
 .biz-hero > * { position: relative; z-index: 1; }
 
 .biz-hero-avatar {
+  position: relative;
   width: 96px;
   height: 96px;
   margin: 0 auto 14px;
@@ -680,15 +694,64 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   place-items: center;
   font-size: 44px;
   line-height: 1;
-  overflow: hidden;
   background: rgba(255, 255, 255, 0.18);
-  border: 3px solid rgba(255, 255, 255, 0.65);
+  /* Down from the 3px it used to be: next to a hairline neon arc, a thick
+     white rim merged into it and the two read as one heavy band instead
+     of a photo with a light travelling around it. */
+  border: 1px solid rgba(255, 255, 255, 0.35);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.20);
 }
+/* The circle is clipped on the <img> itself rather than with overflow:hidden
+   on this box, because the neon ring below is drawn by ::before/::after —
+   which overflow:hidden would clip away along with everything else outside. */
 .biz-hero-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
+}
+
+/* ── Neon arc around the avatar ────────────────────────────────────
+   A single hairline arc that circles the photo: a bright head with a
+   tail fading back into nothing behind it, so what you see travelling
+   round the rim is one comet, not a spinning ring.
+
+   Built as one masked layer, not two: the arc *is* the effect, and a
+   second counter-rotating layer only muddied it. Thickness is 2px on a
+   96px avatar — the glow does the work of looking bright, so drawing it
+   thicker just reads as a coloured bezel.
+
+   The colour comes from --hero-color (already derived from the business
+   logo for the hero background) lifted toward white, because an arc in
+   the exact background colour would be invisible against it. */
+.biz-hero-avatar::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 120deg,
+    color-mix(in srgb, var(--hero-color) 55%, transparent) 210deg,
+    color-mix(in srgb, var(--hero-color) 60%, white) 300deg,
+    color-mix(in srgb, var(--hero-color) 15%, white) 344deg,
+    #ffffff 350deg,
+    transparent 352deg);
+  /* Donut mask: keep a 2px rim, punch out everything inside it. */
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  /* drop-shadow, not box-shadow: it follows the masked arc rather than
+     the element's square box, so the glow traces the comet. */
+  filter:
+    drop-shadow(0 0 3px color-mix(in srgb, var(--hero-color) 40%, white))
+    drop-shadow(0 0 9px color-mix(in srgb, var(--hero-color) 60%, white))
+    drop-shadow(0 0 18px color-mix(in srgb, var(--hero-color) 75%, white));
+  animation: heroHaloSpin 14s linear infinite;
+}
+@keyframes heroHaloSpin {
+  to { transform: rotate(360deg); }
 }
 
 .biz-hero-title {
@@ -713,6 +776,10 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   backdrop-filter: blur(4px);
 }
 
+/* Only ever a short tagline now — anything longer is rendered as the
+   .biz-about card instead (see BusinessProfileClient). The clamp is a
+   backstop so a bio that slips past that check still cannot stretch the
+   hero: two lines is the height this slot is designed around. */
 .biz-hero-bio {
   max-width: 300px;
   margin: 16px auto 0;
@@ -720,10 +787,22 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   line-height: 1.9;
   color: rgba(255, 255, 255, 0.92);
   white-space: pre-line;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
+/* Wraps, because a business can list several numbers: this row was written
+   for the single `phone` button and, once extra_phones started rendering
+   beside it, four buttons overflowed the hero and were clipped off both
+   edges with no way to reach them. Wrapping (rather than a horizontal
+   scroller) keeps every number visible at once — a phone number the caller
+   cannot see is the whole problem multiple numbers exist to solve. */
 .biz-hero-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
   margin-top: 22px;
@@ -743,9 +822,23 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   transition: transform 0.12s ease;
 }
 .biz-action:active { transform: scale(0.96); }
+/* Frosted, not the fixed green this used to be. That green was the one colour
+   on the page that ignored --hero-color entirely: tolerable against a teal
+   business, jarring against a gold one, and no single accent sits well on
+   every brand colour a logo can produce.
+
+   Frosted *white with dark text*, not a see-through tint with white text: at
+   16% white the phone number measured 1.7–3.6:1 against the hero behind it,
+   under the 4.5:1 a 13px number needs and worst exactly where the gradient is
+   lightest. This way round the worst case across the whole gradient is 5.7:1,
+   and the number is the one thing on this card nobody can afford to misread. */
 .biz-action.call {
-  color: #fff;
-  background: linear-gradient(135deg, #10b981, #059669);
+  color: color-mix(in srgb, var(--hero-color) 72%, black);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
 }
 .biz-action.call span[dir="ltr"] { letter-spacing: 0.5px; }
 
@@ -783,6 +876,73 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
 }
 
 /* ── Address row ── */
+/* ── About card ──
+   Home for a bio too long to sit in the hero. Everything here is the
+   opposite of the hero's treatment on purpose: right-aligned rather than
+   centred, on a plain surface rather than a gradient, and clamped to three
+   lines with a toggle — so it is shaped for reading a paragraph instead of
+   glancing at a subtitle. */
+.biz-about {
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: 16px;
+  padding: 15px 16px 12px;
+  box-shadow: var(--shadow-card);
+  text-align: right;
+}
+.biz-about-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 9px;
+}
+.biz-about-head .ico {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
+.biz-about-head h2 {
+  font-size: 14px;
+  font-weight: 700;
+}
+.biz-about-text {
+  font-size: 13px;
+  line-height: 2;
+  color: var(--color-text);
+  white-space: pre-line;
+}
+.biz-about-text.clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+.biz-about-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 6px;
+  padding: 4px 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: var(--font-base);
+  color: var(--color-primary);
+}
+.biz-about-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
 .biz-address {
   display: flex;
   align-items: center;
@@ -889,21 +1049,104 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
 }
 
 /* ── Animated hero / header ──────────────────────────────────── */
+/* --hero-color is set inline per business from Business.theme_color, which is
+   derived from the logo and already clamped to ≥4.5:1 against white
+   server-side (backend/business/theme_color.py). The gradient is built from
+   that single colour with colour-mix, so one variable re-themes the whole
+   header; the fallback keeps every logo-less business on the brand purple. */
 .biz-hero {
+  --hero-color: var(--color-primary);
+  /* Wide on purpose. Every stop used to sit within 22% of --hero-color, so
+     for a business whose colour is already dark the whole header was one flat
+     slab — a gold logo clamped to L=36% filled the screen with mud. Reaching
+     to 45%-white at the light end and 72%-black at the dark end gives the
+     surface somewhere to travel, so the same colour reads as a lit material
+     rather than a painted wall. The light end stays in the upper corner,
+     away from the title. */
   background: linear-gradient(135deg,
-    var(--color-primary-light) 0%,
-    var(--color-primary) 30%,
-    var(--color-primary-dark) 55%,
-    var(--color-primary) 78%,
-    var(--color-primary-light) 100%);
+    color-mix(in srgb, var(--hero-color) 45%, white) 0%,
+    color-mix(in srgb, var(--hero-color) 82%, white) 22%,
+    var(--hero-color) 44%,
+    color-mix(in srgb, var(--hero-color) 72%, black) 72%,
+    color-mix(in srgb, var(--hero-color) 88%, black) 100%);
   background-size: 320% 320%;
   animation: auroraShift 18s ease-in-out infinite;
 }
-.biz-hero::before { animation: blobFloat 11s ease-in-out infinite; }
-.biz-hero::after  { animation: blobFloat 14s ease-in-out infinite reverse; }
+/* The two decorative blobs are gone — .biz-hero-art draws the category mark
+   in their place. The soft radial glow stays: it keeps the avatar from
+   sitting on a flat field. */
+.biz-hero::before {
+  top: -46px; inset-inline-start: -34px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(255,255,255,0.16), transparent 70%);
+  animation: blobFloat 11s ease-in-out infinite;
+}
+.biz-hero::after { content: none; }
 
-/* ── App banner (home) ───────────────────────────────────────── */
+/* ── Theme colour propagation ────────────────────────────────────
+   A business page sets --hero-color once (from Business.theme_color) and
+   .themed re-points the primary tokens at it, so buttons, selected time
+   slots, day pills, stat icons and links all pick up the same colour the
+   header derived from the logo.
+
+   Scoped to a class rather than :root so it cannot leak onto pages that
+   have no business context (the customer's own appointment list, login).
+
+   The Noobatyar promo banner deliberately opts out via .app-banner's own
+   fixed gradient below — that block advertises *our* product, and tinting
+   it with the salon's colour would make it read as part of the salon.
+   Same for .biz-action.call, which is semantically green (a phone call),
+   not decorative. */
+.themed {
+  --color-primary: var(--hero-color);
+  --color-primary-dark: color-mix(in srgb, var(--hero-color) 82%, black);
+  --color-primary-light: color-mix(in srgb, var(--hero-color) 75%, white);
+  --color-primary-shadow: color-mix(in srgb, var(--hero-color) 38%, transparent);
+  --color-primary-tint: color-mix(in srgb, var(--hero-color) 12%, white);
+  --color-focus-ring: color-mix(in srgb, var(--hero-color) 18%, transparent);
+  /* Restated, not inherited. --shadow-btn is declared on :root as
+     `0 4px 14px var(--color-primary-shadow)`, and a custom property's nested
+     var() is resolved on the element where the property is *declared* — so
+     :root baked the purple into it before .themed existed, and overriding
+     --color-primary-shadow here alone left every button glowing purple under
+     a themed background. Any composed token that references another token has
+     to be redeclared at the same level as its inputs. */
+  --shadow-btn: 0 4px 14px var(--color-primary-shadow);
+}
+/* The tint is a *surface* in light mode but has to stay dark in dark mode,
+   or every chip and icon ground turns into a pale block on a dark page. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .themed {
+    --color-primary-tint: color-mix(in srgb, var(--hero-color) 22%, transparent);
+  }
+}
+:root[data-theme="dark"] .themed {
+  --color-primary-tint: color-mix(in srgb, var(--hero-color) 22%, transparent);
+}
+
+/* Category line-art. Sits behind everything (.biz-hero > * is z-index 1),
+   large and low-opacity so it reads as a watermark rather than an icon. */
+/* Sits fully inside the header rather than bleeding off the edge. It used to
+   hang half off-canvas, which was tolerable for a vague blob-like shape but
+   not for a real icon: a stethoscope cropped down the middle reads as a stray
+   squiggle. Smaller as a result, so it stays clear of the centred title. */
+.biz-hero-art {
+  position: absolute;
+  width: 132px;
+  height: 132px;
+  top: 50%;
+  inset-inline-end: 16px;
+  transform: translateY(-50%) rotate(-6deg);
+  color: #fff;
+  opacity: 0.2;
+  pointer-events: none;
+  animation: floatY 9s ease-in-out infinite;
+}
+
+/* ── App banner ──────────────────────────────────────────────── */
 .app-banner {
+  /* Noobatyar purple on Noobatyar's own screens. Inside a business page it is
+     overridden to the business colour — see `.themed .app-banner` below. */
   position: relative;
   overflow: hidden;
   width: 100%;
@@ -922,6 +1165,30 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   transition: transform 0.16s ease;
 }
 .app-banner:active { transform: scale(0.985); }
+
+/* Inside a business page the banner takes that business's colour.
+   It used to stay purple deliberately, to keep Noobatyar's advert from looking
+   like it belonged to the salon — but on a red or olive page it was the only
+   purple object on screen and read as a bug, not as a brand. The logo and the
+   wording carry the identity; the gradient never did.
+
+   Mirrors the stop structure of the default gradient rather than inventing a
+   new one, so both versions animate identically under auroraShift. The theme
+   colour is guaranteed ≥4.5:1 against white by backend/business/theme_color.py,
+   so the white text stays legible whatever the logo happened to be. */
+.themed .app-banner {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--hero-color) 78%, white) 0%,
+    var(--hero-color) 35%,
+    color-mix(in srgb, var(--hero-color) 76%, black) 65%,
+    var(--hero-color) 100%);
+  background-size: 320% 320%;
+  box-shadow: 0 12px 30px var(--color-primary-shadow);
+}
+/* The white CTA pill sits on that gradient, so its text follows too. */
+.themed .app-banner-cta {
+  color: color-mix(in srgb, var(--hero-color) 76%, black);
+}
 
 /* The gleam. A separate element so it can be clipped by the banner's
    own overflow without affecting the gradient underneath. */
@@ -995,7 +1262,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   padding: 6px 13px;
   border-radius: 999px;
   background: #fff;
-  color: var(--color-primary-dark);
+  color: #6d28d9;
   font-size: 11.5px;
   font-weight: 700;
 }
@@ -1150,6 +1417,18 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   flex-shrink: 0;
 }
 .card-copy:disabled { opacity: 0.45; cursor: default; }
+/* The issuing bank's own logo, detected from the card's first six digits
+   (lib/bankLogos.ts) — round because the source PNGs sit on a white square
+   background at 300x300, and a circular crop is the one treatment that
+   looks intentional across all of them without editing each file. */
+.card-bank-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  object-fit: cover;
+  flex-shrink: 0;
+}
 
 /* ── Upload dropzone + receipt preview ───────────────────────── */
 .upload-dropzone {
@@ -1329,6 +1608,28 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   100% { transform: translateY(190px) rotate(420deg); opacity: 0; }
 }
 
+/* Fixed, not absolute: this screen can grow taller than the viewport (the
+   summary card + both action buttons on a short phone), and the close
+   control needs to stay reachable at the top without scrolling to it. */
+.success-close {
+  position: fixed;
+  top: 16px;
+  inset-inline-end: 16px;
+  z-index: 60;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: var(--color-surface-variant);
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.success-close:hover { background: var(--color-surface-high); }
+
 .success-screen {
   min-height: 100dvh;
   display: flex;
@@ -1405,6 +1706,15 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   gap: 10px;
   animation: riseIn 0.4s 0.66s ease both;
 }
+/* Matches the card and actions above it, and continues their stagger so the
+   advert is the last thing to arrive rather than competing with the tick. */
+.success-banner {
+  width: 100%;
+  max-width: 330px;
+  margin-top: 28px;
+  animation: riseIn 0.4s 0.82s ease both,
+             auroraShift 14s ease-in-out 0.82s infinite;
+}
 
 .confetti-piece {
   position: absolute;
@@ -1425,6 +1735,8 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   .biz-hero,
   .biz-hero::before,
   .biz-hero::after,
+  .biz-hero-art,
+  .biz-hero-avatar::before,
   .app-banner,
   .app-banner::after,
   .app-banner-blob,
@@ -1436,6 +1748,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   .success-sub,
   .success-card,
   .success-actions,
+  .success-banner,
   .confetti-piece,
   .field-error,
   .field-status,
@@ -1449,6 +1762,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   .success-title,
   .success-sub,
   .success-card,
-  .success-actions { opacity: 1; transform: none; }
+  .success-actions,
+  .success-banner { opacity: 1; transform: none; }
 }
 

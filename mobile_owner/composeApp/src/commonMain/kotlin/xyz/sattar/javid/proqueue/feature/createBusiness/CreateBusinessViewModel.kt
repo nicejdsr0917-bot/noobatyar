@@ -13,6 +13,9 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.GetMyEntitlementsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetPlansUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CreatePaymentUseCase
 
+import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
+import xyz.sattar.javid.proqueue.domain.model.business.CategoryGroup
+
 class CreateBusinessViewModel(
     initialState: CreateBusinessState,
     private val businessUpsertUseCase: BusinessUpsertUseCase,
@@ -32,10 +35,14 @@ class CreateBusinessViewModel(
                     intent.title,
                     intent.category,
                     intent.phone,
+                    intent.extraPhones,
                     intent.address,
                     intent.defaultProgress,
                     intent.workStartHour,
                     intent.workEndHour,
+                    intent.workStartMinute,
+                    intent.workEndMinute,
+                    intent.closedWeekdays,
                     intent.allowAnonymousView,
                     intent.notifyOwnerBySms,
                     intent.maxAppointmentsPerHour,
@@ -69,15 +76,23 @@ class CreateBusinessViewModel(
     }
 
     /**
+     * The category vocabulary for the picker. Delegates to the repository,
+     * which serves the server's list when reachable and this build's enum
+     * otherwise — so this never throws and never returns empty.
+     */
+    suspend fun loadCategoryGroups(): List<CategoryGroup> =
+        businessRepository.getCategoryGroups()
+
+    /**
      * Chips for the service-menu picker. Category-scoped, so switching the
      * business category reloads them — the salon list is not the clinic list.
      */
     private fun loadServiceCatalog(
-        category: xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
+        category: String
     ): Flow<CreateBusinessState.PartialState> = flow {
         emit(CreateBusinessState.PartialState.ServiceCatalogLoading(true))
         try {
-            emit(CreateBusinessState.PartialState.LoadServiceCatalog(getServiceCatalogUseCase(category.value)))
+            emit(CreateBusinessState.PartialState.LoadServiceCatalog(getServiceCatalogUseCase(category)))
         } catch (e: Exception) {
             emit(CreateBusinessState.PartialState.ServiceCatalogLoading(false))
         }
@@ -89,13 +104,13 @@ class CreateBusinessViewModel(
      * catalog is shared, the menu is not.
      */
     private fun addServiceCatalogItem(
-        category: xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory,
+        category: String,
         name: String
     ): Flow<CreateBusinessState.PartialState> = flow {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return@flow
         try {
-            val added = addServiceCatalogItemUseCase(category.value, trimmed)
+            val added = addServiceCatalogItemUseCase(category, trimmed)
             emit(
                 CreateBusinessState.PartialState.LoadServiceCatalog(
                     (uiState.value.serviceCatalog + added).distinct()
@@ -195,12 +210,16 @@ class CreateBusinessViewModel(
 
     private fun createBusiness(
         businessName: String,
-        category: xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory,
+        category: String,
         phone: String,
+        extraPhones: List<String>,
         address: String,
         defaultProgress: String,
         workStartHour: Int,
         workEndHour: Int,
+        workStartMinute: Int,
+        workEndMinute: Int,
+        closedWeekdays: List<Int>,
         allowAnonymousView: Boolean,
         notifyOwnerBySms: Boolean,
         maxAppointmentsPerHour: Int?,
@@ -224,13 +243,22 @@ class CreateBusinessViewModel(
             Business(
                 title = businessName,
                 category = category,
+                // The picker only ever yields codes from the vocabulary the
+                // server just served, so the enum resolves the label for every
+                // category this build knows; anything newer is relabelled from
+                // the server's own response on the next fetch.
+                categoryLabel = BusinessCategory.fromString(category).persianName,
                 phone = phone,
+                extraPhones = extraPhones,
                 address = address,
                 logoPath = uiState.value.business?.logoPath ?: "Sample_path.jpg",
                 id = uiState.value.businessId,
                 defaultServiceDuration = defaultProgress.toIntOrNull() ?: 15,
                 workStartHour = workStartHour,
                 workEndHour = workEndHour,
+                workStartMinute = workStartMinute,
+                workEndMinute = workEndMinute,
+                closedWeekdays = closedWeekdays,
                 notificationEnabled = uiState.value.business?.notificationEnabled ?: true,
                 notificationTypes = uiState.value.business?.notificationTypes ?: "SMS,WHATSAPP",
                 // Carried over rather than rebuilt: this form has no field for

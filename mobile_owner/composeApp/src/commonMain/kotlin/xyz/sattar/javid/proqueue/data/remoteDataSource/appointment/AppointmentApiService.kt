@@ -79,27 +79,62 @@ class AppointmentApiService(private val httpClient: HttpClient) {
         return httpClient.delete("appointment/$id/") {}.toApiResponse()
     }
 
+    /**
+     * [dateFrom]/[dateTo] are optional and, when omitted, the server keeps its
+     * long-standing "today" window — so existing callers are unaffected. The
+     * range report passes them to get the same numbers over its own window.
+     */
     suspend fun getAppointmentStats(
-            businessId: Long
+            businessId: Long,
+            dateFrom: Long? = null,
+            dateTo: Long? = null
     ): ApiResponse<
             xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.model.AppointmentStatsDto> {
         return httpClient
                 .get("appointment/stats/") {
                     contentType(ContentType.Application.Json)
                     parameter("business_id", businessId)
+                    dateFrom?.let { parameter("date_from", it) }
+                    dateTo?.let { parameter("date_to", it) }
+                }
+                .toApiResponse()
+    }
+
+    suspend fun getRangeVisitors(
+            businessId: Long,
+            dateFrom: Long,
+            dateTo: Long,
+            ordering: String = "visits",
+            page: Int = 1,
+            pageSize: Int = 20
+    ): ApiResponse<
+            xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.model.RangeVisitorsPageDto> {
+        return httpClient
+                .get("appointment/range-visitors/") {
+                    contentType(ContentType.Application.Json)
+                    parameter("business_id", businessId)
+                    parameter("date_from", dateFrom)
+                    parameter("date_to", dateTo)
+                    parameter("ordering", ordering)
+                    parameter("page", page)
+                    parameter("page_size", pageSize)
                 }
                 .toApiResponse()
     }
 
     suspend fun getDailyCounts(
             businessId: Long,
-            days: Int
+            days: Int,
+            daysAhead: Int = 0
     ): ApiResponse<List<xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.DailyCountDto>> {
         return httpClient
                 .get("appointment/daily-counts/") {
                     contentType(ContentType.Application.Json)
                     parameter("business_id", businessId)
                     parameter("days", days)
+                    // Forward half of the window; 0 keeps the plain 7-day
+                    // trend chart's original request shape.
+                    parameter("days_ahead", daysAhead)
                 }
                 .toApiResponse()
     }

@@ -1,6 +1,5 @@
 package xyz.sattar.javid.proqueue.feature.calendar
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,11 +26,8 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.back
-import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
-import xyz.sattar.javid.proqueue.core.ui.WindowSize
+import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
-import xyz.sattar.javid.proqueue.core.ui.components.AppScaffold
-import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
 
@@ -66,13 +62,6 @@ fun CalendarScreen(
     )
 }
 
-/**
- * Picks the layout by window width. Compact keeps the existing phone screen
- * (days strip above the time list) untouched; Medium/Expanded get a
- * side-by-side layout — see [CalendarWebContent]. A calendar is the screen
- * that benefits most from extra width, so it gets its own desktop treatment
- * rather than just being width-capped like a list screen.
- */
 @Composable
 fun CalendarScreenContent(
     uiState: CalendarState,
@@ -81,52 +70,59 @@ fun CalendarScreenContent(
     onIntent: (CalendarIntent) -> Unit,
     onSlotSelected: (Long, String) -> Unit
 ) {
-    if (LocalWindowSize.current == WindowSize.Compact) {
-        CalendarPhoneContent(
-            uiState = uiState,
-            isPicker = isPicker,
-            excludeAppointmentId = excludeAppointmentId,
-            onIntent = onIntent,
-            onSlotSelected = onSlotSelected
-        )
-    } else {
-        CalendarWebContent(
-            uiState = uiState,
-            isPicker = isPicker,
-            excludeAppointmentId = excludeAppointmentId,
-            onIntent = onIntent,
-            onSlotSelected = onSlotSelected
-        )
-    }
-}
-
-/**
- * Phone layout — unchanged. Days strip stacked above the time-slot list,
- * which is the right pattern at phone width (limited height per row, no
- * room for a side panel). See [CalendarWebContent] for the desktop layout.
- */
-@Composable
-private fun CalendarPhoneContent(
-    uiState: CalendarState,
-    isPicker: Boolean,
-    excludeAppointmentId: Long?,
-    onIntent: (CalendarIntent) -> Unit,
-    onSlotSelected: (Long, String) -> Unit
-) {
     Scaffold(
         topBar = {
-            CalendarTopBar(uiState = uiState, onIntent = onIntent)
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "تقویم نوبت‌دهی",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { onIntent(CalendarIntent.BackPress) }) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(Res.string.back))
+                    }
+                },
+                actions = {
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (uiState.isLoading)
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                else
+                                    MaterialTheme.colorScheme.primaryContainer
+                            )
+                            .clickable(enabled = !uiState.isLoading) { onIntent(CalendarIntent.LoadData) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = "بروزرسانی",
+                            tint = if (uiState.isLoading)
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            else
+                                MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
         }
     ) { paddingValues ->
-        // AppScaffold is a pass-through Box at Compact/Medium (unchanged
-        // layout); only Expanded centers and width-caps this content.
-        AppScaffold(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
-        Column(modifier = Modifier.fillMaxSize()) {
             // Days Row
             DaysHeader(
                 selectedDate = uiState.selectedDate,
@@ -143,15 +139,35 @@ private fun CalendarPhoneContent(
                     CircularProgressIndicator()
                 }
             } else {
+                // Non-blocking: a day off does not stop the owner from adding a
+                // walk-in or a one-off exception themselves, it only tells them
+                // the calendar disagrees with what they're about to do.
+                val business = BusinessStateHolder.selectedBusiness.value
+                if (business != null &&
+                    DateTimeUtils.getWeekday(uiState.selectedDate) in business.closedWeekdays
+                ) {
+                    ClosedDayBanner()
+                }
+
                 // Time Slots. The appointment being edited (if any) is dropped
                 // from the occupancy check, otherwise its own slot reads as
                 // "occupied" and the picker refuses to let it be reselected.
-                val visibleAppointments = visibleAppointments(uiState, excludeAppointmentId)
+                val visibleAppointments = if (excludeAppointmentId != null) {
+                    uiState.appointments.filter { it.appointment.id != excludeAppointmentId }
+                } else {
+                    uiState.appointments
+                }
                 TimeSlotsList(
                     appointments = visibleAppointments,
                     selectedDate = uiState.selectedDate,
-                    onSlotClick = { time -> onSlotClick(isPicker, uiState.selectedDate, time, onSlotSelected, onIntent) },
-                    onAppointmentClick = {
+                    onSlotClick = { time ->
+                        if (isPicker) {
+                            onSlotSelected(uiState.selectedDate, time)
+                        } else {
+                            onIntent(CalendarIntent.OnTimeSlotClick(time))
+                        }
+                    },
+                    onAppointmentClick = { 
                         if (!isPicker) {
                             onIntent(CalendarIntent.OnAppointmentClick(it))
                         }
@@ -159,188 +175,39 @@ private fun CalendarPhoneContent(
                 )
             }
         }
-        }
     }
 }
 
-/**
- * Desktop layout (Medium/Expanded). The date navigator — a horizontal strip
- * on phone, where it's competing with the time list for the same vertical
- * space — becomes a vertical panel that sits *beside* the time list instead
- * of above it, so both are visible without the days strip eating into the
- * appointment area.
- *
- * RTL note: the app forces RTL, so the first child of the [Row] below lands
- * on the *right*. The date navigator goes first so it sits on the right —
- * the natural starting point for a Persian reader — with the time list
- * filling the remaining width to its left.
- */
+/** Shown above the slot list for a day the business marked as a weekly day
+ *  off. Deliberately not a hard block: the owner can still add a walk-in or a
+ *  one-off exception here, this only flags that the calendar disagrees. */
 @Composable
-private fun CalendarWebContent(
-    uiState: CalendarState,
-    isPicker: Boolean,
-    excludeAppointmentId: Long?,
-    onIntent: (CalendarIntent) -> Unit,
-    onSlotSelected: (Long, String) -> Unit
-) {
-    Scaffold(
-        topBar = {
-            CalendarTopBar(uiState = uiState, onIntent = onIntent)
-        }
-    ) { paddingValues ->
-        AppScaffold(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(paddingValues),
-            maxWidth = ContentWidth.Wide
+private fun ClosedDayBanner() {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Date navigator stays visible during loading (unlike the phone
-            // path's full-screen spinner) so the owner can keep browsing
-            // dates while a previous selection's appointments are still
-            // being fetched — only the time-list panel shows the spinner.
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                DateNavigatorPanel(
-                    selectedDate = uiState.selectedDate,
-                    onDateSelected = { onIntent(CalendarIntent.SelectDate(it)) },
-                    modifier = Modifier
-                        .width(240.dp)
-                        .fillMaxHeight()
-                )
-
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    if (uiState.isLoading) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    } else {
-                        val visibleAppointments = visibleAppointments(uiState, excludeAppointmentId)
-                        TimeSlotsList(
-                            appointments = visibleAppointments,
-                            selectedDate = uiState.selectedDate,
-                            onSlotClick = { time -> onSlotClick(isPicker, uiState.selectedDate, time, onSlotSelected, onIntent) },
-                            onAppointmentClick = {
-                                if (!isPicker) {
-                                    onIntent(CalendarIntent.OnAppointmentClick(it))
-                                }
-                            }
-                        )
-                    }
-                }
-            }
+            Icon(
+                imageVector = Icons.Rounded.Event,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "این روز جزو روزهای تعطیل کسب‌وکار شماست",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
         }
     }
-}
-
-/** Drops the appointment being edited (if any) from the occupancy check —
- *  otherwise its own slot reads as "occupied" and the picker refuses to let
- *  it be reselected. Shared by both layouts so this rule can't drift. */
-private fun visibleAppointments(
-    uiState: CalendarState,
-    excludeAppointmentId: Long?
-): List<AppointmentWithDetails> = if (excludeAppointmentId != null) {
-    uiState.appointments.filter { it.appointment.id != excludeAppointmentId }
-} else {
-    uiState.appointments
-}
-
-/** Shared slot-click routing: picker mode reports the slot back to the
- *  caller, normal mode opens create-appointment for it. */
-private fun onSlotClick(
-    isPicker: Boolean,
-    selectedDate: Long,
-    time: String,
-    onSlotSelected: (Long, String) -> Unit,
-    onIntent: (CalendarIntent) -> Unit
-) {
-    if (isPicker) {
-        onSlotSelected(selectedDate, time)
-    } else {
-        onIntent(CalendarIntent.OnTimeSlotClick(time))
-    }
-}
-
-@Composable
-private fun CalendarTopBar(
-    uiState: CalendarState,
-    onIntent: (CalendarIntent) -> Unit
-) {
-    TopAppBar(
-        title = {
-            Text(
-                text = "تقویم نوبت‌دهی",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        navigationIcon = {
-            IconButton(onClick = { onIntent(CalendarIntent.BackPress) }) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(Res.string.back))
-            }
-        },
-        actions = {
-            Box(
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (uiState.isLoading)
-                            MaterialTheme.colorScheme.surfaceVariant
-                        else
-                            MaterialTheme.colorScheme.primaryContainer
-                    )
-                    .clickable(enabled = !uiState.isLoading) { onIntent(CalendarIntent.LoadData) },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Refresh,
-                    contentDescription = "بروزرسانی",
-                    tint = if (uiState.isLoading)
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    else
-                        MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background
-        )
-    )
-}
-
-/** Persian month name for the Jalali month number (۱..۱۲). Shared by the
- *  phone days strip and the desktop date navigator so the two can't drift. */
-private fun persianMonthName(month: Int): String = when (month) {
-    1 -> "فروردین"
-    2 -> "اردیبهشت"
-    3 -> "خرداد"
-    4 -> "تیر"
-    5 -> "مرداد"
-    6 -> "شهریور"
-    7 -> "مهر"
-    8 -> "آبان"
-    9 -> "آذر"
-    10 -> "دی"
-    11 -> "بهمن"
-    12 -> "اسفند"
-    else -> ""
 }
 
 @Composable
@@ -348,23 +215,46 @@ fun DaysHeader(
     selectedDate: Long,
     onDateSelected: (Long) -> Unit
 ) {
+    // A month back and a month forward, not just the current month: booking on
+    // the 30th used to have nowhere to go, and past days were unreachable.
     val days = remember {
-        DateTimeUtils.getNextDays(30)
+        DateTimeUtils.getDayWindow(monthsBefore = 1, monthsAfter = 1)
     }
 
     val listState = rememberLazyListState()
 
-    LaunchedEffect(Unit) {
+    // Keyed on selectedDate, not Unit: the window now spans three months, so
+    // landing on the right day matters, and picking a date elsewhere (the
+    // date sheet, a notification) has to bring the strip with it.
+    LaunchedEffect(selectedDate) {
         val selectedDateFormatted = DateTimeUtils.formatDate(selectedDate)
         val index = days.indexOfFirst { DateTimeUtils.formatDate(it) == selectedDateFormatted }
         if (index >= 0) {
-            listState.scrollToItem(index)
+            // Offset so the selected day sits a little in from the edge with
+            // its neighbours visible, instead of flush against the side.
+            listState.scrollToItem(index, scrollOffset = 0)
         }
     }
 
-    val firstDay = days.firstOrNull() ?: DateTimeUtils.systemCurrentMilliseconds()
-    val persianDate = DateTimeUtils.getJalaliDateParts(firstDay)
-    val monthName = persianMonthName(persianDate.month)
+    // The *selected* day's month, not the first day in the list. With a
+    // three-month window a fixed "first day" header would label مهر as شهریور
+    // for two thirds of the strip.
+    val persianDate = DateTimeUtils.getJalaliDateParts(selectedDate)
+    val monthName = when(persianDate.month) {
+        1 -> "فروردین"
+        2 -> "اردیبهشت"
+        3 -> "خرداد"
+        4 -> "تیر"
+        5 -> "مرداد"
+        6 -> "شهریور"
+        7 -> "مهر"
+        8 -> "آبان"
+        9 -> "آذر"
+        10 -> "دی"
+        11 -> "بهمن"
+        12 -> "اسفند"
+        else -> ""
+    }
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         Row(
@@ -394,16 +284,19 @@ fun DaysHeader(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
+            val closedWeekdays = BusinessStateHolder.selectedBusiness.value?.closedWeekdays.orEmpty()
             items(days) { dateMillis ->
                 val isSelected = DateTimeUtils.formatDate(dateMillis) == DateTimeUtils.formatDate(selectedDate)
 
                 val pDate = DateTimeUtils.getJalaliDateParts(dateMillis)
                 val dayOfWeek = DateTimeUtils.getDayOfWeekName(dateMillis)
+                val isClosed = DateTimeUtils.getWeekday(dateMillis) in closedWeekdays
 
                 DayItem(
                     day = pDate.dayOfMonth.toString(),
                     dayOfWeek = dayOfWeek,
                     isSelected = isSelected,
+                    isClosed = isClosed,
                     onClick = { onDateSelected(dateMillis) }
                 )
             }
@@ -416,10 +309,21 @@ fun DayItem(
     day: String,
     dayOfWeek: String,
     isSelected: Boolean,
+    isClosed: Boolean = false,
     onClick: () -> Unit
 ) {
-    val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow
-    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    // Selection still wins when a closed day is tapped — closed is informational,
+    // not a lock, so it must not fight the one state that shows what's picked.
+    val containerColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        isClosed -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+        else -> MaterialTheme.colorScheme.surfaceContainerLow
+    }
+    val contentColor = when {
+        isSelected -> MaterialTheme.colorScheme.onPrimary
+        isClosed -> MaterialTheme.colorScheme.onErrorContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     Card(
         modifier = Modifier
@@ -455,141 +359,6 @@ fun DayItem(
     }
 }
 
-/**
- * Desktop date navigator: the same 30-day window as [DaysHeader], but laid
- * out as a vertical panel (month title on top, a scrollable column of day
- * rows below) so it can sit beside the time list instead of above it.
- */
-@Composable
-private fun DateNavigatorPanel(
-    selectedDate: Long,
-    onDateSelected: (Long) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val days = remember {
-        DateTimeUtils.getNextDays(30)
-    }
-
-    val listState = rememberLazyListState()
-
-    LaunchedEffect(Unit) {
-        val selectedDateFormatted = DateTimeUtils.formatDate(selectedDate)
-        val index = days.indexOfFirst { DateTimeUtils.formatDate(it) == selectedDateFormatted }
-        if (index >= 0) {
-            listState.scrollToItem(index)
-        }
-    }
-
-    val firstDay = days.firstOrNull() ?: DateTimeUtils.systemCurrentMilliseconds()
-    val persianDate = DateTimeUtils.getJalaliDateParts(firstDay)
-    val monthName = persianMonthName(persianDate.month)
-
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Event,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "$monthName ${persianDate.year}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
-
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                items(days) { dateMillis ->
-                    val isSelected = DateTimeUtils.formatDate(dateMillis) == DateTimeUtils.formatDate(selectedDate)
-
-                    val pDate = DateTimeUtils.getJalaliDateParts(dateMillis)
-                    val dayOfWeek = DateTimeUtils.getDayOfWeekName(dateMillis)
-
-                    DateNavigatorRow(
-                        day = pDate.dayOfMonth.toString(),
-                        dayOfWeek = dayOfWeek,
-                        isSelected = isSelected,
-                        onClick = { onDateSelected(dateMillis) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** One row of [DateNavigatorPanel] — day number leading (right, in RTL),
- *  weekday name filling the rest. */
-@Composable
-private fun DateNavigatorRow(
-    day: String,
-    dayOfWeek: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(containerColor)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(
-                    if (isSelected) contentColor.copy(alpha = 0.18f)
-                    else MaterialTheme.colorScheme.surfaceContainerHigh
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = day,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = contentColor
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = dayOfWeek,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = contentColor
-        )
-    }
-}
-
 @Composable
 fun TimeSlotsList(
     appointments: List<AppointmentWithDetails>,
@@ -597,10 +366,19 @@ fun TimeSlotsList(
     onSlotClick: (String) -> Unit,
     onAppointmentClick: (Long) -> Unit
 ) {
-    val slots = remember {
+    // The business's own service length, not a fixed 10 minutes: a business
+    // whose real appointments run 30 or 60 minutes was being offered a slot
+    // every 10 minutes regardless, which is 3-6x denser than anything they
+    // could actually book. Coerced to at least 5 so a 0-or-negative value
+    // (shouldn't happen — the create-business form validates this — but this
+    // is a UI loop, not a place to trust that) can never make `step` crash.
+    val interval = (BusinessStateHolder.selectedBusiness.value?.defaultServiceDuration ?: 30)
+        .coerceAtLeast(5)
+
+    val slots = remember(interval) {
         val list = mutableListOf<String>()
         for (h in 0..23) {
-            for (m in 0..59 step 10) {
+            for (m in 0..59 step interval) {
                 list.add("${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}")
             }
         }
@@ -609,12 +387,13 @@ fun TimeSlotsList(
 
     val listState = rememberLazyListState()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(interval) {
         val now = DateTimeUtils.formatTimeNow()
         val parts = now.split(":")
         val h = parts[0].toInt()
         val m = parts[1].toInt()
-        val index = (h * 6) + (m / 10)
+        val slotsPerHour = 60 / interval
+        val index = (h * slotsPerHour) + (m / interval)
         if (index in slots.indices) {
             listState.scrollToItem(index)
         }
@@ -635,7 +414,7 @@ fun TimeSlotsList(
                 val parts = appTime.split(":")
                 val h = parts[0].toInt()
                 val m = parts[1].toInt()
-                h == slotHour && m >= slotMinute && m < slotMinute + 10
+                h == slotHour && m >= slotMinute && m < slotMinute + interval
             }
 
             val isCovered = appointments.any { appointment ->
@@ -702,7 +481,7 @@ fun TimeSlotRow(
                 modifier = Modifier.padding(top = 10.dp)
             )
         }
-
+        
         // Timeline Dot and Line
         Column(
             modifier = Modifier.fillMaxHeight().width(24.dp),
@@ -727,9 +506,9 @@ fun TimeSlotRow(
                     .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             )
         }
-
+        
         Spacer(modifier = Modifier.width(8.dp))
-
+        
         // Appointments Area
         Row(
             modifier = Modifier
@@ -742,7 +521,7 @@ fun TimeSlotRow(
             if (appointments.isNotEmpty()) {
                 appointments.forEach { appointment ->
                     val appHeight = ((appointment.appointment.serviceDuration ?: 10) * 6.0).dp
-
+                    
                     val isOverdue = remember(appointment) {
                         val endTime = appointment.appointment.appointmentDate + (appointment.appointment.serviceDuration ?: 30) * 60 * 1000L
                         DateTimeUtils.systemCurrentMilliseconds() > endTime && appointment.appointment.status == "WAITING"

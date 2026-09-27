@@ -34,6 +34,7 @@ import androidx.navigation.toRoute
 import xyz.sattar.javid.proqueue.core.navigation.AppScreens
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import xyz.sattar.javid.proqueue.core.navigation.NavigationEvent
+import xyz.sattar.javid.proqueue.core.navigation.DeepLinkTarget
 import xyz.sattar.javid.proqueue.core.navigation.NotificationNavigationManager
 import xyz.sattar.javid.proqueue.core.navigation.PaymentNavigationManager
 import xyz.sattar.javid.proqueue.core.navigation.PendingVisitorsFilter
@@ -55,6 +56,7 @@ import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportScreen
 import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsScreen
 import xyz.sattar.javid.proqueue.feature.visitorSelection.VisitorSelectionScreen
 import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
+import xyz.sattar.javid.proqueue.feature.share.ShareBusinessScreen
 import xyz.sattar.javid.proqueue.core.payment.PaymentWebViewScreen
 import xyz.sattar.javid.proqueue.feature.addons.AddonsScreen
 import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessRoute
@@ -82,11 +84,27 @@ fun MainNavHost(
     // RateLimit, and would unmount before Unauthorized's toast could show.
 
     LaunchedEffect(notificationEvent) {
-        notificationEvent?.let { event ->
-            if (event is NavigationEvent.ToVisitorDetails) {
+        when (val event = notificationEvent) {
+            is NavigationEvent.ToVisitorDetails -> {
                 navController.navigate(AppScreens.VisitorDetails(event.visitorId, event.openMessageDialog))
                 NotificationNavigationManager.consumeEvent()
             }
+            is NavigationEvent.ToDeepLink -> {
+                // HOME is already the start destination, so there is nothing to
+                // push for it — tapping such a campaign just opens the app,
+                // which is exactly what `noobatyar://home` means.
+                val screen = when (event.target) {
+                    DeepLinkTarget.HOME -> null
+                    DeepLinkTarget.VISITORS -> AppScreens.Visitors
+                    DeepLinkTarget.NOTIFICATIONS -> AppScreens.Notifications
+                    DeepLinkTarget.SMS_REPORT -> AppScreens.SmsReport
+                    DeepLinkTarget.ADD_ONS -> AppScreens.AddOns
+                    DeepLinkTarget.SETTINGS -> AppScreens.Settings
+                }
+                screen?.let { navController.navigate(it) }
+                NotificationNavigationManager.consumeEvent()
+            }
+            null -> Unit
         }
     }
 
@@ -252,6 +270,9 @@ private fun MainNavGraph(
                 HomeScreen(
                     onNavigateToCalendar = {
                         navController.navigate(AppScreens.Calendar())
+                    },
+                    onNavigateToShare = {
+                        navController.navigate(AppScreens.ShareBusiness)
                     },
                     onNavigateToLogin = onNavigateToLogin,
                     onChangeBusiness = onChangeBusiness,
@@ -506,6 +527,12 @@ private fun MainNavGraph(
                             }
                         }
                     },
+                )
+            }
+
+            composable<AppScreens.ShareBusiness> {
+                ShareBusinessScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

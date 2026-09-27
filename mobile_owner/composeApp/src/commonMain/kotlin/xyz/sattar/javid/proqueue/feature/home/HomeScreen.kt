@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -13,8 +14,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,14 +24,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -43,11 +41,6 @@ import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Spa
-import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.Eco
-import androidx.compose.material.icons.rounded.RocketLaunch
-import androidx.compose.material.icons.rounded.Diamond
 import androidx.compose.material.icons.rounded.DataUsage
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.EventBusy
@@ -57,12 +50,8 @@ import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.Stars
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.WorkspacePremium
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +63,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -88,20 +78,17 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
-import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
-import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
-import xyz.sattar.javid.proqueue.core.ui.components.AppScaffold
 import xyz.sattar.javid.proqueue.core.ui.components.BottomBarSpacer
 import xyz.sattar.javid.proqueue.core.ui.components.HomeButtonShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.HomeChartShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.HomeDashboardShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.HomePlanBannerShimmer
+import xyz.sattar.javid.proqueue.core.ui.components.HomeQueueRowShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.HomeUsageShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.MainTopAppBar
 import xyz.sattar.javid.proqueue.core.ui.components.PullToRefreshBox
@@ -111,7 +98,6 @@ import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementKeys
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
-import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.isTrialPlan
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.ui.theme.AppTheme
 
@@ -119,6 +105,7 @@ import xyz.sattar.javid.proqueue.ui.theme.AppTheme
 fun HomeScreen(
     viewModel: HomeViewModel = koinViewModel<HomeViewModel>(),
     onNavigateToCalendar: () -> Unit,
+    onNavigateToShare: () -> Unit = {},
     onNavigateToLogin: () -> Unit,
     onChangeBusiness: () -> Unit = {},
     onNavigateToAddons: () -> Unit = {},
@@ -144,6 +131,7 @@ fun HomeScreen(
         snackbarHostState = snackbarHostState,
         onIntent = viewModel::sendIntent,
         onNavigateToCalendar = onNavigateToCalendar,
+        onNavigateToShare = onNavigateToShare,
         onNavigateToLogin = onNavigateToLogin,
         onChangeBusiness = onChangeBusiness,
         onNavigateToAddons = onNavigateToAddons,
@@ -152,9 +140,27 @@ fun HomeScreen(
 }
 
 /**
- * Arguments for jumping into the visitors/appointments tab pre-filtered —
- * used when tapping a Home stat card, the queue row, or the 7-day chart.
+ * Scroll distance, in pixels, over which [HomeHero] folds from expanded to
+ * compact. Roughly the height of its action row, so the fold finishes just as
+ * that row would have scrolled out of view.
  */
+private const val COLLAPSE_DISTANCE_PX = 130f
+
+/**
+ * Arguments for jumping into the visitors/appointments tab pre-filtered —
+ * used when tapping a Home stat card, the queue row, or the month card.
+ */
+/** Args for opening the نوبت‌ها screen on today, from a card that counts today. */
+private fun todayArgs(status: String? = null, tab: Int): VisitorsNavArgs {
+    val start = DateTimeUtils.startOfTodayMillis()
+    return VisitorsNavArgs(
+        status = status,
+        tab = tab,
+        dateFrom = start,
+        dateTo = start + 24L * 60 * 60 * 1000 - 1
+    )
+}
+
 data class VisitorsNavArgs(
     val status: String? = null,
     val tab: Int? = null,
@@ -169,6 +175,7 @@ fun HomeScreenContent(
     snackbarHostState: SnackbarHostState,
     onIntent: (HomeIntent) -> Unit,
     onNavigateToCalendar: () -> Unit,
+    onNavigateToShare: () -> Unit = {},
     onNavigateToLogin: () -> Unit,
     onChangeBusiness: () -> Unit = {},
     onNavigateToAddons: () -> Unit = {},
@@ -178,6 +185,18 @@ fun HomeScreenContent(
 
     LaunchedEffect(Unit) {
         visible = true
+    }
+
+    val listState = rememberLazyListState()
+    // 0 = hero fully expanded, 1 = folded to its compact row. derivedStateOf so
+    // the fraction is read during layout without recomposing the whole screen
+    // on every scroll pixel; once past the first item the hero is simply
+    // pinned collapsed rather than tracking an offset it can no longer see.
+    val collapseFraction by remember {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) 1f
+            else (listState.firstVisibleItemScrollOffset / COLLAPSE_DISTANCE_PX).coerceIn(0f, 1f)
+        }
     }
 
     LaunchedEffect(uiState.message) {
@@ -220,6 +239,7 @@ fun HomeScreenContent(
         PullToRefreshBox(
             isRefreshing = uiState.isLoading,
             onRefresh = { onIntent(HomeIntent.LoadData) },
+            refreshTab = MainTab.Home,
             // Keeps the badge clear of the glass top bar, which the content
             // deliberately scrolls underneath.
             indicatorTopPadding = paddingValues.calculateTopPadding(),
@@ -227,655 +247,158 @@ fun HomeScreenContent(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-        // AppScaffold caps width from Medium up (centers, max 1100dp);
-        // Compact is a pass-through. Below that, Compact keeps the original
-        // single-column LazyColumn untouched; Medium/Expanded get the
-        // dashboard layout built for a wide viewport.
-        AppScaffold(modifier = Modifier.fillMaxSize()) {
-            if (LocalWindowSize.current == WindowSize.Compact) {
-                HomePhoneContent(
-                    modifier = modifier,
-                    uiState = uiState,
-                    visible = visible,
-                    paddingValues = paddingValues,
-                    onIntent = onIntent,
-                    onNavigateToVisitors = onNavigateToVisitors,
-                    onNavigateToAddons = onNavigateToAddons
-                )
-            } else {
-                HomeWebContent(
-                    modifier = modifier,
-                    uiState = uiState,
-                    visible = visible,
-                    paddingValues = paddingValues,
-                    onIntent = onIntent,
-                    onNavigateToVisitors = onNavigateToVisitors,
-                    onNavigateToAddons = onNavigateToAddons
-                )
-            }
-        }
-        }
-        }
-    }
-/**
- * Phone layout — untouched. A single scrolling LazyColumn: date header, stat
- * grid, trend chart, usage meter, booking link, plan banners, in that order.
- * See [HomeWebContent] for the Medium/Expanded dashboard.
- */
-@Composable
-private fun HomePhoneContent(
-    modifier: Modifier = Modifier,
-    uiState: HomeState,
-    visible: Boolean,
-    paddingValues: PaddingValues,
-    onIntent: (HomeIntent) -> Unit,
-    onNavigateToVisitors: (VisitorsNavArgs) -> Unit,
-    onNavigateToAddons: () -> Unit
-) {
-        LazyColumn(
+        Column(
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            // contentPadding (not a padding modifier) so items scroll *under* the
-            // glass top bar rather than starting below an opaque gap.
-            contentPadding = PaddingValues(top = paddingValues.calculateTopPadding()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(top = paddingValues.calculateTopPadding())
         ) {
-            // ۱. هدر تاریخ (سلام/زمینه‌ی امروز) + تعداد نوبت‌های امروز
-            item {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                        animationSpec = tween(500, delayMillis = 150)
-                    )
-                ) {
-                    DateHeader(
-                        todayAppointmentsCount = uiState.stats.totalAppointments.takeIf { uiState.statsLoaded }
-                    )
-                }
-            }
-
-            // ۲. آمار داشبورد امروز (۴ مستطیل + یک سطر کامل برای صف)
-            item {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                        animationSpec = tween(500, delayMillis = 200)
-                    )
-                ) {
-                    when {
-                        !uiState.statsLoaded -> HomeDashboardShimmer()
-                        else -> DashboardStatsSection(
-                            stats = uiState.stats,
-                            peopleInQueue = uiState.queue.size,
-                            // tab = 0 (مراجعین/history) explicitly — LastVisitorsState
-                            // defaults selectedTab to 1 (صف/queue), where a status
-                            // filter like "cancelled" has nothing to show.
-                            onStatClick = { status -> onNavigateToVisitors(VisitorsNavArgs(status = status, tab = 0)) },
-                            onQueueClick = { onNavigateToVisitors(VisitorsNavArgs(tab = 1)) }
-                        )
-                    }
-                }
-            }
-
-            // ۳. نمودار روند نوبت‌های ۷ روز اخیر
-            item {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                        animationSpec = tween(500, delayMillis = 250)
-                    )
-                ) {
-                    if (!uiState.chartLoaded) {
-                        HomeChartShimmer()
-                    } else if (uiState.dailyCounts.isNotEmpty()) {
-                        // نمودار «۷ روز اخیر» است (گذشته)، پس با تپ روی آن به تب
-                        // مراجعین با همان بازه‌ی گذشته می‌رویم تا داده‌ی نمایش داده
-                        // شده با مقصد ناوبری همخوانی داشته باشد (نه بازه‌ی پیش‌فرض
-                        // «۷ روز آینده» آن تب).
-                        NeonLineChart(
-                            counts = uiState.dailyCounts.map { it.count },
-                            dayLabels = uiState.dailyCounts.map {
-                                DateTimeUtils.shortWeekdayFromIsoDate(it.date)
-                            },
-                            onClick = {
-                                val today = DateTimeUtils.startOfTodayMillis()
-                                val sevenDaysAgo = today - 6L * 24 * 60 * 60 * 1000L
-                                onNavigateToVisitors(
-                                    VisitorsNavArgs(
-                                        // Tab 0 is مراجعین (the appointment
-                                        // list). Without it the destination
-                                        // falls back to LastVisitorsState's
-                                        // default of 1 — صف — which is live
-                                        // queue state, not the past week the
-                                        // chart just showed.
-                                        tab = 0,
-                                        dateFrom = sevenDaysAgo,
-                                        dateTo = DateTimeUtils.systemCurrentMilliseconds()
-                                    )
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            // ۴. مصرف‌سنج ماهانه
-            item {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                        animationSpec = tween(500, delayMillis = 300)
-                    )
-                ) {
-                    if (!uiState.entitlementsLoaded) {
-                        HomeUsageShimmer()
-                    } else if (uiState.entitlements != null) {
-                        UsageMeterSection(
-                            entitlements = uiState.entitlements,
-                            onNavigateToAddons = onNavigateToAddons
-                        )
-                    }
-                }
-            }
-
-            // ۵. لینک دریافت نوبت
-            item {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                        animationSpec = tween(500, delayMillis = 350)
-                    )
-                ) {
-                    if (uiState.business == null && uiState.isLoading) {
-                        HomeButtonShimmer()
-                    } else if (uiState.business != null) {
-                        BookingLinkButton(uiState.business)
-                    }
-                }
-            }
-
-            // ۶. بنرهای پلن اشتراک
-            item {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                        animationSpec = tween(500, delayMillis = 400)
-                    )
-                ) {
-                    if (!uiState.plansLoaded) {
-                        HomePlanBannerShimmer()
-                    } else if (uiState.plans.isNotEmpty()) {
-                        PlanBannerSection(
-                            plans = uiState.plans,
-                            onPlanClick = { plan ->
-                                onIntent(HomeIntent.PurchasePlan(plan.id))
-                            }
-                        )
-                    }
-                }
-            }
-
-            item { BottomBarSpacer() }
-        }
-}
-
-/**
- * Desktop/tablet dashboard (Medium and Expanded): a stat row across the top,
- * then a two-column body — trend chart + booking link in the wider primary
- * column pair, then the booking link and plan banners full-width beneath.
- * The trend chart and usage meter share one equal-weight [Row]; in RTL the
- * first child lands on the right, where a Persian reader looks first.
- *
- * There is no appointment/queue list in [HomeState] to put in the primary
- * column (the phone layout only ever shows a *count* via [QueueStatRow]), so
- * the trend chart — the closest thing to "today's queue activity" backed by
- * real state — anchors that column instead. Every handler below is the exact
- * same lambda the phone layout wires up; only the arrangement differs.
- */
-@Composable
-private fun HomeWebContent(
-    modifier: Modifier = Modifier,
-    uiState: HomeState,
-    visible: Boolean,
-    paddingValues: PaddingValues,
-    onIntent: (HomeIntent) -> Unit,
-    onNavigateToVisitors: (VisitorsNavArgs) -> Unit,
-    onNavigateToAddons: () -> Unit
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        Spacer(modifier = Modifier.height(paddingValues.calculateTopPadding()))
-
-        // هدر تاریخ — عیناً همان کامپوننت صفحه‌ی موبایل
-        AnimatedVisibility(
-            visible = visible,
-            enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                animationSpec = tween(500, delayMillis = 150)
+            // Pinned, collapsing head. Holds the two actions an owner reaches
+            // for most (calendar, booking link), which used to be a tab away
+            // and the fifth section down respectively.
+            HomeHero(
+                collapseFraction = collapseFraction,
+                todayAppointmentsCount = uiState.stats.totalAppointments.takeIf { uiState.statsLoaded },
+                business = uiState.business,
+                onOpenCalendar = onNavigateToCalendar,
+                onOpenShare = onNavigateToShare
             )
-        ) {
-            DateHeader(
-                todayAppointmentsCount = uiState.stats.totalAppointments.takeIf { uiState.statsLoaded }
-            )
-        }
 
-        // آمار داشبورد — در دسکتاپ یک سطر کامل به‌جای گرید ۲×۲
-        AnimatedVisibility(
-            visible = visible,
-            enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                animationSpec = tween(500, delayMillis = 200)
-            )
-        ) {
-            when {
-                !uiState.statsLoaded -> HomeDashboardShimmer()
-                else -> DashboardStatsRowWeb(
-                    stats = uiState.stats,
-                    peopleInQueue = uiState.queue.size,
-                    onStatClick = { status -> onNavigateToVisitors(VisitorsNavArgs(status = status, tab = 0)) },
-                    onQueueClick = { onNavigateToVisitors(VisitorsNavArgs(tab = 1)) }
-                )
-            }
-        }
-
-        // نمودار روند و مصرف ماه — دو ستون هم‌عرض. هر دو کارت‌های
-        // «یک نگاه سریع» هستند و هیچ‌کدام بر دیگری اولویت ندارد، پس
-        // وزن برابر می‌گیرند نه ۶۲/۳۸.
-        // IntrinsicSize.Max + fillMaxHeight on both columns: the chart card is
-        // naturally shorter than the usage meter beside it, so left alone the
-        // two cards ended at different heights and the row read as crooked.
-        // Sized to the taller of the pair, with the chart growing into the
-        // extra room (fillHeight) rather than leaving it blank.
-        Row(
-            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-            horizontalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // سمت راست در RTL (اولین فرزند Row). Column و نه Box: داخل یک
-            // Row، فراخوانی AnimatedVisibility به اورلود RowScope می‌رسد و
-            // کامپایل نمی‌شود.
-            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                AnimatedVisibility(
-                    visible = visible,
-                    modifier = Modifier.fillMaxHeight(),
-                    enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                        animationSpec = tween(500, delayMillis = 250)
-                    )
-                ) {
-                    if (!uiState.chartLoaded) {
-                        HomeChartShimmer()
-                    } else if (uiState.dailyCounts.isNotEmpty()) {
-                        NeonLineChart(
-                            modifier = Modifier.fillMaxHeight(),
-                            fillHeight = true,
-                            counts = uiState.dailyCounts.map { it.count },
-                            dayLabels = uiState.dailyCounts.map {
-                                DateTimeUtils.shortWeekdayFromIsoDate(it.date)
-                            },
-                            onClick = {
-                                val today = DateTimeUtils.startOfTodayMillis()
-                                val sevenDaysAgo = today - 6L * 24 * 60 * 60 * 1000L
-                                onNavigateToVisitors(
-                                    VisitorsNavArgs(
-                                        // See the phone call site: tab 0 is
-                                        // مراجعین, and omitting it lands on
-                                        // the صف default instead.
-                                        tab = 0,
-                                        dateFrom = sevenDaysAgo,
-                                        dateTo = DateTimeUtils.systemCurrentMilliseconds()
-                                    )
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                        animationSpec = tween(500, delayMillis = 300)
-                    )
-                ) {
-                    if (!uiState.entitlementsLoaded) {
-                        HomeUsageShimmer()
-                    } else if (uiState.entitlements != null) {
-                        UsageMeterSection(
-                            entitlements = uiState.entitlements,
-                            onNavigateToAddons = onNavigateToAddons
-                        )
-                    }
-                }
-            }
-        }
-
-        // لینک نوبت‌گیری — تمام‌عرض. یک نوار دعوت‌به‌اقدام است، نه یک
-        // کارت داده؛ نصف‌عرض بودنش آن را از چیزی که هست کوچک‌تر نشان می‌داد.
-        AnimatedVisibility(
-            visible = visible,
-            enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                animationSpec = tween(500, delayMillis = 350)
-            )
-        ) {
-            if (uiState.business == null && uiState.isLoading) {
-                HomeButtonShimmer()
-            } else if (uiState.business != null) {
-                BookingLinkButton(uiState.business)
-            }
-        }
-
-        // بنرهای پلن — تمام‌عرض. این یک HorizontalPager با contentPadding
-        // است؛ داخل یک ستون باریک، هر صفحه به‌قدری فشرده می‌شد که کارت
-        // بریده به نظر می‌رسید.
-        AnimatedVisibility(
-            visible = visible,
-            enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                animationSpec = tween(500, delayMillis = 400)
-            )
-        ) {
-            if (!uiState.plansLoaded) {
-                HomePlanBannerShimmer()
-            } else if (uiState.plans.isNotEmpty()) {
-                PlanBannerSection(
-                    plans = uiState.plans,
-                    onPlanClick = { plan ->
-                        onIntent(HomeIntent.PurchasePlan(plan.id))
-                    }
-                )
-            }
-        }
-
-        BottomBarSpacer()
-    }
-}
-
-/**
- * Desktop stat row: the same four counts as [DashboardStatsSection] plus the
- * queue count (phone-only shows that via the wide [QueueStatRow] banner), all
- * as equal-width [StatCard]s in one row. At the Wide content cap (1100dp)
- * that's ~200dp per card; at Medium (~800dp minus padding) still comfortably
- * above 140dp — both well within what [StatCard] already renders on a phone's
- * ~164dp half-width card, so none of these five need to wrap their label.
- */
-@Composable
-private fun DashboardStatsRowWeb(
-    stats: DashboardStats,
-    peopleInQueue: Int,
-    onStatClick: (status: String?) -> Unit,
-    onQueueClick: () -> Unit
-) {
-    val isDark = !MaterialTheme.colorScheme.surface.let { color ->
-        (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) > 0.5
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        StatCard(
-            modifier = Modifier.weight(1f),
-            title = "تکمیل شده",
-            value = stats.completedAppointments.toString(),
-            containerColor = if (isDark) Color(0xFF1B5E20).copy(alpha = 0.4f) else Color(0xFFE8F5E9),
-            contentColor = if (isDark) Color(0xFFA5D6A7) else Color(0xFF2E7D32),
-            icon = Icons.Rounded.CheckCircle,
-            onClick = { onStatClick("COMPLETED") }
-        )
-        StatCard(
-            modifier = Modifier.weight(1f),
-            title = "کل مراجعین",
-            value = stats.totalVisitors.toString(),
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.4f else 0.7f),
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            icon = Icons.Rounded.People,
-            onClick = { onStatClick(null) }
-        )
-        StatCard(
-            modifier = Modifier.weight(1f),
-            title = "عدم حضور",
-            value = stats.noShowAppointments.toString(),
-            containerColor = if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE),
-            contentColor = if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828),
-            icon = Icons.Rounded.Cancel,
-            onClick = { onStatClick("NO_SHOW") }
-        )
-        StatCard(
-            modifier = Modifier.weight(1f),
-            title = "لغو شده",
-            value = stats.cancelledAppointments.toString(),
-            containerColor = if (isDark) Color(0xFF4A148C).copy(alpha = 0.4f) else Color(0xFFF3E5F5),
-            contentColor = if (isDark) Color(0xFFCE93D8) else Color(0xFF6A1B9A),
-            icon = Icons.Rounded.EventBusy,
-            onClick = { onStatClick("CANCELLED") }
-        )
-        StatCard(
-            modifier = Modifier.weight(1f),
-            title = "افراد در صف",
-            value = peopleInQueue.toString(),
-            // Same blue used by the phone's QueueStatRow, so the "queue" tile
-            // reads as the same concept in both layouts.
-            containerColor = if (isDark) Color(0xFF01579B).copy(alpha = 0.35f) else Color(0xFFE1F5FE),
-            contentColor = if (isDark) Color(0xFF81D4FA) else Color(0xFF0277BD),
-            icon = Icons.Rounded.Timer,
-            onClick = onQueueClick
-        )
-    }
-}
-
-/**
- * Dispatcher: [PlanBannerPhoneContent] (unchanged, the one-plan-per-page
- * swipeable pager) on a phone, [PlanBannerWebContent] (a wrapping grid, all
- * plans visible together) from Medium up — the pager's whole point is
- * showing exactly one full-width card at a time, which is the right call on
- * a phone and the wrong one on a monitor with room to show several plans at
- * once without scrolling far to compare them.
- */
-@Composable
-fun PlanBannerSection(
-    plans: List<PlanDto>,
-    onPlanClick: (PlanDto) -> Unit
-) {
-    if (LocalWindowSize.current == WindowSize.Compact) {
-        PlanBannerPhoneContent(plans = plans, onPlanClick = onPlanClick)
-    } else {
-        PlanBannerWebContent(plans = plans, onPlanClick = onPlanClick)
-    }
-}
-
-/**
- * Grid of plan cards for Medium/Expanded — the desktop counterpart to the
- * phone's one-at-a-time pager, so several plans are visible together and the
- * page only needs a little extra vertical scroll (already provided by
- * HomeWebContent's outer scroll).
- *
- * Explicit chunked rows rather than a FlowRow: a FlowRow sizes each child to
- * its own content, so cards ended up different widths *and* different heights
- * (plans list different numbers of features, and the free plan has no buy
- * button at all), leaving ragged bottoms and buy buttons at a different height
- * in every column — which is what read as having no order to it. Chunking into
- * fixed columns lets each card take an equal `weight`, and wrapping the row in
- * `height(IntrinsicSize.Max)` + `fillMaxHeight` on the cards makes every card
- * in a row as tall as the tallest, so a pricing table lines up like one.
- */
-@Composable
-private fun PlanBannerWebContent(
-    plans: List<PlanDto>,
-    onPlanClick: (PlanDto) -> Unit
-) {
-    // Three across on a monitor, two on a narrow/tablet window — below that
-    // a card is squeezed too narrow for its Persian feature lines.
-    val columns = if (LocalWindowSize.current == WindowSize.Expanded) 3 else 2
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        plans.chunked(columns).forEach { rowPlans ->
-            Row(
-                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                rowPlans.forEach { plan ->
-                    PlanCardWeb(
-                        plan = plan,
-                        onClick = { onPlanClick(plan) },
-                        modifier = Modifier.weight(1f).fillMaxHeight()
-                    )
-                }
-                // A short final row must keep the same column rhythm — without
-                // these, two leftover cards would stretch to half the page each
-                // and no longer line up with the columns above them.
-                repeat(columns - rowPlans.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-/**
- * Desktop pricing card — a purpose-built layout, not [PlanBannerItem]
- * (the phone banner) squeezed into a grid cell. The banner is a full-bleed
- * gradient designed to be the only thing on screen in a one-at-a-time
- * pager; several of those side by side, each a different height, each
- * fighting for attention with its own saturated background, is what read
- * as cluttered. This keeps the gradient as a short identity strip at the
- * top — enough to tell tiers apart at a glance — and puts the actual
- * numbers on a plain surface below, where they're legible.
- *
- * Features render as one column, not [PlanBannerItem]'s two: splitting a
- * short list in half only earns its keep at full phone width; inside a
- * ~280dp card it just wrapped short Persian phrases awkwardly.
- */
-@Composable
-private fun PlanCardWeb(
-    plan: PlanDto,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val (gradientColors, badgeIcon) = planVisuals(plan)
-    val badgeLabel = plan.name
-    val gradient = Brush.linearGradient(colors = gradientColors)
-
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-    ) {
-        Column(modifier = Modifier.fillMaxHeight()) {
-            // Identity strip.
-            Row(
+            LazyColumn(
+                state = listState,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(gradient)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Icon(
-                    imageVector = badgeIcon,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = Color.White
-                )
-                Text(
-                    text = badgeLabel,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // قیمت
-                if (plan.price == 0L) {
-                    Text(
-                        text = "رایگان",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                } else {
-                    Text(
-                        text = plan.priceDisplay,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Rounded.Timer,
-                        null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        text = plan.durationDisplay,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                if (plan.description.isNotEmpty()) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        plan.description.forEach { desc ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Rounded.Check,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = desc,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                // ۱. صف امروز — تنها بخش «زنده»‌ی صفحه، پس اول می‌آید.
+                item {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
+                            animationSpec = tween(500, delayMillis = 120)
+                        )
+                    ) {
+                        if (!uiState.statsLoaded) {
+                            HomeQueueRowShimmer()
+                        } else {
+                            QueueStatRow(
+                                count = uiState.queue.size,
+                                // Today's queue, so the list opens on the same day
+                                // the count here was taken from.
+                                onClick = { onNavigateToVisitors(todayArgs(tab = 1)) }
+                            )
                         }
                     }
                 }
 
-                // Pushes the buy button to the card's floor, so across a row
-                // of equal-height cards every button sits on the same line
-                // instead of trailing whatever feature list happens to be
-                // above it. The free plan has no button; its spacer still
-                // runs, keeping that card's body top-aligned like the rest.
-                Spacer(modifier = Modifier.weight(1f))
-
-                if (plan.price > 0L) {
-                    Button(
-                        onClick = onClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                // ۲. آمار امروز (۲×۲)
+                item {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
+                            animationSpec = tween(500, delayMillis = 180)
+                        )
                     ) {
-                        Text("خرید اشتراک", fontWeight = FontWeight.Bold)
+                        if (!uiState.statsLoaded) {
+                            HomeDashboardShimmer()
+                        } else {
+                            DashboardStatsGrid(
+                                stats = uiState.stats,
+                                // tab = 0 (مراجعین/history) explicitly — LastVisitorsState
+                                // defaults selectedTab to 1 (صف/queue), where a status
+                                // filter like "cancelled" has nothing to show.
+                                // Scoped to today as well: these are today's
+                                // numbers, and the list used to open on the next
+                                // seven days, where the counts didn't match.
+                                onStatClick = { status ->
+                                    onNavigateToVisitors(todayArgs(status = status, tab = 0))
+                                }
+                            )
+                        }
                     }
                 }
+
+                // ۳. روند نوبت‌ها — هفتگی یا ماهانه.
+                //    نمودار خطی با دو حالت هفتگی/ماهانه، جای دو بخش جدا
+                //    (نمودار ۷ روزه + کارت ماه) را می‌گیرد.
+                item {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
+                            animationSpec = tween(500, delayMillis = 240)
+                        )
+                    ) {
+                        if (!uiState.chartLoaded) {
+                            HomeChartShimmer()
+                        } else {
+                            HomeTrendCard(
+                                weeklyCounts = uiState.dailyCounts.map { it.count },
+                                overview = uiState.monthOverview,
+                                onRangeClick = { start, endExclusive ->
+                                    onNavigateToVisitors(
+                                        VisitorsNavArgs(
+                                            dateFrom = start,
+                                            // endExclusive − 1ms so the range ends
+                                            // inside the last day shown rather than
+                                            // the day after it.
+                                            dateTo = endExclusive - 1
+                                        )
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // ۴. مصرف‌سنج ماهانه
+                item {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
+                            animationSpec = tween(500, delayMillis = 300)
+                        )
+                    ) {
+                        if (!uiState.entitlementsLoaded) {
+                            HomeUsageShimmer()
+                        } else if (uiState.entitlements != null) {
+                            UsageMeterSection(
+                                entitlements = uiState.entitlements,
+                                onNavigateToAddons = onNavigateToAddons
+                            )
+                        }
+                    }
+                }
+
+                // ۵. بنرهای پلن اشتراک
+                item {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
+                            animationSpec = tween(500, delayMillis = 360)
+                        )
+                    ) {
+                        if (!uiState.plansLoaded) {
+                            HomePlanBannerShimmer()
+                        } else if (uiState.plans.isNotEmpty()) {
+                            PlanBannerSection(
+                                plans = uiState.plans,
+                                onPlanClick = { plan ->
+                                    onIntent(HomeIntent.PurchasePlan(plan.id))
+                                }
+                            )
+                        }
+                    }
+                }
+
+                item { BottomBarSpacer() }
             }
+        }
         }
     }
 }
 
-/** Phone layout — untouched. See [PlanBannerSection]. */
 @Composable
-private fun PlanBannerPhoneContent(
+fun PlanBannerSection(
     plans: List<PlanDto>,
     onPlanClick: (PlanDto) -> Unit
 ) {
@@ -968,56 +491,34 @@ private fun PlanBannerPhoneContent(
     }
 }
 
-
-/**
- * Tier identity shared by [PlanBannerItem] (phone) and [PlanCardWeb]
- * (desktop grid): gradient, icon, and short label, keyed off the plan name.
- *
- * Vector icons, not emoji glyphs: Compose's canvas renderer (wasmJs, unlike
- * Android/iOS which have a system emoji font) has no color-emoji font to
- * fall back to, so 💎🚀🌿⚡🌱 rendered as tofu/missing-glyph boxes on the web
- * panel — which is what showed up looking like a stray "۰" before each name.
- */
-private fun planVisuals(plan: PlanDto): Pair<List<Color>, androidx.compose.ui.graphics.vector.ImageVector> = when {
-    plan.name.contains("پرو پلاس") -> Pair(
-        listOf(Color(0xFF4A148C), Color(0xFF6A1B9A), Color(0xFFE65100)),
-        Icons.Rounded.Diamond
-    )
-    plan.name.contains("پرو") -> Pair(
-        listOf(Color(0xFF1A237E), Color(0xFF283593), Color(0xFF7C4DFF)),
-        Icons.Rounded.RocketLaunch
-    )
-    plan.name.contains("اکو") -> Pair(
-        listOf(Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)),
-        Icons.Rounded.Eco
-    )
-    plan.name.contains("پایه") -> Pair(
-        listOf(Color(0xFF0D47A1), Color(0xFF1565C0), Color(0xFF1976D2)),
-        Icons.Rounded.Bolt
-    )
-    plan.isTrialPlan -> Pair(
-        listOf(Color(0xFF37474F), Color(0xFF455A64), Color(0xFF607D8B)),
-        Icons.Rounded.Spa
-    )
-    // A plan whose name matches none of the above no longer gets mislabelled
-    // as "آزمایشی" (trial) just because it fell through every other case —
-    // the badge itself always shows plan.name verbatim (see call sites), so
-    // this branch only picks a neutral fallback colour/icon for a tier the
-    // client doesn't specifically recognize by name.
-    else -> Pair(
-        listOf(Color(0xFF4A4458), Color(0xFF5C5470), Color(0xFF6D6489)),
-        Icons.Rounded.WorkspacePremium
-    )
-}
-
 @Composable
 fun PlanBannerItem(
     plan: PlanDto,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val (gradientColors, badgeIcon) = planVisuals(plan)
-    val badgeLabel = plan.name
+    val (gradientColors, badgeLabel) = when {
+        plan.name.contains("پرو پلاس") -> Pair(
+            listOf(Color(0xFF4A148C), Color(0xFF6A1B9A), Color(0xFFE65100)),
+            "💎 پرو پلاس"
+        )
+        plan.name.contains("پرو") -> Pair(
+            listOf(Color(0xFF1A237E), Color(0xFF283593), Color(0xFF7C4DFF)),
+            "🚀 پرو"
+        )
+        plan.name.contains("اکو") -> Pair(
+            listOf(Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)),
+            "🌿 اکو"
+        )
+        plan.name.contains("پایه") -> Pair(
+            listOf(Color(0xFF0D47A1), Color(0xFF1565C0), Color(0xFF1976D2)),
+            "⚡ پایه"
+        )
+        else -> Pair(
+            listOf(Color(0xFF37474F), Color(0xFF455A64), Color(0xFF607D8B)),
+            "🌱 آزمایشی"
+        )
+    }
 
     val gradient = Brush.linearGradient(colors = gradientColors)
 
@@ -1060,24 +561,13 @@ fun PlanBannerItem(
                         color = Color.White.copy(alpha = 0.18f),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Row(
+                        Text(
+                            text = badgeLabel,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = badgeIcon,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = Color.White
-                            )
-                            Text(
-                                text = badgeLabel,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
                     // قیمت
@@ -1219,78 +709,18 @@ fun PlanBannerItem(
     }
 }
 
+/**
+ * The 2×2 stat grid on its own.
+ *
+ * Split out from the old DashboardStatsSection, which also owned the queue
+ * row. Home now shows the queue *above* the grid — it is the only live,
+ * act-on-it-now number on the screen — and one composable cannot be in two
+ * places in the list.
+ */
 @Composable
-fun DateHeader(modifier: Modifier = Modifier, todayAppointmentsCount: Int? = null) {
-    val currentTime = DateTimeUtils.systemCurrentMilliseconds()
-    val formattedDate = DateTimeUtils.formatDate(currentTime)
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.CalendarToday,
-                    null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "امروز، $formattedDate",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-        }
-
-        // تعداد نوبت‌های امروز — قبلاً یک مستطیل جدا بود («نوبت‌های امروز»)،
-        // حالا کنار هدر تاریخ به‌صورت یک بج کوچک نمایش داده می‌شود.
-        if (todayAppointmentsCount != null) {
-            Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Rounded.Event,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "$todayAppointmentsCount نوبت",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun DashboardStatsSection(
+fun DashboardStatsGrid(
     stats: DashboardStats,
-    peopleInQueue: Int = 0,
-    onStatClick: (status: String?) -> Unit = {},
-    onQueueClick: () -> Unit = {}
+    onStatClick: (status: String?) -> Unit = {}
 ) {
     val isDark = !MaterialTheme.colorScheme.surface.let { color ->
         (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) > 0.5
@@ -1347,9 +777,6 @@ fun DashboardStatsSection(
                 onClick = { onStatClick("CANCELLED") }
             )
         }
-
-        // سطر کامل: افراد در حال حاضر در صف (امروز، در انتظار)
-        QueueStatRow(count = peopleInQueue, onClick = onQueueClick)
     }
 }
 
@@ -1458,89 +885,6 @@ fun StatCard(
                     fontWeight = FontWeight.Black,
                     color = contentColor
                 )
-            }
-        }
-    }
-}
-
-@Composable
-fun BookingLinkButton(business: Business) {
-    val uniqueCode = business.uniqueCode ?: return
-    val clipboard = LocalClipboardManager.current
-    val link = "${xyz.sattar.javid.proqueue.core.AppConfig.BOOKING_BASE_URL}/b/$uniqueCode"
-
-    var copied by remember { mutableStateOf(false) }
-
-    // بعد ۲ ثانیه برگردد
-    LaunchedEffect(copied) {
-        if (copied) {
-            kotlinx.coroutines.delay(2000)
-            copied = false
-        }
-    }
-
-    val containerColor by animateColorAsState(
-        targetValue = if (copied) Color(0xFF1B5E20) else MaterialTheme.colorScheme.primary,
-        animationSpec = tween(400)
-    )
-    val contentColor = Color.White
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                clipboard.setText(buildAnnotatedString { append(link) })
-                copied = true
-            },
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (copied) "کپی شد! برای مشتریان بفرستید 🎉" else "لینک نوبت‌گیری آنلاین",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = if (copied) link else "مشتریان با یک کلیک نوبت می‌گیرن",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = contentColor.copy(alpha = 0.8f),
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            AnimatedContent(
-                targetState = copied,
-                transitionSpec = {
-                    (fadeIn(tween(300)) + scaleIn(tween(300))) togetherWith
-                    (fadeOut(tween(200)) + scaleOut(tween(200)))
-                }
-            ) { isCopied ->
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isCopied) Icons.Rounded.Check else Icons.Rounded.Share,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
             }
         }
     }

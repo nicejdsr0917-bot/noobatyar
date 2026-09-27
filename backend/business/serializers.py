@@ -4,7 +4,7 @@ from rest_framework.exceptions import ValidationError
 from api.phone import is_iran_phone, normalize_phone
 from visitor.models import PushLog, SmsLog
 
-from .models import Business, ServiceCatalogItem
+from .models import BIO_MAX_LENGTH, Business, ServiceCatalogItem
 
 # Shown to clients when the owner still has booking_enabled=True but their plan
 # quota / subscription can no longer pay for a new appointment.
@@ -109,6 +109,14 @@ class BusinessSerializer(serializers.ModelSerializer):
     moderation_status_display = serializers.CharField(
         source='get_moderation_status_display', read_only=True,
     )
+    # Same reasoning as moderation_status_display above, for the same reason:
+    # the category vocabulary is ~35 entries and grows, and a client keeping
+    # its own copy of the labels shows "سایر" for every category added after
+    # the installed build. Clients should render this and fall back to their
+    # local map only when it is absent (an older server).
+    category_display = serializers.CharField(
+        source='get_category_display', read_only=True,
+    )
     # moderation_status alone no longer tells the owner app whether customers
     # can currently see the business: PENDING covers both "never reviewed,
     # hidden" and "approved before, an edit is staged, still showing the old
@@ -120,9 +128,11 @@ class BusinessSerializer(serializers.ModelSerializer):
         model = Business
         fields = [
             # Identity
-            'id', 'title', 'category', 'unique_code', 'phone', 'address', 'logo',
+            'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
+            'address', 'logo', 'theme_color',
             # Schedule
             'default_service_duration', 'work_start_hour', 'work_end_hour',
+            'work_start_minute', 'work_end_minute', 'closed_weekdays',
             # Notifications (legacy)
             'notification_enabled', 'notification_types', 'notification_minutes_before',
             # Payment config
@@ -169,6 +179,10 @@ class BusinessSerializer(serializers.ModelSerializer):
             # Only ever written server-side, via services.stage_pending_moderated_fields.
             'pending_title', 'pending_bio', 'pending_address', 'pending_logo',
             'is_publicly_visible',
+            # Derived from the logo in Business.save(). Accepting it from the
+            # client would let an owner set a header colour unrelated to their
+            # logo, and it would be overwritten on their next logo change anyway.
+            'theme_color',
         ]
         extra_kwargs = {
             # Restated even though the model field is already CharField(300):
@@ -202,6 +216,42 @@ class BusinessSerializer(serializers.ModelSerializer):
     def validate_services(self, value):
         return normalize_service_names(value)
 
+    def validate_extra_phones(self, value):
+        """Same shape and normalization as `phone`, plural.
+
+        A blank entry is dropped rather than rejected: the mobile UI is a
+        repeatable list of text fields, and an owner who adds a row and then
+        leaves it empty (or deletes its text without removing the row) should
+        not be blocked from saving everything else.
+        """
+        if not isinstance(value, list):
+            raise serializers.ValidationError("باید فهرستی از شماره‌ها باشد")
+        normalized = []
+        for raw in value:
+            text = str(raw or '').strip()
+            if not text:
+                continue
+            candidate = normalize_phone(text)
+            if not is_iran_phone(candidate):
+                raise serializers.ValidationError(
+                    f"شماره «{raw}» نامعتبر است — باید ۱۱ رقم و با ۰ شروع شود"
+                )
+            normalized.append(candidate)
+        return normalized
+
+    def validate_bio(self, value):
+        """Length is enforced here, not by the column — see Business.bio.
+
+        Without this the field became effectively unbounded when it moved to
+        TextField: DRF derives no max_length from one, so a client could post
+        a megabyte of text.
+        """
+        if value and len(value) > BIO_MAX_LENGTH:
+            raise serializers.ValidationError(
+                f"معرفی کسب‌وکار حداکثر می‌تواند {BIO_MAX_LENGTH} کاراکتر باشد"
+            )
+        return value
+
     def validate_work_start_hour(self, value):
         if not 0 <= value <= 23:
             raise serializers.ValidationError("Must be between 0-23")
@@ -211,6 +261,28 @@ class BusinessSerializer(serializers.ModelSerializer):
         if not 0 <= value <= 23:
             raise serializers.ValidationError("Must be between 0-23")
         return value
+
+    def validate_work_start_minute(self, value):
+        if not 0 <= value <= 59:
+            raise serializers.ValidationError("Must be between 0-59")
+        return value
+
+    def validate_work_end_minute(self, value):
+        if not 0 <= value <= 59:
+            raise serializers.ValidationError("Must be between 0-59")
+        return value
+
+    def validate_closed_weekdays(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("باید فهرستی از روزهای هفته باشد")
+        if any(not isinstance(v, int) or not 0 <= v <= 6 for v in value):
+            raise serializers.ValidationError(
+                "هر روز باید عددی بین ۰ (دوشنبه) تا ۶ (یکشنبه) باشد"
+            )
+        # De-duplicate rather than reject: the owner app sends the full set on
+        # every save, so a duplicate is a client-side bug, not something the
+        # owner should be shown an error for.
+        return sorted(set(value))
 
     def to_internal_value(self, data):
         ret = super().to_internal_value(data)
@@ -226,22 +298,33 @@ class BusinessSerializer(serializers.ModelSerializer):
         return ret
 
     def validate(self, data):
-        if data.get('work_start_hour') and data.get('work_end_hour'):
-            if data['work_start_hour'] >= data['work_end_hour']:
+        # Effective value after this write: partial updates (every PUT here is
+        # partial=True) keep whatever the rest of the row already had, so a
+        # check touching several fields has to look past just what changed.
+        def current(field):
+            if field in data:
+                return data[field]
+            return getattr(self.instance, field, None)
+
+        # Compared as minutes-since-midnight, not just the hour: work_end_hour
+        # alone used to let 19:00-19:30 (start hour 19, end hour 19) through as
+        # "equal, therefore invalid" even though it is a real 30-minute window
+        # once minutes exist — and would just as wrongly accept 19:45-19:15 as
+        # valid because 19 == 19 was never compared at all.
+        start_hour = current('work_start_hour')
+        end_hour = current('work_end_hour')
+        if start_hour is not None and end_hour is not None:
+            start_total = start_hour * 60 + (current('work_start_minute') or 0)
+            end_total = end_hour * 60 + (current('work_end_minute') or 0)
+            if start_total >= end_total:
                 raise serializers.ValidationError(
-                    "work_end_hour must be greater than work_start_hour"
+                    "ساعت پایان کار باید بعد از ساعت شروع باشد"
                 )
 
         # A payment method must be *usable*, not merely switched on. Storing CARD
         # with no card number, or ONLINE with neither a Zibal merchant nor a
         # payment link, leaves the client on a checkout screen with nothing to
         # pay to — which read as «شماره کارت ثبت نشده» and dead-ended the booking.
-        def current(field):
-            """Effective value after this write: partial updates keep the rest."""
-            if field in data:
-                return data[field]
-            return getattr(self.instance, field, None)
-
         accepted = current('accepted_payment_methods') or []
 
         if 'CARD' in accepted and not str(current('card_number') or '').strip():
@@ -331,19 +414,34 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
         so the fields would be constant here, and `moderation_note` is a
         reviewer's private wording addressed to the owner, not to the public.
     """
+    # Persian label alongside the raw code, so the booking page and any other
+    # public client render a category added after their build shipped instead
+    # of falling back to "سایر". Same rationale as BusinessSerializer's.
+    category_display = serializers.CharField(
+        source='get_category_display', read_only=True,
+    )
+
     class Meta:
         model = Business
         fields = [
             'id',
             'unique_code',
             'category',
+            'category_display',
             'title',
             'logo',
+            'theme_color',
             'address',
             'phone',
+            'extra_phones',
             'work_start_hour',
             'work_end_hour',
+            'work_start_minute',
+            'work_end_minute',
             'default_service_duration',
+            # Weekly days off, so the booking calendar can grey them out before
+            # ever fetching slots for that date — see Business.closed_weekdays.
+            'closed_weekdays',
             'payment_method',   # clients need to know which flow to show (Free/Card/Gateway)
             'accepted_payment_methods',
             'deposit_mode',
@@ -374,6 +472,7 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
         if (not request or not request.user or request.user.is_anonymous) \
                 and not instance.allow_anonymous_view:
             data['phone'] = None
+            data['extra_phones'] = []
             data['address'] = None
 
         # Emergency-notice gating + the subscription-driven booking block.
@@ -397,12 +496,17 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
     gateway is available without the merchant id itself crossing the wire.
     """
     online_gateway_enabled = serializers.SerializerMethodField()
+    category_display = serializers.CharField(
+        source='get_category_display', read_only=True,
+    )
 
     class Meta:
         model = Business
         fields = [
-            'id', 'title', 'category', 'unique_code', 'phone', 'address', 'logo',
+            'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
+            'address', 'logo', 'theme_color',
             'default_service_duration', 'work_start_hour', 'work_end_hour',
+            'work_start_minute', 'work_end_minute',
             'allow_anonymous_view',
             'notice_message', 'notice_enabled', 'booking_enabled',
             'payment_method', 'accepted_payment_methods',
@@ -426,6 +530,7 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
         if (not request or not request.user or request.user.is_anonymous) \
                 and not instance.allow_anonymous_view:
             data['phone'] = None
+            data['extra_phones'] = []
             data['address'] = None
 
         # Emergency-notice gating + the subscription-driven booking block.

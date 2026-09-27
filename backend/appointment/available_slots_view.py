@@ -59,10 +59,27 @@ class AvailableSlotsView(APIView):
         if cached is not None:
             return APIResponse.success(data=cached, message="ساعات خالی با موفقیت دریافت شد")
 
+        # A weekly day off (e.g. every Friday) — checked before building any
+        # slots so the response says *why* nothing is bookable rather than
+        # looking like a fully-booked day. `closed` lets the client tell the
+        # two apart instead of guessing from an empty `slots` list.
+        if target_date.weekday() in (business.closed_weekdays or []):
+            data = {
+                'business_id': business_id,
+                'date': date_str,
+                'duration_minutes': business.default_service_duration,
+                'closed': True,
+                'slots': [],
+            }
+            await sync_to_async(cache.set)(cache_key, data, SLOT_CACHE_TTL)
+            return APIResponse.success(data=data, message="این روز تعطیل است")
+
         # Build all slots for the day based on work hours and default_service_duration
         duration = business.default_service_duration  # minutes
         start_hour = business.work_start_hour
         end_hour = business.work_end_hour
+        start_minute = business.work_start_minute
+        end_minute = business.work_end_minute
 
         # Generate all possible slots.
         # work_start_hour/work_end_hour are wall-clock hours in the business's own
@@ -73,11 +90,11 @@ class AvailableSlotsView(APIView):
         all_slots = []
         current = datetime(
             target_date.year, target_date.month, target_date.day,
-            start_hour, 0, tzinfo=LOCAL_TZ
+            start_hour, start_minute, tzinfo=LOCAL_TZ
         )
         day_end = datetime(
             target_date.year, target_date.month, target_date.day,
-            end_hour, 0, tzinfo=LOCAL_TZ
+            end_hour, end_minute, tzinfo=LOCAL_TZ
         )
 
         while current + timedelta(minutes=duration) <= day_end:
@@ -118,6 +135,7 @@ class AvailableSlotsView(APIView):
             'business_id': business_id,
             'date': date_str,
             'duration_minutes': duration,
+            'closed': False,
             'slots': slots,
         }
         await sync_to_async(cache.set)(cache_key, data, SLOT_CACHE_TTL)

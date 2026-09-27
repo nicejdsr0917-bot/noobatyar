@@ -21,12 +21,57 @@ class AppointmentRepositoryImpl(
     private val visitorDao: VisitorLocalSource,
     private val appointmentApiService: AppointmentApiService
 ) : AppointmentRepository {
+    override suspend fun getRangeReport(
+        businessId: Long,
+        dateFrom: Long,
+        dateTo: Long,
+        ordering: xyz.sattar.javid.proqueue.domain.model.CustomerOrdering,
+        page: Int,
+        pageSize: Int
+    ): xyz.sattar.javid.proqueue.domain.model.RangeReport? {
+        return try {
+            val visitorsResponse = appointmentApiService.getRangeVisitors(
+                businessId = businessId,
+                dateFrom = dateFrom,
+                dateTo = dateTo,
+                ordering = ordering.apiValue,
+                page = page,
+                pageSize = pageSize
+            )
+            val visitorsPage = when (visitorsResponse) {
+                is ApiResponse.Success -> visitorsResponse.data
+                is ApiResponse.Error -> return null
+            }
+
+            xyz.sattar.javid.proqueue.domain.model.RangeReport(
+                dateFrom = visitorsPage.dateFrom,
+                dateTo = visitorsPage.dateTo,
+                clamped = visitorsPage.clamped,
+                customers = visitorsPage.results.map {
+                    xyz.sattar.javid.proqueue.domain.model.RangeCustomer(
+                        visitorId = it.visitorId,
+                        fullName = it.fullName,
+                        phoneNumber = it.phoneNumber,
+                        appointmentCount = it.appointmentCount,
+                        lastVisit = it.lastVisit
+                    )
+                },
+                customersTotal = visitorsPage.count,
+                currentPage = visitorsPage.currentPage,
+                totalPages = visitorsPage.totalPages
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     override suspend fun getDailyCounts(
         businessId: Long,
-        days: Int
+        days: Int,
+        daysAhead: Int
     ): List<xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.DailyCountDto> {
         return try {
-            when (val response = appointmentApiService.getDailyCounts(businessId, days)) {
+            when (val response = appointmentApiService.getDailyCounts(businessId, days, daysAhead)) {
                 is ApiResponse.Success -> response.data
                 is ApiResponse.Error -> emptyList()
             }

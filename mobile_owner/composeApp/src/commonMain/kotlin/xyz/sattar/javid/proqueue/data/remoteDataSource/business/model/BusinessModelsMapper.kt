@@ -27,7 +27,10 @@ fun BusinessDto.toDomain(): Business {
     return Business(
         id = id,
         title = title,
-        category = BusinessCategory.fromString(category),
+        // String, not the enum: a category added after this build must still
+        // round-trip, and the server's own label is what gets shown.
+        category = category ?: BusinessCategory.OTHER.value,
+        categoryLabel = categoryDisplay ?: BusinessCategory.fromString(category).persianName,
         uniqueCode = uniqueCode,
         phone = phone,
         address = address,

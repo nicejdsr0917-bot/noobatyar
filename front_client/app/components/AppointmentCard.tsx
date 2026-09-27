@@ -2,9 +2,10 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { categoryLabel, mediaUrl, type Appointment } from '@/lib/api';
+import { businessCategoryLabel, mediaUrl, type Appointment } from '@/lib/api';
 import { STATUS_LABELS, formatDate, toPersianNumerals } from '@/lib/format';
-import Icon, { CATEGORY_ICON } from './Icon';
+import Icon from './Icon';
+import { CategoryGlyph } from './CategoryArt';
 
 /** Business logo, falling back to the category icon when there is none. */
 export function BusinessAvatar({
@@ -48,7 +49,7 @@ export function BusinessAvatar({
 
   return (
     <div style={circle}>
-      <Icon name={CATEGORY_ICON[category] ?? 'storefront'} size={size * 0.5} />
+      <CategoryGlyph category={category} size={size * 0.5} />
     </div>
   );
 }
@@ -155,7 +156,7 @@ export default function AppointmentCard({ appt }: { appt: Appointment }) {
               {appt.business.title}
             </h3>
             <div style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 3 }}>
-              {categoryLabel(appt.business.category)}
+              {businessCategoryLabel(appt.business)}
             </div>
           </div>
         </div>

@@ -7,9 +7,10 @@
  * has never been imported anywhere.
  */
 
-/* Category glyphs now live in app/components/Icon.tsx as CATEGORY_ICON —
-   Material SVG paths rather than emoji, which rendered differently on every
-   Android skin and could not take a theme colour. */
+/* Category glyphs now live in app/components/CategoryArt.tsx (CategoryGlyph
+   for UI sizes, CategoryArt for the hero mark) — Tabler icons rather than
+   emoji, which rendered differently on every Android skin and could not take
+   a theme colour. */
 
 export const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   LOCKED:               { label: 'در انتظار پرداخت', color: '#b45309', bg: '#fef3c7' },

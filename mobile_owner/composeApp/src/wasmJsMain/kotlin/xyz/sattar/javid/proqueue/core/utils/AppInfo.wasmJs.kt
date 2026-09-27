@@ -11,4 +11,7 @@ actual object AppInfo {
     actual val versionName: String = "web"
     actual val isIOS: Boolean = false
     actual val isWeb: Boolean = true
+    // No release/debug split that matters here: the version gate that reads
+    // this is skipped on web anyway.
+    actual val isDebug: Boolean = false
 }
