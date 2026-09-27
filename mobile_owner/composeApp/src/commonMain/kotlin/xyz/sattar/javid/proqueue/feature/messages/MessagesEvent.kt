@@ -7,4 +7,7 @@ sealed interface MessagesEvent {
      * them there rather than growing a second purchase surface here.
      */
     data object NavigateToAddons : MessagesEvent
+
+    /** The SMS report is where an owner can see the panel reminders actually went out. */
+    data object NavigateToSmsReport : MessagesEvent
 }

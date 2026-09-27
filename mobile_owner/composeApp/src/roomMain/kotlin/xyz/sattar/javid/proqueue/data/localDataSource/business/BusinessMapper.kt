@@ -6,6 +6,7 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
 import xyz.sattar.javid.proqueue.domain.model.business.ModerationStatus
 import xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery
+import xyz.sattar.javid.proqueue.domain.model.business.ReminderTemplates
 
 fun BusinessEntity.toDomain() = Business(
     id = id,
@@ -35,6 +36,7 @@ fun BusinessEntity.toDomain() = Business(
     paymentMethod = paymentMethod,
     acceptedPaymentMethods = acceptedPaymentMethods.split(",").filter { it.isNotEmpty() },
     maxAppointmentsPerHour = maxAppointmentsPerHour,
+    depositMode = depositMode,
     depositAmount = depositAmount,
     merchantId = merchantId,
     paymentLink = paymentLink,
@@ -50,6 +52,7 @@ fun BusinessEntity.toDomain() = Business(
     noticeMessage = noticeMessage,
     enableReminderSms = enableReminderSms,
     reminderDelivery = reminderDelivery,
+    reminderTemplate = reminderTemplate,
     services = services.split(",").map { it.trim() }.filter { it.isNotEmpty() },
     allowClientAddService = allowClientAddService
 )
@@ -79,6 +82,7 @@ fun Business.toEntity() = BusinessEntity(
     paymentMethod = paymentMethod,
     acceptedPaymentMethods = acceptedPaymentMethods?.joinToString(",") ?: "",
     maxAppointmentsPerHour = maxAppointmentsPerHour,
+    depositMode = depositMode,
     depositAmount = depositAmount,
     merchantId = merchantId,
     paymentLink = paymentLink,
@@ -94,6 +98,7 @@ fun Business.toEntity() = BusinessEntity(
     noticeMessage = noticeMessage,
     enableReminderSms = enableReminderSms,
     reminderDelivery = reminderDelivery,
+    reminderTemplate = reminderTemplate,
     services = services.joinToString(","),
     allowClientAddService = allowClientAddService
 )
@@ -118,6 +123,7 @@ fun Business.toRequestDto() = CreateBusinessRequestDto(
     paymentMethod = paymentMethod,
     acceptedPaymentMethods = acceptedPaymentMethods,
     maxAppointmentsPerHour = maxAppointmentsPerHour,
+    depositMode = depositMode,
     depositAmount = depositAmount,
     merchantId = merchantId,
     paymentLink = paymentLink,
@@ -128,6 +134,7 @@ fun Business.toRequestDto() = CreateBusinessRequestDto(
     noticeMessage = noticeMessage,
     enableReminderSms = enableReminderSms,
     reminderDelivery = reminderDelivery,
+    reminderTemplate = reminderTemplate,
     services = services,
     allowClientAddService = allowClientAddService
 )
@@ -160,6 +167,7 @@ fun BusinessDto.toEntity(): BusinessEntity {
         paymentMethod = paymentMethod,
         acceptedPaymentMethods = acceptedPaymentMethods?.joinToString(",") ?: "",
         maxAppointmentsPerHour = maxAppointmentsPerHour,
+        depositMode = depositMode,
         depositAmount = depositAmount,
         merchantId = merchantId ?: "",
         paymentLink = paymentLink ?: "",
@@ -178,6 +186,7 @@ fun BusinessDto.toEntity(): BusinessEntity {
         noticeMessage = noticeMessage ?: "",
         enableReminderSms = enableReminderSms,
         reminderDelivery = reminderDelivery ?: ReminderDelivery.MANUAL.value,
+        reminderTemplate = reminderTemplate ?: ReminderTemplates.DEFAULT_KEY,
         services = services.joinToString(","),
         allowClientAddService = allowClientAddService
     )

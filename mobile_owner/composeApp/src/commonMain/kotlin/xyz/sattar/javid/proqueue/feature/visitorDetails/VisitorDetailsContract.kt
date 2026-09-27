@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.visitorDetails
 
+import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
 import xyz.sattar.javid.proqueue.domain.model.message.Message
 import xyz.sattar.javid.proqueue.domain.model.visitor.Visitor
@@ -9,11 +11,11 @@ data class VisitorDetailsState(
     val visitor: Visitor? = null,
     val appointments: List<AppointmentWithDetails> = emptyList(),
     val messages: List<Message> = emptyList(),
-    val message: String? = null
+    val message: UiMessage? = null
 ) {
     sealed class PartialState {
         data class IsLoading(val isLoading: Boolean) : PartialState()
-        data class ShowMessage(val message: String) : PartialState()
+        data class ShowMessage(val message: String, val type: ToastyType = ToastyType.Error) : PartialState()
         data class DetailsLoaded(
             val visitor: Visitor,
             val appointments: List<AppointmentWithDetails>,

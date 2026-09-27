@@ -10,6 +10,89 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.9.5 — 2026-09-25
+
+<!-- fa:start -->
+⚠️ برای نصب این نسخه، ابتدا برنامه‌ی فعلی را حذف کنید و سپس نسخه‌ی جدید را نصب کنید.
+
+تغییرات این نسخه:
+- سه نسخه‌ی اندروید: سایت، بازار و مایکت.
+- نسخه‌ی سایت و بازار (و iOS) با درگاه پرداخت نوبت‌یار؛ نسخه‌ی مایکت با پرداخت درون‌برنامه‌ای مایکت.
+- پیام‌ها بر اساس نوع رنگ‌بندی شدند: موفق، خطا و هشدار.
+- کارت‌های صف و مراجعین مرتب‌تر و خواناتر شدند.
+- اشتراک‌گذاری: استوری آموزش نوبت‌گرفتن، و کارت شماره‌کارت راست‌چین و خواناتر.
+- تنظیمات اعلان‌ها حالا روی سرور ذخیره می‌شود.
+<!-- fa:end -->
+
+### mobile_owner
+- New `bazaar` store flavor (`STORE="bazaar"`, `src/androidBazaar` returns no store billing → Zibal gateway).
+- Release workflow also publishes `Noobatyar-Owner-<version>-bazaar.apk` for upload to Cafe Bazaar.
+- Typed toasts (`UiMessage`) on every screen that still showed plain red strings; 403s show the server's message.
+- Notifications screen saves through `updateBusiness` (it only wrote the local Room cache before).
+- Queue / visitors appointment cards restructured; share cards RTL, story card is the booking guide.
+- Room database version 18 (no schema change; clean cache).
+- `local` flavor derives `BOOKING_BASE_URL` from `-PlocalBaseUrl`.
+
+### backend
+- Business update only gates plan features that are newly enabled (a saved card number no longer blocks every edit).
+- Dev OTP code works without a prior send and never counts towards a ban (DEBUG only).
+
+### front_client
+- Signed-out visitors go to sign in / sign up before booking; "نوبت‌های من" beside the booking actions.
+- Appointment details show the business logo; `allowedDevOrigins` for emulator testing.
+
+## v1.9.4 — 2026-09-25
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- نسخه‌ی ویژه‌ی مایکت: خرید اشتراک و بسته‌ها در نسخه‌ی مایکت از طریق پرداخت درون‌برنامه‌ای مایکت انجام می‌شود.
+- نسخه‌ی سایت و iOS بدون تغییر، با همان درگاه پرداخت نوبت‌یار.
+- اگر برنامه وسط خرید بسته شود، خرید پرداخت‌شده در اجرای بعدی خودکار ثبت می‌شود.
+<!-- fa:end -->
+
+### mobile_owner
+- Android flavor dimension `store`: `site` (Zibal, as before) and `myket` (`myket-billing-client` 1.19, `MyketStoreBilling`).
+  `PurchaseUseCase` picks the store only when `StoreBillingProvider.billing` is set, which only the myket flavor does.
+- Release workflow also publishes `Noobatyar-Owner-<version>-myket.apk` for upload to Myket.
+
+### backend
+- `accounting/payment/myket.py` — intent/verify endpoints (`accounting/store/myket/...`), server-to-server verification and
+  consume, `StorePurchase` model, `myket_sku` on `Plan`/`AddOnPack`; `MYKET_ACCESS_TOKEN` from `.env`.
+
+## v1.9.3 — 2026-09-24
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- پیامک تبلیغاتی: کمپین پیامکی با نام خود مشتری، انتخاب مخاطب (همه، مراجعه‌ی اخیر، مشتری‌های غایب)، نمایش هزینه‌ی دقیق پیش از ارسال و گزارش هر کمپین.
+- پیام خودکار: در ارسال خودکار از پنل، متن از الگوهای تأییدشده انتخاب می‌شود، «لغو۱۱» ثابت است و تعداد پیامک شمرده می‌شود؛ زمان یادآوری هم حالا واقعاً ذخیره می‌شود.
+- تنظیمات پیشرفته با طراحی تازه؛ رفع ریست‌شدن حالت بیعانه به «بدون بیعانه».
+- صفحه‌ی جدید «تم و ظاهر» با پیش‌نمایش؛ «درباره ما» با آیکن‌های رسمی و اینستاگرام نوبت‌یار.
+<!-- fa:end -->
+
+### mobile_owner
+- `BusinessMapper.kt` — `depositMode` در هر چهار تبدیل (DTO↔Entity↔Domain↔Request) جا افتاده بود؛ کش محلی همیشه بدون
+  حالت بیعانه برمی‌گشت و ذخیره‌ی بعدی در تنظیمات پیشرفته `NONE` را به سرور می‌فرستاد.
+- `feature/promo/` — صفحه‌ی کمپین پیامک تبلیغاتی (API جدید `business/<id>/promo-sms/`).
+- `feature/messages/` — بازطراحی پیام خودکار؛ PANEL فقط الگوهای ثابت (`ReminderTemplates.kt`، هم‌خوان با
+  `backend/business/reminder_templates.py`) و ذخیره‌ی `notification_minutes_before`/`reminder_template` روی سرور.
+- `AdvancedSettingsRoute.kt`/`AdvancedSettingsTabs.kt` — هدر قابلیت‌های پلن، تب‌های جدید، نوار ذخیره با وضعیت
+  تغییرات؛ کارت «یادآوری چندکاناله» (پیاده‌سازی‌نشده) حذف شد.
+- `ThemeScreen.kt` (جدید)، `AboutUsScreen.kt` (آیکن‌های رسمی بله/ایتا/روبیکا از وب‌اپ خودشان، گلیف رسمی اینستاگرام).
+- Room schema 17 (`BusinessEntity.reminderTemplate`).
+
+### backend
+- `business/promo_sms.py`، `promo_views.py`، مدل‌های `PromoCampaign`/`PromoCampaignRecipient`، دستور
+  `send_promo_campaigns` برای ادامه‌ی ارسال‌های نیمه‌کاره؛ `promotional_sms` از `COMING_SOON_FEATURES` خارج شد.
+- `Business.reminder_template` و استفاده از آن در `send_appointment_reminders` (قبلاً متن ثابت و یکسان).
+
+### infra
+- `.github/workflows/android-release.yml` — آپلود APK به `noobatyar.ir` از مسیر اشتباه (`public_html/...`) به مسیر درست
+  (ریشه‌ی همان اکانت FTP jail‌شده) اصلاح شد؛ ارسال هم از `curl` به `ftplib.FTP_TLS` تغییر کرد چون `curl` روی این
+  هاست آپلودهای چند-مگابایتی را بی‌صدا ناقص می‌گذاشت.
+- کانال مقصد ارسال در تلگرام از کانال مشتریان به کانال بکاپ (`TELEGRAM_CHAT_ID`) تغییر کرد.
+
+Full commit range: [`v1.9.2...v1.9.3`](https://github.com/javiddeveloper/Noobatyar-automation/compare/v1.9.2...v1.9.3)
+
 ## v1.9.2 — 2026-09-22
 
 <!-- fa:start -->

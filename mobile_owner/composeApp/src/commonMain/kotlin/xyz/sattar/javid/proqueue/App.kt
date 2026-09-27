@@ -49,6 +49,7 @@ import xyz.sattar.javid.proqueue.core.utils.AppInfo
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.domain.usecase.push.SyncPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.HasTokenUseCase
+import xyz.sattar.javid.proqueue.feature.version.SiteVersionHandler
 import xyz.sattar.javid.proqueue.feature.version.VersionHandler
 import xyz.sattar.javid.proqueue.ui.theme.AppTheme
 
@@ -125,6 +126,11 @@ fun App() {
         // iOS; no store/version concept on the web either, see AppInfo.isWeb)
         if (!AppInfo.isIOS && !AppInfo.isWeb) {
             VersionHandler()
+        }
+
+        // Signed-in only, so the "days of use" count from the first real session.
+        if (onAuthComplete && !AppInfo.isIOS) {
+            SiteVersionHandler()
         }
 
         if (!onAuthComplete) {

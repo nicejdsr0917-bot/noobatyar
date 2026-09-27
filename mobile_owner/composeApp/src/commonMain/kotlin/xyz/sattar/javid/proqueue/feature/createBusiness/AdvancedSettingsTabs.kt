@@ -9,6 +9,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.EventSeat
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Storefront
@@ -76,26 +81,21 @@ fun AdvancedSettingsTabs(
     onMerchantId: (String) -> Unit,
     paymentLink: String,
     onPaymentLink: (String) -> Unit,
+    onOpenPromoCampaign: () -> Unit,
+    onOpenReminders: () -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     // "روزهای تعطیل" moved to the business create/edit form, next to work
     // hours — it is basic scheduling info, not a paid/advanced capability, and
     // living here made it easy to miss when setting up a new business.
-    val tabs = listOf("پرداخت", "ظرفیت و بیعانه", "یادآوری")
+    val tabs = listOf(
+        Icons.Rounded.Payments to "پرداخت",
+        Icons.Rounded.EventSeat to "ظرفیت و بیعانه",
+        Icons.Rounded.Campaign to "پیامک و تبلیغات",
+    )
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = androidx.compose.ui.graphics.Color.Transparent
-        ) {
-            tabs.forEachIndexed { index, label ->
-                Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
-                    text = { Text(label, style = MaterialTheme.typography.labelLarge) }
-                )
-            }
-        }
+        SegmentedTabs(tabs = tabs, selected = selectedTab, onSelect = { selectedTab = it })
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -128,7 +128,13 @@ fun AdvancedSettingsTabs(
                 depositAmount = depositAmount,
                 onDepositAmount = onDepositAmount
             )
-            2 -> RemindersTab(entitlements = entitlements, plans = plans, onUpgrade = onUpgrade)
+            2 -> MessagingTab(
+                entitlements = entitlements,
+                plans = plans,
+                onUpgrade = onUpgrade,
+                onOpenPromoCampaign = onOpenPromoCampaign,
+                onOpenReminders = onOpenReminders
+            )
         }
     }
 }
@@ -439,6 +445,11 @@ private fun CapacityTab(
             description = "محدود کردن حداکثر تعداد نوبت در هر ساعت.",
             onUpgrade = onUpgrade
         ) {
+          SettingCard(
+              icon = Icons.Rounded.EventSeat,
+              title = "کنترل ظرفیت ساعتی",
+              description = "جلوی شلوغی را بگیرید: در هر ساعت بیش از این تعداد نوبت پذیرفته نمی‌شود."
+          ) {
             AppTextField(
                 enabled = !isLoading,
                 value = maxAppointmentsPerHour,
@@ -447,6 +458,7 @@ private fun CapacityTab(
                 modifier = Modifier.fillMaxWidth(),
                 keyboardType = KeyboardType.Number
             )
+          }
         }
 
         FeatureGate(
@@ -457,9 +469,12 @@ private fun CapacityTab(
             description = "از مشتری هنگام رزرو بیعانه دریافت کنید.",
             onUpgrade = onUpgrade
         ) {
+          SettingCard(
+              icon = Icons.Rounded.AccountBalanceWallet,
+              title = "دریافت بیعانه",
+              description = "نوبت‌های بی‌حاضری را کم کنید: مشتری هنگام رزرو بخشی از مبلغ را پرداخت می‌کند."
+          ) {
             Column {
-                Text("دریافت بیعانه", style = MaterialTheme.typography.bodyLarge)
-                Spacer(modifier = Modifier.height(8.dp))
                 // Three real modes, not a switch: OPTIONAL is a distinct
                 // behaviour (client may pay the deposit or choose to pay in
                 // person), and a boolean silently rewrote it to MANDATORY.
@@ -507,38 +522,169 @@ private fun CapacityTab(
                     )
                 }
             }
+          }
         }
     }
 }
 
-/** Messaging capabilities — promotional SMS and multi-channel reminders. */
+/**
+ * SMS the owner pays for: the promo campaign composer and automatic reminders.
+ *
+ * Both used to be bare "this is enabled" rows with nothing to do — the
+ * campaign had no sending tool at all, and a "multi-channel reminder" card
+ * advertised WhatsApp/Telegram delivery that no code path implements (it is
+ * still marked coming-soon on the server, so it is simply not shown here).
+ * Each capability now opens the screen where it is actually used.
+ */
 @Composable
-private fun RemindersTab(
+private fun MessagingTab(
     entitlements: EntitlementsResponseDto?,
     plans: List<PlanDto>,
     onUpgrade: (Int) -> Unit,
+    onOpenPromoCampaign: () -> Unit,
+    onOpenReminders: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         FeatureGate(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.PROMOTIONAL_SMS,
-            title = "پیامک تبلیغاتی",
-            description = "ارسال پیامک کمپین و تبلیغات به مشتریان.",
+            title = "کمپین پیامک تبلیغاتی",
+            description = "به مشتری‌هایتان با نام خودشان پیامک تخفیف و خبر تازه بفرستید.",
             onUpgrade = onUpgrade
         ) {
-            IncludedFeatureRow("امکان ارسال پیامک تبلیغاتی برای این کسب‌وکار فعال است.")
+            SettingCard(
+                icon = Icons.Rounded.Campaign,
+                title = "کمپین پیامک تبلیغاتی",
+                description = "مشتری‌هایی که مدتی نیامده‌اند را با یک پیشنهاد برگردانید، خدمت تازه را معرفی کنید " +
+                    "یا نوبت‌های خالی را پر کنید. قبل از ارسال، تعداد گیرنده و هزینه‌ی دقیق را می‌بینید."
+            ) {
+                IncludedFeatureRow("ارسال با نام هر مشتری و از خط رسمی نوبت‌یار")
+                Spacer(Modifier.height(6.dp))
+                IncludedFeatureRow("انتخاب مخاطب: همه، مراجعه‌ی اخیر، یا مشتری‌های غایب")
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = onOpenPromoCampaign,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Rounded.Campaign, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("ساخت کمپین جدید")
+                }
+            }
         }
 
         FeatureGate(
             entitlements = entitlements,
             plans = plans,
-            featureKey = EntitlementKeys.MULTI_CHANNEL,
-            title = "یادآوری چندکاناله",
-            description = "یادآوری خودکار نوبت از طریق واتساپ و تلگرام، علاوه بر پیامک.",
+            featureKey = EntitlementKeys.AUTO_REMINDER_SMS,
+            title = "یادآوری خودکار نوبت",
+            description = "پیامک یادآوری پیش از هر نوبت، خودکار از سرور برای مشتری ارسال می‌شود.",
             onUpgrade = onUpgrade
         ) {
-            IncludedFeatureRow("یادآوری خودکار از طریق پیامک، واتساپ و تلگرام برای این کسب‌وکار فعال است.")
+            SettingCard(
+                icon = Icons.Rounded.NotificationsActive,
+                title = "یادآوری خودکار نوبت",
+                description = "پیش از هر نوبت، پیامک یادآوری بدون نیاز به کاری از طرف شما برای مشتری ارسال می‌شود. " +
+                    "متن، زمان ارسال و روش ارسال را از صفحه‌ی پیام خودکار تنظیم کنید."
+            ) {
+                OutlinedButton(
+                    onClick = onOpenReminders,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("تنظیم پیام یادآوری")
+                }
+            }
+        }
+    }
+}
+
+/** A capability card: icon, name, one-line why, then its controls. */
+@Composable
+private fun SettingCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            content()
+        }
+    }
+}
+
+/** Pill-shaped segmented tabs, each with an icon. */
+@Composable
+private fun SegmentedTabs(
+    tabs: List<Pair<androidx.compose.ui.graphics.vector.ImageVector, String>>,
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        tabs.forEachIndexed { index, (icon, label) ->
+            val isSelected = index == selected
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
+                    .clickable { onSelect(index) }
+                    .padding(vertical = 10.dp, horizontal = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

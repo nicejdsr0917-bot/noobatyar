@@ -32,6 +32,7 @@ class BaleSettings(models.Model):
         blank=True,
         default='',
         help_text='توکنی که BotFather بله می‌دهد',
+        verbose_name='توکن ربات',
     )
     chat_id = models.CharField(
         max_length=64,
@@ -39,16 +40,19 @@ class BaleSettings(models.Model):
         default='',
         help_text='شناسه‌ی چتی که اعلان‌ها به آن می‌رود؛ تنها فرستنده‌ای که '
                   'اجازه‌ی تصمیم‌گیری دارد هم همین است',
+                  verbose_name='شناسه گفتگو',
     )
     webhook_secret = models.CharField(
         max_length=64,
         blank=True,
         default='',
         help_text='بخش مخفی مسیر وبهوک — خودکار ساخته می‌شود، دستی عوضش نکن',
+        verbose_name='کلید وب‌هوک',
     )
     is_enabled = models.BooleanField(
         default=False,
         help_text='تا وقتی خاموش است هیچ پیامی ارسال و هیچ تصمیمی پذیرفته نمی‌شود',
+        verbose_name='فعال',
     )
     # The moderation log records who decided. Without this the bot's decisions
     # land with actor=None and become indistinguishable from an owner-initiated
@@ -60,8 +64,9 @@ class BaleSettings(models.Model):
         on_delete=models.SET_NULL,
         related_name='+',
         help_text='کاربری که تصمیم‌های گرفته‌شده از بله به نامش در لاگ ثبت می‌شود',
+        verbose_name='انجام‌دهنده',
     )
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:
         db_table = 'bale_settings'

@@ -22,7 +22,7 @@
       {% for report in queryset %}
         <li>
           <strong>{{ report.business.title }}</strong>
-          <span class="nb-meta">({{ report.get_reason_display }})</span>
+          <span style="color:var(--body-quiet-color)">({{ report.get_reason_display }})</span>
         </li>
       {% endfor %}
     </ul>

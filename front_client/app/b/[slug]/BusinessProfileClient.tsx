@@ -8,6 +8,7 @@ import Icon, { type IconName } from '@/app/components/Icon';
 import CategoryArt, { CategoryGlyph } from '@/app/components/CategoryArt';
 import AppBanner from '@/app/components/AppBanner';
 import { toPersianDigits as toFa } from '@/lib/validation';
+import { useVisitorToken } from '@/lib/visitorToken';
 
 interface Props {
   business: Business;
@@ -17,6 +18,7 @@ interface Props {
 export default function BusinessProfileClient({ business, slug }: Props) {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
+  const isSignedIn = !!useVisitorToken();
 
   // Derived from the logo server-side (Business.theme_color) and already
   // contrast-clamped for white text there, so it can be used raw. Falls back
@@ -273,23 +275,39 @@ export default function BusinessProfileClient({ business, slug }: Props) {
         <AppBanner variant="owner" />
       </div>
 
-      {/* ── Fixed Bottom Button ── */}
+      {/* ── Fixed Bottom Button ──
+          Booking needs an account, so a signed-out visitor goes to sign in /
+          sign up first (and lands on the booking page afterwards) instead of
+          browsing the owner's hours they cannot book yet. Signed-in clients
+          get "نوبت‌های من" right beside it. */}
       <div className="btn-group">
-        <button
-          className="btn-primary"
-          onClick={() => {
-            setIsNavigating(true);
-            router.push(`/b/${slug}/book`);
-          }}
-          disabled={!bookingEnabled || isNavigating}
-          style={!bookingEnabled ? { background: 'var(--color-faint)', boxShadow: 'none', cursor: 'not-allowed' } : {}}
-        >
-          {!bookingEnabled
-            ? 'ثبت نوبت غیرفعال است'
-            : isNavigating
-              ? <>در حال بارگذاری<span className="btn-spinner" /></>
-              : 'دریافت / مشاهده نوبت'}
-        </button>
+        <div className="btn-row">
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setIsNavigating(true);
+              router.push(
+                isSignedIn
+                  ? `/b/${slug}/book`
+                  : `/auth/login?redirect=${encodeURIComponent(`/b/${slug}/book`)}`
+              );
+            }}
+            disabled={!bookingEnabled || isNavigating}
+            style={!bookingEnabled ? { background: 'var(--color-faint)', boxShadow: 'none', cursor: 'not-allowed' } : {}}
+          >
+            {!bookingEnabled
+              ? 'ثبت نوبت غیرفعال است'
+              : isNavigating
+                ? <>در حال بارگذاری<span className="btn-spinner" /></>
+                : isSignedIn ? 'گرفتن نوبت' : 'ورود / ثبت‌نام و گرفتن نوبت'}
+          </button>
+          {isSignedIn && (
+            <button className="btn-secondary" onClick={() => router.push('/appointments')}>
+              <Icon name="calendar" size={18} />
+              نوبت‌های من
+            </button>
+          )}
+        </div>
       </div>
 
     </div>

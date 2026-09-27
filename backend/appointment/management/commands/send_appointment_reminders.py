@@ -40,6 +40,7 @@ from django.utils import timezone
 from accounting import usage
 from api.jalali import format_datetime
 from appointment.models import Appointment
+from business import reminder_templates
 from business.models import Business
 
 # Statuses worth reminding about: the appointment is live and still expected.
@@ -303,11 +304,15 @@ class Command(BaseCommand):
         if not phone:
             return 'skipped'
 
-        owner_id = appointment.business.user_id
-        message = signed(
-            f"⏰ یادآوری نوبت شما در {appointment.business.title}\n"
-            f"تاریخ: {format_datetime(appointment.appointment_date)}"
-        )
+        business = appointment.business
+        owner_id = business.user_id
+        message = signed(reminder_templates.render(
+            business.reminder_template,
+            visitor_name=appointment.visitor.full_name,
+            business_title=business.title,
+            appointment_date=appointment.appointment_date,
+            minutes_before=business.notification_minutes_before,
+        ))
 
         receipt = usage.consume_sms(owner_id)
         if not receipt:

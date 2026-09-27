@@ -183,6 +183,8 @@ android {
         // the buildkonfig{} block instead.
         buildConfigField("String", "BASE_URL", "\"https://api.noobatyar.ir\"")
         buildConfigField("String", "BOOKING_BASE_URL", "\"https://app.noobatyar.ir\"")
+        buildConfigField("String", "STORE", "\"site\"")
+        buildConfigField("String", "MYKET_IAB_PUBLIC_KEY", "\"\"")
     }
 
     // "prod" talks to the real server and is what release builds/CI use by
@@ -201,8 +203,39 @@ android {
     // BuildKonfig's un-flavored `defaultConfigs { }` — i.e. the production
     // URL — regardless of which Android flavor it was. AGP's own
     // buildConfigField, by contrast, genuinely varies per product flavor.
-    flavorDimensions += "env"
+    // "store" decides how plans and packs are paid for. "site" (the APK on
+    // noobatyar.ir and Telegram) and "bazaar" (uploaded to Cafe Bazaar) use
+    // the Zibal gateway. "myket" is the build
+    // uploaded to Myket, which requires its own in-app billing for digital
+    // products and rejects apps that send users to a bank gateway — see
+    // core/billing/ and accounting/payment/myket.py on the server.
+    flavorDimensions += listOf("env", "store")
     productFlavors {
+        create("site") {
+            dimension = "store"
+        }
+        create("bazaar") {
+            dimension = "store"
+            buildConfigField("String", "STORE", "\"bazaar\"")
+        }
+        create("myket") {
+            dimension = "store"
+            buildConfigField("String", "STORE", "\"myket\"")
+            // The RSA key from Myket's panel (کلید عمومی). Public by design —
+            // it only verifies Myket's signatures — so it lives here: without
+            // it IabHelper drops every paid purchase as "signature verification
+            // FAILED" and the app never tells the server. MYKET_IAB_PUBLIC_KEY
+            // (CI secret) or -PmyketIabPublicKey override it if it ever changes.
+            val myketKey = System.getenv("MYKET_IAB_PUBLIC_KEY")?.takeIf { it.isNotBlank() }
+                ?: (project.findProperty("myketIabPublicKey") as String?)?.takeIf { it.isNotBlank() }
+                ?: "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCT57YI5UlYVqFPzU2gwGgXlkV9IBDEwKGhrXw3W7cHZZiPuExrNOfm1c1zticeUMn+YXw3iEt+szd8h03kcvHM6iWfXxunxCXYD9XRLCAbQAC8wUYfeN2kRNuIab9A9ZSzKsc2rWQXR0X93zziIJToJ5/Z79OpfvfHrAapWxlXGwIDAQAB"
+            buildConfigField("String", "MYKET_IAB_PUBLIC_KEY", "\"$myketKey\"")
+            // Required by myket-billing-client's merged manifest.
+            val marketApplicationId = "ir.mservices.market"
+            manifestPlaceholders["marketApplicationId"] = marketApplicationId
+            manifestPlaceholders["marketBindAddress"] = "$marketApplicationId.InAppBillingService.BIND"
+            manifestPlaceholders["marketPermission"] = "$marketApplicationId.BILLING"
+        }
         create("prod") {
             dimension = "env"
         }
@@ -221,9 +254,14 @@ android {
             //   ./gradlew assembleLocalDebug -PlocalBaseUrl=http://127.0.0.1:8000
             // 127.0.0.1 works on any emulator (LDPlayer included, which has no
             // 10.0.2.2 alias) once `adb reverse tcp:8000 tcp:8000` is set up.
-            val localBaseUrl = (project.findProperty("localBaseUrl") as String?)
-                ?: "https://api.noobatyar.ir"
+            val localBaseUrlOverride = project.findProperty("localBaseUrl") as String?
+            val localBaseUrl = localBaseUrlOverride ?: "https://api.noobatyar.ir"
+            // Booking/share links follow the backend: pointed at a local API,
+            // they go to the local front_client (same host, `next dev`'s port
+            // 3000) rather than production. -PlocalBookingUrl still wins, and
+            // `adb reverse tcp:3000 tcp:3000` makes 127.0.0.1 reach it.
             val localBookingUrl = (project.findProperty("localBookingUrl") as String?)
+                ?: localBaseUrlOverride?.let { Regex(":\\d+$").replace(it.trimEnd('/'), "") + ":3000" }
                 ?: "https://app.noobatyar.ir"
             buildConfigField("String", "BASE_URL", "\"$localBaseUrl\"")
             buildConfigField("String", "BOOKING_BASE_URL", "\"$localBookingUrl\"")
@@ -298,6 +336,10 @@ dependencies {
     // Chucker
     debugImplementation(libs.chucker.library)
     releaseImplementation(libs.chucker.library.no.op)
+
+    // Myket in-app billing — only in the Myket build, so the site APK carries
+    // none of its manifest entries (billing permission, receiver, queries).
+    add("myketImplementation", "com.github.myketstore:myket-billing-client:1.19")
 
     // After running find ksp generated directories on: composeApp/build/generated/...
     add("kspAndroid", libs.androidx.room.compiler) // Android

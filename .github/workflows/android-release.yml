@@ -43,12 +43,14 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build signed release APK
-        # "prod" flavor only — mobile_owner/composeApp/build.gradle.kts also
-        # defines a "local" flavor for pointing at a dev backend (see
-        # docs/ENVIRONMENTS.md); assembleRelease (no flavor) would build both
-        # and land APKs under apk/{prod,local}/release instead of apk/release.
-        run: ./gradlew :composeApp:assembleProdRelease --no-daemon
+        # "prod" env only (build.gradle.kts also defines "local" for a dev
+        # backend, see docs/ENVIRONMENTS.md), in all store flavors: "site"
+        # (Zibal gateway — noobatyar.ir, Telegram), "bazaar" (Zibal gateway —
+        # uploaded to Cafe Bazaar by hand) and "myket" (Myket in-app billing —
+        # uploaded to Myket by hand).
+        run: ./gradlew :composeApp:assembleProdSiteRelease :composeApp:assembleProdBazaarRelease :composeApp:assembleProdMyketRelease --no-daemon
         env:
+          MYKET_IAB_PUBLIC_KEY: ${{ secrets.MYKET_IAB_PUBLIC_KEY }}
           ANDROID_KEYSTORE_PATH: release.keystore.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -64,18 +66,23 @@ jobs:
       - name: Rename split APKs
         id: apk
         run: |
-          OUT_DIR="composeApp/build/outputs/apk/prod/release"
-          DEST_DIR="composeApp/build/outputs/apk/prod/release/dist"
+          OUT_DIR="composeApp/build/outputs/apk/prodSite/release"
+          DEST_DIR="composeApp/build/outputs/apk/dist"
           mkdir -p "$DEST_DIR"
           VERSION="${{ steps.version.outputs.version_name }}"
           for f in "$OUT_DIR"/*.apk; do
             base=$(basename "$f" .apk)
-            # AGP names these composeApp-prod-arm64-v8a-release.apk and
-            # composeApp-prod-universal-release.apk (splits.abi.isUniversalApk
+            # AGP names these composeApp-prod-site-arm64-v8a-release.apk and
+            # composeApp-prod-site-universal-release.apk (splits.abi.isUniversalApk
             # makes "universal" an explicit abi name, not a special case)
-            arch=$(echo "$base" | sed -E 's/composeApp-prod-(.*)-release/\1/')
+            arch=$(echo "$base" | sed -E 's/composeApp-prod-site-(.*)-release/\1/')
             cp "$f" "$DEST_DIR/Noobatyar-Owner-${VERSION}-${arch}.apk"
           done
+          # Each store gets one universal APK of its own flavor.
+          cp composeApp/build/outputs/apk/prodBazaar/release/composeApp-prod-bazaar-universal-release.apk \
+            "$DEST_DIR/Noobatyar-Owner-${VERSION}-bazaar.apk"
+          cp composeApp/build/outputs/apk/prodMyket/release/composeApp-prod-myket-universal-release.apk \
+            "$DEST_DIR/Noobatyar-Owner-${VERSION}-myket.apk"
           echo "dir=mobile_owner/$DEST_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Extract Persian release notes
@@ -145,11 +152,94 @@ jobs:
           done
           exit $FAIL
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Noobatyar-Owner-${{ steps.version.outputs.version_name }}
-          path: ${{ steps.apk.outputs.dir }}/*.apk
+      - name: Upload APK to noobatyar.ir
+        # The WordPress download button on noobatyar.ir always requests a
+        # fixed URL under wp-content/uploads/android/Noobatyar-owner.apk, so
+        # deploying is just overwriting that file with the current universal
+        # build — no WordPress API/media-library involvement, and no trash
+        # step to worry about (that only applies to the WP media library).
+        # The FTP account is already jailed to that uploads/android
+        # directory, so the remote path is just the filename — an earlier
+        # version of this step used the full public_html/... path, which the
+        # server rejected (550/9: can't CWD above its own jail root).
+        # ftplib over curl: curl (--ftp-ssl-reqd) against this host silently
+        # truncated multi-MB uploads (timed out waiting for the transfer-done
+        # reply after the data connection had already dropped early) with no
+        # error surfaced beyond a generic response timeout; ftplib's
+        # storbinary reliably completes and lets us assert the byte count
+        # matches before declaring success — verified manually 2026-09-24.
+        # continue-on-error: the GitHub Release and Telegram send below are
+        # the real distribution channels; this WP mirror is a bonus and
+        # shouldn't block a release if the FTP host is misconfigured.
+        continue-on-error: true
+        working-directory: .
+        run: |
+          python3 - <<'PYEOF'
+          import ftplib, os, sys, time
+
+          host = os.environ["WP_FTP_HOST"]
+          port = int(os.environ["WP_FTP_PORT"])
+          user = os.environ["WP_FTP_USERNAME"]
+          password = os.environ["WP_FTP_PASSWORD"]
+          local_path = os.environ["APK_PATH"]
+          remote_name = "Noobatyar-owner.apk"
+          expected_size = os.path.getsize(local_path)
+
+          def connect():
+              ftps = ftplib.FTP_TLS(timeout=120)
+              ftps.connect(host, port)
+              ftps.auth()
+              ftps.login(user, password)
+              ftps.prot_p()
+              ftps.set_pasv(True)
+              return ftps
+
+          def remote_size():
+              ftps = connect()
+              try:
+                  return ftps.size(remote_name)
+              finally:
+                  try:
+                      ftps.quit()
+                  except Exception:
+                      pass
+
+          # This host sometimes drops the control connection right after the
+          # data transfer, before sending "226 complete" — the file is fully
+          # written but storbinary raises EOFError. So the upload's own reply
+          # is not trusted: the size is checked on a fresh connection, and
+          # only a genuinely short/missing file triggers a retry.
+          for attempt in range(1, 4):
+              try:
+                  ftps = connect()
+                  with open(local_path, "rb") as f:
+                      ftps.storbinary(f"STOR {remote_name}", f, blocksize=262144)
+                  try:
+                      ftps.quit()
+                  except Exception:
+                      pass
+              except (EOFError, OSError, ftplib.Error) as exc:
+                  print(f"attempt {attempt}: upload connection ended early ({exc!r}); verifying")
+              try:
+                  actual_size = remote_size()
+              except Exception as exc:
+                  actual_size = None
+                  print(f"attempt {attempt}: size check failed ({exc!r})")
+              if actual_size == expected_size:
+                  print(f"Uploaded {remote_name}: {actual_size} bytes, matches local file")
+                  sys.exit(0)
+              print(f"attempt {attempt}: remote size {actual_size} != {expected_size}")
+              time.sleep(5)
+
+          print("::error::APK upload to noobatyar.ir did not complete after 3 attempts", file=sys.stderr)
+          sys.exit(1)
+          PYEOF
+        env:
+          WP_FTP_HOST: ${{ secrets.WP_FTP_HOST }}
+          WP_FTP_PORT: ${{ secrets.WP_FTP_PORT }}
+          WP_FTP_USERNAME: ${{ secrets.WP_FTP_USERNAME }}
+          WP_FTP_PASSWORD: ${{ secrets.WP_FTP_PASSWORD }}
+          APK_PATH: ${{ steps.apk.outputs.dir }}/Noobatyar-Owner-${{ steps.version.outputs.version_name }}-universal.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

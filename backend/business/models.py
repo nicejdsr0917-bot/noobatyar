@@ -4,6 +4,8 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils.crypto import get_random_string
 
+from . import reminder_templates
+
 User = get_user_model()
 
 # How long a business description may be. Enforced by the serializer rather
@@ -144,10 +146,11 @@ class Business(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name='businesses',
-        help_text="Owner of this business"
+        help_text='مالک این کسب‌وکار',
+        verbose_name='کاربر',
     )
-    title = models.CharField(max_length=255)
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='OTHER', help_text="Business category")
+    title = models.CharField(max_length=255, verbose_name='عنوان')
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='OTHER', help_text='دسته‌بندی کسب‌وکار', verbose_name='دسته‌بندی')
     # The public identifier: /b/Noobatyar-<unique_code> resolves to this row.
     # Left blank it is generated as CODE_LENGTH random characters, but the field
     # is deliberately writable from the admin so a business can be given a
@@ -175,8 +178,9 @@ class Business(models.Model):
             'می‌شود. برای کد دلخواه تا ۶۴ کاراکتر مجاز است. توجه: تغییر کد، '
             'لینک‌های قبلیِ همین کسب‌وکار را از کار می‌اندازد.'
         ),
+        verbose_name='کد یکتا',
     )
-    phone = models.CharField(max_length=20)
+    phone = models.CharField(max_length=20, verbose_name='تلفن')
     # Additional contact numbers, beyond the primary `phone`. Kept separate
     # rather than turning `phone` itself into a list: `phone` is read as a
     # single string in far too many places (SMS delivery, the moderation
@@ -185,27 +189,29 @@ class Business(models.Model):
     # once there is more than one — it is simply no longer the *only* one.
     extra_phones = models.JSONField(
         default=list, blank=True,
-        help_text="Additional contact numbers, normalized the same way as `phone`",
+        help_text='شماره‌های تماس دیگر، با همان قالب «تلفن»',
+        verbose_name='شماره‌های دیگر',
     )
-    address = models.TextField()
+    address = models.TextField(verbose_name='نشانی')
     # TextField, not CharField, because this cap has now moved twice (50 → 300
     # → 1500) and every move cost a migration for a value that is really a
     # product decision. The column is now unbounded and BIO_MAX_LENGTH is
     # enforced in the serializer instead, so the next change is a one-line edit
     # — the clients (owner app's input counter, client web's "درباره" card)
     # read the same number.
-    bio = models.TextField(blank=True, null=True)
-    logo = models.ImageField(upload_to='business_logos/', blank=True, null=True, help_text="Business logo image")
+    bio = models.TextField(blank=True, null=True, verbose_name='درباره')
+    logo = models.ImageField(upload_to='business_logos/', blank=True, null=True, help_text='تصویر لوگوی کسب‌وکار', verbose_name='لوگو')
     # Header colour derived from `logo` at save time — see business/theme_color.py
     # for why this is computed here rather than sampled in the browser. Blank
     # means "never computed"; the clients fall back to the brand purple.
     theme_color = models.CharField(
         max_length=7, blank=True, default='',
-        help_text="Hex colour derived from the logo, used as the public header background",
+        help_text='رنگ هگز برگرفته از لوگو، برای پس‌زمینه‌ی سربرگ صفحه‌ی عمومی',
+        verbose_name='رنگ قالب',
     )
-    default_service_duration = models.IntegerField(help_text="Default duration in minutes")
-    work_start_hour = models.IntegerField(help_text="0-23")
-    work_end_hour = models.IntegerField(help_text="0-23")
+    default_service_duration = models.IntegerField(help_text='مدت پیش‌فرض به دقیقه', verbose_name='مدت پیش‌فرض خدمت (دقیقه)')
+    work_start_hour = models.IntegerField(help_text="0-23", verbose_name='ساعت شروع کار')
+    work_end_hour = models.IntegerField(help_text="0-23", verbose_name='ساعت پایان کار')
     # Minute component of work_start_hour/work_end_hour, e.g. 19:30 is
     # work_end_hour=19, work_end_minute=30. Separate fields rather than
     # folding into a single "minutes since midnight" column: work_start_hour/
@@ -213,8 +219,8 @@ class Business(models.Model):
     # (validation, display), and every existing business's data stays valid
     # and correct with minute=0 — no data migration needed for the ~14
     # businesses that predate this field.
-    work_start_minute = models.IntegerField(default=0, help_text="0-59")
-    work_end_minute = models.IntegerField(default=0, help_text="0-59")
+    work_start_minute = models.IntegerField(default=0, help_text="0-59", verbose_name='دقیقه‌ی شروع کار')
+    work_end_minute = models.IntegerField(default=0, help_text="0-59", verbose_name='دقیقه‌ی پایان کار')
     # Weekly recurring days off (e.g. every Friday) — NOT specific calendar
     # dates. Stored as Python's date.weekday() ints (Monday=0 .. Sunday=6) so
     # backend code can test membership with `date.weekday() in closed_weekdays`
@@ -231,20 +237,23 @@ class Business(models.Model):
     # cancel a commitment already made.
     closed_weekdays = models.JSONField(
         default=list, blank=True,
-        help_text="Weekly days off as date.weekday() ints (Mon=0..Sun=6), e.g. [4] for every Friday",
+        help_text='روزهای تعطیل هفته به‌صورت عدد (دوشنبه=۰ … یکشنبه=۶)، مثلاً [4] برای جمعه',
+        verbose_name='روزهای تعطیل',
     )
-    notification_enabled = models.BooleanField(default=True)
+    notification_enabled = models.BooleanField(default=True, verbose_name='اعلان فعال')
     notification_types = models.CharField(
         max_length=100,
         default='SMS',
-        help_text="Comma-separated: SMS,WHATSAPP,TELEGRAM"
+        help_text='با ویرگول جدا کنید: SMS,WHATSAPP,TELEGRAM',
+        verbose_name='انواع اعلان',
     )
-    notification_minutes_before = models.IntegerField(default=30)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    notification_minutes_before = models.IntegerField(default=30, verbose_name='یادآوری (دقیقه قبل)')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
     allow_anonymous_view = models.BooleanField(
         default=True,
-        help_text="If True, guests can view contact details (phone, address, etc.)"
+        help_text='اگر روشن باشد، بازدیدکننده‌ها اطلاعات تماس (تلفن، نشانی و …) را می‌بینند',
+        verbose_name='نمایش عمومی',
     )
 
     # ── Subscription-driven lock (graceful downgrade) ──────────────────────
@@ -254,7 +263,8 @@ class Business(models.Model):
     is_locked = models.BooleanField(
         default=False,
         db_index=True,
-        help_text="If True, this business is locked due to subscription limits (data kept, but hidden/read-only)."
+        help_text='اگر روشن باشد، کسب‌وکار به‌دلیل محدودیت اشتراک قفل است (داده‌ها حفظ می‌شوند ولی پنهان/فقط‌خواندنی‌اند).',
+        verbose_name='قفل‌شده',
     )
 
     # ── Client-facing notice & booking control ────────────────────────────
@@ -265,7 +275,8 @@ class Business(models.Model):
     # to close their calendar just to say a sentence.
     notice_enabled = models.BooleanField(
         default=False,
-        help_text="If True, notice_message is shown to clients on the booking page"
+        help_text='اگر روشن باشد، پیام اضطراری در صفحه‌ی نوبت‌دهی نشان داده می‌شود',
+        verbose_name='پیام اضطراری فعال',
     )
     # CharField, not TextField: this is rendered inside a fixed banner on the
     # booking page and an unbounded text field let an owner paste an essay that
@@ -275,11 +286,13 @@ class Business(models.Model):
         max_length=300,
         blank=True,
         default='',
-        help_text="A short notice shown to clients on the booking page (max 300 chars)"
+        help_text='پیام کوتاهی که در صفحه‌ی نوبت‌دهی به مشتری نشان داده می‌شود (حداکثر ۳۰۰ نویسه)',
+        verbose_name='متن پیام اضطراری',
     )
     booking_enabled = models.BooleanField(
         default=True,
-        help_text="If False, clients cannot create new appointments"
+        help_text='اگر خاموش باشد، مشتری نمی‌تواند نوبت جدید بگیرد',
+        verbose_name='نوبت‌دهی فعال',
     )
 
     # ── Service menu ──────────────────────────────────────────────────────
@@ -299,7 +312,8 @@ class Business(models.Model):
     services = models.JSONField(
         default=list,
         blank=True,
-        help_text="Service names this business offers, e.g. ['کوتاهی مو', 'رنگ مو']"
+        help_text="خدماتی که این کسب‌وکار ارائه می‌دهد، مثلاً ['کوتاهی مو', 'رنگ مو']",
+        verbose_name='خدمات',
     )
     # Off by default: the owner's menu is what makes a client's answer usable,
     # and a free "+" for clients quietly reintroduces the free-text mess this
@@ -308,7 +322,8 @@ class Business(models.Model):
     # only — it never edits the owner's menu.
     allow_client_add_service = models.BooleanField(
         default=False,
-        help_text="If True, clients may add a service name that is not on the business's menu"
+        help_text='اگر روشن باشد، مشتری می‌تواند خدمتی خارج از فهرست کسب‌وکار اضافه کند',
+        verbose_name='امکان افزودن خدمت توسط مشتری',
     )
 
     # ── Payment configuration ─────────────────────────────────────────────
@@ -321,7 +336,8 @@ class Business(models.Model):
         max_length=10,
         choices=PAYMENT_METHOD_CHOICES,
         default='NONE',
-        help_text="How clients are charged when booking (Legacy)"
+        help_text='روش پرداخت مشتری هنگام رزرو (قدیمی)',
+        verbose_name='روش پرداخت',
     )
     def _default_payment_methods():
         # Pay-at-location costs the owner nothing to offer and needs no setup
@@ -335,14 +351,16 @@ class Business(models.Model):
     accepted_payment_methods = models.JSONField(
         default=_default_payment_methods,
         blank=True,
-        help_text="List of accepted payment methods e.g. ['ONLINE', 'CARD', 'CASH']"
+        help_text="فهرست روش‌های پرداخت پذیرفته، مثلاً ['ONLINE', 'CARD', 'CASH']",
+        verbose_name='روش‌های پرداخت پذیرفته',
     )
 
     # ── Advanced Capacity & Deposit Settings ───────────────────────────────
     max_appointments_per_hour = models.IntegerField(
         null=True,
         blank=True,
-        help_text="Maximum concurrent appointments per hour. Null means unlimited."
+        help_text='حداکثر نوبت هم‌زمان در هر ساعت؛ خالی یعنی نامحدود.',
+        verbose_name='حداکثر نوبت در ساعت',
     )
     
     DEPOSIT_MODE_CHOICES = [
@@ -354,45 +372,53 @@ class Business(models.Model):
         max_length=20,
         choices=DEPOSIT_MODE_CHOICES,
         default='NONE',
-        help_text="Deposit requirement mode"
+        help_text='الزام دریافت بیعانه',
+        verbose_name='حالت بیعانه',
     )
     deposit_amount = models.PositiveIntegerField(
         default=0,
-        help_text="Deposit amount in Toman"
+        help_text='مبلغ بیعانه به تومان',
+        verbose_name='مبلغ بیعانه',
     )
 
     merchant_id = models.CharField(
         max_length=100,
         blank=True,
         default='',
-        help_text="Zibal merchant ID — required when payment_method=GATEWAY"
+        help_text='شناسه پذیرنده زیبال — برای پرداخت از درگاه لازم است',
+        verbose_name='شناسه پذیرنده زیبال',
     )
     payment_link = models.URLField(
         blank=True,
         default='',
-        help_text="Direct payment link (e.g. zarinpal.com/pay/...)"
+        help_text='لینک مستقیم پرداخت (مثلاً zarinpal.com/pay/...)',
+        verbose_name='لینک پرداخت',
     )
     card_number = models.CharField(
         max_length=19,
         blank=True,
         default='',
-        help_text="Owner's card number shown to clients — required when payment_method=CARD"
+        help_text='شماره کارت مالک که به مشتری نشان داده می‌شود — برای پرداخت کارت‌به‌کارت لازم است',
+        verbose_name='شماره کارت',
     )
     card_owner_name = models.CharField(
         max_length=100,
         blank=True,
         default='',
-        help_text="Name on the card, displayed alongside card_number"
+        help_text='نام روی کارت، کنار شماره کارت نمایش داده می‌شود',
+        verbose_name='نام صاحب کارت',
     )
 
     # ── SMS preferences ───────────────────────────────────────────────────
     enable_reminder_sms = models.BooleanField(
         default=True,
-        help_text="Send appointment reminder SMS to clients"
+        help_text='ارسال پیامک یادآوری نوبت به مشتریان',
+        verbose_name='پیامک یادآوری فعال',
     )
     enable_promotional_sms = models.BooleanField(
         default=False,
-        help_text="Allow sending promotional/marketing SMS to clients"
+        help_text='اجازه‌ی ارسال پیامک تبلیغاتی به مشتریان',
+        verbose_name='پیامک تبلیغاتی فعال',
     )
     notify_owner_by_sms = models.BooleanField(
         default=False,
@@ -401,7 +427,8 @@ class Business(models.Model):
             "meant to learn about a booking from the app's own notification, "
             "not from an SMS billed to their own quota. Left switchable for "
             "owners who explicitly want to pay for it."
-        )
+        ),
+        verbose_name='پیامک به مالک',
     )
 
     # ── Reminder delivery channel ─────────────────────────────────────────
@@ -421,7 +448,17 @@ class Business(models.Model):
         max_length=10,
         choices=REMINDER_DELIVERY_CHOICES,
         default='MANUAL',
-        help_text="How appointment reminders reach clients: owner's SIM (free) or SMS panel (paid)"
+        help_text='روش رسیدن یادآوری به مشتری: سیم‌کارت مالک (رایگان) یا پنل پیامکی (پولی)',
+        verbose_name='روش ارسال یادآوری',
+    )
+    # Which fixed wording a PANEL reminder uses — see business/reminder_templates.py
+    # for why the owner picks one instead of writing their own.
+    reminder_template = models.CharField(
+        max_length=20,
+        choices=reminder_templates.CHOICES,
+        default=reminder_templates.DEFAULT_TEMPLATE,
+        help_text='متن پیامک یادآوری پنل (فقط قالب‌های ثابت)',
+        verbose_name='قالب یادآوری',
     )
 
     # ── Content moderation ────────────────────────────────────────────────
@@ -448,12 +485,14 @@ class Business(models.Model):
         choices=MODERATION_STATUS_CHOICES,
         default=MODERATION_PENDING,
         db_index=True,
-        help_text="Editorial review state. Only APPROVED is publicly visible.",
+        help_text='وضعیت بررسی محتوا؛ فقط «تأیید شده» عمومی نمایش داده می‌شود.',
+        verbose_name='وضعیت بررسی',
     )
     moderation_note = models.TextField(
         blank=True,
         default='',
-        help_text="Reviewer's reason for rejection/suspension. Shown to the owner.",
+        help_text='دلیل رد یا تعلیق از طرف بررسی‌کننده؛ به مالک نشان داده می‌شود.',
+        verbose_name='یادداشت بررسی',
     )
     moderation_reviewed_by = models.ForeignKey(
         User,
@@ -461,21 +500,23 @@ class Business(models.Model):
         null=True,
         blank=True,
         related_name='moderated_businesses',
-        help_text="Staff member who last decided this business's status.",
+        help_text='آخرین کارمندی که درباره‌ی وضعیت این کسب‌وکار تصمیم گرفته.',
+        verbose_name='بررسی‌کننده',
     )
-    moderation_reviewed_at = models.DateTimeField(null=True, blank=True)
+    moderation_reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name='زمان بررسی')
     moderation_submitted_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="When this business last entered the review queue. Drives "
-                  "queue ordering (oldest waiting first).",
+        help_text="آخرین زمان ورود این کسب‌وکار به صف بررسی؛ ترتیب صف بر همین "
+                  "اساس است (قدیمی‌ترین اول).",
+                  verbose_name='زمان ارسال برای بررسی',
     )
     # Set once, the first time this business is ever approved, and never
     # cleared afterwards. Distinguishes "still waiting for its first review"
     # (nothing publicly true yet — stay hidden) from "already live, an edit
     # just sent it back for re-review" (the old, approved copy is still true
     # and should keep showing — see pending_* below).
-    first_approved_at = models.DateTimeField(null=True, blank=True)
+    first_approved_at = models.DateTimeField(null=True, blank=True, verbose_name='اولین تأیید')
 
     # ── Staged edits, pending re-review ─────────────────────────────────────
     # Once a business has been approved at least once, an edit to a
@@ -485,16 +526,18 @@ class Business(models.Model):
     # moderator gets to it. A moderator's APPROVED decision (moderation.py)
     # copies these onto the live fields and clears them; a REJECTED decision
     # leaves them so the owner's next edit still has something to start from.
-    pending_title = models.CharField(max_length=255, null=True, blank=True)
+    pending_title = models.CharField(max_length=255, null=True, blank=True, verbose_name='عنوان در انتظار بررسی')
     # Mirrors `bio`'s type exactly: a moderated edit holds the same text, so a
     # tighter column here would silently truncate an edit that was valid when
     # the owner submitted it, and only for businesses that happen to be under
     # review.
-    pending_bio = models.TextField(null=True, blank=True)
-    pending_address = models.TextField(null=True, blank=True)
-    pending_logo = models.ImageField(upload_to='business_logos/', null=True, blank=True)
+    pending_bio = models.TextField(null=True, blank=True, verbose_name='درباره‌ی در انتظار بررسی')
+    pending_address = models.TextField(null=True, blank=True, verbose_name='نشانی در انتظار بررسی')
+    pending_logo = models.ImageField(upload_to='business_logos/', null=True, blank=True, verbose_name='لوگوی در انتظار بررسی')
 
     class Meta:
+        verbose_name = 'کسب‌وکار'
+        verbose_name_plural = 'کسب‌وکارها'
         db_table = 'business'
         ordering = ['-created_at']
         indexes = [
@@ -648,22 +691,26 @@ class BusinessModerationLog(models.Model):
 
     business = models.ForeignKey(
         Business, on_delete=models.CASCADE, related_name='moderation_logs',
+        verbose_name='کسب‌وکار',
     )
-    from_status = models.CharField(max_length=20, blank=True, default='')
-    to_status = models.CharField(max_length=20)
-    note = models.TextField(blank=True, default='')
+    from_status = models.CharField(max_length=20, blank=True, default='', verbose_name='از وضعیت')
+    to_status = models.CharField(max_length=20, verbose_name='به وضعیت')
+    note = models.TextField(blank=True, default='', verbose_name='یادداشت')
     # SET_NULL, not CASCADE: the decision has to outlive the staff account that
     # made it, otherwise offboarding a moderator erases the audit trail.
     actor = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='moderation_actions',
+        verbose_name='انجام‌دهنده',
     )
     # Snapshot of MODERATED_FIELDS at decision time, so the log still explains
     # itself after the owner edits the business.
-    snapshot = models.JSONField(default=dict, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    snapshot = models.JSONField(default=dict, blank=True, verbose_name='نسخه‌ی ذخیره‌شده')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
 
     class Meta:
+        verbose_name = 'سابقه‌ی بررسی'
+        verbose_name_plural = 'سوابق بررسی'
         db_table = 'business_moderation_log'
         ordering = ['-created_at']
         indexes = [
@@ -691,13 +738,15 @@ class BannedKeyword(models.Model):
         (SEVERITY_HIGH, 'زیاد — بررسی فوری'),
     ]
 
-    term = models.CharField(max_length=100, unique=True, db_index=True)
-    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default=SEVERITY_LOW)
-    note = models.CharField(max_length=255, blank=True, default='', help_text="چرا این کلمه اضافه شده")
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    term = models.CharField(max_length=100, unique=True, db_index=True, verbose_name='عبارت')
+    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default=SEVERITY_LOW, verbose_name='شدت')
+    note = models.CharField(max_length=255, blank=True, default='', help_text="چرا این کلمه اضافه شده", verbose_name='یادداشت')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
 
     class Meta:
+        verbose_name = 'کلمه‌ی ممنوع'
+        verbose_name_plural = 'کلمات ممنوع'
         db_table = 'banned_keyword'
         ordering = ['term']
 
@@ -736,27 +785,32 @@ class ContentReport(models.Model):
 
     business = models.ForeignKey(
         Business, on_delete=models.CASCADE, related_name='content_reports',
+        verbose_name='کسب‌وکار',
     )
-    reason = models.CharField(max_length=20, choices=REASON_CHOICES)
-    detail = models.TextField(blank=True, default='')
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES, verbose_name='دلیل')
+    detail = models.TextField(blank=True, default='', verbose_name='جزئیات')
     reporter_user = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='filed_reports',
+        verbose_name='کاربر گزارش‌دهنده',
     )
     reporter_visitor = models.ForeignKey(
         'visitor.Visitor', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='filed_reports',
+        verbose_name='مشتری گزارش‌دهنده',
     )
-    reporter_phone = models.CharField(max_length=20, blank=True, default='')
+    reporter_phone = models.CharField(max_length=20, blank=True, default='', verbose_name='تلفن گزارش‌دهنده')
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default=STATUS_NEW, db_index=True,
+        verbose_name='وضعیت',
     )
-    resolution_note = models.TextField(blank=True, default='')
+    resolution_note = models.TextField(blank=True, default='', verbose_name='یادداشت رسیدگی')
     resolved_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='resolved_reports',
+        verbose_name='رسیدگی‌کننده',
     )
-    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True, verbose_name='زمان رسیدگی')
     # Set only when resolving this report was a side effect of a moderation
     # decision (suspending/rejecting the business it names) rather than some
     # other resolution — a warning email, a phone call, dismissal as
@@ -766,10 +820,13 @@ class ContentReport(models.Model):
     resulting_moderation_log = models.ForeignKey(
         BusinessModerationLog, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='resolved_reports',
+        verbose_name='سابقه‌ی بررسی مرتبط',
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
 
     class Meta:
+        verbose_name = 'گزارش تخلف'
+        verbose_name_plural = 'گزارش‌های تخلف'
         db_table = 'content_report'
         ordering = ['-created_at']
         indexes = [
@@ -801,7 +858,7 @@ class ServiceCatalogItem(models.Model):
         max_length=50,
         choices=Business.CATEGORY_CHOICES,
         db_index=True,
-        help_text="Shared across every business in this category"
+        help_text='مشترک بین همه‌ی کسب‌وکارهای این دسته'
     )
     name = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -821,3 +878,88 @@ class ServiceCatalogItem(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.category})"
+
+
+class PromoCampaign(models.Model):
+    """One promotional SMS blast an owner sent to their own customers.
+
+    The owner's counterpart to the platform's own campaigns in core/: the
+    message goes out of the same advertising line, is billed to the owner's
+    SMS quota (monthly allowance, then wallet) like every other message they
+    choose to send, and each attempt is also written to ``visitor.SmsLog`` so
+    the SMS report reconciles against what was charged. See
+    business/promo_sms.py for the send flow.
+    """
+
+    AUDIENCE_CHOICES = [
+        ('all', 'همه‌ی مشتری‌ها'),
+        ('recent', 'مراجعه در ۳۰ روز اخیر'),
+        ('inactive', 'بیش از ۶۰ روز مراجعه نکرده‌اند'),
+    ]
+    STATUS_CHOICES = [
+        ('SENDING', 'در حال ارسال'),
+        ('DONE', 'ارسال شد'),
+    ]
+
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='promo_campaigns')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES)
+    # What the owner typed, before {name} substitution and before the footer
+    # and لغو11 are appended.
+    message = models.TextField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='SENDING')
+    recipient_count = models.PositiveIntegerField(default=0)
+    # Billed SMS parts reserved at creation — what the owner was shown before
+    # confirming, kept so the history can say what they agreed to.
+    total_parts = models.PositiveIntegerField(default=0)
+    sent_count = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Touched after every recipient by the live sender, so the resume command
+    # can tell a sender that died from one that is simply still working
+    # through a long list.
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'business_promo_campaign'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.business_id} · {self.get_audience_display()} · {self.sent_count}/{self.recipient_count}"
+
+
+class PromoCampaignRecipient(models.Model):
+    """One person in a PromoCampaign, with the exact text they get.
+
+    Rows are created up front (status PENDING) and then claimed one at a time
+    by the sender, so a send interrupted by a restart can be resumed by
+    ``python manage.py send_promo_campaigns`` without anyone getting it twice.
+    """
+
+    STATUS_CHOICES = [
+        ('PENDING', 'در صف'),
+        ('SENDING', 'در حال ارسال'),
+        ('SENT', 'ارسال شد'),
+        ('FAILED', 'ناموفق'),
+        ('SKIPPED_QUOTA', 'اعتبار کافی نبود'),
+    ]
+
+    campaign = models.ForeignKey(PromoCampaign, on_delete=models.CASCADE, related_name='recipients')
+    visitor = models.ForeignKey('visitor.Visitor', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    name = models.CharField(max_length=255, blank=True, default='')
+    phone = models.CharField(max_length=20)
+    # Final text as sent (signed, with footer and لغو11), and its billed parts.
+    text = models.TextField()
+    parts = models.PositiveSmallIntegerField(default=1)
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='PENDING', db_index=True)
+    error_detail = models.TextField(blank=True, default='')
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'business_promo_campaign_recipient'
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.phone} · {self.status}"

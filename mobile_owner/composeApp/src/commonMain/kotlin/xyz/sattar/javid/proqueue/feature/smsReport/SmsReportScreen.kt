@@ -1,54 +1,88 @@
 package xyz.sattar.javid.proqueue.feature.smsReport
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.Storefront
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
-import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
-import xyz.sattar.javid.proqueue.core.ui.WindowSize
-import xyz.sattar.javid.proqueue.core.ui.components.AppScaffold
-import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
 import xyz.sattar.javid.proqueue.core.ui.components.EmptyState
 import xyz.sattar.javid.proqueue.core.ui.components.ListItemShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
-import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogSummaryDto
-import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogStatus
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogSummaryDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogVisitorDto
+
+private val Amber = Color(0xFFF59E0B)
+private val Green = Color(0xFF10B981)
+private val HeroViolets = listOf(Color(0xFF6D28D9), Color(0xFF8B5CF6), Color(0xFFA855F7))
 
 /** Longest preview shown in a row before the message is cut with an ellipsis. */
-private const val MESSAGE_PREVIEW_LENGTH = 90
+private const val MESSAGE_PREVIEW_LENGTH = 110
 
+private fun Int.fa() = toString().toPersianDigits()
+
+/**
+ * Everything the platform sent to customers on this business's behalf, per
+ * channel (SMS — billed — and push — free).
+ *
+ * Layout: search lives in the top bar (where every list screen keeps it), the
+ * channel switch sits right under it, and the month summary + filters scroll
+ * away with the list instead of permanently eating half the screen.
+ */
 @Composable
 fun SmsReportScreen(
     viewModel: SmsReportViewModel = koinViewModel(),
@@ -58,32 +92,28 @@ fun SmsReportScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
 
-    LaunchedEffect(Unit) {
-        viewModel.sendIntent(SmsReportIntent.Load)
-    }
+    LaunchedEffect(Unit) { viewModel.sendIntent(SmsReportIntent.Load) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let { snackbarHostState.showSnackbar(it) }
     }
 
-    // Same trigger the visitor list uses: fire once the tail comes into view.
-    // canLoadMore/logs are read per-channel — pushCanLoadMore/pushLogs while
-    // the push tab is selected — since the two lists paginate independently.
+    // Fire once the tail comes into view; per channel, since the two ledgers
+    // paginate independently.
     val shouldLoadMore = remember {
         derivedStateOf {
             val total = listState.layoutInfo.totalItemsCount
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             val canLoadMore = if (uiState.channel == ReportChannel.SMS) uiState.canLoadMore else uiState.pushCanLoadMore
             canLoadMore && !uiState.isLoading && !uiState.isPaginating &&
-                    total > 0 && lastVisible >= total - 3
+                total > 0 && lastVisible >= total - 3
         }
     }
-
     LaunchedEffect(shouldLoadMore.value) {
         if (shouldLoadMore.value) viewModel.sendIntent(SmsReportIntent.LoadMore)
     }
 
-    SmsReportScreenContent(
+    ReportContent(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
         listState = listState,
@@ -92,963 +122,524 @@ fun SmsReportScreen(
     )
 }
 
-/**
- * Picks the layout by window width. Compact keeps the existing phone screen
- * (stacked quota card + list of message cards) untouched; anything wider
- * gets the desktop layout — see [SmsReportWebContent].
- */
 @Composable
-fun SmsReportScreenContent(
+private fun ReportContent(
     uiState: SmsReportState,
     snackbarHostState: SnackbarHostState,
     listState: LazyListState,
     onNavigateBack: () -> Unit,
     onIntent: (SmsReportIntent) -> Unit
 ) {
-    if (LocalWindowSize.current == WindowSize.Compact) {
-        SmsReportPhoneContent(uiState, snackbarHostState, listState, onNavigateBack, onIntent)
-    } else {
-        SmsReportWebContent(uiState, snackbarHostState, listState, onNavigateBack, onIntent)
-    }
-}
-
-/**
- * Phone layout — unchanged. Quota as its own stacked card, filters below it,
- * then a column of full-width message cards. See [SmsReportWebContent] for
- * the desktop header + table.
- */
-@Composable
-private fun SmsReportPhoneContent(
-    uiState: SmsReportState,
-    snackbarHostState: SnackbarHostState,
-    listState: LazyListState,
-    onNavigateBack: () -> Unit,
-    onIntent: (SmsReportIntent) -> Unit
-) {
-    Scaffold(
-        snackbarHost = { ToastyHost(hostState = snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(Res.string.sms_report_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            ChannelTabRow(
-                selected = uiState.channel,
-                onSelect = { onIntent(SmsReportIntent.SelectChannel(it)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-
-            if (uiState.channel == ReportChannel.SMS) {
-                uiState.summary?.let { summary ->
-                    SmsQuotaCard(
-                        summary = summary,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
-            } else {
-                uiState.pushSummary?.let { summary ->
-                    PushSummaryCard(
-                        summary = summary,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
-            }
-
-            SearchField(
-                query = uiState.searchQuery,
-                onQueryChange = { onIntent(SmsReportIntent.SetSearchQuery(it)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            StatusFilterRow(
-                channel = uiState.channel,
-                selected = uiState.statusFilter,
-                onSelect = { onIntent(SmsReportIntent.SetStatusFilter(it)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            DateRangeFilterRow(
-                selected = uiState.dateRangeFilter,
-                onSelect = { onIntent(SmsReportIntent.SetDateRangeFilter(it)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (uiState.channel == ReportChannel.SMS) {
-                SmsReportListBody(
-                    uiState = uiState,
-                    listState = listState,
-                    onIntent = onIntent,
-                    rowContent = { log -> SmsLogRow(log) }
-                )
-            } else {
-                PushReportListBody(
-                    uiState = uiState,
-                    listState = listState,
-                    onIntent = onIntent,
-                    rowContent = { log -> PushLogRow(log) }
-                )
-            }
-        }
-    }
-}
-
-/**
- * Desktop layout. The quota summary moves from a stacked card into a
- * horizontal header band — it reads as page-level context ("here's your
- * account status") rather than one card among equals. Filters sit in a
- * single row since there's now room. The log itself becomes a table: a
- * column-header row followed by table-style rows instead of full-width
- * message cards, which is the shape a long, scannable log wants at desktop
- * width. Loading/empty/error states and pagination are the exact same
- * [SmsReportListBody] used by [SmsReportPhoneContent] — only [rowContent]
- * differs.
- */
-@Composable
-private fun SmsReportWebContent(
-    uiState: SmsReportState,
-    snackbarHostState: SnackbarHostState,
-    listState: LazyListState,
-    onNavigateBack: () -> Unit,
-    onIntent: (SmsReportIntent) -> Unit
-) {
-    val isExpanded = LocalWindowSize.current == WindowSize.Expanded
+    var searching by rememberSaveable { mutableStateOf(uiState.searchQuery.isNotEmpty()) }
+    val smsEmptySubtitle = stringResource(Res.string.sms_report_empty_subtitle)
+    val errorTitle = stringResource(Res.string.sms_report_error_title)
+    val retryLabel = stringResource(Res.string.sms_report_retry)
 
     Scaffold(
         snackbarHost = { ToastyHost(hostState = snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(Res.string.sms_report_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+            Column(Modifier.background(MaterialTheme.colorScheme.background)) {
+                TopAppBar(
+                    title = {
+                        AnimatedContent(
+                            targetState = searching,
+                            transitionSpec = { fadeIn() togetherWith fadeOut() },
+                            label = "search-toggle"
+                        ) { isSearching ->
+                            if (isSearching) {
+                                SearchBarField(
+                                    query = uiState.searchQuery,
+                                    onQueryChange = { onIntent(SmsReportIntent.SetSearchQuery(it)) }
+                                )
+                            } else {
+                                Text(
+                                    stringResource(Res.string.sms_report_title),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            if (searching && uiState.searchQuery.isNotEmpty()) {
+                                onIntent(SmsReportIntent.SetSearchQuery(""))
+                            }
+                            searching = !searching
+                        }) {
+                            Icon(
+                                if (searching) Icons.Rounded.Close else Icons.Rounded.Search,
+                                contentDescription = stringResource(
+                                    if (searching) Res.string.sms_report_search_clear
+                                    else Res.string.sms_report_search_placeholder
+                                )
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
                 )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { paddingValues ->
-        AppScaffold(
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
-            maxWidth = if (isExpanded) ContentWidth.Wide else ContentWidth.List
-        ) {
-            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                ChannelTabRow(
+                ChannelSwitch(
                     selected = uiState.channel,
                     onSelect = { onIntent(SmsReportIntent.SelectChannel(it)) },
-                    modifier = Modifier.widthIn(max = ContentWidth.Form)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (uiState.channel == ReportChannel.SMS) {
-                    uiState.summary?.let { summary ->
-                        SmsQuotaHeader(summary = summary, modifier = Modifier.fillMaxWidth())
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-                } else {
-                    uiState.pushSummary?.let { summary ->
-                        PushSummaryHeader(summary = summary, modifier = Modifier.fillMaxWidth())
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-                }
-
-                // The search field gets a width cap of its own (ContentWidth.Form)
-                // rather than stretching to the full 1100dp column — a search box
-                // that wide reads oddly even where the table below it is wide.
-                SearchField(
-                    query = uiState.searchQuery,
-                    onQueryChange = { onIntent(SmsReportIntent.SetSearchQuery(it)) },
-                    modifier = Modifier.widthIn(max = ContentWidth.Form).fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    StatusFilterRow(
-                        channel = uiState.channel,
-                        selected = uiState.statusFilter,
-                        onSelect = { onIntent(SmsReportIntent.SetStatusFilter(it)) }
-                    )
-                    DateRangeFilterRow(
-                        selected = uiState.dateRangeFilter,
-                        onSelect = { onIntent(SmsReportIntent.SetDateRangeFilter(it)) }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (uiState.channel == ReportChannel.SMS) {
-                    if (uiState.logs.isNotEmpty()) {
-                        SmsLogTableHeader(modifier = Modifier.fillMaxWidth())
-                    }
-                    SmsReportListBody(
-                        uiState = uiState,
-                        listState = listState,
-                        onIntent = onIntent,
-                        rowContent = { log -> SmsLogTableRow(log) }
-                    )
-                } else {
-                    if (uiState.pushLogs.isNotEmpty()) {
-                        PushLogTableHeader(modifier = Modifier.fillMaxWidth())
-                    }
-                    PushReportListBody(
-                        uiState = uiState,
-                        listState = listState,
-                        onIntent = onIntent,
-                        rowContent = { log -> PushLogTableRow(log) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Loading/error/empty/list switch shared by both layouts, parameterized only
- * on how a single log entry renders ([rowContent]) — the phone card and the
- * desktop table row. Keeping this shared means pagination
- * ([SmsReportState.canLoadMore]/[SmsReportState.isPaginating]) and the error
- * retry action can't diverge between layouts.
- */
-@Composable
-private fun ColumnScope.SmsReportListBody(
-    uiState: SmsReportState,
-    listState: LazyListState,
-    onIntent: (SmsReportIntent) -> Unit,
-    rowContent: @Composable (SmsLogDto) -> Unit
-) {
-    when {
-        uiState.isLoading && uiState.logs.isEmpty() -> {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                repeat(5) { ListItemShimmer(height = 88.dp) }
-            }
-        }
-
-        uiState.errorMessage != null && uiState.logs.isEmpty() -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = stringResource(Res.string.sms_report_error_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = uiState.errorMessage.orEmpty(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = { onIntent(SmsReportIntent.Load) }) {
-                        Text(stringResource(Res.string.sms_report_retry))
-                    }
-                }
-            }
-        }
-
-        uiState.logs.isEmpty() -> {
-            EmptyState(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                icon = Icons.Rounded.Sms,
-                title = stringResource(Res.string.sms_report_empty_title),
-                subtitle = stringResource(Res.string.sms_report_empty_subtitle)
-            )
-        }
-
-        else -> {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(uiState.logs, key = { it.id }) { log ->
-                    rowContent(log)
-                }
-                if (uiState.isPaginating) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Push counterpart of [SmsReportListBody] — same loading/error/empty/list
- * switch, against [SmsReportState.pushLogs]/[SmsReportState.pushCanLoadMore]
- * instead of the SMS fields, so the two ledgers paginate independently.
- */
-@Composable
-private fun ColumnScope.PushReportListBody(
-    uiState: SmsReportState,
-    listState: LazyListState,
-    onIntent: (SmsReportIntent) -> Unit,
-    rowContent: @Composable (PushLogDto) -> Unit
-) {
-    when {
-        uiState.isLoading && uiState.pushLogs.isEmpty() -> {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                repeat(5) { ListItemShimmer(height = 88.dp) }
-            }
-        }
-
-        uiState.errorMessage != null && uiState.pushLogs.isEmpty() -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = stringResource(Res.string.sms_report_error_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = uiState.errorMessage.orEmpty(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = { onIntent(SmsReportIntent.Load) }) {
-                        Text(stringResource(Res.string.sms_report_retry))
-                    }
-                }
-            }
-        }
-
-        uiState.pushLogs.isEmpty() -> {
-            EmptyState(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                icon = Icons.Rounded.NotificationsActive,
-                title = "هنوز اعلانی ارسال نشده",
-                subtitle = "اعلان‌های یادآوری ارسال‌شده به مشتریان اینجا نمایش داده می‌شوند."
-            )
-        }
-
-        else -> {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(uiState.pushLogs, key = { it.id }) { log ->
-                    rowContent(log)
-                }
-                if (uiState.isPaginating) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Quota picture for the current month. `monthly_quota == -1` means unlimited, in
- * which case "remaining" is meaningless and the progress bar is dropped.
- */
-@Composable
-private fun SmsQuotaCard(summary: SmsLogSummaryDto, modifier: Modifier = Modifier) {
-    val unlimited = summary.monthlyQuota < 0
-    val remaining = (summary.monthlyQuota - summary.monthlyUsed).coerceAtLeast(0)
-
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(Res.string.sms_report_summary_title),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "${stringResource(Res.string.sms_report_summary_used)}: " +
-                            summary.monthlyUsed.toString().toPersianDigits(),
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Text(
-                    text = "${stringResource(Res.string.sms_report_summary_remaining)}: " +
-                            if (unlimited) stringResource(Res.string.sms_report_summary_unlimited)
-                            else remaining.toString().toPersianDigits(),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            if (!unlimited && summary.monthlyQuota > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = {
-                        (summary.monthlyUsed.toFloat() / summary.monthlyQuota).coerceIn(0f, 1f)
-                    },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                QuotaStat(
-                    label = stringResource(Res.string.sms_report_summary_sent),
-                    value = summary.sentThisMonth.toString().toPersianDigits()
-                )
-                QuotaStat(
-                    label = stringResource(Res.string.sms_report_summary_failed),
-                    value = summary.failedThisMonth.toString().toPersianDigits(),
-                    valueColor = MaterialTheme.colorScheme.error
-                )
-                QuotaStat(
-                    label = stringResource(Res.string.sms_report_summary_wallet),
-                    value = summary.walletBalance.toString().toPersianDigits()
-                )
-            }
-        }
-    }
-}
-
-/**
- * Desktop counterpart of [SmsQuotaCard]: the exact same fields and the exact
- * same unlimited/remaining/progress computation, laid out as a horizontal
- * header band (title + progress on one line, the three stats spread across
- * the row) instead of a stacked card, so it reads as page context rather
- * than a list item.
- */
-@Composable
-private fun SmsQuotaHeader(summary: SmsLogSummaryDto, modifier: Modifier = Modifier) {
-    val unlimited = summary.monthlyQuota < 0
-    val remaining = (summary.monthlyQuota - summary.monthlyUsed).coerceAtLeast(0)
-
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(Res.string.sms_report_summary_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                    QuotaStat(
-                        label = stringResource(Res.string.sms_report_summary_used),
-                        value = summary.monthlyUsed.toString().toPersianDigits()
-                    )
-                    QuotaStat(
-                        label = stringResource(Res.string.sms_report_summary_remaining),
-                        value = if (unlimited) stringResource(Res.string.sms_report_summary_unlimited)
-                                else remaining.toString().toPersianDigits()
-                    )
-                    QuotaStat(
-                        label = stringResource(Res.string.sms_report_summary_sent),
-                        value = summary.sentThisMonth.toString().toPersianDigits()
-                    )
-                    QuotaStat(
-                        label = stringResource(Res.string.sms_report_summary_failed),
-                        value = summary.failedThisMonth.toString().toPersianDigits(),
-                        valueColor = MaterialTheme.colorScheme.error
-                    )
-                    QuotaStat(
-                        label = stringResource(Res.string.sms_report_summary_wallet),
-                        value = summary.walletBalance.toString().toPersianDigits()
-                    )
-                }
-            }
-
-            if (!unlimited && summary.monthlyQuota > 0) {
-                Spacer(modifier = Modifier.height(12.dp))
-                LinearProgressIndicator(
-                    progress = {
-                        (summary.monthlyUsed.toFloat() / summary.monthlyQuota).coerceIn(0f, 1f)
-                    },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
-                )
-            }
-        }
-    }
-}
-
-/** Push counterpart of [SmsQuotaCard] — no quota/wallet fields, push is free. */
-@Composable
-private fun PushSummaryCard(summary: PushLogSummaryDto, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            QuotaStat(label = "ارسال‌شده این ماه", value = summary.sentThisMonth.toString().toPersianDigits())
-            QuotaStat(
-                label = "ناموفق این ماه",
-                value = summary.failedThisMonth.toString().toPersianDigits(),
-                valueColor = MaterialTheme.colorScheme.error
-            )
-        }
-    }
-}
-
-/** Push counterpart of [SmsQuotaHeader]. */
-@Composable
-private fun PushSummaryHeader(summary: PushLogSummaryDto, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "اعلان‌های یادآوری",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                QuotaStat(label = "ارسال‌شده این ماه", value = summary.sentThisMonth.toString().toPersianDigits())
-                QuotaStat(
-                    label = "ناموفق این ماه",
-                    value = summary.failedThisMonth.toString().toPersianDigits(),
-                    valueColor = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuotaStat(
-    label: String,
-    value: String,
-    valueColor: Color = MaterialTheme.colorScheme.onSurface
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = valueColor)
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-/** Filters by the visitor's name or phone number — see `search` on the backend. */
-@Composable
-private fun SearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier,
-        placeholder = { Text(stringResource(Res.string.sms_report_search_placeholder)) },
-        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
-                    Icon(
-                        Icons.Rounded.Close,
-                        contentDescription = stringResource(Res.string.sms_report_search_clear)
-                    )
-                }
             }
         },
-        singleLine = true,
-        shape = RoundedCornerShape(12.dp)
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item(key = "summary") {
+                if (uiState.channel == ReportChannel.SMS) {
+                    uiState.summary?.let { SmsSummaryHero(it) }
+                } else {
+                    uiState.pushSummary?.let { PushSummaryHero(it) }
+                }
+            }
+            item(key = "filters") {
+                FilterBar(
+                    channel = uiState.channel,
+                    status = uiState.statusFilter,
+                    range = uiState.dateRangeFilter,
+                    onStatus = { onIntent(SmsReportIntent.SetStatusFilter(it)) },
+                    onRange = { onIntent(SmsReportIntent.SetDateRangeFilter(it)) }
+                )
+            }
+            if (uiState.channel == ReportChannel.SMS) {
+                listBody(
+                    uiState = uiState,
+                    isEmpty = uiState.logs.isEmpty(),
+                    emptyIcon = Icons.Rounded.Sms,
+                    emptyTitle = "پیامکی پیدا نشد",
+                    emptySubtitle = smsEmptySubtitle,
+                    errorTitle = errorTitle,
+                    retryLabel = retryLabel,
+                    onRetry = { onIntent(SmsReportIntent.Load) }
+                ) {
+                    items(uiState.logs, key = { "sms-${it.id}" }) { log ->
+                        LogRow(
+                            visitor = log.visitor,
+                            title = null,
+                            body = log.messageText,
+                            status = log.status,
+                            errorDetail = log.errorDetail,
+                            sentAt = log.sentAt,
+                            channel = ReportChannel.SMS
+                        )
+                    }
+                }
+            } else {
+                listBody(
+                    uiState = uiState,
+                    isEmpty = uiState.pushLogs.isEmpty(),
+                    emptyIcon = Icons.Rounded.NotificationsActive,
+                    emptyTitle = "اعلانی پیدا نشد",
+                    emptySubtitle = "اعلان‌های یادآوری که برای گوشی مشتریان فرستاده می‌شود اینجا ثبت می‌شود.",
+                    errorTitle = errorTitle,
+                    retryLabel = retryLabel,
+                    onRetry = { onIntent(SmsReportIntent.Load) }
+                ) {
+                    items(uiState.pushLogs, key = { "push-${it.id}" }) { log ->
+                        LogRow(
+                            visitor = log.visitor,
+                            title = log.title,
+                            body = log.body,
+                            status = log.status,
+                            errorDetail = log.errorDetail,
+                            sentAt = log.sentAt,
+                            channel = ReportChannel.PUSH
+                        )
+                    }
+                }
+            }
+            val shownEmpty = if (uiState.channel == ReportChannel.SMS) uiState.logs.isEmpty() else uiState.pushLogs.isEmpty()
+            if (uiState.isPaginating && !shownEmpty) {
+                item(key = "paging") {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Loading / error / empty / rows — one switch shared by both channels. */
+private fun LazyListScope.listBody(
+    uiState: SmsReportState,
+    isEmpty: Boolean,
+    emptyIcon: ImageVector,
+    emptyTitle: String,
+    emptySubtitle: String,
+    errorTitle: String,
+    retryLabel: String,
+    onRetry: () -> Unit,
+    rows: LazyListScope.() -> Unit
+) {
+    when {
+        // isPaginating also covers the first page of a freshly selected
+        // channel/filter; without it the empty state flashed under a spinner.
+        (uiState.isLoading || uiState.isPaginating) && isEmpty -> items(5) { ListItemShimmer(height = 92.dp) }
+        uiState.errorMessage != null && isEmpty -> item(key = "error") {
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Rounded.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(36.dp))
+                Spacer(Modifier.height(8.dp))
+                Text(errorTitle, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(uiState.errorMessage.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = onRetry) { Text(retryLabel) }
+            }
+        }
+        isEmpty -> item(key = "empty") {
+            EmptyState(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                icon = emptyIcon,
+                title = emptyTitle,
+                subtitle = emptySubtitle
+            )
+        }
+        else -> rows()
+    }
+}
+
+/** Search input that lives inside the top bar. */
+@Composable
+private fun SearchBarField(query: String, onQueryChange: (String) -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.weight(1f)) {
+            if (query.isEmpty()) {
+                Text(
+                    stringResource(Res.string.sms_report_search_placeholder),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus)
+            )
+        }
+    }
+}
+
+/** Pill segmented switch between the two ledgers. */
+@Composable
+private fun ChannelSwitch(selected: ReportChannel, onSelect: (ReportChannel) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        listOf(
+            Triple(ReportChannel.SMS, Icons.Rounded.Sms, "پیامک‌ها"),
+            Triple(ReportChannel.PUSH, Icons.Rounded.NotificationsActive, "اعلان‌ها"),
+        ).forEach { (channel, icon, label) ->
+            val on = channel == selected
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (on) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable { onSelect(channel) }
+                    .padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    icon, null,
+                    tint = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
+                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The month's SMS picture. `monthly_quota == -1` means unlimited, in which case
+ * "remaining" is meaningless and the progress bar is dropped.
+ */
+@Composable
+private fun SmsSummaryHero(summary: SmsLogSummaryDto) {
+    val unlimited = summary.monthlyQuota < 0
+    val remaining = (summary.monthlyQuota - summary.monthlyUsed).coerceAtLeast(0)
+    HeroBox {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(Res.string.sms_report_summary_title), color = Color.White.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        if (unlimited) stringResource(Res.string.sms_report_summary_unlimited) else remaining.fa(),
+                        color = Color.White, fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                    if (!unlimited) {
+                        Spacer(Modifier.width(6.dp))
+                        Text("از ${summary.monthlyQuota.fa()} باقی‌مانده", color = Color.White.copy(alpha = 0.8f),
+                            style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 6.dp))
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.18f))
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("کیف پول ${summary.walletBalance.fa()}", color = Color.White, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        if (!unlimited && summary.monthlyQuota > 0) {
+            Spacer(Modifier.height(12.dp))
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.22f))) {
+                Box(
+                    Modifier.fillMaxHeight()
+                        .fillMaxWidth((summary.monthlyUsed.toFloat() / summary.monthlyQuota).coerceIn(0f, 1f))
+                        .clip(RoundedCornerShape(3.dp)).background(Color.White)
+                )
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HeroStat(stringResource(Res.string.sms_report_summary_used), summary.monthlyUsed.fa(), Modifier.weight(1f))
+            HeroStat(stringResource(Res.string.sms_report_summary_sent), summary.sentThisMonth.fa(), Modifier.weight(1f))
+            HeroStat(stringResource(Res.string.sms_report_summary_failed), summary.failedThisMonth.fa(), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun PushSummaryHero(summary: PushLogSummaryDto) {
+    HeroBox {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.NotificationsActive, null, tint = Color.White)
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text("اعلان‌های این ماه", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                Text("اعلان رایگان است و از اعتبار پیامک کم نمی‌کند", color = Color.White.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HeroStat("ارسال‌شده", summary.sentThisMonth.fa(), Modifier.weight(1f))
+            HeroStat("ناموفق", summary.failedThisMonth.fa(), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun HeroBox(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Brush.linearGradient(HeroViolets))
+            .padding(18.dp),
+        content = content
     )
 }
 
 @Composable
-private fun DateRangeFilterRow(
-    selected: SmsReportDateRange,
-    onSelect: (SmsReportDateRange) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+private fun HeroStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.16f))
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        val options = listOf(
-            SmsReportDateRange.ALL to Res.string.sms_report_date_filter_all,
-            SmsReportDateRange.TODAY to Res.string.sms_report_date_filter_today,
-            SmsReportDateRange.THIS_WEEK to Res.string.sms_report_date_filter_week,
-            SmsReportDateRange.THIS_MONTH to Res.string.sms_report_date_filter_month
-        )
-        options.forEach { (range, label) ->
-            FilterChip(
-                selected = selected == range,
-                onClick = { onSelect(range) },
-                label = { Text(stringResource(label)) },
-                shape = RoundedCornerShape(12.dp)
-            )
-        }
+        Text(value, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+        Text(label, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelSmall)
     }
 }
 
-/** Segmented control switching the whole report between the SMS and push ledgers. */
+/** Status chips and the date range, on one line. */
 @Composable
-private fun ChannelTabRow(
-    selected: ReportChannel,
-    onSelect: (ReportChannel) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        FilterChip(
-            selected = selected == ReportChannel.SMS,
-            onClick = { onSelect(ReportChannel.SMS) },
-            leadingIcon = { Icon(Icons.Rounded.Sms, contentDescription = null, modifier = Modifier.size(18.dp)) },
-            label = { Text("پیامک") },
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.weight(1f)
-        )
-        FilterChip(
-            selected = selected == ReportChannel.PUSH,
-            onClick = { onSelect(ReportChannel.PUSH) },
-            leadingIcon = { Icon(Icons.Rounded.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp)) },
-            label = { Text("اعلان") },
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun StatusFilterRow(
+private fun FilterBar(
     channel: ReportChannel,
-    selected: String?,
-    onSelect: (String?) -> Unit,
-    modifier: Modifier = Modifier
+    status: String?,
+    range: SmsReportDateRange,
+    onStatus: (String?) -> Unit,
+    onRange: (SmsReportDateRange) -> Unit
 ) {
+    val ranges = listOf(
+        SmsReportDateRange.ALL to Res.string.sms_report_date_filter_all,
+        SmsReportDateRange.TODAY to Res.string.sms_report_date_filter_today,
+        SmsReportDateRange.THIS_WEEK to Res.string.sms_report_date_filter_week,
+        SmsReportDateRange.THIS_MONTH to Res.string.sms_report_date_filter_month
+    )
+    var menuOpen by remember { mutableStateOf(false) }
+
     Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        FilterChip(
-            selected = selected == null,
-            onClick = { onSelect(null) },
-            label = { Text(stringResource(Res.string.sms_report_filter_all)) },
-            shape = RoundedCornerShape(12.dp)
-        )
-        FilterChip(
-            selected = selected == SmsLogStatus.SENT,
-            onClick = { onSelect(SmsLogStatus.SENT) },
-            label = { Text(stringResource(Res.string.sms_report_filter_sent)) },
-            shape = RoundedCornerShape(12.dp)
-        )
-        FilterChip(
-            selected = selected == SmsLogStatus.FAILED,
-            onClick = { onSelect(SmsLogStatus.FAILED) },
-            label = { Text(stringResource(Res.string.sms_report_filter_failed)) },
-            shape = RoundedCornerShape(12.dp)
-        )
-        // Push has no equivalent of a quota-skipped send — it's free — so this
-        // chip only makes sense on the SMS tab.
-        if (channel == ReportChannel.SMS) {
+        Box {
             FilterChip(
-                selected = selected == SmsLogStatus.SKIPPED_QUOTA,
-                onClick = { onSelect(SmsLogStatus.SKIPPED_QUOTA) },
-                label = { Text(stringResource(Res.string.sms_report_filter_skipped)) },
+                selected = range != SmsReportDateRange.ALL,
+                onClick = { menuOpen = true },
+                leadingIcon = { Icon(Icons.Rounded.CalendarMonth, null, Modifier.size(16.dp)) },
+                trailingIcon = { Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(16.dp)) },
+                label = { Text(stringResource(ranges.first { it.first == range }.second)) },
                 shape = RoundedCornerShape(12.dp)
             )
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                ranges.forEach { (r, label) ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(label), fontWeight = if (r == range) FontWeight.Bold else null) },
+                        onClick = { menuOpen = false; onRange(r) }
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        VerticalDivider(Modifier.height(24.dp))
+        Spacer(Modifier.width(8.dp))
+        Row(
+            modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            StatusChip(status == null, stringResource(Res.string.sms_report_filter_all)) { onStatus(null) }
+            StatusChip(status == SmsLogStatus.SENT, stringResource(Res.string.sms_report_filter_sent)) { onStatus(SmsLogStatus.SENT) }
+            StatusChip(status == SmsLogStatus.FAILED, stringResource(Res.string.sms_report_filter_failed)) { onStatus(SmsLogStatus.FAILED) }
+            // Push is free, so it has no quota-skipped state.
+            if (channel == ReportChannel.SMS) {
+                StatusChip(status == SmsLogStatus.SKIPPED_QUOTA, stringResource(Res.string.sms_report_filter_skipped)) {
+                    onStatus(SmsLogStatus.SKIPPED_QUOTA)
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SmsLogRow(log: SmsLogDto) {
-    val failed = log.status == SmsLogStatus.FAILED
-    val skipped = log.status == SmsLogStatus.SKIPPED_QUOTA
-    // Not MaterialTheme.colorScheme.tertiary: this app's theme only overrides
-    // `primary`, so tertiary falls back to Material3's baseline (a muddy
-    // brownish-pink) — a hardcoded amber matches the warning color used
-    // elsewhere (e.g. front_client's --color-warning).
-    val statusColor = when {
-        failed -> MaterialTheme.colorScheme.error
-        skipped -> Color(0xFFF59E0B)
-        else -> MaterialTheme.colorScheme.primary
+private fun StatusChip(selected: Boolean, label: String, onClick: () -> Unit) {
+    FilterChip(selected = selected, onClick = onClick, label = { Text(label) }, shape = RoundedCornerShape(12.dp))
+}
+
+/** One sent message: status badge, recipient and time on top, the text under it. */
+@Composable
+private fun LogRow(
+    visitor: SmsLogVisitorDto?,
+    title: String?,
+    body: String,
+    status: String,
+    errorDetail: String?,
+    sentAt: String?,
+    channel: ReportChannel
+) {
+    val failed = status == SmsLogStatus.FAILED
+    val skipped = status == SmsLogStatus.SKIPPED_QUOTA
+    val (statusIcon, statusColor, statusLabel) = when {
+        failed -> Triple(Icons.Rounded.ErrorOutline, MaterialTheme.colorScheme.error, stringResource(Res.string.sms_report_status_failed))
+        skipped -> Triple(Icons.Rounded.WarningAmber, Amber, stringResource(Res.string.sms_report_status_skipped))
+        else -> Triple(Icons.Rounded.CheckCircle, Green, stringResource(Res.string.sms_report_status_sent))
     }
     // A null visitor means the message went to the owner (new-booking notice).
-    val recipient = log.visitor?.let { visitor ->
-        visitor.fullName.ifBlank { visitor.phoneNumber }
-    } ?: stringResource(Res.string.sms_report_owner_recipient)
+    val toOwner = visitor == null
+    val recipient = visitor?.let { it.fullName.ifBlank { it.phoneNumber } }
+        ?: stringResource(Res.string.sms_report_owner_recipient)
+    val time = sentAt?.takeIf { it.isNotBlank() }?.let {
+        runCatching { DateTimeUtils.formatDateTime(DateTimeUtils.parseIsoToEpochMillis(it)) }.getOrNull()
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Icon(
+                    if (toOwner) Icons.Rounded.Storefront else Icons.Rounded.Person, null,
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = recipient,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        recipient, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
                     )
-                    log.visitor?.phoneNumber?.takeIf { it.isNotBlank() }?.let { phone ->
-                        Text(
-                            text = phone.toPersianDigits(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Row(
+                        Modifier.clip(RoundedCornerShape(50)).background(statusColor.copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(statusIcon, null, tint = statusColor, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text(statusLabel, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = statusColor)
                     }
                 }
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = statusColor.copy(alpha = 0.12f)
-                ) {
+                val sub = listOfNotNull(visitor?.phoneNumber?.takeIf { it.isNotBlank() }?.toPersianDigits(), time)
+                if (sub.isNotEmpty()) {
                     Text(
-                        text = stringResource(
-                            when {
-                                failed -> Res.string.sms_report_status_failed
-                                skipped -> Res.string.sms_report_status_skipped
-                                else -> Res.string.sms_report_status_sent
-                            }
-                        ),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusColor
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = log.messageText.previewText(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            if ((failed || skipped) && !log.errorDetail.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = log.errorDetail,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor
-                )
-            }
-
-            log.sentAt?.takeIf { it.isNotBlank() }?.let { sentAt ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = DateTimeUtils.formatDateTime(
-                        DateTimeUtils.parseIsoToEpochMillis(sentAt)
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-/**
- * Column header for [SmsLogTableRow]. Weights match that row's columns
- * exactly. Under the app's forced RTL layout direction, the first column
- * written here (recipient) lands on the right — the same reading order the
- * phone card uses top-to-bottom: who it went to, what it said, when, and
- * whether it succeeded.
- */
-@Composable
-private fun SmsLogTableHeader(modifier: Modifier = Modifier) {
-    val labelStyle = MaterialTheme.typography.labelMedium
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-
-    Row(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text("گیرنده", style = labelStyle, color = labelColor, modifier = Modifier.weight(0.22f))
-        Text("متن پیام", style = labelStyle, color = labelColor, modifier = Modifier.weight(0.42f))
-        Text("زمان ارسال", style = labelStyle, color = labelColor, modifier = Modifier.weight(0.18f))
-        Text("وضعیت", style = labelStyle, color = labelColor, modifier = Modifier.weight(0.18f))
-    }
-}
-
-/**
- * Table-row rendering of a single [SmsLogDto] for the desktop layout. Same
- * fields and the same failed/skipped/sent color mapping as [SmsLogRow] —
- * only the shape (one dense row instead of a padded card) differs.
- */
-@Composable
-private fun SmsLogTableRow(log: SmsLogDto) {
-    val failed = log.status == SmsLogStatus.FAILED
-    val skipped = log.status == SmsLogStatus.SKIPPED_QUOTA
-    val statusColor = when {
-        failed -> MaterialTheme.colorScheme.error
-        skipped -> Color(0xFFF59E0B)
-        else -> MaterialTheme.colorScheme.primary
-    }
-    val recipient = log.visitor?.let { visitor ->
-        visitor.fullName.ifBlank { visitor.phoneNumber }
-    } ?: stringResource(Res.string.sms_report_owner_recipient)
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(0.22f)) {
-                Text(
-                    text = recipient,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                log.visitor?.phoneNumber?.takeIf { it.isNotBlank() }?.let { phone ->
-                    Text(
-                        text = phone.toPersianDigits(),
-                        style = MaterialTheme.typography.labelSmall,
+                        sub.joinToString("  ·  "), style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-
-            Text(
-                text = log.messageText.previewText(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                modifier = Modifier.weight(0.42f)
-            )
-
-            Text(
-                text = log.sentAt?.takeIf { it.isNotBlank() }?.let { sentAt ->
-                    DateTimeUtils.formatDateTime(DateTimeUtils.parseIsoToEpochMillis(sentAt))
-                } ?: "—",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(0.18f)
-            )
-
-            Column(modifier = Modifier.weight(0.18f)) {
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = statusColor.copy(alpha = 0.12f)
-                ) {
-                    Text(
-                        text = stringResource(
-                            when {
-                                failed -> Res.string.sms_report_status_failed
-                                skipped -> Res.string.sms_report_status_skipped
-                                else -> Res.string.sms_report_status_sent
-                            }
-                        ),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusColor
-                    )
+                Spacer(Modifier.height(8.dp))
+                if (channel == ReportChannel.PUSH && !title.isNullOrBlank()) {
+                    Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(2.dp))
                 }
-                if ((failed || skipped) && !log.errorDetail.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = log.errorDetail,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                        maxLines = 1
-                    )
+                Text(
+                    body.withoutFooter().previewText(), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = MaterialTheme.typography.bodySmall.lineHeight * 1.25f
+                )
+                if ((failed || skipped) && !errorDetail.isNullOrBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(errorDetail.humanError(), style = MaterialTheme.typography.labelSmall, color = statusColor)
                 }
             }
         }
@@ -1056,185 +647,26 @@ private fun SmsLogTableRow(log: SmsLogDto) {
 }
 
 private fun String.previewText(): String =
-    if (length <= MESSAGE_PREVIEW_LENGTH) this
-    else take(MESSAGE_PREVIEW_LENGTH).trimEnd() + "…"
+    if (length <= MESSAGE_PREVIEW_LENGTH) this else take(MESSAGE_PREVIEW_LENGTH).trimEnd() + "…"
 
-/** Push counterpart of [SmsLogRow]. No SKIPPED_QUOTA status — push is free. */
-@Composable
-private fun PushLogRow(log: PushLogDto) {
-    val failed = log.status == SmsLogStatus.FAILED
-    val statusColor = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-    val recipient = log.visitor?.let { visitor ->
-        visitor.fullName.ifBlank { visitor.phoneNumber }
-    } ?: stringResource(Res.string.sms_report_owner_recipient)
+/**
+ * Every SMS ends with the same footer and لغو11 (api/sms.py signed()); in a
+ * list of dozens it is pure noise, so rows show only what differs.
+ */
+private fun String.withoutFooter(): String =
+    lines()
+        .filterNot { it.trim() == "نوبت‌یار" || it.trim() == "لغو11" }
+        .joinToString("\n")
+        .replace(Regex("\n{2,}"), "\n")
+        .trim()
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = recipient,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                    log.visitor?.phoneNumber?.takeIf { it.isNotBlank() }?.let { phone ->
-                        Text(
-                            text = phone.toPersianDigits(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = statusColor.copy(alpha = 0.12f)
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (failed) Res.string.sms_report_status_failed else Res.string.sms_report_status_sent
-                        ),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusColor
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = log.body.previewText(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            if (failed && !log.errorDetail.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = log.errorDetail,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor
-                )
-            }
-
-            log.sentAt?.takeIf { it.isNotBlank() }?.let { sentAt ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = DateTimeUtils.formatDateTime(
-                        DateTimeUtils.parseIsoToEpochMillis(sentAt)
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+/**
+ * Provider rejections are stored raw (e.g. `{'status': 'ارسال نشده'}`); show
+ * the provider's own message instead of the Python dict around it.
+ */
+private fun String.humanError(): String {
+    Regex("""['"]status['"]\s*:\s*['"]([^'"]+)['"]""").find(this)?.let {
+        return "پاسخ سامانه‌ی پیامک: ${it.groupValues[1]}"
     }
-}
-
-/** Push counterpart of [SmsLogTableHeader]. */
-@Composable
-private fun PushLogTableHeader(modifier: Modifier = Modifier) {
-    val labelStyle = MaterialTheme.typography.labelMedium
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-
-    Row(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text("گیرنده", style = labelStyle, color = labelColor, modifier = Modifier.weight(0.22f))
-        Text("متن اعلان", style = labelStyle, color = labelColor, modifier = Modifier.weight(0.42f))
-        Text("زمان ارسال", style = labelStyle, color = labelColor, modifier = Modifier.weight(0.18f))
-        Text("وضعیت", style = labelStyle, color = labelColor, modifier = Modifier.weight(0.18f))
-    }
-}
-
-/** Push counterpart of [SmsLogTableRow]. */
-@Composable
-private fun PushLogTableRow(log: PushLogDto) {
-    val failed = log.status == SmsLogStatus.FAILED
-    val statusColor = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-    val recipient = log.visitor?.let { visitor ->
-        visitor.fullName.ifBlank { visitor.phoneNumber }
-    } ?: stringResource(Res.string.sms_report_owner_recipient)
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(0.22f)) {
-                Text(
-                    text = recipient,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                log.visitor?.phoneNumber?.takeIf { it.isNotBlank() }?.let { phone ->
-                    Text(
-                        text = phone.toPersianDigits(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Text(
-                text = log.body.previewText(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                modifier = Modifier.weight(0.42f)
-            )
-
-            Text(
-                text = log.sentAt?.takeIf { it.isNotBlank() }?.let { sentAt ->
-                    DateTimeUtils.formatDateTime(DateTimeUtils.parseIsoToEpochMillis(sentAt))
-                } ?: "—",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(0.18f)
-            )
-
-            Column(modifier = Modifier.weight(0.18f)) {
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = statusColor.copy(alpha = 0.12f)
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (failed) Res.string.sms_report_status_failed else Res.string.sms_report_status_sent
-                        ),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusColor
-                    )
-                }
-                if (failed && !log.errorDetail.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = log.errorDetail,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                        maxLines = 1
-                    )
-                }
-            }
-        }
-    }
+    return if (trimStart().startsWith("{")) "سامانه‌ی پیامک ارسال را نپذیرفت" else this
 }

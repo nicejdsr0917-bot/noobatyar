@@ -562,14 +562,15 @@ class AdminIndexViewTests(DashboardTestData):
         self.boss.save()
         self.transaction(500_000, NOW - timedelta(days=1))
 
-    def test_index_renders_the_dashboard_above_the_app_list(self):
+    def test_index_renders_the_dashboard_and_the_sidebar(self):
         self.client.force_login(self.boss)
         response = self.client.get(reverse('admin:index'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'نمای کلی سامانه')
         self.assertContains(response, 'درآمد کل پلتفرم')
-        # The stock app list is still there — staff navigate by model.
-        self.assertContains(response, 'app-accounting')
+        # Navigation is the grouped sidebar (UNFOLD["SIDEBAR"]) — staff
+        # navigate by model, so every section must still be one click away.
+        self.assertContains(response, reverse('admin:accounting_transaction_changelist'))
 
     def test_index_loads_chart_js_locally(self):
         """Never from a CDN: the production server is in Iran."""
@@ -591,14 +592,14 @@ class AdminIndexViewTests(DashboardTestData):
         self.assertNotContains(response, 'درآمد روزانه')
         self.assertContains(response, 'نمای کلی سامانه')
 
-    def test_metric_failure_still_serves_the_app_list(self):
+    def test_metric_failure_still_serves_the_navigation(self):
         """The index is the entry point to everything else; a broken aggregate
         must cost the numbers, not the page."""
         self.client.force_login(self.boss)
         with patch('core.dashboard.context_for', side_effect=RuntimeError('boom')):
             response = self.client.get(reverse('admin:index'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'app-accounting')
+        self.assertContains(response, reverse('admin:accounting_transaction_changelist'))
         self.assertNotContains(response, 'درآمد کل پلتفرم')
 
     def test_refresh_view_clears_the_cache_and_redirects(self):

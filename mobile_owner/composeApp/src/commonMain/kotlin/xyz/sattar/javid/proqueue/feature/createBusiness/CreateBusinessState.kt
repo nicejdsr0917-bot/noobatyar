@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import androidx.compose.runtime.Immutable
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
@@ -11,7 +12,7 @@ data class CreateBusinessState (
     val isLoading: Boolean = false,
     val businessCreated: Boolean = false,
     val business: Business? = null,
-    val message: String? = null,
+    val message: UiMessage? = null,
     val logoBytes: ByteArray? = null,
     // Commitment-ladder gating for the "advanced settings" tabs.
     val entitlements: EntitlementsResponseDto? = null,
@@ -22,7 +23,7 @@ data class CreateBusinessState (
 ){
     sealed class PartialState{
         data class IsLoading(val isLoading: Boolean): PartialState()
-        data class ShowMessage(val message: String): PartialState()
+        data class ShowMessage(val message: UiMessage): PartialState()
         object ClearMessage : PartialState()
         object BusinessCreated: PartialState()
         data class LogoSelected(val bytes: ByteArray): PartialState()

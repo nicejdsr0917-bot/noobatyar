@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -503,7 +504,7 @@ fun CreateBusinessScreen(
     LaunchedEffect(uiState.message) {
         val msg = uiState.message
         if (msg != null) {
-            snackbarHostState.showSnackbar(msg)
+            snackbarHostState.showToasty(msg)
             onIntent(CreateBusinessIntent.ClearMessage)
         }
     }

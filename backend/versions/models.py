@@ -1,13 +1,15 @@
 from django.db import models
 
 class AppVersion(models.Model):
-    version_name = models.CharField(max_length=20)  # 1.0.0
-    version_code = models.IntegerField(unique=True)  # 123456789
-    force_update = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    version_name = models.CharField(max_length=20, verbose_name='نام نسخه')  # 1.0.0
+    version_code = models.IntegerField(unique=True, verbose_name='کد نسخه')  # 123456789
+    force_update = models.BooleanField(default=False, verbose_name='آپدیت اجباری')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
 
     class Meta:
+        verbose_name = 'نسخه‌ی اپ'
+        verbose_name_plural = 'نسخه‌های اپ'
         ordering = ['-version_code']
 
     def __str__(self):
@@ -15,6 +17,10 @@ class AppVersion(models.Model):
 
 
 class VersionChangelog(models.Model):
+    class Meta:
+        verbose_name = 'تغییرات نسخه'
+        verbose_name_plural = 'تغییرات نسخه'
+
     version = models.OneToOneField(
         AppVersion,
         on_delete=models.CASCADE,

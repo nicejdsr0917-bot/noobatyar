@@ -23,7 +23,7 @@
       {% for business in queryset %}
         <li>
           <strong>{{ business.title }}</strong>
-          <span class="nb-meta">({{ business.unique_code }} — {{ business.user.phone }})</span>
+          <span style="color:var(--body-quiet-color)">({{ business.unique_code }} — {{ business.user.phone }})</span>
         </li>
       {% endfor %}
     </ul>

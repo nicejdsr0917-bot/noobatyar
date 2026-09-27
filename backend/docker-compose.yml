@@ -76,6 +76,8 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
       - ZIBAL_MERCHANT_ID=${ZIBAL_MERCHANT_ID}
+      # Myket in-app billing (server-to-server verify/consume); set in .env
+      - MYKET_ACCESS_TOKEN=${MYKET_ACCESS_TOKEN:-}
       - SITE_URL=${SITE_URL}
       - MELIPAYAMAK_OTP_TOKEN=${MELIPAYAMAK_OTP_TOKEN}
       - MELIPAYAMAK_FROM=${MELIPAYAMAK_FROM}

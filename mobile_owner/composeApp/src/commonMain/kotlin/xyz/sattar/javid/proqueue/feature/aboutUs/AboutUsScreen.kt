@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.aboutUs
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -30,11 +32,13 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.cos
@@ -42,10 +46,6 @@ import kotlin.math.sin
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.*
-import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
-import xyz.sattar.javid.proqueue.core.ui.WindowSize
-import xyz.sattar.javid.proqueue.core.ui.components.AppScaffold
-import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
 import xyz.sattar.javid.proqueue.core.utils.AppInfo
 
 /**
@@ -78,106 +78,6 @@ fun AboutUsScreen(
 
 @Composable
 fun AboutUsContent(
-    modifier: Modifier = Modifier,
-    onNavigateBack: () -> Unit
-) {
-    if (LocalWindowSize.current == WindowSize.Compact) {
-        AboutUsPhoneContent(modifier, onNavigateBack)
-    } else {
-        AboutUsWebContent(modifier, onNavigateBack)
-    }
-}
-
-/** The contact/social list card shared by [AboutUsPhoneContent] and
- *  [AboutUsWebContent], so the two layouts can't drift apart on which
- *  platforms are listed or in what order. */
-@Composable
-private fun ContactCard(uriHandler: androidx.compose.ui.platform.UriHandler) {
-    SettingsCard {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = stringResource(Res.string.about_us_follow_us),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            SocialRow(
-                title = stringResource(Res.string.social_bale),
-                handle = "ble.ir/noobatyar",
-                painter = painterResource(Res.drawable.ic_social_bale),
-                tileColors = listOf(Color(0xFF10D19E), Color(0xFF059669)),
-                index = 0,
-                onClick = { uriHandler.openUri("https://ble.ir/noobatyar") }
-            )
-            SocialDivider()
-            SocialRow(
-                title = stringResource(Res.string.social_eitaa),
-                handle = "eitaa.com/noobatyar",
-                painter = painterResource(Res.drawable.ic_social_eitaa),
-                tileColors = listOf(Color(0xFFFB923C), Color(0xFFEA6D0E)),
-                index = 1,
-                onClick = { uriHandler.openUri("https://eitaa.com/noobatyar") }
-            )
-            SocialDivider()
-            SocialRow(
-                title = stringResource(Res.string.social_rubika),
-                handle = "rubika.ir/noobatyar",
-                painter = painterResource(Res.drawable.ic_social_rubika),
-                tileColors = listOf(Color(0xFF4ABDC9), Color(0xFF126AA1)),
-                index = 2,
-                onClick = { uriHandler.openUri("https://rubika.ir/noobatyar") }
-            )
-            SocialDivider()
-            SocialRow(
-                title = stringResource(Res.string.instagram),
-                handle = "@javiddev",
-                painter = painterResource(Res.drawable.ic_social_instagram),
-                // Instagram's mark is defined by its gradient, so the
-                // official ramp lives on the tile and the glyph is white.
-                tileColors = listOf(
-                    Color(0xFFFEDA75),
-                    Color(0xFFFA7E1E),
-                    Color(0xFFD62976),
-                    Color(0xFF962FBF),
-                    Color(0xFF4F5BD5)
-                ),
-                index = 3,
-                onClick = { uriHandler.openUri("https://instagram.com/javiddev") }
-            )
-            SocialDivider()
-            SocialRow(
-                title = stringResource(Res.string.social_website),
-                handle = "noobatyar.ir",
-                painter = painterResource(Res.drawable.ic_social_website),
-                tileColors = listOf(Color(0xFFA855F7), Color(0xFF6D28D9)),
-                index = 4,
-                onClick = { uriHandler.openUri("https://noobatyar.ir") }
-            )
-        }
-    }
-}
-
-/** The description card shared by both layouts. */
-@Composable
-private fun DescriptionCard() {
-    SettingsCard {
-        Text(
-            text = stringResource(Res.string.about_us_description),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Justify,
-            color = MaterialTheme.colorScheme.onSurface,
-            lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
-
-/** Phone layout — unchanged. A single scrolling column: hero, description,
- *  then the contact list. See [AboutUsWebContent] for the desktop split. */
-@Composable
-private fun AboutUsPhoneContent(
     modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit
 ) {
@@ -222,7 +122,20 @@ private fun AboutUsPhoneContent(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 HeroCard()
-                DescriptionCard()
+
+                // Start-aligned, not Justify: Compose justifies Persian by
+                // stretching the spaces (no kashida), which opened visibly
+                // huge gaps between words on every line but the last.
+                SettingsCard {
+                    Text(
+                        text = stringResource(Res.string.about_us_description),
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Start,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.45f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 // Contact list.
                 //
@@ -231,106 +144,96 @@ private fun AboutUsPhoneContent(
                 // the platform name. A vertical list divides evenly at any count
                 // and has room for the actual handle, which is the part someone
                 // reading this screen is usually looking for.
-                ContactCard(uriHandler = uriHandler)
+                SettingsCard {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(Res.string.about_us_follow_us),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
 
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
-    }
-}
-
-/**
- * Desktop layout. A wall of Persian body text spanning 1900px is unreadable,
- * so this is width-capped like every other screen — but at [WindowSize.Expanded]
- * there's enough room to stop stacking everything in one column: the hero sits
- * beside the description+contact stack instead of on top of it, so the page
- * reads as two panels rather than one long scroll. Under the app's forced RTL
- * the hero (the *first* child of the Row) lands on the right, which is where a
- * page's lead visual belongs in an RTL reading order; the text content follows
- * to its left.
- *
- * At [WindowSize.Medium] there isn't enough room for a side-by-side split
- * without squeezing the hero or wrapping the social rows' handles, so it
- * stays a single, width-capped column — same stack as phone, just centred
- * instead of edge-to-edge.
- */
-@Composable
-private fun AboutUsWebContent(
-    modifier: Modifier = Modifier,
-    onNavigateBack: () -> Unit
-) {
-    val uriHandler = LocalUriHandler.current
-    val isExpanded = LocalWindowSize.current == WindowSize.Expanded
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(Res.string.about_us_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            AmbientBackdrop(modifier = Modifier.matchParentSize())
-
-            AppScaffold(
-                modifier = modifier.fillMaxSize(),
-                maxWidth = if (isExpanded) ContentWidth.Wide else ContentWidth.List
-            ) {
-                if (isExpanded) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            HeroCard()
-                        }
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            DescriptionCard()
-                            ContactCard(uriHandler = uriHandler)
-                        }
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        HeroCard()
-                        DescriptionCard()
-                        ContactCard(uriHandler = uriHandler)
-
-                        Spacer(modifier = Modifier.height(24.dp))
+                        // Bale/Eitaa/Rubika are the official app icons (from each
+                        // messenger's own web app), so they fill the tile as-is;
+                        // Instagram/website are white glyphs on a drawn tile.
+                        SocialRow(
+                            title = stringResource(Res.string.social_bale),
+                            handle = "ble.ir/noobatyar",
+                            painter = painterResource(Res.drawable.ic_social_bale),
+                            tile = SolidColor(Color(0xFF00B894)),
+                            iconPadding = 0.dp,
+                            index = 0,
+                            onClick = { uriHandler.openUri("https://ble.ir/noobatyar") }
+                        )
+                        SocialDivider()
+                        SocialRow(
+                            title = stringResource(Res.string.social_eitaa),
+                            handle = "eitaa.com/noobatyar",
+                            painter = painterResource(Res.drawable.ic_social_eitaa),
+                            tile = SolidColor(Color(0xFFF47435)),
+                            iconPadding = 0.dp,
+                            index = 1,
+                            onClick = { uriHandler.openUri("https://eitaa.com/noobatyar") }
+                        )
+                        SocialDivider()
+                        SocialRow(
+                            title = stringResource(Res.string.social_rubika),
+                            handle = "rubika.ir/noobatyar",
+                            painter = painterResource(Res.drawable.ic_social_rubika),
+                            // Rubika's icon is a hexagon on transparency — a white
+                            // plate is what it sits on in every app store.
+                            tile = SolidColor(Color.White),
+                            iconPadding = 3.dp,
+                            index = 2,
+                            onClick = { uriHandler.openUri("https://rubika.ir/noobatyar") }
+                        )
+                        SocialDivider()
+                        SocialRow(
+                            title = stringResource(Res.string.instagram),
+                            handle = "@noobatyar",
+                            painter = painterResource(Res.drawable.ic_social_instagram),
+                            tile = InstagramGradient,
+                            iconPadding = 11.dp,
+                            index = 3,
+                            onClick = { uriHandler.openUri("https://instagram.com/noobatyar") }
+                        )
+                        SocialDivider()
+                        SocialRow(
+                            title = stringResource(Res.string.social_website),
+                            handle = "noobatyar.ir",
+                            painter = painterResource(Res.drawable.ic_social_website),
+                            tile = Brush.linearGradient(listOf(Color(0xFFA855F7), Color(0xFF6D28D9))),
+                            iconPadding = 10.dp,
+                            index = 4,
+                            onClick = { uriHandler.openUri("https://noobatyar.ir") }
+                        )
                     }
                 }
+
+                SettingsCard {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(Res.string.about_us_developer),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        SocialRow(
+                            title = stringResource(Res.string.about_us_developer),
+                            handle = "@javiddev",
+                            painter = null,
+                            badge = "</>",
+                            tile = Brush.linearGradient(listOf(Color(0xFF1E1B4B), Color(0xFF6D28D9))),
+                            iconPadding = 11.dp,
+                            index = 5,
+                            onClick = { uriHandler.openUri("https://instagram.com/javiddev") }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -608,13 +511,27 @@ private fun SocialDivider() {
     )
 }
 
+/** Instagram's mark is defined by its gradient, so it lives on the tile. */
+private val InstagramGradient = Brush.linearGradient(
+    listOf(
+        Color(0xFFFEDA75),
+        Color(0xFFFA7E1E),
+        Color(0xFFD62976),
+        Color(0xFF962FBF),
+        Color(0xFF4F5BD5)
+    )
+)
+
 @Composable
 private fun SocialRow(
     title: String,
     handle: String,
-    painter: Painter,
-    tileColors: List<Color>,
+    painter: Painter?,
+    tile: Brush,
+    iconPadding: Dp,
     index: Int,
+    /** Short code-style glyph (e.g. "</>") drawn in the tile instead of [painter]. */
+    badge: String? = null,
     onClick: () -> Unit
 ) {
     // Same sheen as the hero card, staggered down the list so it reads as one
@@ -640,7 +557,7 @@ private fun SocialRow(
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(13.dp))
-                .background(Brush.linearGradient(tileColors))
+                .background(tile)
                 .drawWithContent {
                     drawContent()
                     val w = size.width
@@ -660,12 +577,27 @@ private fun SocialRow(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                painter = painter,
-                contentDescription = title,
-                tint = Color.Unspecified,
-                modifier = Modifier.size(24.dp)
-            )
+            if (badge != null) {
+                Text(
+                    // Same LTR isolate as the handle below: "</>" is all
+                    // neutrals and would render mirrored in RTL.
+                    text = "\u2066$badge\u2069",
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    maxLines = 1
+                )
+            } else if (painter != null) {
+                Icon(
+                    painter = painter,
+                    contentDescription = title,
+                    tint = Color.Unspecified,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(iconPadding)
+                )
+            }
         }
 
         Spacer(Modifier.width(14.dp))

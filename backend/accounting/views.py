@@ -9,7 +9,9 @@ from api.views import _extract_error
 from .models import Plan, Subscription, AddOnPack
 from .payment.zibal_payment import ZibalPaymentService
 from .payment.zibal_payment_verification import PaymentVerificationService
-from .payment.addon_payment import AddOnPaymentService, AddOnVerificationService
+from .payment.addon_payment import (
+    NO_SUBSCRIPTION_MESSAGE, AddOnPaymentService, AddOnVerificationService, can_buy_addon,
+)
 from .serializers import (
     PlanSerializer, SubscriptionSerializer, BuyPlanSerializer,
     AddOnPackSerializer, BuyAddOnSerializer,
@@ -182,6 +184,9 @@ def buy_addon(request):
     except AddOnPack.DoesNotExist:
         return APIResponse.error(message='بسته پیدا نشد', code=404)
 
+    if not can_buy_addon(request.user):
+        return APIResponse.error(message=NO_SUBSCRIPTION_MESSAGE, code=403)
+
     result = AddOnPaymentService().create_payment(
         user=request.user,
         pack=pack,
@@ -284,3 +289,40 @@ def payment_callback(request):
         'message': result['message'],
         'data': result.get('data', {})
     })
+
+
+# ── Myket in-app billing (store build of the owner app) ──────────────────────
+# See accounting/payment/myket.py for the full flow.
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def myket_intent(request):
+    """Reserve a purchase and return the Myket product id + developer payload."""
+    from .payment import myket
+    try:
+        data = myket.create_intent(
+            request.user,
+            kind=request.data.get('kind'),
+            item_id=request.data.get('id'),
+        )
+    except myket.StoreError as exc:
+        return APIResponse.error(message=exc.message, code=exc.status)
+    return APIResponse.success(data=data, message='سفارش ثبت شد')
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def myket_verify(request):
+    """Verify a Myket purchase token server-to-server and grant what it paid for."""
+    from .payment import myket
+    try:
+        data = myket.verify_and_grant(
+            request.user,
+            payload=request.data.get('payload') or '',
+            sku=request.data.get('sku') or '',
+            token=request.data.get('token') or '',
+            order_id=request.data.get('order_id') or '',
+        )
+    except myket.StoreError as exc:
+        return APIResponse.error(message=exc.message, code=exc.status)
+    return APIResponse.success(data=data, message=data['message'])

@@ -51,6 +51,8 @@ import xyz.sattar.javid.proqueue.feature.messages.MessagesScreen
 import xyz.sattar.javid.proqueue.feature.notifications.NotificationsScreen
 import xyz.sattar.javid.proqueue.feature.profile.PaymentResultScreen
 import xyz.sattar.javid.proqueue.feature.settings.EmergencyNoticeScreen
+import xyz.sattar.javid.proqueue.feature.settings.ThemeScreen
+import xyz.sattar.javid.proqueue.feature.promo.PromoCampaignScreen
 import xyz.sattar.javid.proqueue.feature.settings.SettingsScreen
 import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportScreen
 import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsScreen
@@ -381,8 +383,25 @@ private fun MainNavGraph(
                     onNavigateToEmergencyNotice = {
                         navController.navigate(AppScreens.EmergencyNotice)
                     },
+                    onNavigateToTheme = {
+                        navController.navigate(AppScreens.Theme)
+                    },
+                    onNavigateToPromoCampaign = {
+                        navController.navigate(AppScreens.PromoCampaign)
+                    },
                     onNavigateToLogin = onNavigateToLogin
                 )
+            }
+
+            composable<AppScreens.PromoCampaign> {
+                PromoCampaignScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAddons = { navController.navigate(AppScreens.AddOns) }
+                )
+            }
+
+            composable<AppScreens.Theme> {
+                ThemeScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable<AppScreens.CreateBusiness> { backStackEntry ->
@@ -405,12 +424,15 @@ private fun MainNavGraph(
                 val args = backStackEntry.toRoute<AppScreens.AdvancedSettings>()
                 AdvancedSettingsRoute(
                     businessId = args.businessId,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenPromoCampaign = { navController.navigate(AppScreens.PromoCampaign) },
+                    onOpenReminders = { navController.navigate(AppScreens.Messages) }
                 )
             }
 
             composable<AppScreens.Notifications> {
                 NotificationsScreen(
+                    onNavigateToMessages = { navController.navigate(AppScreens.Messages) },
                     onNavigateBack = {
                         navController.popBackStack()
                     },
@@ -423,7 +445,8 @@ private fun MainNavGraph(
             composable<AppScreens.Messages> {
                 MessagesScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToAddons = { navController.navigate(AppScreens.AddOns) }
+                    onNavigateToAddons = { navController.navigate(AppScreens.AddOns) },
+                    onNavigateToSmsReport = { navController.navigate(AppScreens.SmsReport) }
                 )
             }
 

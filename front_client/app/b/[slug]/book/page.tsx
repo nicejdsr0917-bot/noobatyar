@@ -19,6 +19,7 @@ import Icon from '@/app/components/Icon';
 import { CategoryGlyph } from '@/app/components/CategoryArt';
 import { toPersianDigits, validateFreeText } from '@/lib/validation';
 import { schedulePushPrompt } from '@/lib/push';
+import { useVisitorToken } from '@/lib/visitorToken';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -78,6 +79,18 @@ export default function BookingPage({ params }: Props) {
     setToast(msg);
     setTimeout(() => setToast(''), 3000);
   };
+
+  // Booking needs an account. A signed-out visitor who reaches this page
+  // (a shared deep link, the back button after logging out) signs in / signs
+  // up first and comes straight back here, rather than picking from hours
+  // they cannot book yet.
+  const visitorToken = useVisitorToken();
+  useEffect(() => {
+    if (visitorToken !== null) return; // unknown yet, or signed in
+    params.then(({ slug: s }) => {
+      router.replace(`/auth/login?redirect=${encodeURIComponent(`/b/${s}/book`)}`);
+    });
+  }, [visitorToken, params, router]);
 
   useEffect(() => {
     params.then(({ slug: s }) => {
@@ -599,44 +612,24 @@ export default function BookingPage({ params }: Props) {
         </div>
       )}
 
-      {/* ── My Appointments Button ── */}
-      <div className="section" style={{ paddingBottom: 0 }}>
-        <button
-          onClick={() => router.push('/appointments')}
-          style={{
-            width: '100%',
-            height: 52,
-            background: 'var(--color-surface)',
-            color: 'var(--color-primary)',
-            border: '1.5px solid var(--color-primary)',
-            borderRadius: 14,
-            fontSize: 15,
-            fontWeight: 600,
-            fontFamily: 'inherit',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 7,
-          }}
-        >
-          <Icon name="calendar" size={18} />
-          نوبت‌های من
-        </button>
-      </div>
-
       {/* ── Toast ── */}
       {toast && <div className="toast">{toast}</div>}
 
       {/* ── Fixed Bottom Button ── */}
       <div className="btn-group">
-        <button
-          className="btn-primary"
-          onClick={handleBook}
-          disabled={!selectedSlot || booking}
-        >
-          {booking ? 'در حال ثبت...' : selectedSlot ? `ادامه - ساعت ${toPersianNumerals(selectedSlot.time)}` : 'یک ساعت انتخاب کنید'}
-        </button>
+        <div className="btn-row">
+          <button
+            className="btn-primary"
+            onClick={handleBook}
+            disabled={!selectedSlot || booking}
+          >
+            {booking ? 'در حال ثبت...' : selectedSlot ? `تأیید ساعت ${toPersianNumerals(selectedSlot.time)}` : 'یک ساعت انتخاب کنید'}
+          </button>
+          <button className="btn-secondary" onClick={() => router.push('/appointments')}>
+            <Icon name="calendar" size={18} />
+            نوبت‌های من
+          </button>
+        </div>
       </div>
 
     </div>

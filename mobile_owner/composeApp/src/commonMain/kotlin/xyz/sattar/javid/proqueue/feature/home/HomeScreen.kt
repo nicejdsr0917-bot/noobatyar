@@ -1055,6 +1055,9 @@ fun HandleEvents(
             is HomeEvent.ShowError -> {
                 snackbarHostState.showToasty(event.message, ToastyType.Error)
             }
+            is HomeEvent.ShowSuccess -> {
+                snackbarHostState.showToasty(event.message, ToastyType.Success)
+            }
         }
     }
 }

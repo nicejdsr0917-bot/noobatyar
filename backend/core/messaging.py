@@ -182,6 +182,71 @@ def _deliver(audience, recipient_id, campaign):
     )
 
 
+def send_expiry_sms(message: str, days_before: int, actor=None):
+    """
+    Sends ``message`` — ``{full_name}`` replaced with each owner's own name,
+    ``{days}`` with that owner's actual days-left (not the ``days_before``
+    window edge) — to every owner with an active subscription ending within
+    ``days_before`` days, and records one :class:`core.models.ExpirySmsLog`
+    row.
+
+    Same two tokens as ``accounting.SubscriptionReminderSettings`` (the
+    cron-run counterpart to this manual send), so one message template reads
+    the same whether it is typed here or saved there.
+
+    Funded the same way as :func:`send_admin_message` — straight through
+    ``api.sms.send_sms``, never ``accounting.usage.consume_sms``: a
+    staff-triggered renewal notice is a platform cost, not something billed
+    to the owner's own SMS quota (see this module's docstring).
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from accounting.models import Subscription
+    from api.sms import send_sms, signed
+    from core.models import ExpirySmsLog
+
+    now = timezone.now()
+    window_end = now + timedelta(days=days_before)
+    subs = Subscription.objects.filter(
+        status='active', ends_at__gt=now, ends_at__lte=window_end,
+    ).select_related('user')
+
+    matched = sent = failed = 0
+    recipients = []
+    for sub in subs:
+        matched += 1
+        name = sub.user.name or ''
+        phone = getattr(sub.user, 'phone', None)
+        if not phone:
+            failed += 1
+            recipients.append({'name': name, 'phone': '', 'status': 'FAILED', 'error': 'بدون شماره تلفن'})
+            continue
+        personalized = (
+            message
+            .replace('{full_name}', name)
+            .replace('{days}', str(max(1, sub.days_left())))
+        )
+        try:
+            ok, err = send_sms(phone, signed(personalized))
+        except Exception as exc:  # noqa: BLE001 — one bad send must not sink the whole blast
+            ok, err = False, str(exc)
+        if ok:
+            sent += 1
+            recipients.append({'name': name, 'phone': phone, 'status': 'SENT'})
+        else:
+            failed += 1
+            logger.warning('Expiry SMS to %s failed: %s', phone, err)
+            recipients.append({'name': name, 'phone': phone, 'status': 'FAILED', 'error': err or ''})
+
+    return ExpirySmsLog.objects.create(
+        message=message, days_before=days_before,
+        matched_count=matched, sent_count=sent, failed_count=failed,
+        recipients=recipients, sent_by=actor,
+    )
+
+
 def send_push_campaign(campaign, audience, filters, definition, *,
                        group_id=None, exclude_opted_out=True, actor=None) -> MarketingPushLog:
     """

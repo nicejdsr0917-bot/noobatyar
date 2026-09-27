@@ -1,6 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.notifications
 
 import androidx.compose.runtime.Immutable
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
 import xyz.sattar.javid.proqueue.domain.model.business.DEFAULT_REMINDER_MINUTES
@@ -11,7 +12,7 @@ data class NotificationsState(
     val isLoading: Boolean = false,
     val isNotificationsEnabled: Boolean = false,
     val reminderMinutes: String = DEFAULT_REMINDER_MINUTES.toString(),
-    val error: String? = null,
+    val message: UiMessage? = null,
     val hasPermission: Boolean = false,
     /** Whether the *client* is reminded, on top of the owner's own reminder. */
     val remindClient: Boolean = false,
@@ -31,7 +32,8 @@ data class NotificationsState(
         data class IsLoading(val isLoading: Boolean) : PartialState()
         data class NotificationsEnabledChanged(val enabled: Boolean) : PartialState()
         data class ReminderMinutesChanged(val minutes: String) : PartialState()
-        data class Error(val message: String) : PartialState()
+        data class ShowMessage(val message: UiMessage) : PartialState()
+        object ClearMessage : PartialState()
         data class PermissionStatusChanged(val hasPermission: Boolean) : PartialState()
         data class RemindClientChanged(val enabled: Boolean) : PartialState()
         data class DeliveryChanged(val delivery: String) : PartialState()
@@ -51,12 +53,13 @@ sealed class NotificationsIntent {
     data class SetDelivery(val delivery: String) : NotificationsIntent()
     /** "ارتقا به X" tapped on the locked push-notifications card. */
     data class UpgradePlan(val planId: Int) : NotificationsIntent()
+    object ClearMessage : NotificationsIntent()
 }
 
 sealed class NotificationsEvent {
     object NavigateBack : NotificationsEvent()
     object ShowSavedConfirmation : NotificationsEvent()
     object RequestPermission : NotificationsEvent()
-    data class ShowError(val message: String) : NotificationsEvent()
+    data class ShowToast(val message: UiMessage) : NotificationsEvent()
     data class OpenUrl(val url: String) : NotificationsEvent()
 }

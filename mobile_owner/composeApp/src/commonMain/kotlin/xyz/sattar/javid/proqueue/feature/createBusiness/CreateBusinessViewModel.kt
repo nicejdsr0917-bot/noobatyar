@@ -1,5 +1,9 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.network.ApiException
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
@@ -22,7 +26,7 @@ class CreateBusinessViewModel(
     private val businessRepository: xyz.sattar.javid.proqueue.domain.BusinessRepository,
     private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase,
     private val getPlansUseCase: GetPlansUseCase,
-    private val createPaymentUseCase: CreatePaymentUseCase,
+    private val purchaseUseCase: PurchaseUseCase,
     private val getServiceCatalogUseCase: GetServiceCatalogUseCase,
     private val addServiceCatalogItemUseCase: AddServiceCatalogItemUseCase
 ) : BaseViewModel<CreateBusinessState, CreateBusinessState.PartialState, CreateBusinessEvent, CreateBusinessIntent>(
@@ -117,7 +121,7 @@ class CreateBusinessViewModel(
                 )
             )
         } catch (e: Exception) {
-            emit(CreateBusinessState.PartialState.ShowMessage(e.message ?: "خطا در افزودن خدمت"))
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در افزودن خدمت")))
         }
     }
 
@@ -139,12 +143,17 @@ class CreateBusinessViewModel(
 
     private fun upgradePlan(planId: Int): Flow<CreateBusinessState.PartialState> = flow {
         try {
-            when (val response = createPaymentUseCase(planId)) {
-                is ApiResponse.Success -> sendEvent(CreateBusinessEvent.OpenUrl(response.data.paymentUrl))
-                is ApiResponse.Error -> emit(CreateBusinessState.PartialState.ShowMessage(response.message))
+            when (val outcome = purchaseUseCase.plan(planId)) {
+                is PurchaseOutcome.Redirect -> sendEvent(CreateBusinessEvent.OpenUrl(outcome.url))
+                is PurchaseOutcome.Completed -> {
+                    emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.success(outcome.message)))
+                    sendIntent(CreateBusinessIntent.LoadEntitlements)
+                }
+                PurchaseOutcome.Cancelled -> Unit
+                is PurchaseOutcome.Failed -> emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(outcome.message)))
             }
         } catch (e: Exception) {
-            emit(CreateBusinessState.PartialState.ShowMessage(e.message ?: "خطا در برقراری ارتباط"))
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در برقراری ارتباط")))
         }
     }
 
@@ -196,7 +205,7 @@ class CreateBusinessViewModel(
     }
 
     override fun createErrorState(message: String): CreateBusinessState.PartialState =
-        CreateBusinessState.PartialState.ShowMessage(message)
+        CreateBusinessState.PartialState.ShowMessage(UiMessage.error(message))
 
     private fun loadBusiness(businessId: Long): Flow<CreateBusinessState.PartialState> = flow {
         emit(CreateBusinessState.PartialState.IsLoading(true))
@@ -204,7 +213,7 @@ class CreateBusinessViewModel(
         if (business != null) {
             emit(CreateBusinessState.PartialState.BusinessLoaded(business))
         } else {
-            emit(CreateBusinessState.PartialState.ShowMessage("بیزینس یافت نشد"))
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error("بیزینس یافت نشد")))
         }
     }
 
@@ -239,53 +248,63 @@ class CreateBusinessViewModel(
         allowClientAddService: Boolean
     ): Flow<CreateBusinessState.PartialState> = flow {
         emit(CreateBusinessState.PartialState.IsLoading(true))
-        val updatedBusiness = businessUpsertUseCase.invoke(
-            Business(
-                title = businessName,
-                category = category,
-                // The picker only ever yields codes from the vocabulary the
-                // server just served, so the enum resolves the label for every
-                // category this build knows; anything newer is relabelled from
-                // the server's own response on the next fetch.
-                categoryLabel = BusinessCategory.fromString(category).persianName,
-                phone = phone,
-                extraPhones = extraPhones,
-                address = address,
-                logoPath = uiState.value.business?.logoPath ?: "Sample_path.jpg",
-                id = uiState.value.businessId,
-                defaultServiceDuration = defaultProgress.toIntOrNull() ?: 15,
-                workStartHour = workStartHour,
-                workEndHour = workEndHour,
-                workStartMinute = workStartMinute,
-                workEndMinute = workEndMinute,
-                closedWeekdays = closedWeekdays,
-                notificationEnabled = uiState.value.business?.notificationEnabled ?: true,
-                notificationTypes = uiState.value.business?.notificationTypes ?: "SMS,WHATSAPP",
-                // Carried over rather than rebuilt: this form has no field for
-                // either, so leaving them out would reset whatever the
-                // notifications screen saved every time the business is edited.
-                notificationMinutesBefore = uiState.value.business?.notificationMinutesBefore
-                    ?.takeIf { it > 0 } ?: DEFAULT_REMINDER_MINUTES,
-                enableReminderSms = uiState.value.business?.enableReminderSms ?: true,
-                allowAnonymousView = allowAnonymousView,
-                notifyOwnerBySms = notifyOwnerBySms,
-                maxAppointmentsPerHour = maxAppointmentsPerHour,
-                depositMode = depositMode,
-                depositAmount = depositAmount,
-                acceptedPaymentMethods = acceptedPaymentMethods.split(",").filter { it.isNotEmpty() },
-                cardNumber = cardNumber,
-                cardOwnerName = cardOwnerName,
-                merchantId = merchantId,
-                paymentLink = paymentLink,
-                bio = bio,
-                logoBytes = logoBytes,
-                noticeEnabled = noticeEnabled,
-                noticeMessage = noticeMessage,
-                reminderDelivery = reminderDelivery,
-                services = services,
-                allowClientAddService = allowClientAddService
+        val updatedBusiness = try {
+            businessUpsertUseCase.invoke(
+                Business(
+                    title = businessName,
+                    category = category,
+                    // The picker only ever yields codes from the vocabulary the
+                    // server just served, so the enum resolves the label for every
+                    // category this build knows; anything newer is relabelled from
+                    // the server's own response on the next fetch.
+                    categoryLabel = BusinessCategory.fromString(category).persianName,
+                    phone = phone,
+                    extraPhones = extraPhones,
+                    address = address,
+                    logoPath = uiState.value.business?.logoPath ?: "Sample_path.jpg",
+                    id = uiState.value.businessId,
+                    defaultServiceDuration = defaultProgress.toIntOrNull() ?: 15,
+                    workStartHour = workStartHour,
+                    workEndHour = workEndHour,
+                    workStartMinute = workStartMinute,
+                    workEndMinute = workEndMinute,
+                    closedWeekdays = closedWeekdays,
+                    notificationEnabled = uiState.value.business?.notificationEnabled ?: true,
+                    notificationTypes = uiState.value.business?.notificationTypes ?: "SMS,WHATSAPP",
+                    // Carried over rather than rebuilt: this form has no field for
+                    // either, so leaving them out would reset whatever the
+                    // notifications screen saved every time the business is edited.
+                    notificationMinutesBefore = uiState.value.business?.notificationMinutesBefore
+                        ?.takeIf { it > 0 } ?: DEFAULT_REMINDER_MINUTES,
+                    enableReminderSms = uiState.value.business?.enableReminderSms ?: true,
+                    allowAnonymousView = allowAnonymousView,
+                    notifyOwnerBySms = notifyOwnerBySms,
+                    maxAppointmentsPerHour = maxAppointmentsPerHour,
+                    depositMode = depositMode,
+                    depositAmount = depositAmount,
+                    acceptedPaymentMethods = acceptedPaymentMethods.split(",").filter { it.isNotEmpty() },
+                    cardNumber = cardNumber,
+                    cardOwnerName = cardOwnerName,
+                    merchantId = merchantId,
+                    paymentLink = paymentLink,
+                    bio = bio,
+                    logoBytes = logoBytes,
+                    noticeEnabled = noticeEnabled,
+                    noticeMessage = noticeMessage,
+                    reminderDelivery = reminderDelivery,
+                    reminderTemplate = uiState.value.business?.reminderTemplate
+                        ?: xyz.sattar.javid.proqueue.domain.model.business.ReminderTemplates.DEFAULT_KEY,
+                    services = services,
+                    allowClientAddService = allowClientAddService
+                )
             )
-        )
+        } catch (e: ApiException) {
+            // 403 is the plan saying no to a setting (the server names which) —
+            // a warning, not a failure. Anything else goes to the generic error.
+            if (e.code != 403) throw e
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.warning(e.message ?: "این قابلیت در پلن فعلی شما نیست")))
+            return@flow
+        }
         if (updatedBusiness != null) {
             // Update global state if this is the currently selected business
             val selectedBusiness = xyz.sattar.javid.proqueue.core.state.BusinessStateHolder.selectedBusiness.value
@@ -294,7 +313,7 @@ class CreateBusinessViewModel(
             }
             emit(CreateBusinessState.PartialState.BusinessCreated)
         } else {
-            emit(CreateBusinessState.PartialState.ShowMessage("خطا در عملیات"))
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error("خطا در عملیات")))
         }
     }
 }

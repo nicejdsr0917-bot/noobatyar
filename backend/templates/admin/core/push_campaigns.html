@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 
-{# ---------------------------------------------------------------------------
+{% comment %} ---------------------------------------------------------------------------
   Promotional push campaigns
   (core.admin_site.NobatyarAdminSite.campaign_view / campaign_send_view).
 
@@ -14,52 +14,52 @@
   that page is scoped to one audience at a time by construction (its whole
   querystring carries a single `kind`), and the thing operators want here —
   one announcement to customers *and* owners — cannot be expressed there.
---------------------------------------------------------------------------- #}
+--------------------------------------------------------------------------- {% endcomment %}
 
 {% block extrastyle %}{{ block.super }}
 <style>
   .pc-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,340px); gap:20px; align-items:start; }
   @media (max-width:1000px){ .pc-grid { grid-template-columns:1fr; } }
-  .pc-box { border:1px solid #e3e3e3; border-radius:8px; background:#fff; padding:16px; margin-block-end:20px; }
-  .pc-box h2 { font-size:14px; margin:0 0 14px; padding:0 0 8px; border-block-end:1px solid #eee; }
-  .pc-field { display:flex; flex-direction:column; gap:4px; margin-block-end:14px; font-size:12px; color:#555; }
+  .pc-box { border:1px solid var(--border-color); border-radius:8px; background:var(--body-bg); padding:16px; margin-block-end:20px; }
+  .pc-box h2 { font-size:14px; margin:0 0 14px; padding:0 0 8px; border-block-end:1px solid var(--border-color); }
+  .pc-field { display:flex; flex-direction:column; gap:4px; margin-block-end:14px; font-size:12px; color:var(--body-quiet-color); }
   .pc-field input[type=text], .pc-field input[type=url], .pc-field textarea, .pc-field select {
-    padding:8px; border:1px solid #ccc; border-radius:4px; font-family:inherit; font-size:13px; width:100%;
+    padding:8px; border:1px solid var(--border-color); border-radius:4px; font-family:inherit; font-size:13px; width:100%;
     box-sizing:border-box; }
   .pc-field textarea { min-height:96px; resize:vertical; line-height:1.9; }
   .pc-ltr { direction:ltr; text-align:left; }
-  .pc-hint { font-size:11px; color:#888; }
+  .pc-hint { font-size:11px; color:var(--body-quiet-color); }
   .pc-audiences { display:flex; flex-wrap:wrap; gap:10px; margin-block-end:14px; }
-  .pc-aud { display:flex; align-items:center; gap:8px; border:1px solid #ccc; border-radius:8px;
-            padding:10px 14px; cursor:pointer; font-size:13px; background:#fafafa; }
+  .pc-aud { display:flex; align-items:center; gap:8px; border:1px solid var(--border-color); border-radius:8px;
+            padding:10px 14px; cursor:pointer; font-size:13px; background:var(--darkened-bg); }
   .pc-aud input { margin:0; }
   .pc-counts { display:flex; flex-wrap:wrap; gap:10px; margin-block-end:14px; }
-  .pc-card { border:1px solid #ddd; border-radius:8px; padding:10px 14px; min-width:150px; background:#fff; }
-  .pc-card-title { font-size:11px; color:#666; margin-block-end:4px; }
+  .pc-card { border:1px solid var(--border-color); border-radius:8px; padding:10px 14px; min-width:150px; background:var(--body-bg); }
+  .pc-card-title { font-size:11px; color:var(--body-quiet-color); margin-block-end:4px; }
   .pc-card-value { font-size:20px; font-weight:700; direction:ltr; text-align:end; }
   .pc-warn { border:1px solid #e0a800; background:#fff8e6; border-radius:8px; padding:10px 14px;
              font-size:12px; color:#7a5c00; margin-block-end:16px; line-height:1.9; }
   .pc-err { border:1px solid #d9534f; background:#fdf3f3; border-radius:8px; padding:10px 14px;
             font-size:12px; color:#a94442; margin-block-end:16px; }
-  .pc-table { width:100%; border-collapse:collapse; background:#fff; }
-  .pc-table th, .pc-table td { border:1px solid #e6e6e6; padding:6px 9px; font-size:12px; }
-  .pc-table th { background:#fafafa; text-align:start; }
+  .pc-table { width:100%; border-collapse:collapse; background:var(--body-bg); }
+  .pc-table th, .pc-table td { border:1px solid var(--border-color); padding:6px 9px; font-size:12px; }
+  .pc-table th { background:var(--darkened-bg); text-align:start; }
   .pc-num { direction:ltr; text-align:end; font-variant-numeric:tabular-nums; }
-  .pc-campaign { border:1px solid #e3e3e3; border-radius:8px; margin-block-end:14px; overflow:hidden; }
-  .pc-campaign-head { background:#fafafa; padding:10px 14px; border-block-end:1px solid #e6e6e6; }
+  .pc-campaign { border:1px solid var(--border-color); border-radius:8px; margin-block-end:14px; overflow:hidden; }
+  .pc-campaign-head { background:var(--darkened-bg); padding:10px 14px; border-block-end:1px solid var(--border-color); }
   .pc-campaign-title { font-size:13px; font-weight:700; }
-  .pc-campaign-meta { font-size:11px; color:#777; margin-block-start:3px; }
-  .pc-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; background:#eef3f6; color:#417690; }
-  .pc-preview { border:1px solid #ddd; border-radius:10px; padding:12px; background:#fff; }
+  .pc-campaign-meta { font-size:11px; color:var(--body-quiet-color); margin-block-start:3px; }
+  .pc-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; background:#eef3f6; color:var(--link-fg); }
+  .pc-preview { border:1px solid var(--border-color); border-radius:10px; padding:12px; background:var(--body-bg); }
   .pc-preview-title { font-size:13px; font-weight:700; }
-  .pc-preview-body { font-size:12px; color:#444; line-height:1.9; white-space:pre-line; margin-block-start:4px; }
+  .pc-preview-body { font-size:12px; color:var(--body-loud-color); line-height:1.9; white-space:pre-line; margin-block-start:4px; }
   .pc-preview-img { max-width:100%; border-radius:6px; margin-block-start:8px; display:block; }
 </style>
 {% endblock %}
 
 {% block content %}
-{# No <h1> here: base_site.html already renders one from the `title` context
-   key, same as segment_builder.html. #}
+{% comment %} No <h1> here: base_site.html already renders one from the `title` context
+   key, same as segment_builder.html. {% endcomment %}
 
 {% if not push_configured %}
   <div class="pc-warn">
@@ -183,6 +183,116 @@
       </p>
     </div>
   </div>
+</div>
+
+{% comment %} ── Expiry-SMS blast: manual counterpart to the cron-run reminder in
+   accounting.SubscriptionReminderSettings — same "subscription ending soon"
+   audience, but the operator writes the wording fresh and sends on demand. {% endcomment %}
+<div class="pc-box">
+  <h2>پیامک یادآوری انقضای اشتراک</h2>
+  <form method="post" id="es-form">
+    {% csrf_token %}
+
+    <label class="pc-field" style="max-width:220px">
+      تا چند روز مانده به پایان اشتراک
+      <input type="number" name="expiry_days_before" id="es-days" min="1"
+             value="{{ reminder_settings.days_before|default:3 }}" class="pc-ltr">
+    </label>
+
+    <label class="pc-field">
+      متن پیامک <span style="color:#d9534f">*</span>
+      <textarea name="expiry_message" id="es-message" maxlength="500" required
+                data-suffix-len="{{ sms_suffix_len }}">{{ reminder_settings.message_template }}</textarea>
+      <span class="pc-hint" id="es-charcount"></span>
+      <span class="pc-hint">
+        جاهای خالی مجاز: <code>{{ '{full_name}' }}</code> نام خود صاحب‌حساب (نه نام کسب‌وکار)،
+        <code>{{ '{days}' }}</code> تعداد روز واقعی باقی‌مانده تا پایان اشتراک همان شخص.
+        مثال: «{{ '{full_name}' }} عزیز، {{ '{days}' }} روز دیگر موعد اشتراک شما تمام می‌شود».
+        کلمه‌ی لغو۱۱ نیازی نیست دستی تایپ شود — سامانه‌ی پیامک آن را خودش انتهای هر پیام اضافه می‌کند
+        (در شمارش کاراکتر بالا لحاظ شده).
+      </span>
+    </label>
+
+    <div class="pc-counts" id="es-counts"></div>
+
+    <button type="submit" formaction="{% url 'admin:core_expiry_sms_send' %}" class="default">
+      ارسال الان
+    </button>
+    <span class="pc-hint" style="margin-inline-start:10px">
+      ارسال بلافاصله و بدون تأیید دوم انجام می‌شود.
+    </span>
+
+    <div style="margin-block-start:16px; padding-block-start:14px; border-block-start:1px solid var(--border-color)">
+      <label class="pc-aud" style="width:fit-content">
+        <input type="checkbox" name="auto_enabled" value="1" {% if reminder_settings.is_enabled %}checked{% endif %}>
+        ارسال خودکار فعال باشد
+      </label>
+      <p class="pc-hint" style="margin-block-start:6px">
+        وضعیت فعلی:
+        {% if reminder_settings.is_enabled %}
+          <strong style="color:#2e7d32">روشن</strong> — هر بار که چرخه اجرا شود،
+          {{ reminder_settings.days_before }} روز مانده به پایان، همین متن بالا فرستاده می‌شود.
+        {% else %}
+          <strong>خاموش</strong>
+        {% endif %}
+        — این تیک فقط تنظیم را روشن/خاموش می‌کند؛ اجرای واقعی هر بار نیاز به این دارد که
+        <code dir="ltr">python manage.py run_subscription_lifecycle</code> جایی (کرون یا هر ابزار دیگری)
+        زمان‌بندی شده باشد.
+      </p>
+      <button type="submit" formaction="{% url 'admin:core_expiry_sms_autosend' %}">
+        ذخیره تنظیمات خودکار
+      </button>
+    </div>
+  </form>
+</div>
+
+<div class="pc-box">
+  <h2>گزارش پیامک‌های انقضای اشتراک</h2>
+  {% if not expiry_logs %}
+    <p class="pc-hint">هنوز پیامکی ارسال نشده است.</p>
+  {% else %}
+    {% for l in expiry_logs %}
+      <div class="pc-campaign">
+        <div class="pc-campaign-head">
+          <div class="pc-campaign-title">{{ l.message }}</div>
+          <div class="pc-campaign-meta">
+            {{ l.sent_at }} —
+            {% if l.sent_by %}{{ l.sent_by.name|default:l.sent_by.phone }}{% else %}—{% endif %}
+            — تا {{ l.days_before }} روز مانده —
+            {{ l.sent_count }} از {{ l.matched_count }} ارسال شد
+            {% if l.failed_count %}({{ l.failed_count }} ناموفق){% endif %}
+          </div>
+        </div>
+        {% if l.recipients %}
+          <details>
+            <summary style="cursor:pointer; padding:8px 14px; font-size:12px; color:var(--link-fg)">
+              فهرست گیرندگان ({{ l.recipients|length }} نفر)
+            </summary>
+            <table class="pc-table">
+              <thead>
+                <tr><th>نام</th><th>شماره</th><th>وضعیت</th><th>خطا</th></tr>
+              </thead>
+              <tbody>
+                {% for r in l.recipients %}
+                  <tr>
+                    <td>{{ r.name|default:"—" }}</td>
+                    <td class="pc-num">{{ r.phone|default:"—" }}</td>
+                    <td>{% if r.status == 'SENT' %}ارسال‌شده{% else %}ناموفق{% endif %}</td>
+                    <td>{{ r.error|default:"" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </details>
+        {% else %}
+          <p class="pc-hint" style="padding:8px 14px; margin:0">
+            این ارسال قبل از افزوده‌شدن فهرست گیرندگان به این گزارش انجام شده — فقط شمار کلی
+            (واجد شرایط/ارسال‌شده/ناموفق) بالا ثبت است، اسم و شماره‌ی تک‌تک افراد برایش ذخیره نشده.
+          </p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
 </div>
 
 {# ── Delivery report ── #}
@@ -323,6 +433,66 @@
   });
 
   refresh();
+
+  // ── Expiry-SMS live count ──
+  var esDays = document.getElementById('es-days');
+  var esCounts = document.getElementById('es-counts');
+  var esTimer = null;
+
+  function esRefresh() {
+    var days = esDays.value;
+    if (!days || Number(days) <= 0) { esCounts.innerHTML = ''; return; }
+
+    esCounts.innerHTML = card('در حال شمارش…', '…');
+    fetch('{% url "admin:core_expiry_sms_count" %}?days_before=' + encodeURIComponent(days), {
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (d) {
+        esCounts.innerHTML = card('اشتراک‌های واجد شرایط', d.matched,
+                                   'تا ' + days + ' روز دیگر منقضی می‌شوند');
+      })
+      .catch(function () { esCounts.innerHTML = card('تعداد', '—', 'شمارش ناموفق بود'); });
+  }
+
+  if (esDays) {
+    esDays.addEventListener('input', function () {
+      clearTimeout(esTimer);
+      esTimer = setTimeout(esRefresh, 150);
+    });
+    esRefresh();
+  }
+
+  // ── Expiry-SMS character/segment counter ──
+  // Iranian SMS gateways bill in UCS-2 segments once Persian text is
+  // involved: 70 chars for one segment, 67 per segment once it splits into
+  // several (the extra 3 chars per part go to the concatenation header).
+  // `data-suffix-len` is the exact length of what api.sms.signed() appends
+  // after whatever staff type (footer + لغو11), computed server-side in
+  // core.admin_site so this never drifts from the real value sent.
+  var esMessage = document.getElementById('es-message');
+  var esCharCount = document.getElementById('es-charcount');
+
+  function smsSegments(len) {
+    if (len <= 0) return 0;
+    if (len <= 70) return 1;
+    return Math.ceil(len / 67);
+  }
+
+  function esUpdateCount() {
+    if (!esMessage || !esCharCount) return;
+    var suffixLen = parseInt(esMessage.dataset.suffixLen || '0', 10);
+    var total = esMessage.value.length + suffixLen;
+    var segments = smsSegments(total);
+    esCharCount.textContent =
+      total + ' کاراکتر با احتساب امضا و لغو۱۱ (خودِ متن: ' + esMessage.value.length + ' کاراکتر)' +
+      ' → ' + segments + ' پیامک برای هر گیرنده';
+  }
+
+  if (esMessage) {
+    esMessage.addEventListener('input', esUpdateCount);
+    esUpdateCount();
+  }
 })();
 </script>
 {% endblock %}

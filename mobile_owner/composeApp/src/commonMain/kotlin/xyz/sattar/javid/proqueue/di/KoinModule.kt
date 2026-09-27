@@ -125,6 +125,7 @@ val appModule: Module = module {
     factory { GetCurrentUserUseCase(get()) }
     factory { GetPlansUseCase(get()) }
     factory { CreatePaymentUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase(get(), get(), get()) }
     factory { GetMyEntitlementsUseCase(get()) }
     factory { GetAddonsUseCase(get()) }
     factory { BuyAddonUseCase(get()) }
@@ -136,6 +137,7 @@ val appModule: Module = module {
     factory { BusinessUpsertUseCase(get()) }
     factory { GetSmsLogsUseCase(get()) }
     factory { GetSmsLogSummaryUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.PromoSmsUseCase(get()) }
     factory { GetPushLogsUseCase(get()) }
     factory { GetPushLogSummaryUseCase(get()) }
     factory { GetServiceCatalogUseCase(get()) }
@@ -212,6 +214,7 @@ val appModule: Module = module {
     viewModel { VisitorDetailsViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { MessagesViewModel(get(), get(), get()) }
     viewModel { SmsReportViewModel(get(), get(), get(), get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.promo.PromoCampaignViewModel(get()) }
     viewModel { CalendarViewModel(get(), get()) }
     viewModel { RegisterViewModel(get()) }
     viewModel { SendOTPViewModel(get(), get()) }

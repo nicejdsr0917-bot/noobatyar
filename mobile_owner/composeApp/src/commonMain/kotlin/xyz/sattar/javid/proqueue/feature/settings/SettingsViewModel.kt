@@ -63,7 +63,7 @@ class SettingsViewModel(
     private fun saveNotice(): Flow<SettingsState.PartialState> = flow {
         val business = BusinessStateHolder.selectedBusiness.value
         if (business == null) {
-            emit(SettingsState.PartialState.ShowMessage(UiMessage.error("کسب‌وکار انتخاب نشده")))
+            emit(SettingsState.PartialState.ShowMessage(UiMessage.warning("کسب‌وکار انتخاب نشده")))
             return@flow
         }
         emit(SettingsState.PartialState.IsSavingNotice(true))

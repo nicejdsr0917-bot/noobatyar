@@ -31,4 +31,5 @@ class CoreConfig(AppConfig):
 
     default = True
     name = 'core'
+    verbose_name = 'بازاریابی و پیام‌رسانی'
     default_auto_field = 'django.db.models.BigAutoField'

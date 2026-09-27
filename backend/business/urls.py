@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .promo_views import PromoSmsDetailView, PromoSmsPreviewView, PromoSmsView
 from .sms_views import PushLogListView, PushLogSummaryView, SmsLogListView, SmsLogSummaryView
 from .views import BusinessCategoriesView, BusinessView, ServiceCatalogView
 
@@ -14,6 +15,9 @@ urlpatterns = [
     path('<int:business_id>/sms-logs/summary/', SmsLogSummaryView.as_view(), name='business-sms-logs-summary'),
     path('<int:business_id>/push-logs/', PushLogListView.as_view(), name='business-push-logs'),
     path('<int:business_id>/push-logs/summary/', PushLogSummaryView.as_view(), name='business-push-logs-summary'),
+    path('<int:business_id>/promo-sms/', PromoSmsView.as_view(), name='business-promo-sms'),
+    path('<int:business_id>/promo-sms/preview/', PromoSmsPreviewView.as_view(), name='business-promo-sms-preview'),
+    path('<int:business_id>/promo-sms/<int:campaign_id>/', PromoSmsDetailView.as_view(), name='business-promo-sms-detail'),
     # Category-scoped, not business-scoped — deliberately not nested under
     # '<int:business_id>/' since a catalog item is shared across every
     # business in the category, not owned by one.

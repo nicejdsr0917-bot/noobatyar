@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.visitorDetails
 
+import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -133,7 +134,7 @@ fun VisitorDetailsScreen(
     }
 
     LaunchedEffect(uiState.message) {
-        uiState.message?.let { snackbarHostState.showSnackbar(it) }
+        uiState.message?.let { snackbarHostState.showToasty(it) }
     }
 
     HandleEffects(
@@ -342,7 +343,7 @@ fun VisitorDetailsScreenContent(
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = uiState.message ?: "اطلاعات مشتری در دسترس نیست",
+                        text = uiState.message?.text ?: "اطلاعات مشتری در دسترس نیست",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

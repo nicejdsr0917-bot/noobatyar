@@ -115,15 +115,12 @@ fun QueueItemCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        // Two lines instead of five: who + what to do with them on the first,
-        // when on the second. The primary action used to sit on its own
-        // footer row under a divider, and the phone number and full date
-        // were repeated on every card; together that made a queue row
-        // ~180dp, so a phone showed barely two of them. The number is behind
-        // the ⋮ menu's call entry, and the date only appears when the
-        // booking isn't today — the only case where it tells the owner
-        // anything.
-        Column(modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp)) {
+        // Three bands, each on its own line so nothing competes for width:
+        // who (name + ⋮ menu), when (time and how long until it), and — last,
+        // full width — the one thing to do with this booking. Squeezing the
+        // action button onto the name's line left the name, the menu and the
+        // button fighting over one row.
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             val startTimeOnly = DateTimeUtils.formatTime(item.estimatedStartTime)
             val endTimeOnly = DateTimeUtils.formatTime(item.estimatedEndTime)
             val todayStart = DateTimeUtils.startOfTodayMillis()
@@ -238,41 +235,18 @@ fun QueueItemCard(
                     }
                 }
 
-                // Primary action — the one thing an owner does most on a queue row.
-                FilledTonalButton(
-                    onClick = onComplete,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(36.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = when {
-                            isPendingVerification -> stringResource(Res.string.verify_receipt)
-                            isPending -> stringResource(Res.string.approve_action)
-                            else -> stringResource(Res.string.complete_action)
-                        },
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     text = "$endTimeOnly ${stringResource(Res.string.to_label)} $startTimeOnly",
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1
@@ -286,6 +260,8 @@ fun QueueItemCard(
                     )
                 }
 
+                Spacer(modifier = Modifier.weight(1f))
+
                 val badgeBgColor = when {
                     item.overdue -> if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE)
                     else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.4f else 0.7f)
@@ -295,12 +271,12 @@ fun QueueItemCard(
                     else -> MaterialTheme.colorScheme.onSecondaryContainer
                 }
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = badgeBgColor
                 ) {
                     Text(
                         text = item.waitingText,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = badgeContentColor,
@@ -311,8 +287,35 @@ fun QueueItemCard(
 
             // Folded to one line; see CollapsibleReceipt.
             item.appointment.paymentReceipt?.let { receipt ->
-                Spacer(modifier = Modifier.height(8.dp))
-                CollapsibleReceipt(receipt = receipt, modifier = Modifier.padding(end = 6.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                CollapsibleReceipt(receipt = receipt)
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Primary action — the one thing an owner does most on a queue
+            // row — on its own line, full width, where the thumb lands.
+            FilledTonalButton(
+                onClick = onComplete,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(42.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = when {
+                        isPendingVerification -> stringResource(Res.string.verify_receipt)
+                        isPending -> stringResource(Res.string.approve_action)
+                        else -> stringResource(Res.string.complete_action)
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
             }
         }
     }

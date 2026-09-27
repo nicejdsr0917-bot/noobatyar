@@ -11,12 +11,15 @@ BusinessModerationLog registered *and* linked into a bespoke queue view.
 """
 
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
-from .models import AdminMessageLog, AudienceSegment, AudienceSegmentExport, MarketingPushLog
+from .models import (
+    AdminMessageLog, AudienceSegment, AudienceSegmentExport, ExpirySmsLog, MarketingPushLog,
+)
 
 
 @admin.register(AudienceSegment)
-class AudienceSegmentAdmin(admin.ModelAdmin):
+class AudienceSegmentAdmin(ModelAdmin):
     list_display = ['name', 'kind', 'created_by', 'created_at', 'last_run_at']
     list_filter = ['kind']
     search_fields = ['name']
@@ -32,7 +35,7 @@ class AudienceSegmentAdmin(admin.ModelAdmin):
 
 
 @admin.register(AudienceSegmentExport)
-class AudienceSegmentExportAdmin(admin.ModelAdmin):
+class AudienceSegmentExportAdmin(ModelAdmin):
     """Read-only: this is an audit trail, not something staff edit.
 
     Same rationale as accounting.TransactionAdmin — a record with no
@@ -59,7 +62,7 @@ class AudienceSegmentExportAdmin(admin.ModelAdmin):
 
 
 @admin.register(AdminMessageLog)
-class AdminMessageLogAdmin(admin.ModelAdmin):
+class AdminMessageLogAdmin(ModelAdmin):
     """Read-only audit trail — same reasoning as AudienceSegmentExportAdmin
     above. The actual compose/send UI is business_detail_view's form; this
     registration exists so the full cross-business history is browsable/
@@ -83,7 +86,7 @@ class AdminMessageLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(MarketingPushLog)
-class MarketingPushLogAdmin(admin.ModelAdmin):
+class MarketingPushLogAdmin(ModelAdmin):
     """Read-only campaign audit — same reasoning as the other two logs above."""
     list_display = [
         'sent_at', 'audience', 'title',
@@ -92,6 +95,29 @@ class MarketingPushLogAdmin(admin.ModelAdmin):
     list_filter = ['audience', 'sent_at']
     search_fields = ['title', 'body', 'sent_by__phone', 'sent_by__name']
     readonly_fields = [f.name for f in MarketingPushLog._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('sent_by')
+
+
+@admin.register(ExpirySmsLog)
+class ExpirySmsLogAdmin(ModelAdmin):
+    """Read-only audit — same reasoning as the other logs above. The compose/
+    send UI is the expiry-SMS box on the campaigns page
+    (NobatyarAdminSite.expiry_sms_send_view)."""
+    list_display = ['sent_at', 'days_before', 'matched_count', 'sent_count', 'failed_count', 'sent_by']
+    list_filter = ['sent_at']
+    search_fields = ['message', 'sent_by__phone', 'sent_by__name']
+    readonly_fields = [f.name for f in ExpirySmsLog._meta.fields]
 
     def has_add_permission(self, request):
         return False

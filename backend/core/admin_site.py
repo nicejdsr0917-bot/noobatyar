@@ -21,6 +21,7 @@ from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.http import urlencode
+from unfold.sites import UnfoldAdminSite
 
 # core.dashboard is imported inside the views, never here. This module is
 # imported while the app registry is still populating (AdminConfig resolves
@@ -31,7 +32,7 @@ from django.utils.http import urlencode
 logger = logging.getLogger(__name__)
 
 
-class NobatyarAdminSite(admin.AdminSite):
+class NobatyarAdminSite(UnfoldAdminSite):
     site_header = 'نوبت‌یار — پنل مدیریت'
     site_title = 'نوبت‌یار'
     index_title = 'مدیریت سامانه'
@@ -127,6 +128,26 @@ class NobatyarAdminSite(admin.AdminSite):
                 'core/campaigns/preview-count/',
                 self.admin_view(self.campaign_count_view),
                 name='core_campaign_count',
+            ),
+            # ── Expiry-SMS blast — lives on the same campaigns page, separate
+            # form: audience/channel is entirely different (Subscription
+            # expiry window + SMS, not a segment + push), so it gets its own
+            # send/preview endpoints rather than a third branch bolted onto
+            # the push campaign ones.
+            path(
+                'core/expiry-sms/send/',
+                self.admin_view(self.expiry_sms_send_view),
+                name='core_expiry_sms_send',
+            ),
+            path(
+                'core/expiry-sms/preview-count/',
+                self.admin_view(self.expiry_sms_count_view),
+                name='core_expiry_sms_count',
+            ),
+            path(
+                'core/expiry-sms/autosend/',
+                self.admin_view(self.expiry_sms_autosend_view),
+                name='core_expiry_sms_autosend',
             ),
         ]
         return extra_urls + super().get_urls()
@@ -627,7 +648,7 @@ class NobatyarAdminSite(admin.AdminSite):
 
     def _campaign_context(self, request, form=None, error=None):
         from core import segments
-        from core.models import MarketingPushLog
+        from core.models import ExpirySmsLog, MarketingPushLog
 
         # Grouped so a two-audience campaign reads as one entry with two rows,
         # matching how it was actually sent.
@@ -656,6 +677,20 @@ class NobatyarAdminSite(admin.AdminSite):
         ]
         campaigns.sort(key=lambda c: c['sent_at'], reverse=True)
 
+        expiry_logs = list(
+            ExpirySmsLog.objects.select_related('sent_by').order_by('-sent_at')[:20]
+        )
+
+        from accounting.models import SubscriptionReminderSettings
+        reminder_settings = SubscriptionReminderSettings.load()
+
+        # What api.sms.signed() appends after whatever staff types — footer
+        # + the mandatory لغو11 opt-out — so the compose box can count real
+        # SMS segments (and therefore real cost) instead of just the typed
+        # text, which understates both.
+        from api.sms import SMS_FOOTER, SMS_OPT_OUT
+        sms_suffix = f'\n\n{SMS_FOOTER}\n{SMS_OPT_OUT}'
+
         from api.services import push
         return {
             **self.each_context(request),
@@ -665,6 +700,9 @@ class NobatyarAdminSite(admin.AdminSite):
             'form': form or {},
             'error': error,
             'push_configured': push.is_configured(),
+            'expiry_logs': expiry_logs,
+            'reminder_settings': reminder_settings,
+            'sms_suffix_len': len(sms_suffix),
         }
 
     def campaign_view(self, request):
@@ -794,6 +832,117 @@ class NobatyarAdminSite(admin.AdminSite):
                     f'{log.delivered_count} مورد توسط فایربیس پذیرفته شد'
                     + (f' ({log.failed_count} ناموفق).' if log.failed_count else '.'),
                 )
+
+        return HttpResponseRedirect(reverse('admin:core_campaigns', current_app=self.name))
+
+    # ── Expiry-SMS blast ──────────────────────────────────────────────────
+    # Manual counterpart to accounting.SubscriptionReminderSettings' cron-run
+    # reminder: same "owner's subscription ending soon" audience, but the
+    # operator writes the wording fresh each time and sends on demand rather
+    # than relying on the fixed template + schedule.
+
+    def expiry_sms_count_view(self, request):
+        """Live "how many owners does this reach" preview, count only."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from accounting.models import Subscription
+
+        if not request.user.has_perm('core.send_expiry_sms'):
+            raise PermissionDenied
+
+        try:
+            days_before = int(request.GET.get('days_before', ''))
+        except ValueError:
+            return JsonResponse({'error': 'عدد روز نامعتبر است.'}, status=400)
+        if days_before <= 0:
+            return JsonResponse({'error': 'عدد روز باید مثبت باشد.'}, status=400)
+
+        now = timezone.now()
+        matched = Subscription.objects.filter(
+            status='active', ends_at__gt=now, ends_at__lte=now + timedelta(days=days_before),
+        ).count()
+        return JsonResponse({'matched': matched})
+
+    def expiry_sms_send_view(self, request):
+        """POST-only: send the expiry-SMS blast and redirect back to the campaigns page."""
+        from django.contrib import messages
+
+        from core.messaging import send_expiry_sms
+
+        if not request.user.has_perm('core.send_expiry_sms'):
+            raise PermissionDenied
+        if request.method != 'POST':
+            raise PermissionDenied
+
+        message = (request.POST.get('expiry_message') or '').strip()
+        try:
+            days_before = int(request.POST.get('expiry_days_before', ''))
+        except ValueError:
+            days_before = 0
+
+        if not message:
+            messages.error(request, 'متن پیامک نمی‌تواند خالی باشد.')
+        elif days_before <= 0:
+            messages.error(request, 'تعداد روز باید عددی مثبت باشد.')
+        else:
+            log = send_expiry_sms(message, days_before, actor=request.user)
+            if log.matched_count == 0:
+                messages.warning(request, 'هیچ اشتراک فعالی در این بازه پیدا نشد.')
+            else:
+                messages.success(
+                    request,
+                    f'از {log.matched_count} صاحب اشتراک واجد شرایط، {log.sent_count} پیامک ارسال شد'
+                    + (f' ({log.failed_count} ناموفق).' if log.failed_count else '.'),
+                )
+
+        return HttpResponseRedirect(reverse('admin:core_campaigns', current_app=self.name))
+
+    def expiry_sms_autosend_view(self, request):
+        """POST-only: save the expiry-SMS box's fields onto
+        ``accounting.SubscriptionReminderSettings`` — the on/off switch,
+        lead time and template the cron-run ``run_subscription_lifecycle``
+        reads. This does not itself schedule anything: turning the toggle on
+        here only arms the setting, someone still has to run
+        ``python manage.py run_subscription_lifecycle`` on a schedule
+        (cron/systemd timer/whatever) for it to actually fire.
+        """
+        from django.contrib import messages
+
+        from accounting.models import SubscriptionReminderSettings
+
+        if not request.user.has_perm('core.send_expiry_sms'):
+            raise PermissionDenied
+        if request.method != 'POST':
+            raise PermissionDenied
+
+        message = (request.POST.get('expiry_message') or '').strip()
+        try:
+            days_before = int(request.POST.get('expiry_days_before', ''))
+        except ValueError:
+            days_before = 0
+        is_enabled = request.POST.get('auto_enabled') == '1'
+
+        if not message:
+            messages.error(request, 'متن پیامک نمی‌تواند خالی باشد.')
+        elif days_before <= 0:
+            messages.error(request, 'تعداد روز باید عددی مثبت باشد.')
+        else:
+            settings_row = SubscriptionReminderSettings.load()
+            settings_row.is_enabled = is_enabled
+            settings_row.days_before = days_before
+            settings_row.message_template = message
+            settings_row.save()
+            if is_enabled:
+                messages.success(
+                    request,
+                    'ارسال خودکار فعال و ذخیره شد. یادآوری: این فقط تنظیم را روشن می‌کند — '
+                    'برای اجرای واقعی باید دستور run_subscription_lifecycle روی سرور '
+                    'زمان‌بندی‌شده باشد.',
+                )
+            else:
+                messages.success(request, 'تنظیمات ذخیره شد و ارسال خودکار خاموش است.')
 
         return HttpResponseRedirect(reverse('admin:core_campaigns', current_app=self.name))
 

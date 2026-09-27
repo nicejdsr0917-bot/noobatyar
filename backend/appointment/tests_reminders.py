@@ -155,3 +155,19 @@ class ReminderCommandTests(TestCase):
         self.assertEqual(send_push.call_count, 0)
         appointment.refresh_from_db()
         self.assertIsNotNone(appointment.reminder_push_sent_at)
+
+    def test_panel_sms_uses_the_business_chosen_template(self):
+        """The owner picks a fixed wording in the app; the job used to ignore
+        it and send one hardcoded text for every business."""
+        business = self.make_business(delivery='PANEL')
+        business.reminder_template = 'friendly'
+        business.save(update_fields=['reminder_template'])
+        self.make_appointment(business)
+
+        send_sms, _ = self.run_command()
+
+        text = send_sms.call_args[0][1]
+        self.assertIn('سلام مشتری تست جان', text)
+        self.assertIn('30 دقیقه دیگر نوبت شما در کسب‌وکار تست', text)
+        self.assertTrue(text.endswith('لغو11'))
+        self.assertNotIn('{', text)

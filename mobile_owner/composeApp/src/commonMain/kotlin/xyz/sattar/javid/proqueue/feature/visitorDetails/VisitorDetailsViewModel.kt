@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.visitorDetails
 
+import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
@@ -97,7 +99,7 @@ class VisitorDetailsViewModel(
     ): VisitorDetailsState {
         return when (partialState) {
             is PartialState.IsLoading -> currentState.copy(isLoading = partialState.isLoading)
-            is PartialState.ShowMessage -> currentState.copy(message = partialState.message, isLoading = false)
+            is PartialState.ShowMessage -> currentState.copy(message = UiMessage(partialState.message, partialState.type), isLoading = false)
             is PartialState.DetailsLoaded -> currentState.copy(
                 visitor = partialState.visitor,
                 appointments = partialState.appointments,
@@ -134,7 +136,7 @@ class VisitorDetailsViewModel(
         try {
             val business = BusinessStateHolder.selectedBusiness.value
             if (business == null) {
-                emit(PartialState.ShowMessage("کسب‌وکاری انتخاب نشده است"))
+                emit(PartialState.ShowMessage("کسب‌وکاری انتخاب نشده است", ToastyType.Warning))
                 return@flow
             }
 

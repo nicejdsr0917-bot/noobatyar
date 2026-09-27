@@ -9,7 +9,7 @@ class PlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Plan
-        fields = ['id', 'name', 'price', 'discount_price', 'price_display', 'duration_display', 'description', 'is_vip', 'features']
+        fields = ['id', 'name', 'price', 'discount_price', 'price_display', 'duration_display', 'description', 'is_vip', 'features', 'myket_sku']
 
     def get_price_display(self, obj):
         """قیمت رو فارسی نمایش میده (با اولویت قیمت تخفیف)"""
@@ -46,7 +46,7 @@ class AddOnPackSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AddOnPack
-        fields = ['id', 'name', 'price', 'price_display', 'kind', 'sms_amount', 'appointment_amount', 'feature_key', 'duration_days']
+        fields = ['id', 'name', 'price', 'price_display', 'kind', 'sms_amount', 'appointment_amount', 'feature_key', 'duration_days', 'myket_sku']
 
     def get_price_display(self, obj):
         return f"{obj.price:,} تومان"
