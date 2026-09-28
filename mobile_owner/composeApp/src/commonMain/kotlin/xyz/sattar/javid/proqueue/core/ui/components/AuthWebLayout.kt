@@ -109,7 +109,7 @@ fun AuthWebLayout(
                         verticalArrangement = Arrangement.spacedBy(24.dp),
                         modifier = Modifier.padding(48.dp)
                     ) {
-                        NoobatyarMark(modifier = Modifier.size(120.dp))
+                        AnimatedNoobatyarMark(modifier = Modifier.size(120.dp))
                         Text(
                             text = "نوبت‌یار",
                             style = MaterialTheme.typography.displaySmall,
@@ -117,7 +117,7 @@ fun AuthWebLayout(
                             color = Color.White
                         )
                         Text(
-                            text = "نوبت‌ها و صف کسب‌وکارت را یکجا مدیریت کن.",
+                            text = "نوبت‌دهی هوشمند برای کسب‌وکارت.",
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White.copy(alpha = 0.85f),
                             textAlign = TextAlign.Center

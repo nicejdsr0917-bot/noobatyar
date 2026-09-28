@@ -1,15 +1,29 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sign
+import kotlin.math.sin
 
 /**
  * The Noobatyar mark: a checkmark inside an open ring (an appointment
@@ -31,16 +45,145 @@ fun NoobatyarMark(
     accent: Color = Color(0xFFF59E0B)
 ) {
     Canvas(modifier = modifier) {
-        // Uniform scale from the 512x512 authoring box, so the mark keeps its
-        // proportions in whatever square (or rectangle) it is given.
-        val s = minOf(size.width, size.height) / 512f
-        val dx = (size.width - 512f * s) / 2f
-        val dy = (size.height - 512f * s) / 2f
-        fun x(v: Float) = dx + v * s
-        fun y(v: Float) = dy + v * s
+        drawMark(tint = tint, accent = accent, pose = MarkPose.Final)
+    }
+}
 
-        val strokeWidth = 36f * s
+/**
+ * The mark assembling itself, played once when it enters composition:
+ *
+ * 1. Only the ring: no dot, no check.
+ * 2. The dot pops into the ring's top opening, the gap between the two tips
+ *    of the ن, and swings tick-tock, tick-tock like an alarm-clock hammer.
+ * 3. It winds up, rises, and strikes down onto the ring.
+ * 4. On the strike the ring gives a small jolt and the check draws itself in.
+ *
+ * Ends on exactly [NoobatyarMark]'s artwork, so it can stand in for it.
+ */
+@Composable
+fun AnimatedNoobatyarMark(
+    modifier: Modifier = Modifier,
+    tint: Color = Color.White,
+    accent: Color = Color(0xFFF59E0B)
+) {
+    val clock = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        clock.animateTo(
+            targetValue = TOTAL_MS.toFloat(),
+            animationSpec = tween(durationMillis = TOTAL_MS, easing = LinearEasing)
+        )
+    }
+    Canvas(modifier = modifier) {
+        drawMark(tint = tint, accent = accent, pose = poseAt(clock.value))
+    }
+}
 
+/** Every animated quantity at one instant. [Final] is the static logo. */
+private data class MarkPose(
+    /** 0 = no dot, 1 = full size. */
+    val dotScale: Float,
+    /** Swing around the ring centre, in degrees; 0 is straight up. */
+    val dotAngle: Float,
+    /** Upward lift from the dot's resting spot, in 512-box units. */
+    val dotLift: Float,
+    /** Vertical squash on impact: 1 = round. */
+    val dotSquash: Float,
+    /** The ring's jolt when struck: 1 = rest. */
+    val ringScale: Float,
+    /** How much of the check is drawn, 0..1. */
+    val checkProgress: Float
+) {
+    companion object {
+        val Final = MarkPose(1f, 0f, 0f, 1f, 1f, 1f)
+    }
+}
+
+// ── Timeline, in milliseconds ─────────────────────────────────────────────
+private const val RING_ALONE = 250          // ring on its own
+private const val DOT_IN = 300              // dot pops in
+private const val SWING = 1_500             // tick-tock, three full swings
+private const val RISE = 420                // wind up and lift
+private const val STRIKE = 130              // drop onto the ring
+private const val CHECK = 520               // check draws in
+private const val TOTAL_MS = RING_ALONE + DOT_IN + SWING + RISE + STRIKE + CHECK
+
+private const val SWINGS = 3                // full left-right-left cycles
+private const val SWING_DEG = 11f           // stays inside the ring's top gap
+private const val LIFT_UNITS = 78f          // how high the hammer rises
+
+private fun poseAt(t: Float): MarkPose {
+    val dotInStart = RING_ALONE.toFloat()
+    val swingStart = dotInStart + DOT_IN
+    val riseStart = swingStart + SWING
+    val strikeStart = riseStart + RISE
+    val impact = strikeStart + STRIKE
+
+    val dotScale = when {
+        t < dotInStart -> 0f
+        t < swingStart -> easeOutBack((t - dotInStart) / DOT_IN)
+        else -> 1f
+    }
+
+    // Tick-tock: a sine sharpened towards a square wave, so the dot snaps to
+    // each side and pauses there like a clock hammer instead of drifting. The
+    // swing fades out over its last cycle so it settles before winding up.
+    val dotAngle = if (t in swingStart..riseStart) {
+        val p = (t - swingStart) / SWING
+        val s = sin(p * SWINGS * 2f * PI.toFloat())
+        val sharp = sign(s) * abs(s).pow(0.45f)
+        val fade = if (p > 1f - 1f / SWINGS) (1f - p) * SWINGS else 1f
+        SWING_DEG * sharp * fade
+    } else 0f
+
+    val dotLift = when {
+        t < riseStart -> 0f
+        // A small dip first (wind-up), then up with ease-out.
+        t < strikeStart -> {
+            val p = (t - riseStart) / RISE
+            if (p < 0.2f) -10f * sin(p / 0.2f * PI.toFloat())
+            else LIFT_UNITS * easeOutCubic((p - 0.2f) / 0.8f)
+        }
+        // Accelerating fall: a strike, not a glide.
+        t < impact -> LIFT_UNITS * (1f - easeInCubic((t - strikeStart) / STRIKE))
+        else -> 0f
+    }
+
+    // After the strike: the dot squashes and springs back, the ring jolts.
+    val sinceImpact = t - impact
+    val dotSquash = if (sinceImpact in 0f..220f) 1f - 0.28f * decayingBounce(sinceImpact / 220f) else 1f
+    val ringScale = if (sinceImpact in 0f..320f) 1f + 0.06f * decayingBounce(sinceImpact / 320f) else 1f
+    val checkProgress = when {
+        sinceImpact <= 0f -> 0f
+        sinceImpact < CHECK -> easeOutCubic(sinceImpact / CHECK)
+        else -> 1f
+    }
+
+    return MarkPose(dotScale, dotAngle, dotLift, dotSquash, ringScale, checkProgress)
+}
+
+private fun easeOutCubic(x: Float) = 1f - (1f - x).pow(3)
+private fun easeInCubic(x: Float) = x * x * x
+private fun easeOutBack(x: Float): Float {
+    val c1 = 1.70158f
+    val c3 = c1 + 1f
+    return 1f + c3 * (x - 1f).pow(3) + c1 * (x - 1f).pow(2)
+}
+/** 1 at x = 0, oscillating down to 0 at x = 1. */
+private fun decayingBounce(x: Float) = (1f - x) * cos(x * 2.5f * PI.toFloat())
+
+private fun DrawScope.drawMark(tint: Color, accent: Color, pose: MarkPose) {
+    // Uniform scale from the 512x512 authoring box, so the mark keeps its
+    // proportions in whatever square (or rectangle) it is given.
+    val s = minOf(size.width, size.height) / 512f
+    val dx = (size.width - 512f * s) / 2f
+    val dy = (size.height - 512f * s) / 2f
+    fun x(v: Float) = dx + v * s
+    fun y(v: Float) = dy + v * s
+
+    val strokeWidth = 36f * s
+    val centre = Offset(x(256f), y(256f))
+
+    scale(pose.ringScale, pivot = centre) {
         // Open ring. The gap sits at the top, where the dot goes — start and
         // sweep are the arc from the original path's endpoints (337.64,156.96)
         // to (174.36,156.96) around centre (256,256), radius 146.
@@ -54,25 +197,35 @@ fun NoobatyarMark(
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
 
-        // Checkmark.
-        drawPath(
-            path = Path().apply {
+        // Checkmark, drawn along its own length as it comes in.
+        if (pose.checkProgress > 0f) {
+            val check = Path().apply {
                 moveTo(x(191f), y(276f))
                 lineTo(x(234f), y(323f))
                 lineTo(x(327f), y(221f))
-            },
-            color = tint,
-            style = Stroke(
-                width = strokeWidth,
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round
+            }
+            val drawn = if (pose.checkProgress >= 1f) check else {
+                val measure = PathMeasure().apply { setPath(check, false) }
+                Path().also { measure.getSegment(0f, measure.length * pose.checkProgress, it, true) }
+            }
+            drawPath(
+                path = drawn,
+                color = tint,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
             )
-        )
+        }
+    }
 
-        drawCircle(
-            color = accent,
-            radius = 28f * s,
-            center = Offset(x(256f), y(122f))
-        )
+    // The dot: resting at (256,122), 134 units above the centre. It swings on
+    // that radius, so it tracks the ring's opening instead of sliding flat.
+    if (pose.dotScale > 0f) {
+        val a = pose.dotAngle * PI.toFloat() / 180f
+        val cx = 256f + 134f * sin(a)
+        val cy = 256f - 134f * cos(a) - pose.dotLift
+        val r = 28f * s * pose.dotScale
+        val dot = Offset(x(cx), y(cy))
+        scale(scaleX = 2f - pose.dotSquash, scaleY = pose.dotSquash, pivot = Offset(dot.x, dot.y + r)) {
+            drawCircle(color = accent, radius = r, center = dot)
+        }
     }
 }
