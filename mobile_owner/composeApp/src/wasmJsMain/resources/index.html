@@ -85,47 +85,62 @@
          * around the mark looked lopsided, because the mark isn't symmetric:
          * its dot sits above the ring.
          *
-         * While loading: the ring shows as a faint track with a bright band
-         * travelling along it (it passes through the ring's top opening), and
-         * the amber dot swings tick-tock in that opening.
-         * Once the app is ready (.nb-done, set by the script below): the band
-         * fades, the ring lights up, the dot winds up and strikes, and the
-         * check draws in, as AnimatedNoobatyarMark does in the app
-         * (NoobatyarMark.kt). Only then does the overlay fade.
+         * While loading, a bright band travels around the ring and the amber
+         * dot swings tick-tock in the ring's top opening. Once the app is
+         * ready (.nb-done, set by the script below), the dot winds up and
+         * strikes and the check draws in, as AnimatedNoobatyarMark does in
+         * the app (NoobatyarMark.kt).
+         *
+         * Performance: this runs while the wasm bundle compiles and boots on
+         * the main thread. Animating SVG attributes (stroke-dashoffset, <g>
+         * transforms) or a drop-shadow filter repaints on that same busy
+         * thread and stutters. So every looping motion here is a CSS transform
+         * on its own HTML layer, which the compositor thread runs on its own:
+         * the band is a fixed arc on a rotating layer, and the dot is a
+         * separate layer that rotates and translates. Only the one-off check
+         * draw at the very end animates a stroke, and by then loading is done.
+         *
+         * Geometry: each layer uses viewBox "43 20 426 426" at 104px, so the
+         * ring centre is at (52px, 57.6px) and a 512-box unit is 0.244px.
          */
-        #compose-loading .nb-mark-wrap {
+        #compose-loading .nb-stage {
+            position: relative;
             width: 104px;
             height: 104px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(139, 92, 246, 0.25), rgba(139, 92, 246, 0) 70%);
         }
 
-        #compose-loading .nb-mark {
+        #compose-loading .nb-stage > * {
+            position: absolute;
+            inset: 0;
             width: 104px;
             height: 104px;
-            color: #A78BFA;
             overflow: visible;
         }
 
-        #compose-loading .nb-mark * {
-            transform-box: view-box;
+        /* Nested layers (lift, dot, band) fill the same 104px box, so they
+           all share the one coordinate system described above. */
+        #compose-loading .nb-lift,
+        #compose-loading .nb-dot,
+        #compose-loading .nb-band {
+            display: block;
+            width: 104px;
+            height: 104px;
+            overflow: visible;
+        }
+
+        #compose-loading .nb-glow {
+            border-radius: 50%;
+            background: radial-gradient(circle at 50% 55.4%, rgba(139, 92, 246, 0.25), rgba(139, 92, 246, 0) 70%);
+        }
+
+        #compose-loading .nb-base {
+            color: #A78BFA;
+            transform-origin: 52px 57.6px;
         }
 
         #compose-loading .nb-track {
-            opacity: 0.28;
+            opacity: 0.3;
             transition: opacity 0.25s ease;
-        }
-
-        /* The travelling band: a quarter of the ring's length, looping. */
-        #compose-loading .nb-band {
-            color: #DDD6FE;
-            stroke-dasharray: 0.24 0.76;
-            animation: nb-travel 1.15s linear infinite;
-            filter: drop-shadow(0 0 6px rgba(196, 181, 253, 0.8));
-            transition: opacity 0.2s ease;
         }
 
         #compose-loading .nb-check {
@@ -133,37 +148,58 @@
             stroke-dashoffset: 1;
         }
 
-        #compose-loading .nb-ring {
-            transform-origin: 256px 256px;
+        /* The band rotates as a layer. A static mask hides the ring's top
+           opening so the band fades out at one tip and back in at the other,
+           as if it ran along the ring. */
+        #compose-loading .nb-band-mask {
+            -webkit-mask: conic-gradient(from 0deg at 50% 55.4%,
+                transparent 0deg 27deg, #000 37deg 323deg, transparent 333deg 360deg);
+            mask: conic-gradient(from 0deg at 50% 55.4%,
+                transparent 0deg 27deg, #000 37deg 323deg, transparent 333deg 360deg);
+            transition: opacity 0.2s ease;
         }
 
-        /* Swing pivots on the ring centre, so the dot tracks the opening. */
+        #compose-loading .nb-band {
+            color: #DDD6FE;
+            transform-origin: 52px 57.6px;
+            animation: nb-orbit 1.15s linear infinite;
+            will-change: transform;
+        }
+
         #compose-loading .nb-swing {
-            transform-origin: 256px 256px;
+            transform-origin: 52px 57.6px;
             animation: nb-tick 1s ease-in-out 0.55s infinite;
-            transition: transform 0.15s ease-out;
+            will-change: transform;
         }
 
-        /* Pops and squashes from the dot's underside: the side that hits. */
+        #compose-loading .nb-lift {
+            will-change: transform;
+        }
+
         #compose-loading .nb-dot {
-            transform-origin: 256px 150px;
+            transform-origin: 52px 31.7px;
             animation: nb-pop 0.3s ease-out 0.25s both;
+            will-change: transform;
         }
 
         /* ── Ready: strike and check ── */
-        #compose-loading.nb-done .nb-band { opacity: 0; }
+        #compose-loading.nb-done .nb-band-mask { opacity: 0; }
+        #compose-loading.nb-done .nb-band { animation-play-state: paused; }
         #compose-loading.nb-done .nb-track { opacity: 1; }
-        #compose-loading.nb-done .nb-swing { animation: none; transform: rotate(0deg); }
+        #compose-loading.nb-done .nb-swing {
+            animation: none;
+            transform: rotate(0deg);
+            transition: transform 0.15s ease-out;
+        }
         #compose-loading.nb-done .nb-lift { animation: nb-strike 0.55s linear both; }
         #compose-loading.nb-done .nb-dot { animation: nb-squash 0.3s linear 0.55s both; }
-        #compose-loading.nb-done .nb-ring { animation: nb-jolt 0.32s linear 0.55s both; }
+        #compose-loading.nb-done .nb-base { animation: nb-jolt 0.32s linear 0.55s both; }
         #compose-loading.nb-done .nb-check {
             animation: nb-draw 0.5s cubic-bezier(0.33, 1, 0.68, 1) 0.55s both;
         }
 
-        @keyframes nb-travel {
-            from { stroke-dashoffset: 1; }
-            to   { stroke-dashoffset: 0; }
+        @keyframes nb-orbit {
+            to { transform: rotate(360deg); }
         }
 
         @keyframes nb-pop {
@@ -182,8 +218,8 @@
         /* A small dip (wind-up), a rise, then an accelerating strike. */
         @keyframes nb-strike {
             0%   { transform: translateY(0); animation-timing-function: ease-in-out; }
-            15%  { transform: translateY(10px); animation-timing-function: ease-out; }
-            76%  { transform: translateY(-78px); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+            15%  { transform: translateY(2.4px); animation-timing-function: ease-out; }
+            76%  { transform: translateY(-19px); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
             100% { transform: translateY(0); }
         }
 
@@ -208,8 +244,8 @@
 
         /* Reduced motion: the finished mark, still. */
         @media (prefers-reduced-motion: reduce) {
-            #compose-loading .nb-mark * { animation: none !important; }
-            #compose-loading .nb-band { display: none; }
+            #compose-loading .nb-stage * { animation: none !important; }
+            #compose-loading .nb-band-mask { display: none; }
             #compose-loading .nb-track { opacity: 1; }
             #compose-loading .nb-check { stroke-dashoffset: 0; }
         }
@@ -218,21 +254,30 @@
 <body>
     <div id="compose-root"></div>
     <div id="compose-loading">
-        <div class="nb-mark-wrap">
-            <svg class="nb-mark" viewBox="43 20 426 426" aria-hidden="true" focusable="false">
-                <g class="nb-ring">
-                    <path class="nb-track" d="M337.64 156.96A146 146 0 1 1 174.36 156.96"
-                          fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round"/>
-                    <path class="nb-band" d="M337.64 156.96A146 146 0 1 1 174.36 156.96" pathLength="1"
-                          fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round"/>
-                    <path class="nb-check" d="M191 276L234 323L327 221" pathLength="1"
-                          fill="none" stroke="currentColor" stroke-width="36"
-                          stroke-linecap="round" stroke-linejoin="round"/>
-                </g>
-                <g class="nb-swing"><g class="nb-lift">
-                    <circle class="nb-dot" cx="256" cy="122" r="28" fill="#F59E0B"/>
-                </g></g>
+        <div class="nb-stage" aria-hidden="true">
+            <div class="nb-glow"></div>
+            <svg class="nb-base" viewBox="43 20 426 426" focusable="false">
+                <path class="nb-track" d="M337.64 156.96A146 146 0 1 1 174.36 156.96"
+                      fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round"/>
+                <path class="nb-check" d="M191 276L234 323L327 221" pathLength="1"
+                      fill="none" stroke="currentColor" stroke-width="36"
+                      stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
+            <div class="nb-band-mask">
+                <svg class="nb-band" viewBox="43 20 426 426" focusable="false">
+                    <!-- An 80deg arc of the ring, starting at 12 o'clock; the
+                         wide faint stroke under it stands in for a glow. -->
+                    <path d="M256 110A146 146 0 0 1 399.8 230.6" fill="none" stroke="currentColor"
+                          stroke-width="60" stroke-linecap="round" opacity="0.18"/>
+                    <path d="M256 110A146 146 0 0 1 399.8 230.6" fill="none" stroke="currentColor"
+                          stroke-width="36" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div class="nb-swing"><div class="nb-lift">
+                <svg class="nb-dot" viewBox="43 20 426 426" focusable="false">
+                    <circle cx="256" cy="122" r="28" fill="#F59E0B"/>
+                </svg>
+            </div></div>
         </div>
         <span>نوبت‌یار</span>
     </div>
