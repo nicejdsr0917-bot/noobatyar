@@ -265,10 +265,11 @@
             </svg>
             <div class="nb-band-mask">
                 <svg class="nb-band" viewBox="43 20 426 426" focusable="false">
-                    <!-- An 80deg arc of the ring, starting at 12 o'clock; the
-                         wide faint stroke under it stands in for a glow. -->
-                    <path d="M256 110A146 146 0 0 1 399.8 230.6" fill="none" stroke="currentColor"
-                          stroke-width="60" stroke-linecap="round" opacity="0.18"/>
+                    <!-- An 80deg arc of the ring, starting at 12 o'clock, at the
+                         ring's exact radius and stroke width so it sits on the
+                         track rather than around it. No glow stroke: anything
+                         wider than the ring spills over its edges and reads as
+                         off-centre. -->
                     <path d="M256 110A146 146 0 0 1 399.8 230.6" fill="none" stroke="currentColor"
                           stroke-width="36" stroke-linecap="round"/>
                 </svg>
