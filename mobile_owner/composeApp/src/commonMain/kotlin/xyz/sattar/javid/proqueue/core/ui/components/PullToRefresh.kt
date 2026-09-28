@@ -70,7 +70,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.main_icon
 
 private val PullThreshold = 72.dp
 private val MaxPull = 130.dp
@@ -308,17 +307,8 @@ private fun DesktopRefreshButton(
     }
 }
 
-// Neon ring palette: the amber of the logo's dot running into the brand
-// purples, the app's take on the Instagram story ring.
-private val NeonAmber = Color(0xFFFBBF24)
-private val NeonLavender = Color(0xFFC4B5FD)
-private val NeonRingColors = listOf(NeonAmber, PrimaryPurple, PrimaryPurpleDark, NeonLavender, NeonAmber)
 
-/** Wide faint strokes under the ring fake the bloom of a neon tube: (width multiplier, alpha). */
-private val NeonGlowLayers = listOf(5f to 0.10f, 3.4f to 0.20f, 2.1f to 0.40f)
 
-/** Segment count for the loading ring, as on a story that is still loading. */
-private const val LoadingSegments = 12
 
 @Composable
 private fun PullIndicator(
@@ -341,20 +331,12 @@ private fun PullIndicator(
     }
 
     val transition = rememberInfiniteTransition(label = "pull-neon")
-    val spin by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Restart),
-        label = "spin"
-    )
     val pulse by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "pulse"
     )
-
-    val gapColor = MaterialTheme.colorScheme.background
 
     Column(
         modifier = Modifier
@@ -379,43 +361,24 @@ private fun PullIndicator(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val stroke = 2.5.dp.toPx()
-                // Leave room inside the box for the glow to bloom outward.
-                val radius = size.minDimension / 2f - 6.dp.toPx()
-                val brush = Brush.sweepGradient(NeonRingColors, center)
-
-                // The gap between ring and logo, as on a story avatar.
-                drawCircle(color = gapColor, radius = radius - stroke / 2f)
-
-                when {
-                    isRefreshing -> rotate(spin) {
-                        // Story-loading look: evenly spaced dashes chasing
-                        // round, with the glow breathing.
-                        val step = 360f / LoadingSegments
-                        repeat(LoadingSegments) { i ->
-                            neonArc(brush, -90f + i * step, step - 11f, radius, stroke, glow = 0.65f + 0.35f * pulse)
-                        }
-                    }
-                    readyToRelease -> rotate(spin * 0.5f) {
-                        neonArc(brush, -90f, 360f, radius, stroke, glow = 0.8f + 0.2f * pulse)
-                    }
-                    // Fills clockwise from the top with the pull; the glow
-                    // brightens as it nears the threshold.
-                    else -> neonArc(brush, -90f, 360f * progress, radius, stroke, glow = 0.3f + 0.7f * progress)
-                }
+            // The Noobatyar mark itself is the indicator: the pull winds the dot
+            // up, releasing strikes it down, and the tick-tock and strike loop
+            // while the refresh runs. It is the same motion as the web loader
+            // and the login panel, and it replaces the neon ring.
+            val markTint = MaterialTheme.colorScheme.primary
+            if (isRefreshing) {
+                LoopingNoobatyarMark(
+                    modifier = Modifier.fillMaxSize(),
+                    tint = markTint,
+                    startAtStrike = true
+                )
+            } else {
+                PullingNoobatyarMark(
+                    progress = progress,
+                    modifier = Modifier.fillMaxSize(),
+                    tint = markTint
+                )
             }
-
-            // The Noobatyar mark in the middle of the ring.
-            Image(
-                painter = painterResource(Res.drawable.main_icon),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(IndicatorSize - 20.dp)
-                    .scale(if (isRefreshing) 0.94f + 0.06f * pulse else 1f)
-                    .clip(CircleShape)
-            )
         }
 
         if (offset > thresholdPx * 0.35f || isRefreshing) {
@@ -433,37 +396,4 @@ private fun PullIndicator(
             )
         }
     }
-}
-
-/**
- * One neon stroke: soft glow layers underneath, the gradient tube itself, and
- * a thin pale core on top — the bright centre a real neon tube has.
- */
-private fun DrawScope.neonArc(
-    brush: Brush,
-    startAngle: Float,
-    sweepAngle: Float,
-    radius: Float,
-    stroke: Float,
-    glow: Float
-) {
-    val topLeft = Offset(center.x - radius, center.y - radius)
-    val arcSize = Size(radius * 2f, radius * 2f)
-    for ((widthMul, alpha) in NeonGlowLayers) {
-        drawArc(
-            brush = brush, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false,
-            topLeft = topLeft, size = arcSize, alpha = alpha * glow,
-            style = Stroke(width = stroke * widthMul, cap = StrokeCap.Round)
-        )
-    }
-    drawArc(
-        brush = brush, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false,
-        topLeft = topLeft, size = arcSize,
-        style = Stroke(width = stroke, cap = StrokeCap.Round)
-    )
-    drawArc(
-        color = Color.White, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = false,
-        topLeft = topLeft, size = arcSize, alpha = 0.45f * glow,
-        style = Stroke(width = stroke * 0.3f, cap = StrokeCap.Round)
-    )
 }

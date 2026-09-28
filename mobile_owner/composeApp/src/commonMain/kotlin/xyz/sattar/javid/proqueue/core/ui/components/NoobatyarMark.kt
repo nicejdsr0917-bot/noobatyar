@@ -78,6 +78,64 @@ fun AnimatedNoobatyarMark(
     }
 }
 
+/**
+ * The same sequence on repeat, for as long as it stays composed: a loader.
+ * Each pass holds the finished mark for a beat before starting over.
+ *
+ * [startAtStrike] begins the first pass at the moment the dot comes down,
+ * which continues seamlessly from [PullingNoobatyarMark] fully pulled: the
+ * dot is already raised, so releasing the pull delivers the strike.
+ */
+@Composable
+fun LoopingNoobatyarMark(
+    modifier: Modifier = Modifier,
+    tint: Color = Color.White,
+    accent: Color = Color(0xFFF59E0B),
+    startAtStrike: Boolean = false
+) {
+    val clock = remember { Animatable(if (startAtStrike) STRIKE_START_MS else 0f) }
+    LaunchedEffect(Unit) {
+        val end = (TOTAL_MS + LOOP_HOLD_MS).toFloat()
+        while (true) {
+            clock.animateTo(
+                targetValue = end,
+                animationSpec = tween(durationMillis = (end - clock.value).toInt(), easing = LinearEasing)
+            )
+            clock.snapTo(0f)
+        }
+    }
+    Canvas(modifier = modifier) {
+        drawMark(tint = tint, accent = accent, pose = poseAt(minOf(clock.value, TOTAL_MS.toFloat())))
+    }
+}
+
+/**
+ * The mark following a pull gesture, [progress] 0..1 towards the refresh
+ * threshold: the dot pops into the ring's opening over the first third of
+ * the pull, then rises like the hammer winding up. At 1 it is exactly where
+ * [LoopingNoobatyarMark] with startAtStrike begins.
+ */
+@Composable
+fun PullingNoobatyarMark(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    tint: Color = Color.White,
+    accent: Color = Color(0xFFF59E0B)
+) {
+    val p = progress.coerceIn(0f, 1f)
+    val pose = MarkPose(
+        dotScale = (p / 0.35f).coerceIn(0f, 1f),
+        dotAngle = 0f,
+        dotLift = LIFT_UNITS * easeOutCubic(((p - 0.35f) / 0.65f).coerceIn(0f, 1f)),
+        dotSquash = 1f,
+        ringScale = 1f,
+        checkProgress = 0f
+    )
+    Canvas(modifier = modifier) {
+        drawMark(tint = tint, accent = accent, pose = pose)
+    }
+}
+
 /** Every animated quantity at one instant. [Final] is the static logo. */
 private data class MarkPose(
     /** 0 = no dot, 1 = full size. */
@@ -106,6 +164,9 @@ private const val RISE = 420                // wind up and lift
 private const val STRIKE = 130              // drop onto the ring
 private const val CHECK = 520               // check draws in
 private const val TOTAL_MS = RING_ALONE + DOT_IN + SWING + RISE + STRIKE + CHECK
+
+private const val LOOP_HOLD_MS = 450        // finished mark held between loops
+private const val STRIKE_START_MS = (RING_ALONE + DOT_IN + SWING + RISE).toFloat()
 
 private const val SWINGS = 3                // full left-right-left cycles
 private const val SWING_DEG = 11f           // stays inside the ring's top gap
