@@ -1,5 +1,18 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.launch
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveGrid
 import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
@@ -361,20 +374,14 @@ fun HomeScreenContent(
                                 endWeight = 1.25f,
                                 spacing = 14.dp,
                                 start = { queueBlock(); statsBlock() },
-                                end = { trendBlock() }
+                                end = { trendBlock(); usageBlock() }
                             )
                         }
                     }
+                    // Full width: plan cards need room for their two feature
+                    // columns, which a half-width column cut off mid-word.
                     item {
-                        HomeReveal(visible, delayMillis = 240) {
-                            AdaptiveColumns(
-                                startWeight = 1f,
-                                endWeight = 1.25f,
-                                spacing = 14.dp,
-                                start = { usageBlock() },
-                                end = { plansBlock() }
-                            )
-                        }
+                        HomeReveal(visible, delayMillis = 240) { plansBlock() }
                     }
                 } else {
                     // ۱. صف امروز — تنها بخش «زنده»‌ی صفحه، پس اول می‌آید.
@@ -414,18 +421,8 @@ fun PlanBannerSection(
     plans: List<PlanDto>,
     onPlanClick: (PlanDto) -> Unit
 ) {
-    // A swipe pager needs a touch drag that a mouse can't give, and a wide
-    // window fits every plan at once anyway, so show them all as a grid.
     if (isWideLayout()) {
-        AdaptiveGrid(
-            count = plans.size,
-            mediumColumns = 2,
-            expandedColumns = 2,
-            spacing = 12.dp
-        ) { index ->
-            val plan = plans[index]
-            PlanBannerItem(plan = plan, onClick = { onPlanClick(plan) }, modifier = Modifier.fillMaxWidth())
-        }
+        PlanCarousel(plans = plans, onPlanClick = onPlanClick)
         return
     }
 
@@ -512,6 +509,89 @@ fun PlanBannerSection(
                         .background(color)
                         .width(width)
                         .height(8.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Desktop plans: one horizontal row of equal cards. A fixed card width keeps
+ * each card's two feature columns readable, and every card takes the tallest
+ * one's height so the row reads as a set. A mouse can't swipe, so the row
+ * moves with the arrow buttons or by dragging.
+ */
+@Composable
+private fun PlanCarousel(
+    plans: List<PlanDto>,
+    onPlanClick: (PlanDto) -> Unit
+) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    var maxCardHeight by remember(plans) { mutableStateOf(0.dp) }
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "طرح‌های اشتراک",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            // Backward first: it lands on the right under RTL, and the
+            // auto-mirrored "Left" arrow is drawn pointing right there.
+            FilledTonalIconButton(
+                onClick = {
+                    scope.launch {
+                        listState.animateScrollToItem((listState.firstVisibleItemIndex - 1).coerceAtLeast(0))
+                    }
+                },
+                enabled = listState.canScrollBackward
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "طرح قبلی")
+            }
+            Spacer(Modifier.width(6.dp))
+            FilledTonalIconButton(
+                onClick = {
+                    scope.launch {
+                        listState.animateScrollToItem(
+                            (listState.firstVisibleItemIndex + 1).coerceAtMost(plans.lastIndex)
+                        )
+                    }
+                },
+                enabled = listState.canScrollForward
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "طرح بعدی")
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        LazyRow(
+            state = listState,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                // Mouse drag. Pointer deltas are screen-space, while the list
+                // scrolls in layout direction, so RTL flips the sign.
+                .draggable(
+                    orientation = Orientation.Horizontal,
+                    state = rememberDraggableState { delta ->
+                        scope.launch { listState.scrollBy(if (rtl) delta else -delta) }
+                    }
+                )
+        ) {
+            itemsIndexed(plans, key = { _, plan -> plan.id }) { _, plan ->
+                PlanBannerItem(
+                    plan = plan,
+                    onClick = { onPlanClick(plan) },
+                    modifier = Modifier
+                        .width(360.dp)
+                        .then(if (maxCardHeight > 0.dp) Modifier.height(maxCardHeight) else Modifier)
+                        .onSizeChanged { size ->
+                            val h = with(density) { size.height.toDp() }
+                            if (h > maxCardHeight) maxCardHeight = h
+                        }
                 )
             }
         }
