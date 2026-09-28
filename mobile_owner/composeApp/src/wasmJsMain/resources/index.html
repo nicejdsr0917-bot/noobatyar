@@ -96,9 +96,9 @@
          * transforms) or a drop-shadow filter repaints on that same busy
          * thread and stutters. So every looping motion here is a CSS transform
          * on its own HTML layer, which the compositor thread runs on its own:
-         * the band is a fixed arc on a rotating layer, and the dot is a
-         * separate layer that rotates and translates. Only the one-off check
-         * draw at the very end animates a stroke, and by then loading is done.
+         * the band is a light sweep rotating under a mask of the ring, the
+         * dot is a separate layer that rotates and translates, and the final
+         * check is revealed by a sliding window. Nothing animates a stroke.
          *
          * Geometry: each layer uses viewBox "43 20 426 426" at 104px, so the
          * ring centre is at (52px, 57.6px) and a 512-box unit is 0.244px.
@@ -132,19 +132,53 @@
             background: radial-gradient(circle at 50% 55.4%, rgba(139, 92, 246, 0.25), rgba(139, 92, 246, 0) 70%);
         }
 
-        #compose-loading .nb-base {
-            color: #A78BFA;
+        /* Ring, band and check share one wrapper so the strike's jolt
+           shakes them together. */
+        #compose-loading .nb-ringwrap {
             transform-origin: 52px 57.6px;
         }
 
+        #compose-loading .nb-ringwrap > *,
+        #compose-loading .nb-check-in,
+        #compose-loading .nb-check-in svg {
+            position: absolute;
+            inset: 0;
+            display: block;
+            width: 104px;
+            height: 104px;
+            overflow: visible;
+        }
+
+        #compose-loading .nb-track,
+        #compose-loading .nb-check-in svg {
+            color: #A78BFA;
+        }
+
+        /* Opacity on the <svg> element itself (an HTML-level box) rather
+           than on a path inside it, so the brightening is composited too. */
         #compose-loading .nb-track {
             opacity: 0.3;
             transition: opacity 0.25s ease;
         }
 
-        #compose-loading .nb-check {
-            stroke-dasharray: 1;
-            stroke-dashoffset: 1;
+        /*
+         * The check is revealed by a wipe instead of animating its stroke,
+         * because it plays exactly when Compose starts painting its first
+         * screen and the main thread is at its busiest. A window slides left
+         * to right while the check inside slides the opposite way by the same
+         * amount, so the check stays put and appears from its first stroke
+         * to its last. Both moves are transforms, so the compositor runs them.
+         * The window's right edge travels only across the check, stroke caps
+         * included (x=173..345 in the 512 box, 31.7..73.7px), so the whole
+         * duration is spent revealing rather than sliding over empty space.
+         */
+        #compose-loading .nb-check-win {
+            overflow: hidden;
+            transform: translateX(-73px);
+        }
+
+        #compose-loading .nb-check-in {
+            transform: translateX(73px);
         }
 
         /*
@@ -204,9 +238,12 @@
         }
         #compose-loading.nb-done .nb-lift { animation: nb-strike 0.55s linear both; }
         #compose-loading.nb-done .nb-dot { animation: nb-squash 0.3s linear 0.55s both; }
-        #compose-loading.nb-done .nb-base { animation: nb-jolt 0.32s linear 0.55s both; }
-        #compose-loading.nb-done .nb-check {
-            animation: nb-draw 0.5s cubic-bezier(0.33, 1, 0.68, 1) 0.55s both;
+        #compose-loading.nb-done .nb-ringwrap { animation: nb-jolt 0.32s linear 0.55s both; }
+        #compose-loading.nb-done .nb-check-win {
+            animation: nb-wipe-win 0.42s cubic-bezier(0.45, 0, 0.35, 1) 0.58s both;
+        }
+        #compose-loading.nb-done .nb-check-in {
+            animation: nb-wipe-in 0.42s cubic-bezier(0.45, 0, 0.35, 1) 0.58s both;
         }
 
         @keyframes nb-orbit {
@@ -248,17 +285,18 @@
             100% { transform: scale(1); }
         }
 
-        @keyframes nb-draw {
-            from { stroke-dashoffset: 1; }
-            to   { stroke-dashoffset: 0; }
-        }
+        /* Each half starts from its offset set above and ends once the
+           window's right edge has passed the check's (75px). */
+        @keyframes nb-wipe-win { to { transform: translateX(-29px); } }
+        @keyframes nb-wipe-in  { to { transform: translateX(29px); } }
 
         /* Reduced motion: the finished mark, still. */
         @media (prefers-reduced-motion: reduce) {
             #compose-loading .nb-stage * { animation: none !important; }
             #compose-loading .nb-sweep { display: none; }
             #compose-loading .nb-track { opacity: 1; }
-            #compose-loading .nb-check { stroke-dashoffset: 0; }
+            #compose-loading .nb-check-win,
+            #compose-loading .nb-check-in { transform: none; }
         }
     </style>
 </head>
@@ -267,14 +305,19 @@
     <div id="compose-loading">
         <div class="nb-stage" aria-hidden="true">
             <div class="nb-glow"></div>
-            <svg class="nb-base" viewBox="43 20 426 426" focusable="false">
-                <path class="nb-track" d="M337.64 156.96A146 146 0 1 1 174.36 156.96"
-                      fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round"/>
-                <path class="nb-check" d="M191 276L234 323L327 221" pathLength="1"
-                      fill="none" stroke="currentColor" stroke-width="36"
-                      stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <div class="nb-sweep"><div class="nb-sweep-rot"></div></div>
+            <div class="nb-ringwrap">
+                <svg class="nb-track" viewBox="43 20 426 426" focusable="false">
+                    <path d="M337.64 156.96A146 146 0 1 1 174.36 156.96"
+                          fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round"/>
+                </svg>
+                <div class="nb-sweep"><div class="nb-sweep-rot"></div></div>
+                <div class="nb-check-win"><div class="nb-check-in">
+                    <svg viewBox="43 20 426 426" focusable="false">
+                        <path d="M191 276L234 323L327 221" fill="none" stroke="currentColor"
+                              stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div></div>
+            </div>
             <div class="nb-swing"><div class="nb-lift">
                 <svg class="nb-dot" viewBox="43 20 426 426" focusable="false">
                     <circle cx="256" cy="122" r="28" fill="#F59E0B"/>
