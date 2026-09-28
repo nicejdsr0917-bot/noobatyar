@@ -80,59 +80,117 @@
         }
 
         /*
-         * Same mark as backend/templates/admin/base_site.html's inline SVG
-         * (the ring + checkmark, amber dot fixed per docs/BRAND_GUIDE_FOR_AI.md
-         * — the one brand accent that never re-tints). The mark itself stays
-         * still — a spinning checkmark reads as "wrong", not "loading" — and
-         * a separate progress ring orbits around it instead, the same shape
-         * as a determinate loader even though it has nothing real to report
-         * yet (there is no boot-progress signal this early).
+         * Same mark as backend/templates/admin/base_site.html's inline SVG,
+         * assembling itself the way AnimatedNoobatyarMark (NoobatyarMark.kt)
+         * does in the app, so the loader and the login panel tell one story:
+         * the ring alone, then the amber dot pops into the ring's top opening
+         * and swings tick-tock like an alarm-clock hammer, winds up, strikes
+         * the ring, and the check draws in. Timings mirror the Kotlin
+         * timeline (3120ms). Keep the two in step if either changes.
          */
         #compose-loading .nb-mark-wrap {
-            position: relative;
-            width: 72px;
-            height: 72px;
+            width: 96px;
+            height: 96px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 50%;
             background: radial-gradient(circle, rgba(139, 92, 246, 0.25), rgba(139, 92, 246, 0) 70%);
-        }
-
-        /*
-         * The ring: a conic sweep clipped to an annulus with a radial mask.
-         * -8px on all sides puts it just outside the mark, not touching it.
-         */
-        #compose-loading .nb-mark-wrap::before {
-            content: "";
-            position: absolute;
-            inset: -8px;
-            border-radius: 50%;
-            background: conic-gradient(
-                from 0deg,
-                transparent 0deg,
-                rgba(167, 139, 250, 0.15) 60deg,
-                #A78BFA 300deg,
-                #C4B5FD 330deg,
-                transparent 360deg
-            );
-            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-            mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-            animation: nb-spin 1.1s linear infinite;
+            /* Once the mark has assembled, a slow glow says "still working". */
+            animation: nb-glow 1.6s ease-in-out 3.2s infinite alternate;
         }
 
         #compose-loading .nb-mark {
-            width: 56px;
-            height: 56px;
+            width: 96px;
+            height: 96px;
             color: #A78BFA;
+            overflow: visible;
         }
 
-        @keyframes nb-spin {
-            to { transform: rotate(360deg); }
+        #compose-loading .nb-mark * {
+            transform-box: view-box;
         }
 
+        #compose-loading .nb-ring {
+            transform-origin: 256px 256px;
+            animation: nb-ring 3.12s linear both;
+        }
+
+        #compose-loading .nb-check {
+            stroke-dasharray: 1;
+            stroke-dashoffset: 1;
+            animation: nb-check 3.12s linear both;
+        }
+
+        /* Swing pivots on the ring centre, so the dot tracks the opening. */
+        #compose-loading .nb-swing {
+            transform-origin: 256px 256px;
+            animation: nb-swing 3.12s linear both;
+        }
+
+        #compose-loading .nb-lift {
+            animation: nb-lift 3.12s linear both;
+        }
+
+        /* Squash pivots on the dot's underside: the side that hits. */
+        #compose-loading .nb-dot {
+            transform-origin: 256px 150px;
+            animation: nb-dot 3.12s linear both;
+        }
+
+        @keyframes nb-dot {
+            0%, 8%   { transform: scale(0); }
+            14.5%    { transform: scale(1.18); animation-timing-function: ease-out; }
+            17.6%    { transform: scale(1); }
+            83.3%    { transform: scale(1, 1); }
+            85%      { transform: scale(1.28, 0.72); }
+            87%      { transform: scale(0.92, 1.08); }
+            90.4%, 100% { transform: scale(1, 1); }
+        }
+
+        /* Snap to a side and hold there, like a clock hammer; the last swings
+           shrink so it settles before winding up. */
+        @keyframes nb-swing {
+            0%, 17.6% { transform: rotate(0deg); }
+            19.6%, 23.6% { transform: rotate(11deg); }
+            27.6%, 31.6% { transform: rotate(-11deg); }
+            35.6%, 39.6% { transform: rotate(11deg); }
+            43.6%, 47.6% { transform: rotate(-11deg); }
+            51.6%, 54.6% { transform: rotate(7deg); }
+            58.6%, 61.6% { transform: rotate(-4deg); }
+            65.7%, 100% { transform: rotate(0deg); }
+        }
+
+        /* A small dip (wind-up), a rise, then an accelerating strike. */
+        @keyframes nb-lift {
+            0%, 65.7% { transform: translateY(0); animation-timing-function: ease-in-out; }
+            68.4%     { transform: translateY(10px); animation-timing-function: ease-out; }
+            79.2%     { transform: translateY(-78px); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+            83.3%, 100% { transform: translateY(0); }
+        }
+
+        @keyframes nb-ring {
+            0%, 83.3% { transform: scale(1); }
+            85.5%     { transform: scale(1.06); }
+            88%       { transform: scale(0.98); }
+            93.5%, 100% { transform: scale(1); }
+        }
+
+        @keyframes nb-check {
+            0%, 83.3% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+            100%      { stroke-dashoffset: 0; }
+        }
+
+        @keyframes nb-glow {
+            from { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0); }
+            to   { box-shadow: 0 0 36px 6px rgba(167, 139, 250, 0.35); }
+        }
+
+        /* Reduced motion: skip straight to the finished mark. */
         @media (prefers-reduced-motion: reduce) {
-            #compose-loading .nb-mark-wrap::before { animation: none; }
+            #compose-loading .nb-mark *,
+            #compose-loading .nb-mark-wrap { animation: none !important; }
+            #compose-loading .nb-check { stroke-dashoffset: 0; }
         }
     </style>
 </head>
@@ -140,13 +198,17 @@
     <div id="compose-root"></div>
     <div id="compose-loading">
         <div class="nb-mark-wrap">
-            <svg class="nb-mark" viewBox="78 90 356 356" aria-hidden="true" focusable="false">
-                <path d="M337.64 156.96A146 146 0 1 1 174.36 156.96"
-                      fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round"/>
-                <path d="M191 276L234 323L327 221"
-                      fill="none" stroke="currentColor" stroke-width="36"
-                      stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="256" cy="122" r="28" fill="#F59E0B"/>
+            <svg class="nb-mark" viewBox="43 20 426 426" aria-hidden="true" focusable="false">
+                <g class="nb-ring">
+                    <path d="M337.64 156.96A146 146 0 1 1 174.36 156.96"
+                          fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round"/>
+                    <path class="nb-check" d="M191 276L234 323L327 221" pathLength="1"
+                          fill="none" stroke="currentColor" stroke-width="36"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                </g>
+                <g class="nb-swing"><g class="nb-lift">
+                    <circle class="nb-dot" cx="256" cy="122" r="28" fill="#F59E0B"/>
+                </g></g>
             </svg>
         </div>
         <span>نوبت‌یار</span>
@@ -159,7 +221,7 @@
         // loaded, so a warm-cache reload doesn't just flash the mark for a
         // frame — every refresh shows the same, deliberate boot moment.
         (function () {
-            var MIN_MS = 2000;
+            var MIN_MS = 3200; // the logo animation (3.12s) plays through once
             var bootStart = Date.now();
             window.__nbHideLoading = function () {
                 var elapsed = Date.now() - bootStart;
