@@ -127,6 +127,9 @@ fun PullToRefreshBox(
     // isRefreshing during their initial load, and reacting to that would make the
     // page slide open on its own the first time it is opened.
     var userTriggered by remember { mutableStateOf(false) }
+    // The data is back and the mark is playing its strike and check. The page
+    // stays open until the mark says it has finished.
+    var finishing by remember { mutableStateOf(false) }
 
     LaunchedEffect(isRefreshing, userTriggered) {
         if (!userTriggered) return@LaunchedEffect
@@ -134,10 +137,10 @@ fun PullToRefreshBox(
             if (offset.value < restingPx) offset.animateTo(restingPx)
         } else {
             // The ViewModel may not have flipped isRefreshing on yet; this effect
-            // restarts if it does, so we only collapse when it stays off.
+            // restarts if it does, so we only finish when it stays off. The
+            // collapse itself waits for the mark (onMarkFinished below).
             delay(400)
-            offset.animateTo(0f)
-            userTriggered = false
+            finishing = true
         }
     }
 
@@ -213,6 +216,14 @@ fun PullToRefreshBox(
             // open page used to read "رها کنید" even though it was already
             // refreshing.
             isRefreshing = userTriggered,
+            finishing = finishing,
+            onMarkFinished = {
+                scope.launch {
+                    offset.animateTo(0f)
+                    userTriggered = false
+                    finishing = false
+                }
+            },
             topPadding = indicatorTopPadding
         )
         Box(
@@ -225,12 +236,7 @@ fun PullToRefreshBox(
 
         if (LocalWindowSize.current != WindowSize.Compact) {
             DesktopRefreshButton(
-                // A local backend can answer in well under a second, which
-                // made the spinner just flash — not enough for the owner to
-                // register that anything happened. This only stretches how
-                // long the *icon* shows spinning; onRefresh() itself still
-                // fires immediately below, so the real refresh isn't delayed.
-                isRefreshing = rememberMinDurationVisible(isRefreshing, MinRefreshVisibleMs),
+                isRefreshing = isRefreshing,
                 onRefresh = onRefresh,
                 topPadding = indicatorTopPadding,
                 // Bottom corner, not top: the top of every screen holds its own
@@ -243,30 +249,6 @@ fun PullToRefreshBox(
     }
 }
 
-private const val MinRefreshVisibleMs = 1500L
-
-/**
- * Turns true the instant [value] does, but only turns false [minMs] after it
- * last turned true — so a refresh that completes almost instantly still
- * reads as having happened, instead of flashing the spinner for a frame.
- */
-@OptIn(kotlin.time.ExperimentalTime::class)
-@Composable
-private fun rememberMinDurationVisible(value: Boolean, minMs: Long): Boolean {
-    var visible by remember { mutableStateOf(value) }
-    var startedAt by remember { mutableStateOf(0L) }
-    LaunchedEffect(value) {
-        if (value) {
-            startedAt = kotlin.time.Clock.System.now().toEpochMilliseconds()
-            visible = true
-        } else if (visible) {
-            val elapsed = kotlin.time.Clock.System.now().toEpochMilliseconds() - startedAt
-            if (elapsed < minMs) delay(minMs - elapsed)
-            visible = false
-        }
-    }
-    return visible
-}
 
 /**
  * The desktop stand-in for the pull gesture — see the class doc above for
@@ -289,12 +271,18 @@ private fun DesktopRefreshButton(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 4.dp
     ) {
-        IconButton(onClick = onRefresh, enabled = !isRefreshing) {
-            if (isRefreshing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
+        // Shown from the moment a refresh starts until the mark has played
+        // its strike and check, which also keeps a very fast refresh from
+        // flashing by unnoticed.
+        var showMark by remember { mutableStateOf(isRefreshing) }
+        LaunchedEffect(isRefreshing) { if (isRefreshing) showMark = true }
+        IconButton(onClick = onRefresh, enabled = !showMark) {
+            if (showMark) {
+                WaitingNoobatyarMark(
+                    waiting = isRefreshing,
+                    modifier = Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                    onFinished = { showMark = false }
                 )
             } else {
                 Icon(
@@ -315,6 +303,8 @@ private fun PullIndicator(
     offset: Float,
     thresholdPx: Float,
     isRefreshing: Boolean,
+    finishing: Boolean,
+    onMarkFinished: () -> Unit,
     topPadding: Dp
 ) {
     if (offset <= 0.5f && !isRefreshing) return
@@ -361,16 +351,18 @@ private fun PullIndicator(
                 },
             contentAlignment = Alignment.Center
         ) {
-            // The Noobatyar mark itself is the indicator: the pull winds the dot
-            // up, releasing strikes it down, and the tick-tock and strike loop
-            // while the refresh runs. It is the same motion as the web loader
-            // and the login panel, and it replaces the neon ring.
+            // The Noobatyar mark itself is the indicator: the pull grows the
+            // dot, the refresh tick-tocks until the data is back, then the dot
+            // strikes and the check draws in before the page closes. It is the
+            // same motion as the web loader and the login panel.
             val markTint = MaterialTheme.colorScheme.primary
             if (isRefreshing) {
-                LoopingNoobatyarMark(
+                WaitingNoobatyarMark(
+                    waiting = !finishing,
                     modifier = Modifier.fillMaxSize(),
                     tint = markTint,
-                    startAtStrike = true
+                    dotAlreadyShown = true,
+                    onFinished = onMarkFinished
                 )
             } else {
                 PullingNoobatyarMark(
@@ -384,6 +376,7 @@ private fun PullIndicator(
         if (offset > thresholdPx * 0.35f || isRefreshing) {
             Text(
                 text = when {
+                    finishing -> "بروز شد"
                     isRefreshing -> "در حال بروزرسانی…"
                     readyToRelease -> "رها کنید"
                     else -> "برای بروزرسانی بکشید"

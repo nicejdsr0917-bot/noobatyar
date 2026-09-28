@@ -6,7 +6,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -79,41 +83,88 @@ fun AnimatedNoobatyarMark(
 }
 
 /**
- * The same sequence on repeat, for as long as it stays composed: a loader.
- * Each pass holds the finished mark for a beat before starting over.
+ * A loader built from the mark: tick-tock while [waiting], then a strike and
+ * the check once it stops waiting, then [onFinished].
  *
- * [startAtStrike] begins the first pass at the moment the dot comes down,
- * which continues seamlessly from [PullingNoobatyarMark] fully pulled: the
- * dot is already raised, so releasing the pull delivers the strike.
+ * 1. While [waiting] is true, the dot pops into the ring's opening (unless
+ *    [dotAlreadyShown]) and swings tick-tock on a loop, for as long as the
+ *    wait lasts.
+ * 2. When [waiting] turns false, it eases out of the swing, winds up, strikes
+ *    the ring, and the check draws in.
+ * 3. Then [onFinished] fires. The caller hides the loader there, not the
+ *    moment the data arrives, so the check is always seen.
  */
 @Composable
-fun LoopingNoobatyarMark(
+fun WaitingNoobatyarMark(
+    waiting: Boolean,
     modifier: Modifier = Modifier,
     tint: Color = Color.White,
     accent: Color = Color(0xFFF59E0B),
-    startAtStrike: Boolean = false
+    dotAlreadyShown: Boolean = false,
+    onFinished: () -> Unit = {}
 ) {
-    val clock = remember { Animatable(if (startAtStrike) STRIKE_START_MS else 0f) }
-    LaunchedEffect(Unit) {
-        val end = (TOTAL_MS + LOOP_HOLD_MS).toFloat()
-        while (true) {
-            clock.animateTo(
-                targetValue = end,
-                animationSpec = tween(durationMillis = (end - clock.value).toInt(), easing = LinearEasing)
-            )
-            clock.snapTo(0f)
+    val pop = remember { Animatable(if (dotAlreadyShown) 1f else 0f) }
+    // A pulled dot is already leaning to one side (PullingNoobatyarMark), so
+    // its first swing starts from that lean, a quarter of the way through a
+    // cycle, instead of jumping back to centre.
+    val swing = remember { Animatable(if (dotAlreadyShown) 0.25f else 0f) }
+    val finish = remember { Animatable(0f) }
+    var finishing by remember { mutableStateOf(false) }
+    var angleAtFinish by remember { mutableStateOf(0f) }
+    val currentOnFinished by rememberUpdatedState(onFinished)
+
+    LaunchedEffect(waiting) {
+        if (waiting) {
+            finishing = false
+            finish.snapTo(0f)
+            if (pop.value < 1f) pop.animateTo(1f, tween(DOT_IN, easing = LinearEasing))
+            while (true) {
+                val left = ((1f - swing.value) * TICK_PERIOD_MS).toInt().coerceAtLeast(1)
+                swing.animateTo(1f, tween(left, easing = LinearEasing))
+                swing.snapTo(0f)
+            }
+        } else {
+            angleAtFinish = tickAngle(swing.value)
+            finishing = true
+            val duration = RISE + STRIKE + CHECK
+            finish.animateTo(duration.toFloat(), tween(duration, easing = LinearEasing))
+            currentOnFinished()
         }
     }
+
     Canvas(modifier = modifier) {
-        drawMark(tint = tint, accent = accent, pose = poseAt(minOf(clock.value, TOTAL_MS.toFloat())))
+        val pose = if (finishing) {
+            // poseAt past the swing: rise, strike, jolt, check. The swing's
+            // last angle eases back to centre over the wind-up's dip instead
+            // of snapping.
+            val base = poseAt(STRIKE_START_MS - RISE + finish.value)
+            val settle = (finish.value / 140f).coerceIn(0f, 1f)
+            base.copy(dotAngle = angleAtFinish * (1f - settle))
+        } else {
+            MarkPose(
+                dotScale = if (pop.value >= 1f) 1f else easeOutBack(pop.value),
+                dotAngle = tickAngle(swing.value),
+                dotLift = 0f,
+                dotSquash = 1f,
+                ringScale = 1f,
+                checkProgress = 0f
+            )
+        }
+        drawMark(tint = tint, accent = accent, pose = pose)
     }
+}
+
+/** One tick-tock cycle, [phase] 0..1: snaps to each side and holds there. */
+private fun tickAngle(phase: Float): Float {
+    val s = sin(phase * 2f * PI.toFloat())
+    return SWING_DEG * sign(s) * abs(s).pow(0.45f)
 }
 
 /**
  * The mark following a pull gesture, [progress] 0..1 towards the refresh
- * threshold: the dot pops into the ring's opening over the first third of
- * the pull, then rises like the hammer winding up. At 1 it is exactly where
- * [LoopingNoobatyarMark] with startAtStrike begins.
+ * threshold: the dot grows into the ring's opening and leans a little with
+ * the pull. Once released, [WaitingNoobatyarMark] (dotAlreadyShown) carries on
+ * from the full-size dot.
  */
 @Composable
 fun PullingNoobatyarMark(
@@ -124,9 +175,9 @@ fun PullingNoobatyarMark(
 ) {
     val p = progress.coerceIn(0f, 1f)
     val pose = MarkPose(
-        dotScale = (p / 0.35f).coerceIn(0f, 1f),
-        dotAngle = 0f,
-        dotLift = LIFT_UNITS * easeOutCubic(((p - 0.35f) / 0.65f).coerceIn(0f, 1f)),
+        dotScale = (p / 0.6f).coerceIn(0f, 1f),
+        dotAngle = SWING_DEG * ((p - 0.6f) / 0.4f).coerceIn(0f, 1f),
+        dotLift = 0f,
         dotSquash = 1f,
         ringScale = 1f,
         checkProgress = 0f
@@ -165,7 +216,7 @@ private const val STRIKE = 130              // drop onto the ring
 private const val CHECK = 520               // check draws in
 private const val TOTAL_MS = RING_ALONE + DOT_IN + SWING + RISE + STRIKE + CHECK
 
-private const val LOOP_HOLD_MS = 450        // finished mark held between loops
+private const val TICK_PERIOD_MS = 1_000    // one left-right tick-tock while waiting
 private const val STRIKE_START_MS = (RING_ALONE + DOT_IN + SWING + RISE).toFloat()
 
 private const val SWINGS = 3                // full left-right-left cycles
