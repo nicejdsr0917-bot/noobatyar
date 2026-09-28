@@ -226,6 +226,7 @@ fun SettingsContent(
                 startWeight = 1f,
                 endWeight = 1.15f,
                 start = {
+            if (isWideLayout()) SettingsGroupLabel("حساب و کسب‌وکار")
             // Profile identity hero — the owner sees who they are and which
             // business they're currently managing, front and center.
             ProfileHeaderCard(

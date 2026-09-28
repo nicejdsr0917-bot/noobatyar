@@ -74,18 +74,30 @@ fun MonthGridBlock(
     val nextMonthDay = monthDays.lastOrNull()?.let { last -> window.firstOrNull { it > last } }
 
     BlockCard(
-        title = "${JalaliMonths.getOrElse(selected.month - 1) { "" }} ${selected.year.toString().toPersianDigits()}",
-        icon = Icons.Rounded.CalendarMonth,
-        trailing = {
-            // Under RTL "previous" sits on the right, so the arrow points right.
+        title = "تقویم",
+        icon = Icons.Rounded.CalendarMonth
+    ) {
+        // Previous month on the reading-start side (right, under RTL) and
+        // next on the left, each arrow pointing the way the calendar moves.
+        // Auto-mirrored "Left" is the backward arrow, which RTL draws
+        // pointing right; "Right" is forward and is drawn pointing left.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { previousMonthDay?.let(onDateSelected) }, enabled = previousMonthDay != null) {
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "ماه قبل")
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "ماه قبل")
             }
+            Text(
+                text = "${JalaliMonths.getOrElse(selected.month - 1) { "" }} ${selected.year.toString().toPersianDigits()}",
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             IconButton(onClick = { nextMonthDay?.let(onDateSelected) }, enabled = nextMonthDay != null) {
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "ماه بعد")
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "ماه بعد")
             }
         }
-    ) {
+        Spacer(Modifier.padding(top = 6.dp))
         Row(Modifier.fillMaxWidth()) {
             WeekdayInitials.forEach {
                 Text(

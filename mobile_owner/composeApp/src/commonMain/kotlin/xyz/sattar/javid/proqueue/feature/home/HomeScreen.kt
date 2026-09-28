@@ -419,7 +419,6 @@ fun PlanBannerSection(
     if (isWideLayout()) {
         AdaptiveGrid(
             count = plans.size,
-            modifier = Modifier.padding(vertical = 8.dp),
             mediumColumns = 2,
             expandedColumns = 2,
             spacing = 12.dp

@@ -41,14 +41,11 @@ import xyz.sattar.javid.proqueue.core.ui.WindowSize
 @Composable
 fun isWideLayout(): Boolean = LocalWindowSize.current != WindowSize.Compact
 
-/** Horizontal page padding: phones keep their edge-to-edge 16dp, wide
- *  windows get more air so blocks don't touch the sidebar. */
+/** Horizontal page padding. One value at every width, the same 16dp the
+ *  top bars and heroes use, so body blocks line up under the header. The
+ *  width cap in AppScaffold already keeps blocks off the sidebar. */
 @Composable
-fun adaptivePagePadding(): Dp = when (LocalWindowSize.current) {
-    WindowSize.Compact -> 16.dp
-    WindowSize.Medium -> 20.dp
-    WindowSize.Expanded -> 28.dp
-}
+fun adaptivePagePadding(): Dp = 16.dp
 
 /**
  * Two columns on a wide window, one stacked column on a phone.

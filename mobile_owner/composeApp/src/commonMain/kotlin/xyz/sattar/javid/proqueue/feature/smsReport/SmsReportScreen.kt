@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.smsReport
 
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
@@ -548,10 +549,18 @@ private fun FilterBar(
     )
     var menuOpen by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    val statusChips: @Composable () -> Unit = {
+        StatusChip(status == null, stringResource(Res.string.sms_report_filter_all)) { onStatus(null) }
+        StatusChip(status == SmsLogStatus.SENT, stringResource(Res.string.sms_report_filter_sent)) { onStatus(SmsLogStatus.SENT) }
+        StatusChip(status == SmsLogStatus.FAILED, stringResource(Res.string.sms_report_filter_failed)) { onStatus(SmsLogStatus.FAILED) }
+        // Push is free, so it has no quota-skipped state.
+        if (channel == ReportChannel.SMS) {
+            StatusChip(status == SmsLogStatus.SKIPPED_QUOTA, stringResource(Res.string.sms_report_filter_skipped)) {
+                onStatus(SmsLogStatus.SKIPPED_QUOTA)
+            }
+        }
+    }
+    val dateChip: @Composable () -> Unit = {
         Box {
             FilterChip(
                 selected = range != SmsReportDateRange.ALL,
@@ -570,23 +579,36 @@ private fun FilterBar(
                 }
             }
         }
+    }
+
+    if (isWideLayout()) {
+        // The side column is narrow and a mouse can't scroll a row sideways,
+        // so the chips wrap onto as many lines as they need.
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            dateChip()
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) { statusChips() }
+        }
+        return
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        dateChip()
         Spacer(Modifier.width(8.dp))
         VerticalDivider(Modifier.height(24.dp))
         Spacer(Modifier.width(8.dp))
         Row(
             modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            StatusChip(status == null, stringResource(Res.string.sms_report_filter_all)) { onStatus(null) }
-            StatusChip(status == SmsLogStatus.SENT, stringResource(Res.string.sms_report_filter_sent)) { onStatus(SmsLogStatus.SENT) }
-            StatusChip(status == SmsLogStatus.FAILED, stringResource(Res.string.sms_report_filter_failed)) { onStatus(SmsLogStatus.FAILED) }
-            // Push is free, so it has no quota-skipped state.
-            if (channel == ReportChannel.SMS) {
-                StatusChip(status == SmsLogStatus.SKIPPED_QUOTA, stringResource(Res.string.sms_report_filter_skipped)) {
-                    onStatus(SmsLogStatus.SKIPPED_QUOTA)
-                }
-            }
-        }
+        ) { statusChips() }
     }
 }
 
