@@ -120,8 +120,7 @@
         /* Nested layers (lift, dot, band) fill the same 104px box, so they
            all share the one coordinate system described above. */
         #compose-loading .nb-lift,
-        #compose-loading .nb-dot,
-        #compose-loading .nb-band {
+        #compose-loading .nb-dot {
             display: block;
             width: 104px;
             height: 104px;
@@ -148,19 +147,31 @@
             stroke-dashoffset: 1;
         }
 
-        /* The band rotates as a layer. A static mask hides the ring's top
-           opening so the band fades out at one tip and back in at the other,
-           as if it ran along the ring. */
-        #compose-loading .nb-band-mask {
-            -webkit-mask: conic-gradient(from 0deg at 50% 55.4%,
-                transparent 0deg 27deg, #000 37deg 323deg, transparent 333deg 360deg);
-            mask: conic-gradient(from 0deg at 50% 55.4%,
-                transparent 0deg 27deg, #000 37deg 323deg, transparent 333deg 360deg);
+        /*
+         * The travelling band is carved out of the ring itself: a light sweep
+         * rotates underneath, and the ring's own shape masks it. The light
+         * can only ever show inside the ring's stroke, never beside it or in
+         * its opening, however the page is zoomed or scaled. A separately
+         * drawn band arc, even at the ring's exact radius, drifted off it by
+         * a pixel on real screens. The mask is static; only the sweep turns,
+         * with a transform, so it stays on the compositor.
+         */
+        #compose-loading .nb-sweep {
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='43 20 426 426'%3E%3Cpath d='M337.64 156.96A146 146 0 1 1 174.36 156.96' fill='none' stroke='black' stroke-width='36' stroke-linecap='round'/%3E%3C/svg%3E") center / 104px 104px no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='43 20 426 426'%3E%3Cpath d='M337.64 156.96A146 146 0 1 1 174.36 156.96' fill='none' stroke='black' stroke-width='36' stroke-linecap='round'/%3E%3C/svg%3E") center / 104px 104px no-repeat;
             transition: opacity 0.2s ease;
         }
 
-        #compose-loading .nb-band {
-            color: #DDD6FE;
+        #compose-loading .nb-sweep-rot {
+            position: absolute;
+            inset: 0;
+            /* Centred on the ring centre, so it turns in place around it. */
+            background: conic-gradient(from 0deg at 50% 55.4%,
+                rgba(237, 233, 254, 0) 0deg,
+                rgba(237, 233, 254, 0) 250deg,
+                rgba(237, 233, 254, 0.85) 335deg,
+                #FFFFFF 355deg,
+                rgba(237, 233, 254, 0) 360deg);
             transform-origin: 52px 57.6px;
             animation: nb-orbit 1.15s linear infinite;
             will-change: transform;
@@ -183,8 +194,8 @@
         }
 
         /* ── Ready: strike and check ── */
-        #compose-loading.nb-done .nb-band-mask { opacity: 0; }
-        #compose-loading.nb-done .nb-band { animation-play-state: paused; }
+        #compose-loading.nb-done .nb-sweep { opacity: 0; }
+        #compose-loading.nb-done .nb-sweep-rot { animation-play-state: paused; }
         #compose-loading.nb-done .nb-track { opacity: 1; }
         #compose-loading.nb-done .nb-swing {
             animation: none;
@@ -245,7 +256,7 @@
         /* Reduced motion: the finished mark, still. */
         @media (prefers-reduced-motion: reduce) {
             #compose-loading .nb-stage * { animation: none !important; }
-            #compose-loading .nb-band-mask { display: none; }
+            #compose-loading .nb-sweep { display: none; }
             #compose-loading .nb-track { opacity: 1; }
             #compose-loading .nb-check { stroke-dashoffset: 0; }
         }
@@ -263,17 +274,7 @@
                       fill="none" stroke="currentColor" stroke-width="36"
                       stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <div class="nb-band-mask">
-                <svg class="nb-band" viewBox="43 20 426 426" focusable="false">
-                    <!-- An 80deg arc of the ring, starting at 12 o'clock, at the
-                         ring's exact radius and stroke width so it sits on the
-                         track rather than around it. No glow stroke: anything
-                         wider than the ring spills over its edges and reads as
-                         off-centre. -->
-                    <path d="M256 110A146 146 0 0 1 399.8 230.6" fill="none" stroke="currentColor"
-                          stroke-width="36" stroke-linecap="round"/>
-                </svg>
-            </div>
+            <div class="nb-sweep"><div class="nb-sweep-rot"></div></div>
             <div class="nb-swing"><div class="nb-lift">
                 <svg class="nb-dot" viewBox="43 20 426 426" focusable="false">
                     <circle cx="256" cy="122" r="28" fill="#F59E0B"/>
