@@ -136,6 +136,14 @@ fun PullToRefreshBox(
         if (isRefreshing) {
             if (offset.value < restingPx) offset.animateTo(restingPx)
         } else {
+            // Finish opening first. A fast refresh (queue, profile) flips
+            // isRefreshing on and off within the opening animation, and each
+            // flip restarts this effect, cancelling the animateTo above. The
+            // page then stopped a few dp open and the mark was squeezed into
+            // that sliver — tiny — until the collapse. Not once finishing: by
+            // then the page may already be closing, and a late flip must not
+            // pull it back open.
+            if (!finishing && offset.value < restingPx) offset.animateTo(restingPx)
             // The ViewModel may not have flipped isRefreshing on yet; this effect
             // restarts if it does, so we only finish when it stays off. The
             // collapse itself waits for the mark (onMarkFinished below).

@@ -53,8 +53,11 @@ class LoginViewModel(
             }
             is ApiResponse.Error -> {
                 sendEvent(LoginEvent.ShowToast(response.message))
+                // LoginError already turns loading off. A trailing
+                // IsLoading(false) here cleared loginError again in the
+                // reducer, so the inline error (and the register hint under
+                // it) never showed.
                 emit(LoginError(response.message))
-                emit(IsLoading(false))
             }
         }
     }
