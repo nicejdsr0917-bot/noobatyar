@@ -10,8 +10,11 @@ import kotlinx.browser.window
 // window.open keeps every one of these a real, harmless call instead of a
 // TODO() that would crash if some shared code path reaches it, and is
 // correct as-is on mobile web (Safari/Chrome on a phone do open sms:/tel:).
+// "noopener": without it the opened page gets window.opener and can quietly
+// navigate the panel's own tab somewhere else (a fake login page) while the
+// owner looks at the new one. Referer is still sent, unlike "noreferrer".
 private fun openInNewTab(url: String) {
-    window.open(url, "_blank")
+    window.open(url, "_blank", "noopener")
 }
 
 actual fun openSms(phone: String, message: String?) {

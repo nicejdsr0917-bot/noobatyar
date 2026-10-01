@@ -8,9 +8,11 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.core.network.TokenManager
 import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.CheckVersionRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.LoginRequestDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.LogoutRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.RegisterRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.RegisterResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SendOTPResponseDto
@@ -53,9 +55,16 @@ class UserApiService(private val httpClient: HttpClient) {
             setBody(body)
         }.toApiResponse()
     }
+    /**
+     * Blacklists the refresh token on the server. It used to post no body,
+     * while the server requires `refresh`, so every logout failed silently
+     * and the session stayed usable for the token's full 14 days — on a
+     * shared desktop, by whoever had copied it.
+     */
     suspend fun logout(): ApiResponse<Unit> {
         return httpClient.post("auth/logout/") {
             contentType(ContentType.Application.Json)
+            setBody(LogoutRequestDto(refresh = TokenManager.getRefreshToken().orEmpty()))
         }.toApiResponse()
     }
 

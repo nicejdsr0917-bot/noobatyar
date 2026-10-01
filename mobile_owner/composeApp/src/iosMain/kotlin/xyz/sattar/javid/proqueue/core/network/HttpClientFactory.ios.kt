@@ -8,6 +8,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
+import io.ktor.http.HttpHeaders
 import io.ktor.client.plugins.logging.SIMPLE
 import io.ktor.http.URLProtocol
 import io.ktor.http.path
@@ -28,6 +29,9 @@ actual object HttpClientFactory {
             // which consumes the one-shot MultiPartFormDataContent channel and
             // makes the business PUT arrive at the server with an empty body.
             level = LogLevel.HEADERS
+            // The access token is a live credential: it went to the browser
+            // console / logcat in full on every request, release builds too.
+            sanitizeHeader { header -> header == HttpHeaders.Authorization }
         }
         install(DefaultRequest) {
             url("${xyz.sattar.javid.proqueue.core.utils.AppConfig.baseUrl}/api/")

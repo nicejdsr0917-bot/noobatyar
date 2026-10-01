@@ -7,6 +7,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
+import io.ktor.http.HttpHeaders
 import io.ktor.client.plugins.logging.SIMPLE
 import io.ktor.serialization.kotlinx.json.json
 
@@ -26,6 +27,9 @@ actual object HttpClientFactory {
             // HEADERS (not ALL): see the Android actual for why — reading the
             // body to log it consumes the one-shot multipart channel.
             level = LogLevel.HEADERS
+            // The access token is a live credential: it went to the browser
+            // console / logcat in full on every request, release builds too.
+            sanitizeHeader { header -> header == HttpHeaders.Authorization }
         }
         install(AuthInterceptor)
         install(DefaultRequest) {

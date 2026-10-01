@@ -11,6 +11,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
+import io.ktor.http.HttpHeaders
 import io.ktor.client.plugins.logging.SIMPLE
 import xyz.sattar.javid.proqueue.ProQueueApp
 
@@ -32,6 +33,9 @@ actual object HttpClientFactory {
             // which consumes the one-shot MultiPartFormDataContent channel and
             // makes the business PUT arrive at the server with an empty body.
             level = LogLevel.HEADERS
+            // The access token is a live credential: it went to the browser
+            // console / logcat in full on every request, release builds too.
+            sanitizeHeader { header -> header == HttpHeaders.Authorization }
         }
         install(AuthInterceptor)
         install(DefaultRequest) {
