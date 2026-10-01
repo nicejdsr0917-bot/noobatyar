@@ -862,3 +862,36 @@ Compose Multiplatform هیچ چارتی داخل خودش ندارد. توصیه
    فاز ۱. تا آن موقع بماند.
 10. **سهم آیفون‌های قدیمی‌تر از XR در بازار هدف چقدر است؟** آن‌ها با استراتژی
     PWA هیچ مسیری به محصول ندارند (بخش ۳.۱).
+
+## ۱۵. امنیت پیش از انتشار پنل روی سرور (بازبینی ۱۴۰۵/۰۷/۰۹)
+
+پنل وب توکن‌ها را در `localStorage` نگه می‌دارد (`TokenManager.wasmJs.kt`). پس هر
+اسکریپتی که روی دامنه‌ی پنل اجرا شود هر دو توکن را می‌برد. تا وقتی این بخش انجام
+نشده، پنل را روی دامنه‌ی عمومی نبر:
+
+1. **آدرس API:** `AppConfig.wasmJs.kt` (هر دو فایل) هنوز `http://127.0.0.1:8000`
+   است. برای build سرور باید `https://api.noobatyar.ir` باشد. پنل هرگز روی http
+   سرو نشود.
+2. **دامنه‌ی جدا** (مثلاً `panel.noobatyar.ir`) با بلوک nginx خودش، و همین دامنه
+   در `CORS_ALLOWED_ORIGINS` سرور.
+3. **CSP سخت‌گیرانه روی همان بلوک.** شرط لازمش این است که اسکریپت inline
+   `index.html` به یک فایل جدا منتقل شود (یا hash آن در `script-src` بیاید):
+
+   ```nginx
+   add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.noobatyar.ir https://tile.openstreetmap.org; connect-src 'self' https://api.noobatyar.ir https://tile.openstreetmap.org https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'" always;
+   add_header Strict-Transport-Security "max-age=31536000" always;
+   add_header X-Content-Type-Options "nosniff" always;
+   add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+   ```
+
+   تایل‌های نقشه با `fetch` گرفته می‌شوند، برای همین در `connect-src` آمده‌اند.
+4. **build تولیدی** (`wasmJsBrowserDistribution`)، نه dev server. سرور webpack
+   روی سرور اجرا نشود.
+5. **عمر access token:** فعلاً ۲۴ ساعت است (`JWT_ACCESS_HOURS`) و برای همه‌ی
+   کلاینت‌ها مشترک است. کوتاه‌کردنش برای وب، نسخه‌های قدیمی اپ اندروید را
+   هم که هنوز refresh درست ندارند تحت تأثیر می‌گذارد. اول ببین چند درصد کاربران
+   روی نسخه‌ی جدید هستند، بعد کمش کن.
+
+موارد انجام‌شده در همین بازبینی: پاک‌شدن هدر `Authorization` از لاگ کلاینت HTTP
+(هر سه پلتفرم)، باطل‌شدن واقعی refresh token هنگام خروج، `noopener` روی
+لینک‌های خارجی، و محدودیت ورود با رمز و تغییر رمز در بک‌اند.
