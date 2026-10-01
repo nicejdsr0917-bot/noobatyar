@@ -2,10 +2,13 @@
 from .responses import APIResponse
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
-from .throttles import OTPRateThrottle
+from .throttles import LoginRateThrottle, OTPRateThrottle
 from .services.otp import send_otp as otp_send, verify_otp as otp_verify
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import check_password
+from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
+from django.utils import timezone
+from datetime import timedelta
 from .serializers import (
     RegisterSerializer, LoginSerializer, UserSerializer, 
     UpdateUserSerializer, ForgotPasswordSendOTPSerializer,
@@ -22,6 +25,45 @@ import secrets
 OTP_EXPIRY = 120
 REGISTER_TOKEN_EXPIRY = 600
 RESET_TOKEN_EXPIRY = 300
+
+# Password login: after LOGIN_MAX_FAILURES wrong passwords for one phone the
+# account refuses passwords for LOGIN_LOCKOUT_SECONDS, whatever IP they come
+# from. OTP login keeps working, so the real owner is never locked out — the
+# lockout can be triggered by anyone who knows the number.
+LOGIN_MAX_FAILURES = 5
+LOGIN_LOCKOUT_SECONDS = 15 * 60
+
+# Hashed once and checked against when the phone has no account, so a wrong
+# number costs the same hashing time as a wrong password — otherwise the
+# response time alone says whether a number is registered.
+_DUMMY_PASSWORD_HASH = make_password('noobatyar-timing-equaliser')
+
+
+def _login_fail_key(phone):
+    return f'login:fail:{phone}'
+
+
+def _password_change_cooldown():
+    return timedelta(hours=getattr(settings, 'PASSWORD_CHANGE_COOLDOWN_HOURS', 24))
+
+
+def _password_change_blocked(user):
+    """The Persian refusal if ``user`` changed their password too recently,
+    else None."""
+    if not user.password_changed_at:
+        return None
+    if timezone.now() - user.password_changed_at >= _password_change_cooldown():
+        return None
+    hours = int(_password_change_cooldown().total_seconds() // 3600)
+    return f'رمز این حساب در {hours} ساعت گذشته تغییر کرده است؛ هر {hours} ساعت فقط یک بار می‌توان رمز را تغییر داد.'
+
+
+def _revoke_all_sessions(user):
+    """Blacklist every refresh token the user holds, so a password reset also
+    signs out whoever else was in the account."""
+    from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+    for token in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=token)
 
 
 def get_tokens(user):
@@ -156,6 +198,7 @@ def register_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def login_view(request):
     serializer = LoginSerializer(data=request.data)
     if not serializer.is_valid():
@@ -163,9 +206,31 @@ def login_view(request):
             message=_extract_error(serializer.errors)
         )
 
-    user = User.objects.filter(phone=serializer.validated_data['phone']).first()
-    if not user or not check_password(serializer.validated_data['password'], user.password):
+    phone = serializer.validated_data['phone']
+    fail_key = _login_fail_key(phone)
+    if cache.get(fail_key, 0) >= LOGIN_MAX_FAILURES:
+        return APIResponse.error(
+            'به‌خاطر چند رمز اشتباه، ورود با رمز برای این شماره ۱۵ دقیقه بسته شد. '
+            'می‌توانید با کد یکبار مصرف وارد شوید.',
+            code=429,
+        )
+
+    user = User.objects.filter(phone=phone).first()
+    password_ok = check_password(
+        serializer.validated_data['password'],
+        user.password if user else _DUMMY_PASSWORD_HASH,
+    )
+    if not user or not password_ok or not user.is_active:
+        # Counted for unknown numbers too: the lockout must not behave
+        # differently for registered ones, or it becomes an existence test.
+        try:
+            cache.add(fail_key, 0, timeout=LOGIN_LOCKOUT_SECONDS)
+            cache.incr(fail_key)
+        except ValueError:
+            cache.set(fail_key, 1, timeout=LOGIN_LOCKOUT_SECONDS)
         return APIResponse.unauthorized('شماره یا رمز اشتباه است')
+
+    cache.delete(fail_key)
 
     return APIResponse.success(
         data={
@@ -238,6 +303,14 @@ def forgot_password_verify_otp(request):
     if not result['success']:
         return APIResponse.error(result.get('error', 'کد نامعتبر یا منقضی شده است'))
 
+    # Said here, after the code proved the caller holds this phone — not at
+    # the send step, where it would tell anyone whether a number is
+    # registered. The reset step checks again; this is only the early answer.
+    user = User.objects.filter(phone=phone).first()
+    blocked = user and _password_change_blocked(user)
+    if blocked:
+        return APIResponse.error(blocked, code=429)
+
     reset_token = secrets.token_urlsafe(32)
     cache.set(f'reset_token:{phone}', reset_token, timeout=RESET_TOKEN_EXPIRY)
 
@@ -268,9 +341,16 @@ def forgot_password_reset(request):
     if not user:
         return APIResponse.error('کاربر یافت نشد', code=404)
 
+    blocked = _password_change_blocked(user)
+    if blocked:
+        return APIResponse.error(blocked, code=429)
+
     user.set_password(new_password)
-    user.save()
+    user.password_changed_at = timezone.now()
+    user.save(update_fields=['password', 'password_changed_at'])
     cache.delete(f'reset_token:{phone}')
+    cache.delete(_login_fail_key(phone))
+    _revoke_all_sessions(user)
 
     return APIResponse.success(message='رمز عبور با موفقیت تغییر کرد')
 
@@ -280,9 +360,15 @@ def forgot_password_reset(request):
 @api_view(['GET', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def user_detail(request, pk):
-    # Check permission
-    if not request.user.is_staff and request.user.pk != pk:
-        return APIResponse.error('دسترسی ندارید', code=403)
+    # Your own account: always. Someone else's: only with the Django model
+    # permission for that exact action — the same ones the admin roles grant
+    # (core/management/commands/setup_admin_roles.py). This used to be plain
+    # is_staff, which let any panel role (Support, Finance, …) read, edit or
+    # delete any user through the API, whatever the admin itself allowed it.
+    if request.user.pk != pk:
+        needed = {'GET': 'api.view_user', 'PATCH': 'api.change_user', 'DELETE': 'api.delete_user'}[request.method]
+        if not request.user.has_perm(needed):
+            return APIResponse.error('دسترسی ندارید', code=403)
     
     user = User.objects.filter(pk=pk).first()
     if not user:

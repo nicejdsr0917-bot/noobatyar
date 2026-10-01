@@ -183,6 +183,7 @@ REST_FRAMEWORK = {
         'anon': os.getenv('THROTTLE_ANON', '60/min'),
         'user': os.getenv('THROTTLE_USER', '300/min'),
         'otp': os.getenv('THROTTLE_OTP', '5/min'),
+        'login': os.getenv('THROTTLE_LOGIN', '10/min'),
         'public_slots': os.getenv('THROTTLE_PUBLIC_SLOTS', '120/min'),
         # Abuse-report submission (business/client_views.py) — an anonymous,
         # no-account endpoint with no other rate limit on it, so a tighter
@@ -290,6 +291,11 @@ MELIPAYAMAK_FROM = os.getenv('MELIPAYAMAK_FROM', '')
 # skips Melipayamak (no SMS, no credit burned) and accepts this fixed code.
 # Forced empty whenever DEBUG is off, so it can never be enabled in production.
 OTP_DEV_CODE = os.getenv('OTP_DEV_CODE', '') if DEBUG else ''
+
+# A password may be changed (forgot-password reset) once per this many hours
+# per account — api/views.py. Stops a hijacker who got hold of the phone for a
+# moment from flipping the password back and forth.
+PASSWORD_CHANGE_COOLDOWN_HOURS = int(os.getenv('PASSWORD_CHANGE_COOLDOWN_HOURS', '24'))
 
 # Dev-only SMS bypass. When on, api/sms.py logs outgoing messages instead of
 # dispatching them, so local test runs never text a real phone number. Covers

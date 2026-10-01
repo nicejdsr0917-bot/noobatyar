@@ -16,3 +16,10 @@ from rest_framework.throttling import AnonRateThrottle
 class OTPRateThrottle(AnonRateThrottle):
     """Per-IP throttle for OTP/SMS endpoints. Rate comes from THROTTLE_RATES['otp']."""
     scope = 'otp'
+
+
+class LoginRateThrottle(AnonRateThrottle):
+    """Per-IP throttle for password login — the outer layer. The inner one is
+    the per-phone failure lockout in api/views.py, which stops a guesser who
+    rotates IPs against a single account."""
+    scope = 'login'

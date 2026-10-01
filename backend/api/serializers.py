@@ -78,10 +78,17 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UpdateUserSerializer(serializers.ModelSerializer):
-    """ویرایش نام و نقش کاربر"""
+    """ویرایش نام کاربر.
+
+    ``role`` stays in the payload but is read-only: a user could otherwise
+    PATCH themselves to ``ADMIN``. Nothing grants access by role today, which
+    is exactly why this must not wait for the day something does. The server
+    sets it (e.g. a VIP plan purchase makes the buyer BUSINESS_OWNER).
+    """
     class Meta:
         model = User
         fields = ['name', 'role']
+        read_only_fields = ['role']
 
     def validate_name(self, value):
         if not value or len(value.strip()) < 2:

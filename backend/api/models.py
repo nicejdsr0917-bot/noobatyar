@@ -45,6 +45,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False, verbose_name='کارمند پنل')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
     joined_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ عضویت')
+    # Stamped by the forgot-password reset; enforces "one change per
+    # PASSWORD_CHANGE_COOLDOWN_HOURS" (api/views.py). A DB column rather than
+    # a cache key: the limit has to survive a Redis flush or restart.
+    password_changed_at = models.DateTimeField(null=True, blank=True, verbose_name='آخرین تغییر رمز')
 
     USERNAME_FIELD = 'phone'
     REQUIRED_FIELDS = ['name']
