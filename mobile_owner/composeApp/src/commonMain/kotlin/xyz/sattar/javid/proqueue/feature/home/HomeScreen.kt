@@ -630,9 +630,8 @@ fun PlanBannerItem(
     val gradient = Brush.linearGradient(colors = gradientColors)
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
@@ -893,9 +892,8 @@ fun QueueStatRow(count: Int, onClick: () -> Unit = {}) {
         (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) > 0.5
     }
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF01579B).copy(alpha = 0.35f) else Color(0xFFE1F5FE)

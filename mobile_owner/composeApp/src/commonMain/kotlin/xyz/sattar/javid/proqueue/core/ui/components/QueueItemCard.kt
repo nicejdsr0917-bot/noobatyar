@@ -105,7 +105,8 @@ fun QueueItemCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onItemClick() },
+        onClick = onItemClick,
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer

@@ -75,6 +75,12 @@ fun App() {
         if (onAuthComplete) syncPushToken()
     }
 
+    // Anyone who has signed in already knows the app, including owners from
+    // before the introduction existed — a later logout must not show it.
+    LaunchedEffect(onAuthComplete) {
+        if (onAuthComplete) PreferencesManager.setOnboardingSeen()
+    }
+
     // Mounted for the whole app (outside the auth/business/main nav swap below),
     // so a toast triggered right before a forced navigation — e.g. the session
     // expiring — actually survives to be seen instead of unmounting with the

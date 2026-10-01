@@ -17,4 +17,8 @@ expect object PreferencesManager {
     suspend fun setMessageTemplate(businessId: Long, template: String)
     fun getMessageTemplate(businessId: Long): String?
     fun getNotificationReminderMinutes(): Int
+    /** Whether the first-run introduction has been shown. Synchronous: it
+     *  picks the auth flow's start destination before the first frame. */
+    fun hasSeenOnboarding(): Boolean
+    suspend fun setOnboardingSeen()
 }

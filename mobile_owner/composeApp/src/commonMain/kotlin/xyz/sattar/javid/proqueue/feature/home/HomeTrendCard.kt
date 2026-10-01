@@ -238,7 +238,7 @@ private fun PeriodToggle(
             TrendPeriod.entries.forEach { option ->
                 val isSelected = option == selected
                 Surface(
-                    modifier = Modifier.clickable { onSelect(option) },
+                    onClick = { onSelect(option) },
                     shape = RoundedCornerShape(9.dp),
                     color = if (isSelected) MaterialTheme.colorScheme.primary
                             else androidx.compose.ui.graphics.Color.Transparent,

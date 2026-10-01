@@ -1,24 +1,33 @@
 package xyz.sattar.javid.proqueue.feature.createAppointment
 
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.EventNote
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
@@ -27,7 +36,6 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.appointment_create_action
-import proqueue.composeapp.generated.resources.appointment_description
 import proqueue.composeapp.generated.resources.back
 import proqueue.composeapp.generated.resources.cancel
 import proqueue.composeapp.generated.resources.confirm
@@ -39,10 +47,8 @@ import proqueue.composeapp.generated.resources.delete
 import proqueue.composeapp.generated.resources.delete_appointment
 import proqueue.composeapp.generated.resources.edit_appointment
 import proqueue.composeapp.generated.resources.no
-import proqueue.composeapp.generated.resources.select_visitor
 import proqueue.composeapp.generated.resources.service_catalog_title
 import proqueue.composeapp.generated.resources.service_duration_error
-import proqueue.composeapp.generated.resources.service_duration_minutes
 import proqueue.composeapp.generated.resources.yes_force_create
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
 import xyz.sattar.javid.proqueue.core.ui.WindowSize
@@ -55,6 +61,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
 import xyz.sattar.javid.proqueue.core.ui.components.SelectedServiceChipsRow
 import xyz.sattar.javid.proqueue.core.ui.components.ServiceCatalogBottomSheet
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.ui.theme.AppTheme
 import kotlin.time.ExperimentalTime
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
@@ -312,15 +319,24 @@ private fun CreateAppointmentPhoneContent(
                     color = MaterialTheme.colorScheme.background,
                     shadowElevation = 8.dp
                 ) {
-                    AppButton(
-                        text = if (uiState.editingAppointmentId != null) stringResource(Res.string.edit_appointment) else stringResource(Res.string.appointment_create_action),
-                        onClick = onSubmit,
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 16.dp)
-                            .navigationBarsPadding(),
-                        isLoading = uiState.isLoading
-                    )
+                            .navigationBarsPadding()
+                            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        BookingSummaryLine(
+                            selectedDate = selectedDate,
+                            selectedTime = selectedTime,
+                            durationMinutes = serviceDuration.trim().toIntOrNull()
+                        )
+                        AppButton(
+                            text = if (uiState.editingAppointmentId != null) stringResource(Res.string.edit_appointment) else stringResource(Res.string.appointment_create_action),
+                            onClick = onSubmit,
+                            isLoading = uiState.isLoading
+                        )
+                    }
                 }
             }
         }
@@ -339,49 +355,29 @@ private fun CreateAppointmentPhoneContent(
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
+                // Who and when first (the decisions everything else hangs
+                // on), then what is being done and for how long, then notes.
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                         .imePadding()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                    VisitorSelectionSection(
+                    AppointmentHeroCard(
                         selectedVisitorId = selectedVisitorId,
                         visitorName = uiState.visitor?.fullName,
                         visitorPhone = uiState.visitor?.phoneNumber,
-                        onClick = onNavigateToVisitorSelection
-                    )
-
-                    DateTimeSection(
                         selectedDate = selectedDate,
                         selectedTime = selectedTime,
-                        onClick = onNavigateToCalendar
+                        dailyCount = uiState.dailyAppointmentsCount,
+                        onVisitorClick = onNavigateToVisitorSelection,
+                        onDateTimeClick = onNavigateToCalendar,
+                        onShowDayList = onShowAppointmentsList
                     )
 
-                    if (uiState.dailyAppointmentsCount > 0) {
-                        DailyCountBanner(
-                            count = uiState.dailyAppointmentsCount,
-                            onShowList = onShowAppointmentsList
-                        )
-                    }
-
-                    ServiceDurationSection(
-                        value = serviceDuration,
-                        onValueChange = onServiceDurationChange,
-                        isError = serviceDurationError != null,
-                        errorMessage = serviceDurationError,
-                        enabled = !uiState.isLoading
-                    )
-
-                    DescriptionSection(
-                        value = description,
-                        onValueChange = onDescriptionChange,
-                        enabled = !uiState.isLoading
-                    )
-
-                    ServiceCatalogSection(
+                    ServicesSection(
                         selectedServices = uiState.selectedServices,
                         onOpenCatalog = onShowServiceCatalogSheet,
                         onRemove = { name ->
@@ -392,7 +388,22 @@ private fun CreateAppointmentPhoneContent(
                             )
                         }
                     )
-                    // Button moved to bottomBar
+
+                    DurationSection(
+                        value = serviceDuration,
+                        onValueChange = onServiceDurationChange,
+                        isError = serviceDurationError != null,
+                        errorMessage = serviceDurationError,
+                        enabled = !uiState.isLoading
+                    )
+
+                    NotesSection(
+                        value = description,
+                        onValueChange = onDescriptionChange,
+                        enabled = !uiState.isLoading
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         }
@@ -472,96 +483,21 @@ private fun CreateAppointmentWebContent(
                             .padding(24.dp),
                         verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
-                        if (isExpanded) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(20.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    VisitorSelectionSection(
-                                        selectedVisitorId = selectedVisitorId,
-                                        visitorName = uiState.visitor?.fullName,
-                                        visitorPhone = uiState.visitor?.phoneNumber,
-                                        onClick = onNavigateToVisitorSelection
-                                    )
-                                    DateTimeSection(
-                                        selectedDate = selectedDate,
-                                        selectedTime = selectedTime,
-                                        onClick = onNavigateToCalendar
-                                    )
-                                    if (uiState.dailyAppointmentsCount > 0) {
-                                        DailyCountBanner(
-                                            count = uiState.dailyAppointmentsCount,
-                                            onShowList = onShowAppointmentsList
-                                        )
-                                    }
-                                }
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    ServiceDurationSection(
-                                        value = serviceDuration,
-                                        onValueChange = onServiceDurationChange,
-                                        isError = serviceDurationError != null,
-                                        errorMessage = serviceDurationError,
-                                        enabled = !uiState.isLoading
-                                    )
-                                    DescriptionSection(
-                                        value = description,
-                                        onValueChange = onDescriptionChange,
-                                        enabled = !uiState.isLoading
-                                    )
-                                    ServiceCatalogSection(
-                                        selectedServices = uiState.selectedServices,
-                                        onOpenCatalog = onShowServiceCatalogSheet,
-                                        onRemove = { name ->
-                                            onIntent(
-                                                CreateAppointmentIntent.UpdateSelectedServices(
-                                                    uiState.selectedServices - name
-                                                )
-                                            )
-                                        }
-                                    )
-                                }
-                            }
-                        } else {
-                            // Medium: still panel cards (not phone rows), one
-                            // column — two columns at this width would squeeze
-                            // the panels too narrow for the daily-count banner text.
-                            VisitorSelectionSection(
+                        val hero: @Composable () -> Unit = {
+                            AppointmentHeroCard(
                                 selectedVisitorId = selectedVisitorId,
                                 visitorName = uiState.visitor?.fullName,
                                 visitorPhone = uiState.visitor?.phoneNumber,
-                                onClick = onNavigateToVisitorSelection
-                            )
-                            DateTimeSection(
                                 selectedDate = selectedDate,
                                 selectedTime = selectedTime,
-                                onClick = onNavigateToCalendar
+                                dailyCount = uiState.dailyAppointmentsCount,
+                                onVisitorClick = onNavigateToVisitorSelection,
+                                onDateTimeClick = onNavigateToCalendar,
+                                onShowDayList = onShowAppointmentsList
                             )
-                            if (uiState.dailyAppointmentsCount > 0) {
-                                DailyCountBanner(
-                                    count = uiState.dailyAppointmentsCount,
-                                    onShowList = onShowAppointmentsList
-                                )
-                            }
-                            ServiceDurationSection(
-                                value = serviceDuration,
-                                onValueChange = onServiceDurationChange,
-                                isError = serviceDurationError != null,
-                                errorMessage = serviceDurationError,
-                                enabled = !uiState.isLoading
-                            )
-                            DescriptionSection(
-                                value = description,
-                                onValueChange = onDescriptionChange,
-                                enabled = !uiState.isLoading
-                            )
-                            ServiceCatalogSection(
+                        }
+                        val services: @Composable () -> Unit = {
+                            ServicesSection(
                                 selectedServices = uiState.selectedServices,
                                 onOpenCatalog = onShowServiceCatalogSheet,
                                 onRemove = { name ->
@@ -573,6 +509,50 @@ private fun CreateAppointmentWebContent(
                                 }
                             )
                         }
+                        val duration: @Composable () -> Unit = {
+                            DurationSection(
+                                value = serviceDuration,
+                                onValueChange = onServiceDurationChange,
+                                isError = serviceDurationError != null,
+                                errorMessage = serviceDurationError,
+                                enabled = !uiState.isLoading
+                            )
+                        }
+                        val notes: @Composable () -> Unit = {
+                            NotesSection(
+                                value = description,
+                                onValueChange = onDescriptionChange,
+                                enabled = !uiState.isLoading
+                            )
+                        }
+
+                        if (isExpanded) {
+                            // Who and when on the reading-start side (the
+                            // right, under RTL); what, how long and notes
+                            // beside it.
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(24.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    hero()
+                                }
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                                ) {
+                                    services()
+                                    duration()
+                                    notes()
+                                }
+                            }
+                        } else {
+                            // Medium: one column, same order as the phone.
+                            hero()
+                            services()
+                            duration()
+                            notes()
+                        }
 
                         // Submit action — its own full-width card at the end of
                         // the scrolling content. Deliberately not a Scaffold
@@ -583,7 +563,14 @@ private fun CreateAppointmentWebContent(
                             SubmitActionCard(
                                 text = if (uiState.editingAppointmentId != null) stringResource(Res.string.edit_appointment) else stringResource(Res.string.appointment_create_action),
                                 isLoading = uiState.isLoading,
-                                onClick = onSubmit
+                                onClick = onSubmit,
+                                summary = {
+                                    BookingSummaryLine(
+                                        selectedDate = selectedDate,
+                                        selectedTime = selectedTime,
+                                        durationMinutes = serviceDuration.trim().toIntOrNull()
+                                    )
+                                }
                             )
                         }
                     }
@@ -633,47 +620,271 @@ private fun CreateAppointmentTopBar(
     )
 }
 
-/** Visitor picker card — shared by phone and desktop layouts. */
+/** The two decisions everything else hangs on — who and when — read
+ *  together at the top, on the brand gradient (the same treatment as the
+ *  profile header in Settings). Each half opens its own picker. */
 @Composable
-private fun VisitorSelectionSection(
+private fun AppointmentHeroCard(
     selectedVisitorId: Long?,
     visitorName: String?,
     visitorPhone: String?,
-    onClick: () -> Unit
+    selectedDate: Long,
+    selectedTime: String,
+    dailyCount: Int,
+    onVisitorClick: () -> Unit,
+    onDateTimeClick: () -> Unit,
+    onShowDayList: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(
-            text = stringResource(Res.string.select_visitor),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        OutlinedCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(enabled = selectedVisitorId == null) {
-                    onClick()
-                },
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = if (selectedVisitorId != null)
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                else MaterialTheme.colorScheme.surface
-            ),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            )
-        ) {
-            Row(
+    val gradient = Brush.linearGradient(
+        listOf(Color(0xFFA78BFA), Color(0xFF8B5CF6), Color(0xFF7C3AED))
+    )
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().background(gradient)) {
+            // Decorative oversized glyph in the corner.
+            Icon(
+                imageVector = Icons.Rounded.EventAvailable,
+                contentDescription = null,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .size(160.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 40.dp, y = (-36).dp),
+                tint = Color.White.copy(alpha = 0.10f)
+            )
+
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Who. A visitor already chosen stays fixed, as before.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable(enabled = selectedVisitorId == null, onClick = onVisitorClick),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.22f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val initial = visitorName?.trim()?.firstOrNull()?.uppercaseChar()?.toString()
+                        if (selectedVisitorId != null && initial != null) {
+                            Text(
+                                text = initial,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.PersonAdd,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "مراجع",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.75f)
+                        )
+                        Text(
+                            text = if (selectedVisitorId != null) visitorName ?: "--" else "انتخاب مراجع",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (selectedVisitorId != null && !visitorPhone.isNullOrBlank()) {
+                            Text(
+                                text = visitorPhone,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.85f)
+                            )
+                        }
+                    }
+                    if (selectedVisitorId == null) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = null,
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                // When: a frosted panel inside the card, tapping it opens the
+                // calendar.
+                Surface(
+                    onClick = onDateTimeClick,
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White.copy(alpha = 0.16f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.CalendarMonth,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "زمان نوبت",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.75f)
+                            )
+                            Text(
+                                text = appointmentDateLabel(selectedDate),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color.White
+                        ) {
+                            Text(
+                                text = selectedTime.toPersianDigits(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF7C3AED),
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (dailyCount > 0) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable(onClick = onShowDayList)
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.EventNote,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "در این روز ${dailyCount.toString().toPersianDigits()} نوبت ثبت شده",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.9f),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "مشاهده",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Title row shared by the plain sections under the hero card. */
+@Composable
+private fun FormSection(
+    title: String,
+    optional: Boolean = false,
+    action: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (optional) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "(اختیاری)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            action?.invoke()
+        }
+        content()
+    }
+}
+
+/**
+ * Service catalog chips — additive to the free-text notes below, not a
+ * replacement for them. The list offered here is scoped to the current
+ * business's category and shared with every other business in that category
+ * (see ServiceCatalogBottomSheet's doc).
+ */
+@Composable
+private fun ServicesSection(
+    selectedServices: List<String>,
+    onOpenCatalog: () -> Unit,
+    onRemove: (String) -> Unit
+) {
+    FormSection(
+        title = stringResource(Res.string.service_catalog_title),
+        action = if (selectedServices.isEmpty()) null else {
+            {
+                TextButton(onClick = onOpenCatalog) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("افزودن")
+                }
+            }
+        }
+    ) {
+        if (selectedServices.isEmpty()) {
+            OutlinedCard(
+                onClick = onOpenCatalog,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.outlinedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                )
             ) {
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -684,37 +895,25 @@ private fun VisitorSelectionSection(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Person,
+                            imageVector = Icons.Rounded.Checklist,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (selectedVisitorId != null) {
-                                visitorName ?: "--"
-                            } else {
-                                "انتخاب مراجع"
-                            },
+                            text = "انتخاب خدمات از فهرست",
                             style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = if (selectedVisitorId != null)
-                                MaterialTheme.colorScheme.onSurface
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        selectedVisitorId?.let {
-                            visitorPhone?.let { phone ->
-                                Text(
-                                    text = phone,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                        Text(
+                            text = "خدماتی که در این نوبت انجام می‌شود",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                }
-                if (selectedVisitorId == null) {
                     Icon(
                         imageVector = Icons.Rounded.Add,
                         contentDescription = null,
@@ -722,167 +921,142 @@ private fun VisitorSelectionSection(
                     )
                 }
             }
-        }
-    }
-}
-
-/** Date/time picker card — shared by phone and desktop layouts. */
-@Composable
-private fun DateTimeSection(
-    selectedDate: Long,
-    selectedTime: String,
-    onClick: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(
-            text = "تاریخ و زمان نوبت",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        OutlinedCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onClick() },
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        } else {
+            SelectedServiceChipsRow(
+                selected = selectedServices,
+                onRemove = onRemove
             )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.CalendarToday,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = "${DateTimeUtils.getJalaliDate(selectedDate)} - $selectedTime",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Rounded.Edit,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
 
-/** "N appointments today" banner with a link to [AppointmentsListBottomSheet]. */
-@Composable
-private fun DailyCountBanner(
-    count: Int,
-    onShowList: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "در این روز $count نوبت ثبت شده است",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
-            )
-            TextButton(
-                onClick = onShowList,
-                modifier = Modifier.height(32.dp)
-            ) {
-                Text("مشاهده لیست", style = MaterialTheme.typography.labelMedium)
-            }
-        }
-    }
-}
+private val DurationPresets = listOf(15, 30, 45, 60, 90, 120)
 
-/** Service duration field — shared by phone and desktop layouts. */
+/**
+ * Service duration as one-tap presets, with the free number field behind
+ * "مدت دلخواه" in the section header for anything else. A loaded value that isn't a preset (editing an
+ * existing appointment) opens the field on its own, and so does a
+ * validation error, so the message is never hidden.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ServiceDurationSection(
+private fun DurationSection(
     value: String,
     onValueChange: (String) -> Unit,
     isError: Boolean,
     errorMessage: String?,
     enabled: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(
-            text = stringResource(Res.string.service_duration_minutes),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+    val current = value.trim().toIntOrNull()
+    var custom by remember { mutableStateOf(current != null && current !in DurationPresets) }
+    LaunchedEffect(current) {
+        if (current != null && current !in DurationPresets) custom = true
+    }
 
-        AppTextField(
-            value = value,
-            maxLength = 3,
-            keyboardType = KeyboardType.Number,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Rounded.Timer,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+    FormSection(
+        title = "مدت نوبت",
+        action = {
+            TextButton(onClick = { custom = true }, enabled = enabled) {
+                Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "مدت دلخواه",
+                    fontWeight = if (custom) FontWeight.Bold else FontWeight.Normal
                 )
-            },
-            isError = isError,
-            errorMessage = errorMessage,
-            enabled = enabled,
-        )
+            }
+        }
+    ) {
+        // An even 3×2 grid: free wrapping left a ragged split on a phone,
+        // and four columns were too narrow for "۱۵ دقیقه".
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            maxItemsInEachRow = 3,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            DurationPresets.forEach { minutes ->
+                DurationChip(
+                    label = durationLabel(minutes),
+                    selected = !custom && current == minutes,
+                    enabled = enabled,
+                    onClick = {
+                        custom = false
+                        onValueChange(minutes.toString())
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        AnimatedVisibility(visible = custom || isError) {
+            AppTextField(
+                value = value,
+                maxLength = 3,
+                keyboardType = KeyboardType.Number,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = "مدت به دقیقه",
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Timer,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                isError = isError,
+                errorMessage = errorMessage,
+                enabled = enabled,
+            )
+        }
     }
 }
 
-/** Free-text description field — shared by phone and desktop layouts. */
 @Composable
-private fun DescriptionSection(
+private fun DurationChip(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        label = {
+            Text(
+                text = label,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        shape = RoundedCornerShape(12.dp),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+        )
+    )
+}
+
+/** Free-text notes — shared by phone and desktop layouts. */
+@Composable
+private fun NotesSection(
     value: String,
     onValueChange: (String) -> Unit,
     enabled: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(
-            text = stringResource(Res.string.appointment_description),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
+    FormSection(title = "توضیحات", optional = true) {
         AppTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
             maxLine = 3,
             maxLength = 200,
+            showCounter = value.isNotEmpty(),
+            placeholder = "مثلاً درخواست خاص مراجع",
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Rounded.Edit,
@@ -897,67 +1071,70 @@ private fun DescriptionSection(
 }
 
 /**
- * Service catalog chips — additive to the free-text description above, not a
- * replacement for it. The list offered here is scoped to the current
- * business's category and shared with every other business in that category
- * (see ServiceCatalogBottomSheet's doc).
+ * One line restating the booking right above its submit button, so the
+ * owner confirms what they are about to save without scrolling back up:
+ * "چهارشنبه ۹ مهر · ۰۹:۰۰ تا ۱۰:۰۰".
  */
 @Composable
-private fun ServiceCatalogSection(
-    selectedServices: List<String>,
-    onOpenCatalog: () -> Unit,
-    onRemove: (String) -> Unit
+private fun BookingSummaryLine(
+    selectedDate: Long,
+    selectedTime: String,
+    durationMinutes: Int?
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(
-            text = stringResource(Res.string.service_catalog_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+    val end = durationMinutes?.let { endTime(selectedTime, it) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Schedule,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp)
         )
-
-        OutlinedCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onOpenCatalog() },
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (selectedServices.isEmpty())
-                        "انتخاب خدمات از فهرست"
-                    else
-                        "${selectedServices.size} خدمت انتخاب شده",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (selectedServices.isEmpty())
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.onSurface
-                )
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-
-        SelectedServiceChipsRow(
-            selected = selectedServices,
-            onRemove = onRemove
+        Text(
+            text = buildString {
+                append(appointmentDateLabel(selectedDate))
+                append(" · ")
+                append(selectedTime.toPersianDigits())
+                if (end != null) append(" تا ").append(end.toPersianDigits())
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
+}
+
+/** "چهارشنبه ۹ مهر", with the year only when it isn't the current one. */
+private fun appointmentDateLabel(millis: Long): String {
+    val date = DateTimeUtils.getJalaliDateParts(millis)
+    val thisYear = DateTimeUtils.getJalaliDateParts(DateTimeUtils.systemCurrentMilliseconds()).year
+    val label = buildString {
+        append(DateTimeUtils.getDayOfWeekName(millis))
+        append(' ')
+        append(date.dayOfMonth)
+        append(' ')
+        append(DateTimeUtils.jalaliMonthName(date.month - 1))
+        if (date.year != thisYear) append(' ').append(date.year)
+    }
+    return label.toPersianDigits()
+}
+
+/** Whole hours read as hours ("۱ ساعت"), anything else in minutes. */
+private fun durationLabel(minutes: Int): String =
+    (if (minutes >= 60 && minutes % 60 == 0) "${minutes / 60} ساعت" else "$minutes دقیقه").toPersianDigits()
+
+/** "HH:mm" plus [minutes], wrapping past midnight; null if [start] won't parse. */
+private fun endTime(start: String, minutes: Int): String? {
+    val parts = start.split(":")
+    val h = parts.getOrNull(0)?.trim()?.toIntOrNull() ?: return null
+    val m = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: return null
+    val total = ((h * 60 + m + minutes) % (24 * 60) + 24 * 60) % (24 * 60)
+    return "${(total / 60).toString().padStart(2, '0')}:${(total % 60).toString().padStart(2, '0')}"
 }
 
 /**
@@ -968,7 +1145,8 @@ private fun ServiceCatalogSection(
 private fun SubmitActionCard(
     text: String,
     isLoading: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    summary: @Composable () -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -978,14 +1156,19 @@ private fun SubmitActionCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        AppButton(
-            text = text,
-            onClick = onClick,
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            isLoading = isLoading
-        )
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            summary()
+            AppButton(
+                text = text,
+                onClick = onClick,
+                isLoading = isLoading
+            )
+        }
     }
 }
 

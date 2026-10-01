@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.login
 
+import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
+import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
+import xyz.sattar.javid.proqueue.core.ui.components.LoginIllustration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,9 +19,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PhoneIphone
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -121,8 +128,10 @@ private fun LoginPhoneContent(
         topBar = {
             TopAppBar(
                 title = {
+                    // Just the product name: "ورود" here told every new
+                    // visitor they were expected to log in already.
                     Text(
-                        text = "نوبت یار ورود",
+                        text = "نوبت‌یار",
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -146,16 +155,13 @@ private fun LoginPhoneContent(
                             .navigationBarsPadding(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Registration lives in NoAccountCard above the
+                        // fields, where it is seen first; a second button here
+                        // only competed with "ورود".
                         AppButton(
                             text = "ورود",
                             onClick = { onIntent(LoginIntent.Submit) },
                             isLoading = uiState.isLoading
-                        )
-                        AppButton(
-                            text = "ثبت نام",
-                            onClick = { onIntent(LoginIntent.Register) },
-                            isOutlined = true,
-                            enabled = !uiState.isLoading
                         )
                     }
                 }
@@ -180,6 +186,11 @@ private fun LoginPhoneContent(
 
                 LoginFormFields(uiState = uiState, onIntent = onIntent)
 
+                // Extra space so the "فراموشی رمز" link and the register
+                // hint under a login error are never hidden behind the
+                // pinned bottomBar.
+                Spacer(modifier = Modifier.height(120.dp))
+
                 // Buttons moved to bottomBar
             }
         }
@@ -199,12 +210,9 @@ private fun ColumnScope.LoginFormFields(
     uiState: LoginState,
     onIntent: (LoginIntent) -> Unit
 ) {
-    Icon(
-        imageVector = Icons.AutoMirrored.Rounded.Login,
-        contentDescription = null,
-        modifier = Modifier.size(72.dp),
-        tint = MaterialTheme.colorScheme.primary
-    )
+    BrandIllustration(size = AuthHeaderIllustrationSize) {
+        LoginIllustration()
+    }
 
     Text(
         text = "ورود به حساب کاربری",
@@ -213,7 +221,14 @@ private fun ColumnScope.LoginFormFields(
         color = MaterialTheme.colorScheme.onBackground
     )
 
-    Spacer(modifier = Modifier.height(8.dp))
+    // Above the fields, not only as the last button: new owners kept asking
+    // which username and password to enter, because the only way to register
+    // was the lowest element on the page — and on a phone browser the
+    // keyboard covers exactly that part once a field is focused.
+    NoAccountCard(
+        enabled = !uiState.isLoading,
+        onClick = { onIntent(LoginIntent.Register) }
+    )
 
     AppTextField(
         value = uiState.phone,
@@ -269,6 +284,81 @@ private fun ColumnScope.LoginFormFields(
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.fillMaxWidth()
         )
+        // A new owner trying any password ends up here; point them to the
+        // way in. Worded for everyone, so it doesn't reveal whether the
+        // number has an account.
+        Text(
+            text = "هنوز ثبت‌نام نکرده‌اید؟ ثبت‌نام کنید",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(enabled = !uiState.isLoading) { onIntent(LoginIntent.Register) }
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+        )
+    }
+}
+
+/** The "no account yet?" entry to registration, shown above the login fields. */
+@Composable
+private fun NoAccountCard(
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.PersonAdd,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "حساب کاربری ندارید؟",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "برای شروع، اول ثبت‌نام کنید",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = "ثبت‌نام",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 
@@ -290,12 +380,6 @@ private fun LoginWebContent(
             text = "ورود",
             onClick = { onIntent(LoginIntent.Submit) },
             isLoading = uiState.isLoading
-        )
-        AppButton(
-            text = "ثبت نام",
-            onClick = { onIntent(LoginIntent.Register) },
-            isOutlined = true,
-            enabled = !uiState.isLoading
         )
     }
 }

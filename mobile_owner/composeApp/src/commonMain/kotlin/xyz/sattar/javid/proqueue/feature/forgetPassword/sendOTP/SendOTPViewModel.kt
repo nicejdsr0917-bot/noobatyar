@@ -31,7 +31,6 @@ class SendOTPViewModel(
             }
 
             is SendOTPIntent.SendOTPAgain -> onSendOTPAgain(intent.phone)
-            is SendOTPIntent.StartTimer -> startTimer(intent.expiresIn)
             SendOTPIntent.BackPress -> {
                 sendEvent(SendOTPEvent.NavigateToLogin)
                 flow {}
@@ -44,12 +43,18 @@ class SendOTPViewModel(
         when (val response = sendOTPUseCase.invoke(phone)) {
             is ApiResponse.Success -> {
                 emit(OTPSent(response.data.expiresIn))
-                emitAll(startTimer(response.data.expiresIn))
+                // Before the timer, not after it: emitAll suspends for the
+                // whole countdown, so loading used to stay on for two minutes.
                 emit(IsLoading(false))
+                emitAll(startTimer(response.data.expiresIn))
             }
             is ApiResponse.Error -> {
                 emit(SendOTPError(response.message))
                 emit(IsLoading(false))
+                // No code went out, so there is nothing to wait for — offer
+                // the resend straight away instead of leaving the owner with
+                // neither a countdown nor a button.
+                emit(TimerFinished)
             }
         }
     }

@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.resetPassword
 
+import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
+import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
+import xyz.sattar.javid.proqueue.core.ui.components.NewPasswordIllustration
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -191,12 +194,9 @@ private fun ColumnScope.ResetPasswordFormFields(
     uiState: ResetPasswordState,
     onIntent: (ResetPasswordIntent) -> Unit
 ) {
-    Icon(
-        imageVector = Icons.Default.Lock,
-        contentDescription = null,
-        modifier = Modifier.size(72.dp),
-        tint = MaterialTheme.colorScheme.primary
-    )
+    BrandIllustration(size = AuthHeaderIllustrationSize) {
+        NewPasswordIllustration()
+    }
 
     Text(
         text = "رمز عبور جدید را وارد کنید",

@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.register
 
+import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
+import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
+import xyz.sattar.javid.proqueue.core.ui.components.NewAccountIllustration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +22,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Person4
-import androidx.compose.material.icons.filled.PersonAddAlt1
 import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -188,12 +190,9 @@ private fun ColumnScope.RegisterFormFields(
     uiState: RegisterState,
     onIntent: (RegisterIntent) -> Unit
 ) {
-    Icon(
-        imageVector = Icons.Default.PersonAddAlt1,
-        contentDescription = null,
-        modifier = Modifier.size(72.dp),
-        tint = MaterialTheme.colorScheme.primary
-    )
+    BrandIllustration(size = AuthHeaderIllustrationSize) {
+        NewAccountIllustration()
+    }
 
     Text(
         text = "ایجاد حساب کاربری",

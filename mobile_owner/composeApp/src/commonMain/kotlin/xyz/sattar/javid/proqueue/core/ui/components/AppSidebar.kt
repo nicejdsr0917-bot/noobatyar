@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import androidx.compose.foundation.border
+import kotlin.reflect.KClass
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LocalOffer
@@ -94,7 +96,10 @@ import xyz.sattar.javid.proqueue.feature.settings.SettingsViewModel
 @Composable
 fun AppSidebar(
     tabs: List<MainTab>,
-    selectedTab: MainTab,
+    /** Whether the screen with this route class is the one showing — drives
+     *  which row is highlighted. The sidebar stays up on every desktop
+     *  screen, so this covers its own rows too, not only the tabs. */
+    isOnScreen: (KClass<*>) -> Boolean,
     onTabSelected: (MainTab) -> Unit,
     onNavigateToAdvancedSettings: (Long) -> Unit,
     onNavigateToEmergencyNotice: () -> Unit,
@@ -173,7 +178,7 @@ fun AppSidebar(
         // landing screen, and the Settings tab is pulled out of this group
         // entirely — it sits down by logout with the other settings rows.
         listOf(MainTab.Home, MainTab.LastVisitors).filter { it in tabs }.forEach { tab ->
-            val isSelected = selectedTab == tab
+            val isSelected = isOnScreen(tab.route::class)
             SidebarItem(
                 icon = if (isSelected) tab.iconSelected else tab.iconUnSelected,
                 label = stringResource(tab.title),
@@ -186,6 +191,7 @@ fun AppSidebar(
         SidebarItem(
             icon = Icons.Rounded.CalendarMonth,
             label = "تقویم و رزرو نوبت",
+            selected = isOnScreen(AppScreens.Calendar::class),
             onClick = { onNavigate(AppScreens.Calendar()) }
         )
 
@@ -197,6 +203,7 @@ fun AppSidebar(
         // a single row instead of a full banner.
         settingsState.currentBusiness?.let { business ->
             AdvancedSettingsSidebarItem(
+                selected = isOnScreen(AppScreens.AdvancedSettings::class),
                 onClick = { onNavigateToAdvancedSettings(business.id) }
             )
             SidebarDivider()
@@ -206,16 +213,19 @@ fun AppSidebar(
         SidebarItem(
             icon = Icons.Rounded.Share,
             label = "اشتراک لینک نوبت",
+            selected = isOnScreen(AppScreens.ShareBusiness::class),
             onClick = { onNavigate(AppScreens.ShareBusiness) }
         )
         SidebarItem(
             icon = Icons.Rounded.LocalOffer,
             label = "پیامک تبلیغاتی",
+            selected = isOnScreen(AppScreens.PromoCampaign::class),
             onClick = { onNavigate(AppScreens.PromoCampaign) }
         )
         SidebarItem(
             icon = Icons.Rounded.ShoppingBag,
             label = "بسته‌های افزودنی",
+            selected = isOnScreen(AppScreens.AddOns::class),
             onClick = { onNavigate(AppScreens.AddOns) }
         )
 
@@ -225,21 +235,25 @@ fun AppSidebar(
         SidebarItem(
             icon = Icons.Rounded.Campaign,
             label = stringResource(Res.string.notice_section_title),
+            selected = isOnScreen(AppScreens.EmergencyNotice::class),
             onClick = { settingsViewModel.sendIntent(SettingsIntent.OnEmergencyNoticeClick) }
         )
         SidebarItem(
             icon = Icons.Rounded.Message,
             label = stringResource(Res.string.messages_auto_item),
+            selected = isOnScreen(AppScreens.Messages::class),
             onClick = { settingsViewModel.sendIntent(SettingsIntent.OnMessagesClick) }
         )
         SidebarItem(
             icon = Icons.Rounded.Sms,
             label = stringResource(Res.string.sms_report_title),
+            selected = isOnScreen(AppScreens.SmsReport::class),
             onClick = { settingsViewModel.sendIntent(SettingsIntent.OnSmsReportClick) }
         )
         SidebarItem(
             icon = Icons.Rounded.Notifications,
             label = stringResource(Res.string.reminders_notifications_item),
+            selected = isOnScreen(AppScreens.Notifications::class),
             onClick = { settingsViewModel.sendIntent(SettingsIntent.OnNotificationsClick) }
         )
 
@@ -249,7 +263,7 @@ fun AppSidebar(
         // with Home/Visitors. Theme and About used to be their own rows here
         // and now live inside this page instead, so this is the way to them.
         if (MainTab.Settings in tabs) {
-            val isSelected = selectedTab == MainTab.Settings
+            val isSelected = isOnScreen(MainTab.Settings.route::class)
             SidebarItem(
                 // Gear rather than MainTab.Settings' own icon, which is the
                 // hamburger the phone bar wants — same reason this row uses
@@ -264,6 +278,7 @@ fun AppSidebar(
         SidebarItem(
             icon = Icons.Rounded.Info,
             label = stringResource(Res.string.about_us_label),
+            selected = isOnScreen(AppScreens.AboutUs::class),
             onClick = { onNavigate(AppScreens.AboutUs) }
         )
 
@@ -297,7 +312,7 @@ private fun SidebarDivider() {
 }
 
 @Composable
-private fun AdvancedSettingsSidebarItem(onClick: () -> Unit) {
+private fun AdvancedSettingsSidebarItem(selected: Boolean, onClick: () -> Unit) {
     val gradient = Brush.linearGradient(
         colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)
     )
@@ -307,6 +322,12 @@ private fun AdvancedSettingsSidebarItem(onClick: () -> Unit) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(gradient)
+            // Already the brand gradient, so "you are here" is a ring
+            // rather than the tint the plain rows use.
+            .then(
+                if (selected) Modifier.border(2.dp, Color.White.copy(alpha = 0.75f), RoundedCornerShape(14.dp))
+                else Modifier
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically

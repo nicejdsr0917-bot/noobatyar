@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import kotlin.reflect.KClass
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -130,23 +131,35 @@ fun MainNavHost(
         MainTab.Settings
     )
 
-    // Determine if the bottom bar should be shown
-    val shouldShowBottomBar = tabs.any { tab ->
+    // Whether the destination on screen is [route]. A route with arguments
+    // carries them as placeholders ("…Calendar?selectedDate={selectedDate}"),
+    // so it is cut back to the class name before comparing.
+    val isOnScreen: (KClass<*>) -> Boolean = { route ->
         currentDestination?.hierarchy?.any {
-            it.route == tab.route::class.qualifiedName
+            it.route?.substringBefore('?')?.substringBefore('/') == route.qualifiedName
         } == true
     }
 
-    val selectedTab = tabs.find { tab ->
-        currentDestination?.hierarchy?.any {
-            it.route == tab.route::class.qualifiedName
-        } == true
-    } ?: MainTab.Home
+    // Null on any screen that isn't one of the tabs themselves.
+    val currentTab = tabs.find { tab -> isOnScreen(tab.route::class) }
+
+    // Determine if the bottom bar should be shown
+    val shouldShowBottomBar = currentTab != null
+
+    val selectedTab = currentTab ?: MainTab.Home
 
     // Same tab-switch logic as before extraction — only the container that
     // triggers it (bottom bar vs rail) differs by window size below.
     val onTabSelected: (MainTab) -> Unit = { tab ->
-        if (selectedTab != tab) {
+        if (currentTab == null) {
+            // Off the tabs, which only the desktop sidebar can be clicked
+            // from — it stays up on every screen. Go to the tab's own root,
+            // closing the open screen rather than saving it into that tab.
+            navController.navigate(tab.route) {
+                popUpTo(navController.graph.findStartDestination().id)
+                launchSingleTop = true
+            }
+        } else if (currentTab != tab) {
             navController.navigate(tab.route) {
                 popUpTo(navController.graph.findStartDestination().id) {
                     saveState = true
@@ -207,17 +220,15 @@ fun MainNavHost(
     // manual mirroring — Compose resolves Row order against the ambient
     // LayoutDirection automatically.
     Row(modifier = Modifier.fillMaxSize()) {
-        // fillMaxHeight here is what the old bare AnimatedVisibility{NavigationRail}
-        // was missing — without it the rail only took the height its content
-        // needed, which under Row's default top alignment left it pinned to
-        // y=0 with no room for a header, reading as jammed into the corner.
-        AnimatedVisibility(
-            visible = shouldShowBottomBar,
-            modifier = Modifier.fillMaxHeight()
-        ) {
+        // On every screen, not just the three tabs: a desktop has the room,
+        // and an owner deep in, say, the SMS report can still jump anywhere
+        // in one click. It highlights whichever of its own rows is on screen.
+        // fillMaxHeight: without it the sidebar only took the height its
+        // content needed and sat jammed into the top corner.
+        Box(modifier = Modifier.fillMaxHeight()) {
             AppSidebar(
                 tabs = tabs,
-                selectedTab = selectedTab,
+                isOnScreen = isOnScreen,
                 onTabSelected = onTabSelected,
                 onNavigateToAdvancedSettings = { businessId ->
                     navController.navigate(AppScreens.AdvancedSettings(businessId = businessId))

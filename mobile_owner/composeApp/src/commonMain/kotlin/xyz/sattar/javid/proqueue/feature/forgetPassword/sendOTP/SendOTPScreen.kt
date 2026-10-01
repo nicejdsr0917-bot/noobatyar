@@ -1,5 +1,9 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.sendOTP
 
+import androidx.compose.ui.draw.clip
+import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
+import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
+import xyz.sattar.javid.proqueue.core.ui.components.VerifyCodeIllustration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,7 +24,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Numbers
-import androidx.compose.material.icons.filled.Password
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,7 +72,8 @@ fun SendOTPScreen(
 
     LaunchedEffect(Unit) {
         viewModel.sendIntent(SendOTPIntent.PhoneChanged(phone))
-        viewModel.sendIntent(SendOTPIntent.StartTimer(120))
+        // The countdown starts from the send's own success, with the server's
+        // expires_in — a second timer started here ran alongside it.
         viewModel.sendIntent(SendOTPIntent.SendOTPAgain(phone))
     }
 
@@ -173,12 +177,9 @@ private fun ColumnScope.SendOTPFormFields(
     uiState: SendOTPState,
     onIntent: (SendOTPIntent) -> Unit
 ) {
-    Icon(
-        imageVector = Icons.Default.Password,
-        contentDescription = null,
-        modifier = Modifier.size(72.dp),
-        tint = MaterialTheme.colorScheme.primary
-    )
+    BrandIllustration(size = AuthHeaderIllustrationSize) {
+        VerifyCodeIllustration()
+    }
 
     Text(
         text = "کد راستی‌آزمایی",
@@ -267,6 +268,7 @@ fun TimerAndResendButton(
         AnimatedVisibility(visible = canResend && !isLoading) {
             Box(
                 modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
                     .border(
                         width = 1.dp,
                         color = MaterialTheme.colorScheme.primary,

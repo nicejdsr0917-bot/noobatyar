@@ -26,6 +26,7 @@ actual object PreferencesManager {
     private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
     private const val KEY_NOTIFICATION_REMINDER_MINUTES = "notification_reminder_minutes"
     private const val KEY_MESSAGE_TEMPLATE_PREFIX = "message_template_" // suffix: businessId
+    private const val KEY_ONBOARDING_SEEN = "onboarding_seen"
 
     // These property initializers run at first access to this object, which
     // for _themeMode is during app startup (App() reads it to theme the very
@@ -96,6 +97,12 @@ actual object PreferencesManager {
 
     actual fun getNotificationReminderMinutes(): Int {
         return safeGet(KEY_NOTIFICATION_REMINDER_MINUTES)?.toIntOrNull() ?: DEFAULT_REMINDER_MINUTES
+    }
+
+    actual fun hasSeenOnboarding(): Boolean = safeGet(KEY_ONBOARDING_SEEN)?.toBoolean() ?: false
+
+    actual suspend fun setOnboardingSeen() {
+        safeSet(KEY_ONBOARDING_SEEN, true.toString())
     }
 
     private fun safeGet(key: String): String? =

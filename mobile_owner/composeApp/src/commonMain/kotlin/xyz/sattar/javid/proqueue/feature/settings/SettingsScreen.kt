@@ -1,5 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveGrid
+import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
 import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
@@ -219,14 +225,78 @@ fun SettingsContent(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Two related halves: who you are and which business you run on
-            // one side, how the business talks to customers and looks on the
-            // other. Stacked on a phone in that same order.
+            if (isWideLayout()) {
+                // Desktop: the sidebar beside this page already lists the
+                // customer pages, advanced settings, about and logout, so
+                // repeating them here was a second copy of the menu. Only
+                // what this page alone offers is left — who you are, the
+                // business itself, and the app's theme — at the list width the
+                // settings page is meant for, centred under the header.
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    Column(
+                        modifier = Modifier.widthIn(max = ContentWidth.List),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        ProfileHeaderCard(
+                            userName = userName,
+                            userPhone = userPhone,
+                            business = uiState.currentBusiness,
+                            subscription = subscription
+                        )
+                        uiState.currentBusiness?.let { business ->
+                            ModerationBanner(
+                                business = business,
+                                onEditClick = { onIntent(SettingsIntent.OnEditBusinessClick(business.id)) }
+                            )
+                        }
+                        SettingsGroupLabel("مدیریت کسب‌وکار")
+                        SettingsTiles(
+                            tiles = listOf(
+                                SettingsTile(
+                                    icon = Icons.Rounded.Factory,
+                                    title = stringResource(Res.string.change_business),
+                                    subtitle = "رفتن به کسب‌وکار دیگری از لیست",
+                                    onClick = { onIntent(SettingsIntent.OnChangeBusinessClick) }
+                                ),
+                                SettingsTile(
+                                    icon = Icons.Rounded.Edit,
+                                    title = stringResource(Res.string.edit_business_title),
+                                    subtitle = "نام، لوگو، ساعت کاری و خدمات",
+                                    onClick = {
+                                        uiState.currentBusiness?.let { business ->
+                                            onIntent(SettingsIntent.OnEditBusinessClick(business.id))
+                                        }
+                                    }
+                                ),
+                                SettingsTile(
+                                    icon = Icons.Rounded.Delete,
+                                    title = stringResource(Res.string.delete_business),
+                                    subtitle = "حذف این کسب‌وکار از حساب شما",
+                                    danger = true,
+                                    onClick = onShowDeleteDialog
+                                )
+                            )
+                        )
+                        // The app's look, not the business's — its own group.
+                        SettingsGroupLabel("ظاهر برنامه")
+                        SettingsCard {
+                            SettingsItem(
+                                icon = Icons.Rounded.Palette,
+                                title = stringResource(Res.string.theme_appearance),
+                                subtitle = stringResource(Res.string.theme_settings),
+                                onClick = onShowThemeSheet
+                            )
+                        }
+                    }
+                }
+            } else {
+            // Phone: the full list — there is no sidebar, so this page is the
+            // way to everything below. Who you are and which business you run
+            // first, then how the business talks to customers and looks.
             AdaptiveColumns(
                 startWeight = 1f,
                 endWeight = 1.15f,
                 start = {
-            if (isWideLayout()) SettingsGroupLabel("حساب و کسب‌وکار")
             // Profile identity hero — the owner sees who they are and which
             // business they're currently managing, front and center.
             ProfileHeaderCard(
@@ -252,58 +322,11 @@ fun SettingsContent(
             AdvancedSettingsPromoCard(onClick = onAdvancedSettings)
 
             // Business actions: change + delete, grouped together.
-            SettingsCard {
-                Column {
-                    SettingsItem(
-                        icon = Icons.Rounded.Factory,
-                        title = stringResource(Res.string.change_business),
-                        subtitle = null,
-                        onClick = { onIntent(SettingsIntent.OnChangeBusinessClick) },
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.Rounded.Edit,
-                        title = stringResource(Res.string.edit_business_title),
-                        subtitle = null,
-                        onClick = {
-                            uiState.currentBusiness?.let { business ->
-                                onIntent(SettingsIntent.OnEditBusinessClick(business.id))
-                            }
-                        },
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.Rounded.Delete,
-                        title = stringResource(Res.string.delete_business),
-                        subtitle = null,
-                        onClick = onShowDeleteDialog,
-                        tint = MaterialTheme.colorScheme.error,
-                        centerVertically = true
-                    )
-                }
-            }
-
-            // Logout (previously reached via the top-bar avatar, which this
-            // screen no longer shows). With the business card on a wide
-            // window, so the account actions sit together.
-            if (isWideLayout()) {
-                SettingsCard {
-                    SettingsItem(
-                        icon = Icons.Rounded.Logout,
-                        title = stringResource(Res.string.logout_label),
-                        subtitle = null,
-                        onClick = onLogout,
-                        tint = MaterialTheme.colorScheme.error,
-                        centerVertically = true
-                    )
-                }
-            }
+            BusinessActionsCard(
+                business = uiState.currentBusiness,
+                onIntent = onIntent,
+                onShowDeleteDialog = onShowDeleteDialog
+            )
                 },
                 end = {
             SettingsGroupLabel("ارتباط با مشتری")
@@ -379,20 +402,21 @@ fun SettingsContent(
                 }
             }
 
-            if (!isWideLayout()) {
-                SettingsCard {
-                    SettingsItem(
-                        icon = Icons.Rounded.Logout,
-                        title = stringResource(Res.string.logout_label),
-                        subtitle = null,
-                        onClick = onLogout,
-                        tint = MaterialTheme.colorScheme.error,
-                        centerVertically = true
-                    )
-                }
+            // Logout (previously reached via the top-bar avatar, which this
+            // screen no longer shows).
+            SettingsCard {
+                SettingsItem(
+                    icon = Icons.Rounded.Logout,
+                    title = stringResource(Res.string.logout_label),
+                    subtitle = null,
+                    onClick = onLogout,
+                    tint = MaterialTheme.colorScheme.error,
+                    centerVertically = true
+                )
             }
                 }
             )
+            }
 
             // Subtle Noobatyar branding footer (moved out of the header, which now
             // belongs to the owner's own identity).
@@ -426,6 +450,131 @@ fun SettingsContent(
 
             BottomBarSpacer()
         }
+        }
+    }
+}
+
+private class SettingsTile(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,
+    val onClick: () -> Unit,
+    val danger: Boolean = false
+)
+
+/**
+ * The desktop page's business actions as one even row of tiles instead of a
+ * list stretched across the page — stacked instead when the content column
+ * is too narrow for a row (a small browser window). Two subtitle lines are
+ * reserved on every tile so they all come out the same height.
+ */
+@Composable
+private fun SettingsTiles(tiles: List<SettingsTile>) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = if (maxWidth >= 480.dp) tiles.size else 1
+        AdaptiveGrid(
+            count = tiles.size,
+            compactColumns = columns,
+            mediumColumns = columns,
+            expandedColumns = columns
+        ) { index ->
+            SettingsTileCard(tiles[index])
+        }
+    }
+}
+
+@Composable
+private fun SettingsTileCard(tile: SettingsTile) {
+    val accent = if (tile.danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    Card(
+        onClick = tile.onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(accent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = tile.icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = tile.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (tile.danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = tile.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/** Change, edit and delete the current business — the one group both the
+ *  phone and the desktop page keep. */
+@Composable
+private fun BusinessActionsCard(
+    business: Business?,
+    onIntent: (SettingsIntent) -> Unit,
+    onShowDeleteDialog: () -> Unit
+) {
+    SettingsCard {
+        Column {
+            SettingsItem(
+                icon = Icons.Rounded.Factory,
+                title = stringResource(Res.string.change_business),
+                subtitle = null,
+                onClick = { onIntent(SettingsIntent.OnChangeBusinessClick) },
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+
+            HorizontalDivider()
+
+            SettingsItem(
+                icon = Icons.Rounded.Edit,
+                title = stringResource(Res.string.edit_business_title),
+                subtitle = null,
+                onClick = {
+                    business?.let { onIntent(SettingsIntent.OnEditBusinessClick(it.id)) }
+                },
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+
+            HorizontalDivider()
+
+            SettingsItem(
+                icon = Icons.Rounded.Delete,
+                title = stringResource(Res.string.delete_business),
+                subtitle = null,
+                onClick = onShowDeleteDialog,
+                tint = MaterialTheme.colorScheme.error,
+                centerVertically = true
+            )
         }
     }
 }

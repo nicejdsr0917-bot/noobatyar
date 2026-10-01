@@ -615,7 +615,8 @@ fun AppointmentCard(
     val visitor = appointmentWithDetails.visitor
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onItemClick() },
+        onClick = onItemClick,
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
