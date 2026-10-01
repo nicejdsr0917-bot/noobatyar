@@ -47,6 +47,20 @@
         "cd backend && DEBUG=True .venv/bin/python manage.py runserver 8000"
       ],
       "port": 8000
+    },
+    {
+      "name": "mobile_owner_web_mac",
+      "runtimeExecutable": "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java",
+      "runtimeArgs": [
+        "-classpath",
+        "mobile_owner/gradle/wrapper/gradle-wrapper.jar",
+        "org.gradle.wrapper.GradleWrapperMain",
+        "-p",
+        "mobile_owner",
+        "wasmJsBrowserDevelopmentRun",
+        "--console=plain"
+      ],
+      "port": 8080
     }
   ]
 }
