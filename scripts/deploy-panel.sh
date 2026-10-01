@@ -19,22 +19,39 @@ DIST="mobile_owner/composeApp/build/dist/wasmJs/productionExecutable"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-echo "› building the production bundle"
-"$JAVA" -classpath mobile_owner/gradle/wrapper/gradle-wrapper.jar \
-  org.gradle.wrapper.GradleWrapperMain -p mobile_owner \
-  :composeApp:wasmJsBrowserDistribution --console=plain -q
+# SKIP_BUILD=1 re-publishes the last build as is (e.g. after changing only
+# this script).
+if [ -z "${SKIP_BUILD:-}" ]; then
+  echo "› building the production bundle"
+  "$JAVA" -classpath mobile_owner/gradle/wrapper/gradle-wrapper.jar \
+    org.gradle.wrapper.GradleWrapperMain -p mobile_owner \
+    :composeApp:wasmJsBrowserDistribution --console=plain -q
+fi
 
 echo "› packing (no source map, a .gz beside each file for gzip_static)"
 mkdir "$WORK/panel"
 cp -R "$DIST/." "$WORK/panel/"
 rm -f "$WORK"/panel/*.map
+# Start the wasm downloads with the HTML instead of after composeApp.js has
+# downloaded and run — on the slow international route into Iran that
+# script alone can take a second or more. The names are content hashes that
+# change every build, which is why this happens here and not in the source
+# index.html. crossorigin="anonymous" matches the fetch() that loads them,
+# or the browser downloads each file twice.
+PRELOADS=""
+for w in "$WORK"/panel/*.wasm; do
+  PRELOADS="$PRELOADS    <link rel=\"preload\" href=\"$(basename "$w")\" as=\"fetch\" type=\"application/wasm\" crossorigin=\"anonymous\">\n"
+done
+perl -0pi -e "s#</head>#${PRELOADS}</head>#" "$WORK/panel/index.html"
+grep -c 'rel="preload"' "$WORK/panel/index.html" | sed 's/^/  preload tags: /'
 find "$WORK/panel" -type f \( -name '*.wasm' -o -name '*.js' -o -name '*.html' \
   -o -name '*.webmanifest' -o -name '*.json' -o -name '*.ttf' -o -name '*.otf' \
   -o -name '*.svg' -o -name '*.xml' -o -name '*.txt' -o -name '*.cvr' \) \
   -exec gzip -k -9 {} \;
-# COPYFILE_DISABLE: no macOS xattr records in the archive (GNU tar on the
-# server prints a warning for every one of them).
-COPYFILE_DISABLE=1 tar czf "$WORK/panel.tgz" -C "$WORK" panel
+# No macOS extended attributes in the archive: GNU tar on the server prints
+# a warning for every one of them. COPYFILE_DISABLE drops the ._ files,
+# --no-xattrs the com.apple.provenance records.
+COPYFILE_DISABLE=1 tar --no-xattrs -czf "$WORK/panel.tgz" -C "$WORK" panel
 
 echo "› uploading $(du -h "$WORK/panel.tgz" | cut -f1)"
 scp -o BatchMode=yes -q "$WORK/panel.tgz" "root@$HOST:/root/panel.tgz"
