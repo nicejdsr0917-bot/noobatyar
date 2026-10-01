@@ -19,6 +19,10 @@ data class Business(
      *  ۰۹۱۲۱۲۳۴۵۶۷ shape, just more than one. */
     val extraPhones: List<String> = emptyList(),
     val address: String,
+    /** The map pin, picked on LocationPickerScreen and shown to clients with
+     *  "route there" links. Both or neither — the server rejects half a pair. */
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val logoPath: String,
     val defaultServiceDuration: Int,
     val workStartHour: Int,

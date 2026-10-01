@@ -15,6 +15,8 @@ data class BusinessEntity(
     /** Comma-separated additional numbers, same encoding as [services]. */
     val extraPhones: String = "",
     val address: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val logoPath: String = "",
     val defaultServiceDuration: Int,
     val workStartHour: Int, // 0-23

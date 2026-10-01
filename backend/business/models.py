@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from django.core.validators import RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils.crypto import get_random_string
@@ -193,6 +193,21 @@ class Business(models.Model):
         verbose_name='شماره‌های دیگر',
     )
     address = models.TextField(verbose_name='نشانی')
+    # Where the business is on the map — picked by the owner in the app, shown
+    # to clients on the booking page with "route there" links to Neshan and
+    # Balad. Both or neither (BusinessSerializer.validate). Not moderated like
+    # `address`: it is a point, not public wording, and an owner fixing a
+    # wrong pin should not have to wait for review.
+    latitude = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)],
+        verbose_name='عرض جغرافیایی',
+    )
+    longitude = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)],
+        verbose_name='طول جغرافیایی',
+    )
     # TextField, not CharField, because this cap has now moved twice (50 → 300
     # → 1500) and every move cost a migration for a value that is really a
     # product decision. The column is now unbounded and BIO_MAX_LENGTH is

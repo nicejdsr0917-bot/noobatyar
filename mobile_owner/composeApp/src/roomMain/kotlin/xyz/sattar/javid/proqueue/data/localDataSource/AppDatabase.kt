@@ -45,7 +45,8 @@ internal const val dbFileName = "proQueue.db"
     //     client's reminder on and off instead of it being backend-only.
     // 17: BusinessEntity.reminderTemplate (fixed PANEL reminder wording).
     // 18: no schema change — forces a clean local cache on the 1.9.5 rebuild.
-    version = 18
+    // 19: BusinessEntity.latitude/longitude (the business's map pin).
+    version = 19
 )
 @ConstructedBy(DbFactory::class)
 abstract class AppDatabase : RoomDatabase() {

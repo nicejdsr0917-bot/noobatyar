@@ -57,6 +57,10 @@ class BusinessApiService(private val httpClient: HttpClient) {
                 append("category", business.category)
                 append("phone", business.phone)
                 append("address", business.address)
+                // Always sent, blank when unset: DRF reads a blank multipart
+                // value as null, so removing the pin actually clears it.
+                append("latitude", business.latitude?.toString() ?: "")
+                append("longitude", business.longitude?.toString() ?: "")
                 append("default_service_duration", business.defaultServiceDuration.toString())
                 append("work_start_hour", business.workStartHour.toString())
                 append("work_end_hour", business.workEndHour.toString())

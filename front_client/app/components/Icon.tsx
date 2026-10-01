@@ -45,6 +45,7 @@ import {
   IconLanguage,
   IconLock,
   IconLogout,
+  IconMap2,
   IconMapPin,
   IconMessage,
   IconMessages,
@@ -54,6 +55,7 @@ import {
   IconPlus,
   IconReceipt,
   IconRefresh,
+  IconRoute,
   IconSend,
   IconSun,
   IconTool,
@@ -134,6 +136,8 @@ const ICONS = {
   // CategoryGlyph, which is what re-creates the mismatch just removed.
   storefront: IconBuildingStore,
   locationOn: IconMapPin,
+  map: IconMap2,
+  directions: IconRoute,
   build: IconTool,
 
   // ── Theme ──

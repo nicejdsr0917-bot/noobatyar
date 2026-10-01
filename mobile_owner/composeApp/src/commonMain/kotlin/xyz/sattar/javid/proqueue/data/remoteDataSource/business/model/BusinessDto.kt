@@ -15,6 +15,8 @@ data class BusinessDto(
     // backend that predates the column, same reasoning as closed_weekdays.
     @SerialName("extra_phones") val extraPhones: List<String> = emptyList(),
     @SerialName("address") val address: String,
+    @SerialName("latitude") val latitude: Double? = null,
+    @SerialName("longitude") val longitude: Double? = null,
     @SerialName("logo") val logo: String? = null,
     @SerialName("default_service_duration") val defaultServiceDuration: Int,
     @SerialName("work_start_hour") val workStartHour: Int,

@@ -7,6 +7,8 @@ import BusinessNotice from '@/app/components/BusinessNotice';
 import Icon, { type IconName } from '@/app/components/Icon';
 import CategoryArt, { CategoryGlyph } from '@/app/components/CategoryArt';
 import AppBanner from '@/app/components/AppBanner';
+import BusinessMap from '@/app/components/BusinessMap';
+import { baladUrl, businessLocation, neshanUrl } from '@/lib/maps';
 import { toPersianDigits as toFa } from '@/lib/validation';
 import { useVisitorToken } from '@/lib/visitorToken';
 
@@ -25,6 +27,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
   // to the brand purple for a business with no logo.
   const heroColor = business.theme_color || '#8b5cf6';
   const bookingEnabled = business.booking_enabled !== false; // default true if undefined
+  const location = businessLocation(business);
 
   const logoUrl = business.logo
     ? business.logo.startsWith('http')
@@ -227,8 +230,46 @@ export default function BusinessProfileClient({ business, slug }: Props) {
         </div>
       )}
 
-      {/* ── Address ── */}
-      {business.address && (
+      {/* ── Location ──
+          With a map pin: the map, the address under it, and hand-offs to
+          the routing apps people in Iran actually use. Without one: the
+          address card alone, as before. */}
+      {location ? (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-location">
+            <BusinessMap location={location} title={business.title} />
+            {business.address && (
+              <div className="biz-address">
+                <div className="pin"><Icon name="locationOn" size={19} /></div>
+                <div className="addr-text">
+                  <div className="addr-k">آدرس</div>
+                  <div className="addr-v">{business.address}</div>
+                </div>
+              </div>
+            )}
+            <div className="biz-route">
+              <a
+                className="biz-route-btn"
+                href={neshanUrl(location)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Icon name="directions" size={17} />
+                مسیریابی با نشان
+              </a>
+              <a
+                className="biz-route-btn"
+                href={baladUrl(location)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Icon name="directions" size={17} />
+                مسیریابی با بلد
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : business.address && (
         <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
           <a
             className="biz-address"

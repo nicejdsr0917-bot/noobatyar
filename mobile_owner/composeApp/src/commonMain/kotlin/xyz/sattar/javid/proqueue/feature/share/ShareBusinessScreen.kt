@@ -750,6 +750,8 @@ private fun saveCardIntent(
     phone = business.phone,
     extraPhones = business.extraPhones,
     address = business.address,
+    latitude = business.latitude,
+    longitude = business.longitude,
     defaultProgress = business.defaultServiceDuration.toString(),
     workStartHour = business.workStartHour,
     workEndHour = business.workEndHour,

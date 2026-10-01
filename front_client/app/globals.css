@@ -1016,6 +1016,84 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   flex-shrink: 0;
 }
 
+/* ── Business location: map + routing hand-off ─────────────── */
+.biz-location {
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.biz-map {
+  height: 190px;
+  /* OSM's land colour, so loading tiles fill in rather than flash white. */
+  background: #f2efe9;
+  /* Leaflet stacks its panes and controls at z-index 400–1000. Isolating
+     keeps all of that inside the map, under the fixed booking bar (100). */
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+}
+/* The address row inside the card: same layout as the stand-alone card,
+   without its own frame. */
+.biz-location .biz-address {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 14px 16px 2px;
+}
+.biz-route {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+.biz-route-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--radius-btn);
+  border: 1.5px solid transparent;
+  background: var(--color-primary-tint);
+  /* Label in the text colour, only the icon in the business colour: a
+     business colour picked for white-on-colour can be dim on the tint,
+     especially in dark mode. */
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.biz-route-btn svg { color: var(--color-primary); flex-shrink: 0; }
+.biz-route-btn:hover { border-color: var(--color-primary); }
+.biz-route-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+/* Leaflet gives a divIcon a white square and border by default. */
+.biz-map-pin {
+  background: none;
+  border: 0;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3));
+}
+.biz-map .leaflet-control-attribution {
+  font-size: 10px;
+}
+/* The tiles only come in a light style. In dark mode they are inverted
+   (hue turned back so water stays blue) instead of glaring out of the page. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .biz-map .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+  }
+  :root:not([data-theme="light"]) .biz-map { background: #2b2b2b; }
+}
+:root[data-theme="dark"] .biz-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+:root[data-theme="dark"] .biz-map { background: #2b2b2b; }
+
 /* ── Button loading spinner ──────────────────────────────────── */
 @keyframes spin {
   to { transform: rotate(360deg); }

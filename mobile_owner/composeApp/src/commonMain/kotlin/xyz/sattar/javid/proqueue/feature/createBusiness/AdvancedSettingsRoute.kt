@@ -163,6 +163,8 @@ fun AdvancedSettingsRoute(
                                     // services/allowClientAddService below.
                                     extraPhones = business.extraPhones,
                                     address = business.address,
+                                    latitude = business.latitude,
+                                    longitude = business.longitude,
                                     defaultProgress = business.defaultServiceDuration.toString(),
                                     workStartHour = business.workStartHour,
                                     workEndHour = business.workEndHour,

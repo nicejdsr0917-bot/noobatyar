@@ -130,6 +130,9 @@ kotlin {
             // never used it.
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor3)
+            // Tiled map for the business location picker (raster tiles, so
+            // Persian street names come pre-rendered and correct everywhere).
+            implementation(libs.mapcompose.mp)
 
             // Glassmorphism blur for bars/toolbars
             implementation(libs.haze)

@@ -129,7 +129,7 @@ class BusinessSerializer(serializers.ModelSerializer):
         fields = [
             # Identity
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
-            'address', 'logo', 'theme_color',
+            'address', 'latitude', 'longitude', 'logo', 'theme_color',
             # Schedule
             'default_service_duration', 'work_start_hour', 'work_end_hour',
             'work_start_minute', 'work_end_minute', 'closed_weekdays',
@@ -345,6 +345,17 @@ class BusinessSerializer(serializers.ModelSerializer):
                 'deposit_amount': 'برای دریافت بیعانه، مبلغ آن باید بیشتر از صفر باشد'
             })
 
+        # A map pin is a pair: half of one would put the business on the
+        # equator or the prime meridian. Clearing sends both empty.
+        if (current('latitude') is None) != (current('longitude') is None):
+            raise serializers.ValidationError({
+                'latitude': 'موقعیت روی نقشه باید هر دو مختصات (عرض و طول) را داشته باشد'
+            })
+        # Six decimals is ~10cm — finer is noise from the device, not precision.
+        for field in ('latitude', 'longitude'):
+            if data.get(field) is not None:
+                data[field] = round(data[field], 6)
+
         return data
 
     def validate_logo(self, value):
@@ -432,6 +443,10 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             'logo',
             'theme_color',
             'address',
+            # The map pin + "route there" links. Masked together with the
+            # address in to_representation.
+            'latitude',
+            'longitude',
             'phone',
             'extra_phones',
             'work_start_hour',
@@ -474,6 +489,8 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             data['phone'] = None
             data['extra_phones'] = []
             data['address'] = None
+            data['latitude'] = None
+            data['longitude'] = None
 
         # Emergency-notice gating + the subscription-driven booking block.
         return apply_notice_rules(data, instance)
@@ -504,7 +521,7 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
         model = Business
         fields = [
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
-            'address', 'logo', 'theme_color',
+            'address', 'latitude', 'longitude', 'logo', 'theme_color',
             'default_service_duration', 'work_start_hour', 'work_end_hour',
             'work_start_minute', 'work_end_minute',
             'allow_anonymous_view',
@@ -532,6 +549,8 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
             data['phone'] = None
             data['extra_phones'] = []
             data['address'] = None
+            data['latitude'] = None
+            data['longitude'] = None
 
         # Emergency-notice gating + the subscription-driven booking block.
         return apply_notice_rules(data, instance)

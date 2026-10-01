@@ -25,6 +25,11 @@ export interface Business {
    *  server, meaning "no extra numbers". */
   extra_phones?: string[];
   address: string | null;
+  /** The owner's map pin. Null when none is set, and — like `address` —
+   *  masked to null for a guest when allow_anonymous_view is off. Absent on
+   *  an older server. */
+  latitude?: number | null;
+  longitude?: number | null;
   logo: string | null;
   default_service_duration: number;
   work_start_hour: number;

@@ -1,6 +1,7 @@
 import type { Viewport } from 'next';
 import { notFound } from 'next/navigation';
 import { getBusinessByCode, businessCategoryLabel, mediaUrl, type Business } from '@/lib/api';
+import { businessLocation } from '@/lib/maps';
 import { absoluteBusinessUrl } from '@/lib/site';
 import BusinessProfileClient from './BusinessProfileClient';
 
@@ -133,8 +134,8 @@ export async function generateMetadata({ params }: Props) {
 
 /** schema.org LocalBusiness markup — what feeds Google's rich results.
  *
- *  Every value comes from PublicBusinessSerializer, which masks `phone` and
- *  `address` for a business with allow_anonymous_view off. A crawler is
+ *  Every value comes from PublicBusinessSerializer, which masks `phone`,
+ *  `address` and the map pin for a business with allow_anonymous_view off. A crawler is
  *  anonymous, so those arrive as null there and are simply left out, rather
  *  than the markup publishing what the page itself is hiding.
  *
@@ -145,6 +146,7 @@ export async function generateMetadata({ params }: Props) {
  */
 function businessJsonLd(biz: Business, canonical: string) {
   const logo = mediaUrl(biz.logo);
+  const location = businessLocation(biz);
   return {
     '@context': 'https://schema.org',
     '@type': SCHEMA_TYPE[biz.category] ?? 'LocalBusiness',
@@ -159,6 +161,15 @@ function businessJsonLd(biz: Business, canonical: string) {
             '@type': 'PostalAddress',
             streetAddress: biz.address,
             addressCountry: 'IR',
+          },
+        }
+      : {}),
+    ...(location
+      ? {
+          geo: {
+            '@type': 'GeoCoordinates',
+            latitude: location.lat,
+            longitude: location.lng,
           },
         }
       : {}),

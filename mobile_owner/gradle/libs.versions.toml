@@ -18,6 +18,11 @@ kotlinxDatetime = "0.7.1"
 navigationCompose = "2.9.1"
 sqldelight = "1.5.5"
 ktor = "3.1.3"
+# The business-location map. Held at 0.13.2: every 1.x AAR demands
+# compileSdk 37, which AGP 8.13 can't build against. 0.13.2 is on compileSdk
+# 36 / Compose 1.11.0 and has the same API this app uses; 1.x mainly adds
+# mouse-wheel zoom, which the picker does itself (core/ui/components/map).
+mapcompose = "0.13.2"
 koin = "4.1.1"
 serialization = "1.9.0"
 room = "2.8.0"
@@ -72,6 +77,7 @@ ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negoti
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
+mapcompose-mp = { module = "ovh.plrapps:mapcompose-mp", version.ref = "mapcompose" }
 
 # kotlinx.browser (window/document/localStorage) — split out of the stdlib
 # into its own artifact for Kotlin/Wasm; see composeApp/build.gradle.kts's

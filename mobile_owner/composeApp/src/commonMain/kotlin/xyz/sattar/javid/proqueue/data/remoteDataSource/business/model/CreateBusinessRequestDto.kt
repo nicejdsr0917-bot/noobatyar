@@ -10,6 +10,8 @@ data class CreateBusinessRequestDto(
     @SerialName("phone") val phone: String,
     @SerialName("extra_phones") val extraPhones: List<String> = emptyList(),
     @SerialName("address") val address: String,
+    @SerialName("latitude") val latitude: Double? = null,
+    @SerialName("longitude") val longitude: Double? = null,
     @SerialName("default_service_duration") val defaultServiceDuration: Int,
     @SerialName("work_start_hour") val workStartHour: Int,
     @SerialName("work_end_hour") val workEndHour: Int,

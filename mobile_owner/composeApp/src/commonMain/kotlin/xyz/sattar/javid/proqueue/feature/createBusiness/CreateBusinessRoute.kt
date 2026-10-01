@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.location.GeoPoint
+import xyz.sattar.javid.proqueue.core.ui.components.map.BusinessLocationField
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -134,6 +136,8 @@ fun CreateBusinessRoute(
     // Additional contact numbers, alongside the primary `phone` above.
     var extraPhones by remember { mutableStateOf(listOf<String>()) }
     var address by remember { mutableStateOf("") }
+    // The map pin; optional, unlike the written address.
+    var location by remember { mutableStateOf<GeoPoint?>(null) }
     var defaultProgress by remember { mutableStateOf("") }
     var workStartHour by remember { mutableStateOf("9") }
     var workEndHour by remember { mutableStateOf("21") }
@@ -191,6 +195,7 @@ fun CreateBusinessRoute(
             phone = it.phone
             extraPhones = it.extraPhones
             address = it.address
+            location = it.latitude?.let { lat -> it.longitude?.let { lng -> GeoPoint(lat, lng) } }
             defaultProgress = it.defaultServiceDuration.toString()
             workStartHour = it.workStartHour.toString()
             workEndHour = it.workEndHour.toString()
@@ -231,6 +236,8 @@ fun CreateBusinessRoute(
         extraPhones = extraPhones,
         onExtraPhones = { extraPhones = it },
         address = address,
+        location = location,
+        onLocation = { location = it },
         defaultProgress = defaultProgress,
         workStartHour = workStartHour,
         workEndHour = workEndHour,
@@ -331,6 +338,8 @@ fun CreateBusinessScreen(
     extraPhones: List<String>,
     onExtraPhones: (List<String>) -> Unit,
     address: String,
+    location: GeoPoint?,
+    onLocation: (GeoPoint?) -> Unit,
     defaultProgress: String,
     workStartHour: String,
     workEndHour: String,
@@ -628,6 +637,8 @@ fun CreateBusinessScreen(
                                         phone = p,
                                         extraPhones = extraPhones,
                                         address = a,
+                                        latitude = location?.latitude,
+                                        longitude = location?.longitude,
                                         defaultProgress = d,
                                         workStartHour = wsInt!!,
                                         workEndHour = weInt!!,
@@ -758,6 +769,7 @@ fun CreateBusinessScreen(
             Box(
                 modifier = Modifier
                     .size(100.dp)
+                    .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape)
                     .clickable {
                         singleImagePicker.launch()
@@ -1071,6 +1083,14 @@ fun CreateBusinessScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            BusinessLocationField(
+                location = location,
+                onLocation = onLocation,
+                enabled = !uiState.isLoading,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clickable { onAllowAnonymousView(!allowAnonymousView) },
@@ -1332,6 +1352,8 @@ fun PreviewDashboardScreen() {
             extraPhones = listOf(),
             onExtraPhones = {},
             address = "",
+            location = null,
+            onLocation = {},
             defaultProgress = "",
             workStartHour = "9",
             workEndHour = "21",

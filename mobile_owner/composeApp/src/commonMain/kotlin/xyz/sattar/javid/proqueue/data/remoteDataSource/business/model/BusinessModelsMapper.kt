@@ -5,6 +5,7 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
 import xyz.sattar.javid.proqueue.domain.model.business.ModerationStatus
 import xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery
+import xyz.sattar.javid.proqueue.domain.model.business.ReminderTemplates
 
 /**
  * DTO -> domain, straight across (no Room `BusinessEntity` in between — see
@@ -16,10 +17,13 @@ import xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery
  *   split+filtered blanks back out, always landing on a non-null (possibly
  *   empty) list — reproduced directly with `?: emptyList()` + filter.
  * - `services`: same join/split roundtrip, reproduced with trim + filter.
- * - `depositMode`: neither the old entity mapper nor the old domain mapper
- *   ever carried it through (BusinessEntity.depositMode was written by
- *   nothing but its own default) — left at the Business default here too,
- *   not a regression introduced by this refactor.
+ *
+ * Every field the server sends has to be copied here: this is the mapper the
+ * repository uses on every platform, and the edit screen saves back whatever
+ * the loaded Business holds. Fields added on develop after this file was split
+ * off (extra phones, minutes, closed weekdays, deposit mode, reminder template)
+ * were missing, so they loaded as defaults and the next save wiped them on
+ * the server.
  */
 fun BusinessDto.toDomain(): Business {
     val epochMillis = DateTimeUtils.parseIsoToEpochMillis(this.createdAt)
@@ -33,11 +37,17 @@ fun BusinessDto.toDomain(): Business {
         categoryLabel = categoryDisplay ?: BusinessCategory.fromString(category).persianName,
         uniqueCode = uniqueCode,
         phone = phone,
+        extraPhones = extraPhones.map { it.trim() }.filter { it.isNotEmpty() },
         address = address,
+        latitude = latitude,
+        longitude = longitude,
         logoPath = logo ?: "",
         defaultServiceDuration = defaultServiceDuration,
         workStartHour = workStartHour,
         workEndHour = workEndHour,
+        workStartMinute = workStartMinute,
+        workEndMinute = workEndMinute,
+        closedWeekdays = closedWeekdays,
         notificationEnabled = notificationEnabled,
         notificationTypes = notificationTypes,
         notificationMinutesBefore = notificationMinutesBefore,
@@ -47,6 +57,7 @@ fun BusinessDto.toDomain(): Business {
         paymentMethod = paymentMethod,
         acceptedPaymentMethods = (acceptedPaymentMethods ?: emptyList()).filter { it.isNotEmpty() },
         maxAppointmentsPerHour = maxAppointmentsPerHour,
+        depositMode = depositMode,
         depositAmount = depositAmount,
         merchantId = merchantId ?: "",
         paymentLink = paymentLink ?: "",
@@ -65,6 +76,7 @@ fun BusinessDto.toDomain(): Business {
         noticeMessage = noticeMessage ?: "",
         enableReminderSms = enableReminderSms,
         reminderDelivery = reminderDelivery ?: ReminderDelivery.MANUAL.value,
+        reminderTemplate = reminderTemplate ?: ReminderTemplates.DEFAULT_KEY,
         services = services.map { it.trim() }.filter { it.isNotEmpty() },
         allowClientAddService = allowClientAddService
     )
