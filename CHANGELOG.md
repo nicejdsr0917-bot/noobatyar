@@ -10,6 +10,33 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.9.6 — 2026-10-01
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- ثبت موقعیت کسب‌وکار روی نقشه؛ مشتری‌ها آن را در صفحه‌ی رزرو می‌بینند و با نشان یا بلد مسیریابی می‌کنند.
+- معرفی کوتاه برنامه برای کاربران تازه، و صفحه‌های ورود و ثبت‌نام تازه.
+- طراحی تازه‌ی ثبت نوبت و فهرست کسب‌وکارها.
+- خروج از حساب حالا نشست را روی سرور هم می‌بندد.
+- رفع ایراد: شمارش معکوس کد تأیید، نمایش‌ندادن خطای ورود، و آیکن ریز به‌روزرسانی صفحه.
+<!-- fa:end -->
+
+### mobile_owner
+- Business location: optional map pin in the business form (MapCompose 0.13.2, OSM raster tiles), full-screen picker with "my location" on Android/web. Room version 19.
+- `BusinessDto.toDomain()` maps the fields it used to drop (extra phones, minutes, closed weekdays, deposit mode, reminder template), which the next save wiped.
+- Onboarding (phone width), animated auth headers, redesigned new-appointment and business-list screens, desktop sidebar on every screen, ripples clipped to rounded shapes.
+- Security: the bearer token is no longer logged; logout sends the refresh token so the server revokes it; web links open with noopener.
+- Web panel: API host chosen from the page's host (localhost → dev, otherwise production), installable (manifest, icons, iOS tags), boot script moved out of index.html for CSP.
+
+### backend
+- Business latitude/longitude; admin contact-visibility policy for owners without a subscription (`is_expired`, `has_location`).
+- Admin campaigns page split into tabs; expiry SMS rework.
+- Login throttle + per-phone lockout, one password change per 24h, user_detail needs model permissions, role read-only.
+- nginx: security headers, sandboxed /media/, owner panel on panel.noobatyar.ir.
+
+### front_client
+- Map card with Neshan / Balad routing on the business page; blurred placeholders for withheld contact info.
+
 ## v1.9.5 — 2026-09-25
 
 <!-- fa:start -->
