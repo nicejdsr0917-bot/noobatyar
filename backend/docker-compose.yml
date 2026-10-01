@@ -112,6 +112,9 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Owner web panel bundle (panel.noobatyar.ir) — uploaded build output,
+      # not in git; see the panel server block in nginx/nginx.conf.
+      - ./panel:/usr/share/nginx/panel:ro
       # Certificates are issued by certbot on the host; nginx only reads them.
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot
