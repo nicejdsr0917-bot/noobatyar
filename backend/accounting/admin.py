@@ -25,14 +25,16 @@ from django.contrib import admin, messages
 from unfold.admin import ModelAdmin
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
+from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
+from django.utils.html import format_html
 
 from . import reports
 from .models import (
     Plan, Subscription, AddOnPack, AddOnPurchase, Transaction, CreditLedger,
-    SubscriptionReminderSettings, StorePurchase,
+    SubscriptionReminderSettings, StorePurchase, ContactVisibilityPolicy,
 )
 from .payment.addon_payment import grant_addon_benefit
 
@@ -367,6 +369,63 @@ class SubscriptionReminderSettingsAdmin(ModelAdmin):
         if request.user.is_superuser:
             SubscriptionReminderSettings.load()
         return super().changelist_view(request, extra_context)
+
+
+@admin.register(ContactVisibilityPolicy)
+class ContactVisibilityPolicyAdmin(ModelAdmin):
+    """One settings page, no list: the changelist goes straight to the row."""
+
+    readonly_fields = ('affected_businesses', 'updated_at')
+    fieldsets = (
+        (None, {
+            'fields': ('hide_when_expired', 'hide_phone', 'hide_address'),
+            'description': (
+                'برای کسب‌وکاری که صاحبش اشتراک فعال ندارد (دوره‌ی آزمایشی یا اشتراکش تمام شده و '
+                'تمدید نکرده)، موارد انتخاب‌شده از پاسخ سرور حذف می‌شوند — یعنی واقعاً به مرورگر مشتری '
+                'نمی‌رسند — و صفحه‌ی کسب‌وکار به‌جایشان یک نسخه‌ی محو و ناخوانا نشان می‌دهد. '
+                'این سیاست مستقل از تنظیم خود صاحب کسب‌وکار («نمایش اطلاعات تماس به کاربران مهمان») است '
+                'و سرور با فیلد <code>is_expired</code> این دو را از هم جدا می‌کند. '
+                'با تمدید اشتراک، اطلاعات بلافاصله دوباره نمایش داده می‌شود.'
+            ),
+        }),
+        ('وضعیت فعلی', {
+            'fields': ('affected_businesses', 'updated_at'),
+        }),
+    )
+
+    @admin.display(description='کسب‌وکارهای مشمول')
+    def affected_businesses(self, obj):
+        from business.models import Business
+        from .entitlements import owners_with_active_subscription
+
+        count = (
+            Business.objects.filter(Business.public_filter())
+            .exclude(user_id__in=owners_with_active_subscription())
+            .count()
+        )
+        state = 'پنهان شده' if obj.hide_when_expired else 'اگر روشن شود پنهان می‌شود'
+        return format_html(
+            '<b>{}</b> کسب‌وکار عمومی صاحب اشتراک فعال ندارد — اطلاعات تماسشان {}.',
+            count, state,
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        if not self.has_view_or_change_permission(request):
+            raise PermissionDenied
+        policy = ContactVisibilityPolicy.load()
+        return redirect(reverse('admin:accounting_contactvisibilitypolicy_change', args=[policy.pk]))
+
+    def response_change(self, request, obj):
+        # Back to this same page (the default goes to the changelist, which
+        # would only redirect here again) with the usual "saved" message.
+        messages.success(request, 'سیاست نمایش اطلاعات تماس ذخیره شد.')
+        return redirect(request.path)
 
 
 @admin.register(CreditLedger)

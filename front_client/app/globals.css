@@ -1094,6 +1094,68 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
 }
 :root[data-theme="dark"] .biz-map { background: #2b2b2b; }
 
+/* ── Withheld contact details (LockedContact.tsx) ─────────────
+   Placeholder text blurred past reading; the real value was never sent. */
+.contact-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  cursor: default;
+}
+.contact-locked-text {
+  filter: blur(5px);
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.contact-locked-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+/* The withheld map: drawn, not tiles, and blurred past being a place. */
+.locked-map {
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.locked-map-art {
+  position: absolute;
+  inset: -12px;
+  width: calc(100% + 24px);
+  height: calc(100% + 24px);
+  filter: blur(5px);
+}
+.locked-map-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+.biz-route-btn.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.biz-route-btn.is-locked:hover { border-color: transparent; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .locked-map-art {
+    filter: blur(5px) invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+  }
+}
+:root[data-theme="dark"] .locked-map-art {
+  filter: blur(5px) invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
 /* ── Button loading spinner ──────────────────────────────────── */
 @keyframes spin {
   to { transform: rotate(360deg); }

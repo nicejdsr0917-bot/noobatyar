@@ -416,6 +416,7 @@ UNFOLD = {
                     _item('پلن‌ها', 'sell', _changelist('accounting', 'plan'), 'accounting.view_plan'),
                     _item('بسته‌های افزودنی', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
                     _item('یادآوری تمدید اشتراک', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),
+                    _item('تماس کسب‌وکارهای بدون اشتراک', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
                 ],
             },
             {

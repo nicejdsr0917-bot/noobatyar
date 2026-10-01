@@ -30,6 +30,16 @@ export interface Business {
    *  an older server. */
   latitude?: number | null;
   longitude?: number | null;
+  /** The owner has no active subscription. When the admin's contact policy
+   *  is on, the server then sends phone/extra_phones/address/location as
+   *  null (withheld, not hidden) — this flag is how a client tells that
+   *  apart from the owner's own allow_anonymous_view switch, which nulls the
+   *  same fields. Absent on an older server. */
+  is_expired?: boolean;
+  /** Whether the business has a map pin at all — never where it is. Lets a
+   *  client tell a withheld pin (null coordinates, is_expired) from one that
+   *  was never set. Absent on an older server. */
+  has_location?: boolean;
   logo: string | null;
   default_service_duration: number;
   work_start_hour: number;

@@ -8,6 +8,7 @@ import Icon, { type IconName } from '@/app/components/Icon';
 import CategoryArt, { CategoryGlyph } from '@/app/components/CategoryArt';
 import AppBanner from '@/app/components/AppBanner';
 import BusinessMap from '@/app/components/BusinessMap';
+import LockedContact, { LockedMap, isWithheld } from '@/app/components/LockedContact';
 import { baladUrl, businessLocation, neshanUrl } from '@/lib/maps';
 import { toPersianDigits as toFa } from '@/lib/validation';
 import { useVisitorToken } from '@/lib/visitorToken';
@@ -177,6 +178,14 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             ))}
           </div>
         )}
+        {isWithheld(business, 'phone') && (
+          <div className="biz-hero-actions">
+            <span className="biz-action call">
+              <Icon name="call" size={16} />
+              <LockedContact kind="phone" />
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Owner notice — first thing under the hero, before any detail ── */}
@@ -284,6 +293,45 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             </div>
             <span className="chevron"><Icon name="chevronLeft" size={18} /></span>
           </a>
+        </div>
+      )}
+      {/* Withheld by the subscription policy (see LockedContact.tsx): the
+          same card, blurred — the map too when the business has a pin —
+          with the routing buttons there but switched off. */}
+      {!location && isWithheld(business, 'location') ? (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-location">
+            <LockedMap />
+            <div className="biz-address">
+              <div className="pin"><Icon name="locationOn" size={19} /></div>
+              <div className="addr-text">
+                <div className="addr-k">آدرس</div>
+                <div className="addr-v">
+                  {business.address ?? <LockedContact kind="address" />}
+                </div>
+              </div>
+            </div>
+            <div className="biz-route">
+              <span className="biz-route-btn is-locked" aria-disabled="true">
+                <Icon name="lock" size={16} />
+                مسیریابی با نشان
+              </span>
+              <span className="biz-route-btn is-locked" aria-disabled="true">
+                <Icon name="lock" size={16} />
+                مسیریابی با بلد
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : !location && isWithheld(business, 'address') && (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-address">
+            <div className="pin"><Icon name="locationOn" size={19} /></div>
+            <div className="addr-text">
+              <div className="addr-k">آدرس</div>
+              <div className="addr-v"><LockedContact kind="address" /></div>
+            </div>
+          </div>
         </div>
       )}
 

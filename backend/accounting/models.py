@@ -338,6 +338,63 @@ class SubscriptionReminderSettings(models.Model):
         )
 
 
+class ContactVisibilityPolicy(models.Model):
+    """What customers get to see of a business whose owner has no active
+    subscription (the trial ran out, or a paid plan lapsed without renewal).
+
+    Singleton (``pk=1``), same pattern as ``SubscriptionReminderSettings``:
+    switched from the admin panel on a running server.
+
+    With ``hide_when_expired`` on, the public business payloads carry the
+    hidden fields as null — the values never leave the server — and every
+    payload says ``is_expired`` so the client can tell this apart from the
+    owner's own "show contact info to guests" switch (which also nulls them)
+    and draw the blurred placeholder instead of hiding the section. Applied
+    in ``business.serializers.apply_contact_rules``.
+    """
+
+    SINGLETON_PK = 1
+
+    hide_when_expired = models.BooleanField(
+        default=False,
+        help_text='وقتی روشن است، برای کسب‌وکاری که صاحبش اشتراک فعال ندارد، موارد انتخاب‌شده‌ی زیر '
+                  'اصلاً به مشتری ارسال نمی‌شوند و در صفحه‌ی کسب‌وکار به‌صورت محو و ناخوانا نمایش داده می‌شوند.',
+        verbose_name='پنهان‌کردن اطلاعات تماس کسب‌وکارهای بدون اشتراک',
+    )
+    hide_phone = models.BooleanField(
+        default=True,
+        help_text='شماره‌ی اصلی و شماره‌های دیگر کسب‌وکار',
+        verbose_name='شماره تلفن',
+    )
+    hide_address = models.BooleanField(
+        default=True,
+        help_text='آدرس نوشتاری و موقعیت روی نقشه (که خودش آدرس را لو می‌دهد)',
+        verbose_name='آدرس و موقعیت روی نقشه',
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
+
+    class Meta:
+        db_table = 'accounting_contact_visibility_policy'
+        verbose_name = 'سیاست نمایش اطلاعات تماس'
+        verbose_name_plural = 'سیاست نمایش اطلاعات تماس'
+
+    def __str__(self):
+        return 'سیاست نمایش اطلاعات تماس'
+
+    def save(self, *args, **kwargs):
+        self.pk = self.SINGLETON_PK
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """Deleting the singleton is a no-op; switch it off instead."""
+        return 0, {}
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=cls.SINGLETON_PK)
+        return obj
+
+
 # The tokens a renewal reminder may use, in the order the admin offers them.
 REMINDER_TOKENS = (
     ('{full_name}', 'نام صاحب‌حساب'),

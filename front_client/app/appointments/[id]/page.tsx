@@ -6,6 +6,7 @@ import { getAppointment, cancelAppointment, businessCategoryLabel, type Appointm
 import { STATUS_LABELS, formatDate } from '@/lib/format';
 import Toolbar from '@/app/components/Toolbar';
 import Icon from '@/app/components/Icon';
+import LockedContact, { isWithheld } from '@/app/components/LockedContact';
 import { BusinessAvatar } from '@/app/components/AppointmentCard';
 
 // Anything still ahead of the appointment time can be cancelled by the client.
@@ -166,6 +167,8 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
               >
                 {biz.address}
               </a>
+            ) : isWithheld(biz, 'address') ? (
+              <div style={{ fontSize: 13 }}><LockedContact kind="address" /></div>
             ) : (
               <div style={{ fontSize: 13, color: 'var(--color-text)' }}>ثبت نشده</div>
             )}
@@ -177,6 +180,8 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
               <a href={`tel:${biz.phone}`} dir="ltr" style={{ fontSize: 14, color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 700 }}>
                 {biz.phone}
               </a>
+            ) : isWithheld(biz, 'phone') ? (
+              <div style={{ fontSize: 14 }}><LockedContact kind="phone" /></div>
             ) : (
               <div style={{ fontSize: 13, color: 'var(--color-text)' }}>ثبت نشده</div>
             )}

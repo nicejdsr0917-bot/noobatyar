@@ -212,6 +212,18 @@ def get_active_subscription(user_or_id):
     return None
 
 
+def owners_with_active_subscription():
+    """Queryset of user ids holding a still-valid active subscription — the
+    set-based counterpart of :func:`get_active_subscription`, for filtering
+    many businesses at once (e.g. the admin's impact count)."""
+    from accounting.models import Subscription
+    return (
+        Subscription.objects
+        .filter(status="active", ends_at__gt=timezone.now())
+        .values("user_id")
+    )
+
+
 def _active_feature_addons(user_id):
     """Set of feature keys temporarily unlocked by active feature add-ons."""
     from accounting.models import AddOnPurchase, AddOnPack
