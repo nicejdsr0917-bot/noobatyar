@@ -1,497 +1,869 @@
 {% extends "admin/base_site.html" %}
 
 {% comment %} ---------------------------------------------------------------------------
-  Promotional push campaigns
-  (core.admin_site.NobatyarAdminSite.campaign_view / campaign_send_view).
+  Campaigns page (core.admin_site.NobatyarAdminSite.campaign_view and the
+  send/count/test views next to it).
 
-  Compose once, tick who it goes to, send. Same no-framework, server
-  round-trip approach as segment_builder.html — the one bit of JS is the live
-  recipient counter, which hits campaign_count_view for numbers only (never
-  names/phones, so it needs no export_pii gate) and degrades to "press send
-  and read the result message" if it fails.
+  Three tabs, one per job, picked by ?tab= so every send lands back on the
+  tab that shows its result:
 
-  Why this is its own page rather than another button on the segment builder:
-  that page is scoped to one audience at a time by construction (its whole
-  querystring carries a single `kind`), and the thing operators want here —
-  one announcement to customers *and* owners — cannot be expressed there.
+    push     compose a promotional push to customers and/or owners
+    sms      the renewal-reminder SMS — the automatic reminder's settings and
+             a manual send, as two separate forms
+    reports  what went out: push campaigns and renewal SMS (manual, automatic
+             and test sends alike)
+
+  They used to be one long page with every form and report stacked, which
+  made it unclear which button sent what. Each tab shows only for the
+  permission that covers it.
+
+  Styling uses the admin's own variables (admin_custom/css/unfold.css), so the
+  page follows the light/dark theme instead of hard-coded light colours. The
+  JS is optional comfort — live counts, previews, counters, the confirm
+  dialog; every form still submits and works without it.
 --------------------------------------------------------------------------- {% endcomment %}
 
 {% block extrastyle %}{{ block.super }}
 <style>
-  .pc-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,340px); gap:20px; align-items:start; }
-  @media (max-width:1000px){ .pc-grid { grid-template-columns:1fr; } }
-  .pc-box { border:1px solid var(--border-color); border-radius:8px; background:var(--body-bg); padding:16px; margin-block-end:20px; }
-  .pc-box h2 { font-size:14px; margin:0 0 14px; padding:0 0 8px; border-block-end:1px solid var(--border-color); }
-  .pc-field { display:flex; flex-direction:column; gap:4px; margin-block-end:14px; font-size:12px; color:var(--body-quiet-color); }
-  .pc-field input[type=text], .pc-field input[type=url], .pc-field textarea, .pc-field select {
-    padding:8px; border:1px solid var(--border-color); border-radius:4px; font-family:inherit; font-size:13px; width:100%;
-    box-sizing:border-box; }
-  .pc-field textarea { min-height:96px; resize:vertical; line-height:1.9; }
-  .pc-ltr { direction:ltr; text-align:left; }
-  .pc-hint { font-size:11px; color:var(--body-quiet-color); }
-  .pc-audiences { display:flex; flex-wrap:wrap; gap:10px; margin-block-end:14px; }
-  .pc-aud { display:flex; align-items:center; gap:8px; border:1px solid var(--border-color); border-radius:8px;
-            padding:10px 14px; cursor:pointer; font-size:13px; background:var(--darkened-bg); }
-  .pc-aud input { margin:0; }
-  .pc-counts { display:flex; flex-wrap:wrap; gap:10px; margin-block-end:14px; }
-  .pc-card { border:1px solid var(--border-color); border-radius:8px; padding:10px 14px; min-width:150px; background:var(--body-bg); }
-  .pc-card-title { font-size:11px; color:var(--body-quiet-color); margin-block-end:4px; }
-  .pc-card-value { font-size:20px; font-weight:700; direction:ltr; text-align:end; }
-  .pc-warn { border:1px solid #e0a800; background:#fff8e6; border-radius:8px; padding:10px 14px;
-             font-size:12px; color:#7a5c00; margin-block-end:16px; line-height:1.9; }
-  .pc-err { border:1px solid #d9534f; background:#fdf3f3; border-radius:8px; padding:10px 14px;
-            font-size:12px; color:#a94442; margin-block-end:16px; }
-  .pc-table { width:100%; border-collapse:collapse; background:var(--body-bg); }
-  .pc-table th, .pc-table td { border:1px solid var(--border-color); padding:6px 9px; font-size:12px; }
-  .pc-table th { background:var(--darkened-bg); text-align:start; }
-  .pc-num { direction:ltr; text-align:end; font-variant-numeric:tabular-nums; }
-  .pc-campaign { border:1px solid var(--border-color); border-radius:8px; margin-block-end:14px; overflow:hidden; }
-  .pc-campaign-head { background:var(--darkened-bg); padding:10px 14px; border-block-end:1px solid var(--border-color); }
-  .pc-campaign-title { font-size:13px; font-weight:700; }
-  .pc-campaign-meta { font-size:11px; color:var(--body-quiet-color); margin-block-start:3px; }
-  .pc-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; background:#eef3f6; color:var(--link-fg); }
-  .pc-preview { border:1px solid var(--border-color); border-radius:10px; padding:12px; background:var(--body-bg); }
-  .pc-preview-title { font-size:13px; font-weight:700; }
-  .pc-preview-body { font-size:12px; color:var(--body-loud-color); line-height:1.9; white-space:pre-line; margin-block-start:4px; }
-  .pc-preview-img { max-width:100%; border-radius:6px; margin-block-start:8px; display:block; }
+  .cp { --cp-radius: 14px; --cp-gap: 20px; display: flex; flex-direction: column; gap: var(--cp-gap); }
+  .cp-lead { margin: 0; font-size: 13px; color: var(--body-quiet-color); line-height: 1.9; }
+
+  /* Tabs */
+  .cp-tabs { display: flex; gap: 6px; flex-wrap: wrap; border-block-end: 1px solid var(--border-color); }
+  .cp-tab { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600;
+            color: var(--body-quiet-color); text-decoration: none; border-block-end: 2px solid transparent; margin-block-end: -1px; }
+  .cp-tab:hover { color: var(--body-loud-color); }
+  .cp-tab.is-active { color: var(--color-primary-600); border-block-end-color: var(--color-primary-600); }
+  .dark .cp-tab.is-active { color: var(--color-primary-400); border-block-end-color: var(--color-primary-400); }
+  .cp-tab .material-symbols-outlined { font-size: 20px; }
+
+  /* Layout */
+  .cp-split { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--cp-gap); align-items: start; }
+  .cp-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cp-gap); align-items: start; }
+  @media (max-width: 1100px) { .cp-split, .cp-pair { grid-template-columns: 1fr; } }
+  .cp-stack { display: flex; flex-direction: column; gap: var(--cp-gap); }
+  .cp-sticky { position: sticky; top: 16px; }
+
+  /* Cards */
+  .cp-card { border: 1px solid var(--border-color); border-radius: var(--cp-radius); background: var(--body-bg); }
+  .cp-card-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-block-end: 1px solid var(--border-color); }
+  .cp-card-head h2 { margin: 0; font-size: 14px; font-weight: 700; color: var(--body-loud-color); }
+  .cp-card-head p { margin: 2px 0 0; font-size: 12px; color: var(--body-quiet-color); }
+  .cp-card-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+  .cp-step { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px;
+             font-weight: 700; color: var(--color-primary-700); background: var(--selected-bg); }
+  .dark .cp-step { color: var(--color-primary-300); }
+  .cp-head-icon { flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+                  color: var(--color-primary-600); background: var(--selected-bg); }
+  .dark .cp-head-icon { color: var(--color-primary-300); }
+  .cp-spacer { flex: 1 1 auto; }
+
+  /* Fields */
+  .cp-field { display: flex; flex-direction: column; gap: 6px; }
+  .cp-label { display: flex; align-items: baseline; gap: 6px; font-size: 12px; font-weight: 600; color: var(--body-fg); }
+  .cp-label .cp-opt { font-weight: 400; color: var(--body-quiet-color); }
+  .cp-label .cp-req { color: var(--error-fg); }
+  .cp-count { margin-inline-start: auto; font-size: 11px; font-weight: 400; color: var(--body-quiet-color); font-variant-numeric: tabular-nums; }
+  .cp input[type=text], .cp input[type=url], .cp input[type=number], .cp textarea, .cp select {
+    width: 100%; box-sizing: border-box; padding: 9px 12px; font: inherit; font-size: 13px; color: var(--body-loud-color);
+    background: var(--body-bg); border: 1px solid var(--border-color); border-radius: 10px; }
+  .cp input:focus, .cp textarea:focus, .cp select:focus { outline: 2px solid color-mix(in oklch, var(--color-primary-500) 45%, transparent); outline-offset: 0; border-color: var(--color-primary-500); }
+  .cp textarea { min-height: 110px; resize: vertical; line-height: 1.9; }
+  .cp-ltr { direction: ltr; text-align: left; }
+  .cp-num-input { max-width: 120px; }
+  .cp-hint { margin: 0; font-size: 11.5px; line-height: 1.8; color: var(--body-quiet-color); }
+  .cp-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .cp-row > .cp-field { flex: 1 1 200px; }
+
+  /* Token chips (insert a {token} at the cursor) */
+  .cp-tokens { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cp-token { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font: inherit; font-size: 11.5px;
+              border: 1px dashed var(--border-color); background: var(--darkened-bg); color: var(--body-fg); cursor: pointer; }
+  .cp-token:hover { border-color: var(--color-primary-500); color: var(--color-primary-600); }
+  .cp-token code { direction: ltr; font-size: 11px; background: none; padding: 0; }
+
+  /* Selectable tiles (audience) and chips (plans) */
+  .cp-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .cp-tile { position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 14px; cursor: pointer;
+             border: 1.5px solid var(--border-color); border-radius: 12px; background: var(--body-bg); transition: border-color .15s, background .15s; }
+  .cp-tile:hover { border-color: color-mix(in oklch, var(--color-primary-500) 50%, var(--border-color)); }
+  .cp-tile input { position: absolute; opacity: 0; pointer-events: none; }
+  .cp-tile:has(input:checked) { border-color: var(--color-primary-500); background: var(--selected-bg); }
+  .cp-tile-icon { flex: none; width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
+                  background: var(--darkened-bg); color: var(--body-quiet-color); }
+  .cp-tile:has(input:checked) .cp-tile-icon { background: var(--color-primary-600); color: #fff; }
+  .cp-tile-title, .cp-tile-sub, .cp-tile-stat { display: block; }
+  .cp-tile-title { font-size: 13px; font-weight: 700; color: var(--body-loud-color); }
+  .cp-tile-sub { font-size: 11.5px; color: var(--body-quiet-color); margin-top: 2px; }
+  .cp-tile-stat { font-size: 12px; margin-top: 6px; color: var(--body-fg); font-variant-numeric: tabular-nums; }
+  .cp-tile-check { position: absolute; inset-inline-end: 10px; top: 10px; font-size: 20px; color: var(--color-primary-600); opacity: 0; }
+  .cp-tile:has(input:checked) .cp-tile-check { opacity: 1; }
+
+  .cp-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cp-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; cursor: pointer; font-size: 12px;
+             border: 1px solid var(--border-color); background: var(--body-bg); color: var(--body-fg); }
+  .cp-chip input { position: absolute; opacity: 0; pointer-events: none; }
+  .cp-chip:has(input:checked) { border-color: var(--color-primary-500); background: var(--selected-bg); color: var(--color-primary-700); font-weight: 600; }
+  .dark .cp-chip:has(input:checked) { color: var(--color-primary-300); }
+  .cp-chip-muted { opacity: .65; }
+
+  /* Switch */
+  .cp-switch { display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 13px; color: var(--body-fg); }
+  .cp-switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .cp-switch-track { position: relative; flex: none; width: 40px; height: 22px; border-radius: 999px; background: var(--color-base-300); transition: background .15s; }
+  .dark .cp-switch-track { background: var(--color-base-600); }
+  .cp-switch-track::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 16px; height: 16px; border-radius: 50%;
+                            background: #fff; transition: inset-inline-start .15s; }
+  .cp-switch:has(input:checked) .cp-switch-track { background: var(--color-primary-600); }
+  .cp-switch:has(input:checked) .cp-switch-track::after { inset-inline-start: 21px; }
+  .cp-switch-text small { display: block; font-size: 11.5px; color: var(--body-quiet-color); }
+
+  /* Status pills and notes */
+  .cp-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .cp-pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .cp-pill--on { color: #15803d; background: color-mix(in oklch, #22c55e 16%, transparent); }
+  .cp-pill--off { color: var(--body-quiet-color); background: var(--darkened-bg); }
+  .cp-pill--warn { color: #b45309; background: color-mix(in oklch, #f59e0b 18%, transparent); }
+  .dark .cp-pill--on { color: #4ade80; }
+  .dark .cp-pill--warn { color: #fbbf24; }
+  .cp-note { display: flex; gap: 10px; padding: 12px 14px; border-radius: 12px; font-size: 12px; line-height: 1.9; color: var(--body-fg);
+             background: var(--darkened-bg); border: 1px solid var(--border-color); }
+  .cp-note .material-symbols-outlined { font-size: 20px; color: var(--body-quiet-color); }
+  .cp-note--warn { background: color-mix(in oklch, #f59e0b 12%, var(--body-bg)); border-color: color-mix(in oklch, #f59e0b 40%, var(--border-color)); }
+  .cp-note--warn .material-symbols-outlined { color: #d97706; }
+  .cp-note--error { background: color-mix(in oklch, #ef4444 12%, var(--body-bg)); border-color: color-mix(in oklch, #ef4444 40%, var(--border-color)); }
+  .cp-note--error .material-symbols-outlined { color: #dc2626; }
+
+  /* Stats */
+  .cp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+  .cp-stat { padding: 12px; border-radius: 12px; background: var(--darkened-bg); }
+  .cp-stat-value { font-size: 20px; font-weight: 700; color: var(--body-loud-color); font-variant-numeric: tabular-nums; }
+  .cp-stat-label { font-size: 11.5px; color: var(--body-quiet-color); margin-top: 2px; }
+
+  /* Buttons */
+  .cp-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .cp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 18px;
+            border-radius: 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none;
+            border: 1px solid transparent; transition: background .15s, opacity .15s; }
+  .cp-btn .material-symbols-outlined { font-size: 19px; }
+  .cp-btn--primary { background: var(--color-primary-600); color: #fff; }
+  .cp-btn--primary:hover { background: var(--color-primary-700); }
+  .cp-btn--ghost { background: transparent; color: var(--body-fg); border-color: var(--border-color); }
+  .cp-btn--ghost:hover { background: var(--darkened-bg); }
+  .cp-btn--block { width: 100%; }
+  .cp-btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+  /* Push preview: a phone-style notification */
+  .cp-phone { padding: 18px 14px; border-radius: 22px; background: linear-gradient(160deg, #2e1065, #4c1d95 55%, #1e1b4b); }
+  .cp-notif { border-radius: 16px; padding: 12px 14px; background: rgba(255, 255, 255, .94); color: #111827; box-shadow: 0 6px 18px rgba(0, 0, 0, .25); }
+  .cp-notif-app { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6b7280; }
+  .cp-notif-app img, .cp-notif-app svg { width: 16px; height: 16px; }
+  .cp-notif-title { margin-top: 6px; font-size: 13px; font-weight: 700; }
+  .cp-notif-body { margin-top: 2px; font-size: 12.5px; line-height: 1.8; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .cp-notif-img { display: block; width: 100%; margin-top: 8px; border-radius: 10px; }
+  .cp-sms { border-radius: 16px 16px 4px 16px; padding: 12px 14px; font-size: 12.5px; line-height: 1.9; white-space: pre-line;
+            background: var(--darkened-bg); color: var(--body-loud-color); border: 1px solid var(--border-color); }
+
+  /* Tables and report rows */
+  .cp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cp-table th { text-align: start; font-weight: 600; color: var(--body-quiet-color); padding: 8px 10px; border-block-end: 1px solid var(--border-color); white-space: nowrap; }
+  .cp-table td { padding: 9px 10px; border-block-end: 1px solid var(--border-color); color: var(--body-fg); vertical-align: top; }
+  .cp-table tr:last-child td { border-block-end: 0; }
+  .cp-num { direction: ltr; text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cp-scroll { overflow-x: auto; }
+  .cp-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap;
+              background: var(--selected-bg); color: var(--color-primary-700); }
+  .dark .cp-badge { color: var(--color-primary-300); }
+  .cp-badge--auto { background: color-mix(in oklch, #0ea5e9 16%, transparent); color: #0369a1; }
+  .cp-badge--test { background: var(--darkened-bg); color: var(--body-quiet-color); }
+  .dark .cp-badge--auto { color: #7dd3fc; }
+  .cp-ok { color: #15803d; } .dark .cp-ok { color: #4ade80; }
+  .cp-bad { color: var(--error-fg); }
+  .cp-report { border-block-end: 1px solid var(--border-color); }
+  .cp-report:last-child { border-block-end: 0; }
+  .cp-report > summary { list-style: none; cursor: pointer; padding: 14px 18px; display: grid; gap: 6px; }
+  .cp-report > summary::-webkit-details-marker { display: none; }
+  .cp-report > summary:hover { background: var(--darkened-bg); }
+  .cp-report-top { display: flex; align-items: center; gap: 10px; }
+  .cp-report-title { font-size: 13px; font-weight: 700; color: var(--body-loud-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cp-report-meta { font-size: 11.5px; color: var(--body-quiet-color); }
+  .cp-report-figs { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--body-fg); }
+  .cp-report-figs b { font-variant-numeric: tabular-nums; }
+  .cp-report-more { padding: 0 18px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .cp-report-chevron { margin-inline-start: auto; color: var(--body-quiet-color); transition: transform .15s; }
+  .cp-report[open] .cp-report-chevron { transform: rotate(180deg); }
+  .cp-empty { padding: 28px 18px; text-align: center; font-size: 13px; color: var(--body-quiet-color); }
+
+  /* Confirm dialog */
+  .cp-dialog { border: 0; border-radius: 16px; padding: 0; width: min(440px, calc(100vw - 32px)); background: var(--body-bg); color: var(--body-fg);
+               box-shadow: 0 20px 50px rgba(0, 0, 0, .35); }
+  .cp-dialog::backdrop { background: rgba(15, 15, 15, .55); }
+  .cp-dialog-body { padding: 22px; display: flex; flex-direction: column; gap: 12px; }
+  .cp-dialog h3 { margin: 0; font-size: 16px; color: var(--body-loud-color); }
+  .cp-dialog p { margin: 0; font-size: 13px; line-height: 1.9; }
+  .cp-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 0 22px 22px; }
 </style>
 {% endblock %}
 
 {% block content %}
-{% comment %} No <h1> here: base_site.html already renders one from the `title` context
-   key, same as segment_builder.html. {% endcomment %}
+{% comment %} No <h1> here: base_site.html already renders one from `title`. {% endcomment %}
+<div class="cp">
+  <p class="cp-lead">
+    اعلان پوش برای مشتریان و صاحبان کسب‌وکار، و پیامک یادآوری تمدید اشتراک برای صاحبان کسب‌وکار —
+    هر کدام در زبانه‌ی خودش؛ نتیجه‌ی هر ارسال در «گزارش‌ها» می‌ماند.
+  </p>
 
-{% if not push_configured %}
-  <div class="pc-warn">
-    سرویس اعلان (FCM) روی این سرور پیکربندی نشده است. می‌توانید کمپین بسازید، اما
-    هیچ اعلانی ارسال نخواهد شد و همه‌ی ارسال‌ها با «۰ پذیرفته‌شده» ثبت می‌شوند.
-  </div>
-{% endif %}
+  <nav class="cp-tabs">
+    {% if can_send_push %}
+      <a class="cp-tab{% if tab == 'push' %} is-active{% endif %}" href="?tab=push">
+        <span class="material-symbols-outlined">notifications_active</span>اعلان پوش
+      </a>
+    {% endif %}
+    {% if can_send_sms %}
+      <a class="cp-tab{% if tab == 'sms' %} is-active{% endif %}" href="?tab=sms">
+        <span class="material-symbols-outlined">sms</span>پیامک تمدید اشتراک
+      </a>
+    {% endif %}
+    <a class="cp-tab{% if tab == 'reports' %} is-active{% endif %}" href="?tab=reports">
+      <span class="material-symbols-outlined">monitoring</span>گزارش‌ها
+    </a>
+  </nav>
 
-{% if error %}<div class="pc-err">{{ error }}</div>{% endif %}
+  {% if error %}
+    <div class="cp-note cp-note--error"><span class="material-symbols-outlined">error</span><div>{{ error }}</div></div>
+  {% endif %}
 
-<div class="pc-grid">
-  <div>
-    <form method="post" action="{% url 'admin:core_campaign_send' %}" id="pc-form">
+{% if tab == 'push' and can_send_push %}
+{# ════════════════════════════════ Push ════════════════════════════════ #}
+  {% if not push_configured %}
+    <div class="cp-note cp-note--warn">
+      <span class="material-symbols-outlined">warning</span>
+      <div>سرویس اعلان (FCM) روی این سرور پیکربندی نشده است. می‌توانید فرم را پر کنید، اما هیچ اعلانی
+        واقعاً ارسال نمی‌شود و همه‌ی ارسال‌ها با «۰ پذیرفته‌شده» ثبت می‌شوند.</div>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'admin:core_campaign_send' %}" id="pc-form" data-confirm="push">
+    {% csrf_token %}
+    <div class="cp-split">
+      <div class="cp-stack">
+
+        <section class="cp-card">
+          <div class="cp-card-head"><span class="cp-step">۱</span>
+            <div><h2>مخاطبان</h2><p>یکی یا هر دو گروه را انتخاب کنید.</p></div></div>
+          <div class="cp-card-body">
+            <div class="cp-tiles">
+              <label class="cp-tile">
+                <input type="checkbox" name="audience_visitor" value="1" data-count
+                       {% if form.audience_visitor or not form %}checked{% endif %}>
+                <span class="cp-tile-icon material-symbols-outlined">groups</span>
+                <span>
+                  <span class="cp-tile-title">مشتریان</span>
+                  <span class="cp-tile-sub">کسانی که نوبت گرفته‌اند</span>
+                  <span class="cp-tile-stat" data-stat="visitor">—</span>
+                </span>
+                <span class="cp-tile-check material-symbols-outlined">check_circle</span>
+              </label>
+              <label class="cp-tile">
+                <input type="checkbox" name="audience_owner" value="1" data-count
+                       {% if form.audience_owner %}checked{% endif %}>
+                <span class="cp-tile-icon material-symbols-outlined">storefront</span>
+                <span>
+                  <span class="cp-tile-title">صاحبان کسب‌وکار</span>
+                  <span class="cp-tile-sub">کاربران اپ نوبت‌یار</span>
+                  <span class="cp-tile-stat" data-stat="owner">—</span>
+                </span>
+                <span class="cp-tile-check material-symbols-outlined">check_circle</span>
+              </label>
+            </div>
+
+            <div class="cp-row">
+              <label class="cp-field">
+                <span class="cp-label">دسته‌بندی کسب‌وکار</span>
+                <select name="business_category" data-count>
+                  <option value="">همه‌ی دسته‌ها</option>
+                  {% for value, label in business_categories %}
+                    <option value="{{ value }}" {% if form.business_category == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+            <p class="cp-hint">برای مشتریان یعنی «کسانی که در این دسته نوبت گرفته‌اند»؛ برای صاحبان کسب‌وکار یعنی «صاحب کسب‌وکاری در این دسته».</p>
+
+            <label class="cp-switch">
+              <input type="checkbox" name="exclude_opted_out" value="1" data-count
+                     {% if form.exclude_opted_out or not form %}checked{% endif %}>
+              <span class="cp-switch-track"></span>
+              <span class="cp-switch-text">مشتریانی که تبلیغات را خاموش کرده‌اند حذف شوند
+                <small>پیشنهاد می‌شود روشن بماند.</small></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="cp-card">
+          <div class="cp-card-head"><span class="cp-step">۲</span>
+            <div><h2>محتوای اعلان</h2><p>آنچه روی گوشی دیده می‌شود.</p></div></div>
+          <div class="cp-card-body">
+            <label class="cp-field">
+              <span class="cp-label">عنوان <span class="cp-opt">(اختیاری)</span>
+                <span class="cp-count" data-counter-for="pc-title" data-max="{{ title_max }}"></span></span>
+              <input type="text" name="title" maxlength="{{ title_max }}" id="pc-title" value="{{ form.title|default:'' }}"
+                     placeholder="مثلاً: تخفیف ویژه‌ی آخر هفته">
+            </label>
+
+            <div class="cp-field">
+              <label class="cp-label" for="pc-body">متن <span class="cp-req">*</span>
+                <span class="cp-count" data-counter-for="pc-body" data-max="{{ body_max }}"></span></label>
+              <textarea name="body" maxlength="{{ body_max }}" id="pc-body" required
+                        placeholder="متن اعلان…">{{ form.body|default:'' }}</textarea>
+              <div class="cp-tokens">
+                <button type="button" class="cp-token" data-insert="{full_name}" data-target="pc-body">
+                  <span class="material-symbols-outlined" style="font-size:15px">add</span> نام مخاطب <code>{full_name}</code>
+                </button>
+              </div>
+            </div>
+
+            <label class="cp-field">
+              <span class="cp-label">تصویر <span class="cp-opt">(اختیاری)</span></span>
+              <input type="url" name="image_url" class="cp-ltr" id="pc-image" value="{{ form.image_url|default:'' }}" placeholder="https://…">
+              <span class="cp-hint">آدرس عمومی https؛ فایربیس تصویر را مستقیم از همین آدرس می‌خواند.</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="cp-card">
+          <div class="cp-card-head"><span class="cp-step">۳</span>
+            <div><h2>با زدن روی اعلان</h2><p>کجا باز شود — هر دو را می‌شود با هم داشت.</p></div></div>
+          <div class="cp-card-body">
+            <div class="cp-row">
+              <label class="cp-field">
+                <span class="cp-label">در اپ صاحب کسب‌وکار</span>
+                <select name="deep_link">
+                  <option value="">فقط باز شدن اپ</option>
+                  {% for value, label in deep_link_pages %}
+                    <option value="{{ value }}" {% if form.deep_link == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label class="cp-field">
+                <span class="cp-label">در مرورگر <span class="cp-opt">(اختیاری)</span></span>
+                <input type="url" name="link" class="cp-ltr" value="{{ form.link|default:'' }}" placeholder="https://…">
+              </label>
+            </div>
+            <p class="cp-hint">اپ صفحه‌ی انتخاب‌شده را باز می‌کند؛ اعلان وب (و نسخه‌هایی که صفحه را نمی‌شناسند) لینک مرورگر را.</p>
+          </div>
+        </section>
+      </div>
+
+      <aside class="cp-stack cp-sticky">
+        <section class="cp-card">
+          <div class="cp-card-head"><span class="cp-head-icon material-symbols-outlined">smartphone</span>
+            <div><h2>پیش‌نمایش</h2><p>ظاهر واقعی بسته به گوشی کمی فرق می‌کند.</p></div></div>
+          <div class="cp-card-body">
+            <div class="cp-phone">
+              <div class="cp-notif">
+                <div class="cp-notif-app">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16 9.5"/></svg>
+                  نوبت‌یار · الان
+                </div>
+                <div class="cp-notif-title" id="pv-title">{{ form.title|default:"عنوان اعلان" }}</div>
+                <div class="cp-notif-body" id="pv-body">{{ form.body|default:"متن اعلان اینجا نمایش داده می‌شود." }}</div>
+                <img class="cp-notif-img" id="pv-image" alt=""
+                     {% if form.image_url %}src="{{ form.image_url }}"{% else %}style="display:none"{% endif %}>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="cp-card">
+          <div class="cp-card-body">
+            <div class="cp-stats">
+              <div class="cp-stat"><div class="cp-stat-value" id="pc-reach">—</div><div class="cp-stat-label">دریافت‌کننده با اعلان فعال</div></div>
+              <div class="cp-stat"><div class="cp-stat-value" id="pc-matched">—</div><div class="cp-stat-label">واجد شرایط</div></div>
+            </div>
+            <button type="submit" class="cp-btn cp-btn--primary cp-btn--block" id="pc-send">
+              <span class="material-symbols-outlined">send</span>ارسال اعلان
+            </button>
+            <p class="cp-hint">قبل از ارسال یک بار دیگر تأیید می‌گیرد.</p>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </form>
+
+{% elif tab == 'sms' and can_send_sms %}
+{# ═══════════════════════════ Renewal reminder SMS ═══════════════════════════ #}
+  <section class="cp-card">
+    <div class="cp-card-body" style="flex-direction:row; flex-wrap:wrap; align-items:center; gap:14px 28px">
+      <div>
+        <div class="cp-label">ارسال خودکار</div>
+        {% if reminder_settings.is_enabled %}<span class="cp-pill cp-pill--on">روشن</span>{% else %}<span class="cp-pill cp-pill--off">خاموش</span>{% endif %}
+      </div>
+      <div>
+        <div class="cp-label">زمان ارسال</div>
+        <span class="cp-hint" style="font-size:13px">{{ reminder_settings.days_before }} روز مانده به پایان اشتراک</span>
+      </div>
+      <div>
+        <div class="cp-label">آخرین اجرای زمان‌بند</div>
+        {% if reminder_last_run %}
+          <span class="cp-hint" style="font-size:13px">{{ reminder_last_run }}</span>
+        {% else %}
+          <span class="cp-pill cp-pill--warn">هنوز اجرا نشده</span>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  {% if reminder_settings.is_enabled and not reminder_last_run %}
+    <div class="cp-note cp-note--warn">
+      <span class="material-symbols-outlined">schedule</span>
+      <div>ارسال خودکار روشن است، اما زمان‌بند هنوز هیچ‌وقت اجرا نشده. برای ارسال واقعی باید
+        <code dir="ltr">python manage.py run_subscription_lifecycle</code> روی سرور زمان‌بندی شده باشد (مثلاً هر ساعت با کرون).</div>
+    </div>
+  {% endif %}
+
+  <div class="cp-pair">
+    {# ── Automatic ── #}
+    <form method="post" action="{% url 'admin:core_expiry_sms_autosend' %}" class="cp-card">
       {% csrf_token %}
+      <div class="cp-card-head"><span class="cp-head-icon material-symbols-outlined">autorenew</span>
+        <div><h2>ارسال خودکار</h2><p>به هر صاحب اشتراک یک بار، چند روز مانده به پایان.</p></div></div>
+      <div class="cp-card-body">
+        <label class="cp-switch">
+          <input type="checkbox" name="auto_enabled" value="1" {% if reminder_settings.is_enabled %}checked{% endif %}>
+          <span class="cp-switch-track"></span>
+          <span class="cp-switch-text">ارسال خودکار روشن باشد
+            <small>با هر اجرای زمان‌بند، به کسانی که هنوز یادآوری نگرفته‌اند فرستاده می‌شود.</small></span>
+        </label>
 
-      <div class="pc-box">
-        <h2>۱. مخاطب</h2>
+        <label class="cp-field">
+          <span class="cp-label">چند روز مانده به پایان اشتراک</span>
+          <input type="number" name="auto_days_before" min="1" class="cp-ltr cp-num-input" value="{{ reminder_settings.days_before }}">
+        </label>
 
-        <div class="pc-audiences">
-          <label class="pc-aud">
-            <input type="checkbox" name="audience_visitor" value="1" data-count
-                   {% if form.audience_visitor or not form %}checked{% endif %}>
-            مشتریان
-          </label>
-          <label class="pc-aud">
-            <input type="checkbox" name="audience_owner" value="1" data-count
-                   {% if form.audience_owner %}checked{% endif %}>
-            صاحبان کسب‌وکار
-          </label>
+        <div class="cp-field">
+          <label class="cp-label" for="as-message">متن پیامک <span class="cp-req">*</span>
+            <span class="cp-count" data-sms-counter-for="as-message"></span></label>
+          <textarea name="auto_message" id="as-message" maxlength="500" required data-suffix-len="{{ sms_suffix_len }}"
+                    data-preview="as-preview">{{ reminder_settings.message_template }}</textarea>
+          <div class="cp-tokens">
+            {% for token, label in reminder_tokens %}
+              <button type="button" class="cp-token" data-insert="{{ token }}" data-target="as-message">
+                <span class="material-symbols-outlined" style="font-size:15px">add</span> {{ label }} <code>{{ token }}</code>
+              </button>
+            {% endfor %}
+          </div>
         </div>
 
-        <label class="pc-field">
-          دسته‌بندی کسب‌وکار
-          <select name="business_category" data-count>
-            <option value="">همه</option>
-            {% for value, label in business_categories %}
-              <option value="{{ value }}" {% if form.business_category == value %}selected{% endif %}>{{ label }}</option>
+        <div class="cp-field">
+          <span class="cp-label">نمونه‌ی پیامک</span>
+          <div class="cp-sms" id="as-preview"></div>
+        </div>
+
+        <div class="cp-actions">
+          <button type="submit" class="cp-btn cp-btn--primary"><span class="material-symbols-outlined">save</span>ذخیره‌ی تنظیمات</button>
+        </div>
+      </div>
+    </form>
+
+    {# ── Manual ── #}
+    <form method="post" action="{% url 'admin:core_expiry_sms_send' %}" class="cp-card" id="es-form" data-confirm="sms">
+      {% csrf_token %}
+      <div class="cp-card-head"><span class="cp-head-icon material-symbols-outlined">send</span>
+        <div><h2>ارسال دستی</h2><p>همین حالا، با متن و فیلتر دلخواه.</p></div></div>
+      <div class="cp-card-body">
+        <label class="cp-field">
+          <span class="cp-label">اشتراک‌هایی که تا چند روز دیگر تمام می‌شوند</span>
+          <input type="number" name="expiry_days_before" id="es-days" min="1" class="cp-ltr cp-num-input"
+                 value="{{ reminder_settings.days_before|default:3 }}" data-es-count>
+        </label>
+
+        <div class="cp-field">
+          <span class="cp-label">پلن <span class="cp-opt">(هیچ‌کدام = همه‌ی پلن‌ها)</span></span>
+          <div class="cp-chips">
+            {% for plan in plans %}
+              <label class="cp-chip{% if not plan.is_active %} cp-chip-muted{% endif %}">
+                <input type="checkbox" name="plan" value="{{ plan.id }}" data-es-count>{{ plan.name }}
+              </label>
             {% endfor %}
-          </select>
-          <span class="pc-hint">
-            برای مشتریان یعنی «مشتریانی که در این دسته نوبت گرفته‌اند»؛
-            برای صاحبان کسب‌وکار یعنی «صاحب کسب‌وکاری در این دسته».
-          </span>
+          </div>
+        </div>
+
+        <label class="cp-switch">
+          <input type="hidden" name="skip_reminded" value="0">
+          <input type="checkbox" name="skip_reminded" value="1" checked data-es-count>
+          <span class="cp-switch-track"></span>
+          <span class="cp-switch-text">فقط کسانی که هنوز یادآوری نگرفته‌اند
+            <small>جلوی پیامک تکراری را می‌گیرد؛ هر کس از این ارسال پیامک بگیرد، ارسال خودکار دیگر برایش نمی‌فرستد.</small></span>
         </label>
 
-        <label class="pc-aud" style="width:fit-content">
-          <input type="checkbox" name="exclude_opted_out" value="1" data-count
-                 {% if form.exclude_opted_out or not form %}checked{% endif %}>
-          مشتریانی که تبلیغات را خاموش کرده‌اند حذف شوند
-        </label>
+        <div class="cp-field">
+          <label class="cp-label" for="es-message">متن پیامک <span class="cp-req">*</span>
+            <span class="cp-count" data-sms-counter-for="es-message"></span></label>
+          <textarea name="expiry_message" id="es-message" maxlength="500" required data-suffix-len="{{ sms_suffix_len }}"
+                    data-preview="es-preview">{{ reminder_settings.message_template }}</textarea>
+          <div class="cp-tokens">
+            {% for token, label in reminder_tokens %}
+              <button type="button" class="cp-token" data-insert="{{ token }}" data-target="es-message">
+                <span class="material-symbols-outlined" style="font-size:15px">add</span> {{ label }} <code>{{ token }}</code>
+              </button>
+            {% endfor %}
+          </div>
+        </div>
 
-        <div class="pc-counts" id="pc-counts" style="margin-block-start:14px"></div>
-      </div>
+        <div class="cp-field">
+          <span class="cp-label">نمونه‌ی پیامک</span>
+          <div class="cp-sms" id="es-preview"></div>
+        </div>
 
-      <div class="pc-box">
-        <h2>۲. محتوا</h2>
+        <div class="cp-stats">
+          <div class="cp-stat"><div class="cp-stat-value" id="es-matched">—</div><div class="cp-stat-label">گیرنده</div></div>
+          <div class="cp-stat"><div class="cp-stat-value" id="es-cost">—</div><div class="cp-stat-label">پیامک مصرفی (تقریبی)</div></div>
+        </div>
 
-        <label class="pc-field">
-          عنوان
-          <input type="text" name="title" maxlength="120" id="pc-title" value="{{ form.title|default:'' }}">
-        </label>
+        <details id="es-recipients" style="display:none">
+          <summary class="cp-label" style="cursor:pointer">فهرست گیرندگان</summary>
+          <div class="cp-scroll" style="margin-top:10px">
+            <table class="cp-table">
+              <thead><tr><th>نام</th><th>شماره</th><th>پلن</th><th>روز مانده</th></tr></thead>
+              <tbody id="es-rows"></tbody>
+            </table>
+          </div>
+          <p class="cp-hint" id="es-rows-more" style="margin-top:8px"></p>
+        </details>
 
-        <label class="pc-field">
-          متن <span style="color:#d9534f">*</span>
-          <textarea name="body" maxlength="1000" id="pc-body" required>{{ form.body|default:'' }}</textarea>
-          <span class="pc-hint">می‌توانید از <code>{{ '{full_name}' }}</code> برای درج نام مخاطب استفاده کنید.</span>
-        </label>
-
-        <label class="pc-field">
-          آدرس تصویر (اختیاری)
-          <input type="url" name="image_url" class="pc-ltr" id="pc-image" value="{{ form.image_url|default:'' }}"
-                 placeholder="https://…">
-          <span class="pc-hint">باید یک آدرس عمومی https باشد؛ فایربیس تصویر را از همان‌جا می‌خواند.</span>
-        </label>
-
-        <label class="pc-field">
-          لینک (اختیاری)
-          <input type="url" name="link" class="pc-ltr" value="{{ form.link|default:'' }}" placeholder="https://…">
-          <span class="pc-hint">با کلیک روی اعلان در وب باز می‌شود.</span>
-        </label>
-
-        <label class="pc-field">
-          دیپ‌لینک اپ (اختیاری)
-          <input type="text" name="deep_link" class="pc-ltr" value="{{ form.deep_link|default:'' }}"
-                 placeholder="noobatyar://home">
-          <span class="pc-hint">
-            اگر پر شود، کلیک روی اعلان به‌جای مرورگر، همین صفحه را داخل اپ صاحب کسب‌وکار باز می‌کند.
-            صفحه‌های پشتیبانی‌شده:
-            <code dir="ltr">noobatyar://home</code>،
-            <code dir="ltr">noobatyar://visitors</code>،
-            <code dir="ltr">noobatyar://notifications</code>،
-            <code dir="ltr">noobatyar://sms-report</code>،
-            <code dir="ltr">noobatyar://addons</code>،
-            <code dir="ltr">noobatyar://settings</code>.
-            آدرس ناشناخته نادیده گرفته می‌شود و اعلان فقط اپ را باز می‌کند.
-          </span>
-        </label>
-      </div>
-
-      <div class="pc-box">
-        <button type="submit" class="default">ارسال اعلان</button>
-        <span class="pc-hint" style="margin-inline-start:10px">
-          ارسال بلافاصله و بدون تأیید دوم انجام می‌شود.
-        </span>
+        <div class="cp-actions">
+          <button type="submit" class="cp-btn cp-btn--primary" id="es-send">
+            <span class="material-symbols-outlined">send</span><span id="es-send-label">ارسال</span>
+          </button>
+          {% if operator_phone %}
+            <button type="submit" class="cp-btn cp-btn--ghost" formaction="{% url 'admin:core_expiry_sms_test' %}" formnovalidate data-no-confirm>
+              <span class="material-symbols-outlined">science</span>ارسال آزمایشی به <span dir="ltr">{{ operator_phone }}</span>
+            </button>
+          {% endif %}
+        </div>
       </div>
     </form>
   </div>
 
-  {# ── Live preview ── #}
-  <div>
-    <div class="pc-box">
-      <h2>پیش‌نمایش</h2>
-      <div class="pc-preview">
-        <div class="pc-preview-title" id="pv-title">{{ form.title|default:"عنوان اعلان" }}</div>
-        <div class="pc-preview-body" id="pv-body">{{ form.body|default:"متن اعلان اینجا نمایش داده می‌شود." }}</div>
-        <img class="pc-preview-img" id="pv-image" alt=""
-             {% if form.image_url %}src="{{ form.image_url }}"{% else %}style="display:none"{% endif %}>
-      </div>
-      <p class="pc-hint" style="margin-block-start:10px">
-        ظاهر واقعی اعلان بسته به سیستم‌عامل و مرورگر کمی فرق می‌کند.
-      </p>
-    </div>
-  </div>
-</div>
-
-{% comment %} ── Expiry-SMS blast: manual counterpart to the cron-run reminder in
-   accounting.SubscriptionReminderSettings — same "subscription ending soon"
-   audience, but the operator writes the wording fresh and sends on demand. {% endcomment %}
-<div class="pc-box">
-  <h2>پیامک یادآوری انقضای اشتراک</h2>
-  <form method="post" id="es-form">
-    {% csrf_token %}
-
-    <label class="pc-field" style="max-width:220px">
-      تا چند روز مانده به پایان اشتراک
-      <input type="number" name="expiry_days_before" id="es-days" min="1"
-             value="{{ reminder_settings.days_before|default:3 }}" class="pc-ltr">
-    </label>
-
-    <label class="pc-field">
-      متن پیامک <span style="color:#d9534f">*</span>
-      <textarea name="expiry_message" id="es-message" maxlength="500" required
-                data-suffix-len="{{ sms_suffix_len }}">{{ reminder_settings.message_template }}</textarea>
-      <span class="pc-hint" id="es-charcount"></span>
-      <span class="pc-hint">
-        جاهای خالی مجاز: <code>{{ '{full_name}' }}</code> نام خود صاحب‌حساب (نه نام کسب‌وکار)،
-        <code>{{ '{days}' }}</code> تعداد روز واقعی باقی‌مانده تا پایان اشتراک همان شخص.
-        مثال: «{{ '{full_name}' }} عزیز، {{ '{days}' }} روز دیگر موعد اشتراک شما تمام می‌شود».
-        کلمه‌ی لغو۱۱ نیازی نیست دستی تایپ شود — سامانه‌ی پیامک آن را خودش انتهای هر پیام اضافه می‌کند
-        (در شمارش کاراکتر بالا لحاظ شده).
-      </span>
-    </label>
-
-    <div class="pc-counts" id="es-counts"></div>
-
-    <button type="submit" formaction="{% url 'admin:core_expiry_sms_send' %}" class="default">
-      ارسال الان
-    </button>
-    <span class="pc-hint" style="margin-inline-start:10px">
-      ارسال بلافاصله و بدون تأیید دوم انجام می‌شود.
-    </span>
-
-    <div style="margin-block-start:16px; padding-block-start:14px; border-block-start:1px solid var(--border-color)">
-      <label class="pc-aud" style="width:fit-content">
-        <input type="checkbox" name="auto_enabled" value="1" {% if reminder_settings.is_enabled %}checked{% endif %}>
-        ارسال خودکار فعال باشد
-      </label>
-      <p class="pc-hint" style="margin-block-start:6px">
-        وضعیت فعلی:
-        {% if reminder_settings.is_enabled %}
-          <strong style="color:#2e7d32">روشن</strong> — هر بار که چرخه اجرا شود،
-          {{ reminder_settings.days_before }} روز مانده به پایان، همین متن بالا فرستاده می‌شود.
-        {% else %}
-          <strong>خاموش</strong>
-        {% endif %}
-        — این تیک فقط تنظیم را روشن/خاموش می‌کند؛ اجرای واقعی هر بار نیاز به این دارد که
-        <code dir="ltr">python manage.py run_subscription_lifecycle</code> جایی (کرون یا هر ابزار دیگری)
-        زمان‌بندی شده باشد.
-      </p>
-      <button type="submit" formaction="{% url 'admin:core_expiry_sms_autosend' %}">
-        ذخیره تنظیمات خودکار
-      </button>
-    </div>
-  </form>
-</div>
-
-<div class="pc-box">
-  <h2>گزارش پیامک‌های انقضای اشتراک</h2>
-  {% if not expiry_logs %}
-    <p class="pc-hint">هنوز پیامکی ارسال نشده است.</p>
-  {% else %}
-    {% for l in expiry_logs %}
-      <div class="pc-campaign">
-        <div class="pc-campaign-head">
-          <div class="pc-campaign-title">{{ l.message }}</div>
-          <div class="pc-campaign-meta">
-            {{ l.sent_at }} —
-            {% if l.sent_by %}{{ l.sent_by.name|default:l.sent_by.phone }}{% else %}—{% endif %}
-            — تا {{ l.days_before }} روز مانده —
-            {{ l.sent_count }} از {{ l.matched_count }} ارسال شد
-            {% if l.failed_count %}({{ l.failed_count }} ناموفق){% endif %}
+{% else %}
+{# ════════════════════════════════ Reports ════════════════════════════════ #}
+  {% if can_send_push %}
+  <section class="cp-card">
+    <div class="cp-card-head"><span class="cp-head-icon material-symbols-outlined">notifications_active</span>
+      <div><h2>اعلان‌های پوش</h2>
+        <p>«پذیرفته‌شده» یعنی فایربیس پیام را قبول کرده — نه لزوماً نمایش یا باز شدن روی گوشی.</p></div></div>
+    {% if not campaigns %}
+      <div class="cp-empty">هنوز اعلانی ارسال نشده است.</div>
+    {% endif %}
+    {% for c in campaigns %}
+      <details class="cp-report">
+        <summary>
+          <div class="cp-report-top">
+            <span class="cp-report-title">{{ c.title|default:c.body|truncatechars:80 }}</span>
+            {% for r in c.rows %}<span class="cp-badge">{{ r.get_audience_display }}</span>{% endfor %}
+            <span class="cp-report-chevron material-symbols-outlined">expand_more</span>
           </div>
-        </div>
-        {% if l.recipients %}
-          <details>
-            <summary style="cursor:pointer; padding:8px 14px; font-size:12px; color:var(--link-fg)">
-              فهرست گیرندگان ({{ l.recipients|length }} نفر)
-            </summary>
-            <table class="pc-table">
-              <thead>
-                <tr><th>نام</th><th>شماره</th><th>وضعیت</th><th>خطا</th></tr>
-              </thead>
+          <div class="cp-report-meta">{{ c.sent_at_display }} · {% if c.sent_by %}{{ c.sent_by.name|default:c.sent_by.phone }}{% else %}—{% endif %}</div>
+          <div class="cp-report-figs">
+            <span>واجد شرایط <b>{{ c.recipient_total }}</b></span>
+            <span>اعلان فعال <b>{{ c.reachable_total }}</b></span>
+            <span class="cp-ok">پذیرفته‌شده <b>{{ c.delivered_total }}</b></span>
+            {% if c.failed_total %}<span class="cp-bad">ناموفق <b>{{ c.failed_total }}</b></span>{% endif %}
+            <span>نرخ پذیرش <b>{{ c.delivery_rate }}٪</b></span>
+          </div>
+        </summary>
+        <div class="cp-report-more">
+          <div class="cp-sms">{% if c.title %}<b>{{ c.title }}</b>
+{% endif %}{{ c.body }}</div>
+          {% if c.deep_link or c.link %}
+            <p class="cp-hint">
+              {% if c.deep_link %}در اپ: <span dir="ltr">{{ c.deep_link }}</span>{% endif %}
+              {% if c.deep_link and c.link %} · {% endif %}
+              {% if c.link %}در مرورگر: <span dir="ltr">{{ c.link }}</span>{% endif %}
+            </p>
+          {% endif %}
+          <div class="cp-scroll">
+            <table class="cp-table">
+              <thead><tr><th>مخاطب</th><th>واجد شرایط</th><th>اعلان فعال</th><th>بدون اعلان</th>
+                <th>پذیرفته‌شده</th><th>ناموفق</th><th>توکن منقضی</th><th>نرخ پذیرش</th></tr></thead>
               <tbody>
-                {% for r in l.recipients %}
+                {% for r in c.rows %}
                   <tr>
-                    <td>{{ r.name|default:"—" }}</td>
-                    <td class="pc-num">{{ r.phone|default:"—" }}</td>
-                    <td>{% if r.status == 'SENT' %}ارسال‌شده{% else %}ناموفق{% endif %}</td>
-                    <td>{{ r.error|default:"" }}</td>
+                    <td><span class="cp-badge">{{ r.get_audience_display }}</span></td>
+                    <td class="cp-num">{{ r.recipient_count }}</td>
+                    <td class="cp-num">{{ r.reachable_count }}</td>
+                    <td class="cp-num">{{ r.unreachable_count }}</td>
+                    <td class="cp-num">{{ r.delivered_count }}</td>
+                    <td class="cp-num">{{ r.failed_count }}</td>
+                    <td class="cp-num">{{ r.dead_token_count }}</td>
+                    <td class="cp-num">{{ r.delivery_rate }}٪</td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
-          </details>
-        {% else %}
-          <p class="pc-hint" style="padding:8px 14px; margin:0">
-            این ارسال قبل از افزوده‌شدن فهرست گیرندگان به این گزارش انجام شده — فقط شمار کلی
-            (واجد شرایط/ارسال‌شده/ناموفق) بالا ثبت است، اسم و شماره‌ی تک‌تک افراد برایش ذخیره نشده.
-          </p>
-        {% endif %}
-      </div>
-    {% endfor %}
-  {% endif %}
-</div>
-
-{# ── Delivery report ── #}
-<div class="pc-box">
-  <h2>گزارش ارسال‌ها</h2>
-
-  <div class="pc-warn">
-    «پذیرفته‌شده» یعنی فایربیس پیام را قبول کرده است — نه اینکه حتماً روی گوشی نمایش
-    داده شده یا باز شده. API ارسال فایربیس هیچ آمار تحویل یا بازشدنی برنمی‌گرداند،
-    بنابراین این اعداد از سمت ما شمرده می‌شوند.
-  </div>
-
-  {% if not campaigns %}
-    <p class="pc-hint">هنوز کمپینی ارسال نشده است.</p>
-  {% endif %}
-
-  {% for c in campaigns %}
-    <div class="pc-campaign">
-      <div class="pc-campaign-head">
-        <div class="pc-campaign-title">{{ c.title|default:c.body|truncatechars:70 }}</div>
-        <div class="pc-campaign-meta">
-          {{ c.sent_at }} —
-          {% if c.sent_by %}{{ c.sent_by.name|default:c.sent_by.phone }}{% else %}—{% endif %}
-          {% if c.link %} — <span dir="ltr">{{ c.link }}</span>{% endif %}
-          {% if c.deep_link %} — <span dir="ltr">{{ c.deep_link }}</span>{% endif %}
+          </div>
         </div>
-      </div>
-      <table class="pc-table">
-        <thead>
-          <tr>
-            <th>مخاطب</th>
-            <th>واجد شرایط</th>
-            <th>اعلان فعال</th>
-            <th>بدون اعلان</th>
-            <th>پذیرفته‌شده</th>
-            <th>ناموفق</th>
-            <th>توکن منقضی</th>
-            <th>نرخ پذیرش</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in c.rows %}
-            <tr>
-              <td><span class="pc-badge">{{ r.get_audience_display }}</span></td>
-              <td class="pc-num">{{ r.recipient_count }}</td>
-              <td class="pc-num">{{ r.reachable_count }}</td>
-              <td class="pc-num">{{ r.unreachable_count }}</td>
-              <td class="pc-num">{{ r.delivered_count }}</td>
-              <td class="pc-num">{{ r.failed_count }}</td>
-              <td class="pc-num">{{ r.dead_token_count }}</td>
-              <td class="pc-num">{{ r.delivery_rate }}٪</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% endfor %}
+      </details>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if can_send_sms %}
+  <section class="cp-card">
+    <div class="cp-card-head"><span class="cp-head-icon material-symbols-outlined">sms</span>
+      <div><h2>پیامک‌های تمدید اشتراک</h2><p>دستی، خودکار و آزمایشی — هر چه واقعاً ارسال شده.</p></div></div>
+    {% if not expiry_logs %}
+      <div class="cp-empty">هنوز پیامکی ارسال نشده است.</div>
+    {% endif %}
+    {% for l in expiry_logs %}
+      <details class="cp-report">
+        <summary>
+          <div class="cp-report-top">
+            <span class="cp-badge{% if l.source == 'auto' %} cp-badge--auto{% elif l.source == 'test' %} cp-badge--test{% endif %}">{{ l.get_source_display }}</span>
+            <span class="cp-report-title">{{ l.message|truncatechars:80 }}</span>
+            <span class="cp-report-chevron material-symbols-outlined">expand_more</span>
+          </div>
+          <div class="cp-report-meta">
+            {{ l.sent_at_display }} ·
+            {% if l.sent_by %}{{ l.sent_by.name|default:l.sent_by.phone }}{% elif l.source == 'auto' %}زمان‌بند{% else %}—{% endif %}
+            {% if l.source != 'test' %} · تا {{ l.days_before }} روز مانده{% endif %}
+            {% if l.filters.plans %} · پلن: {{ l.filters.plans|join:"، " }}{% endif %}
+          </div>
+          <div class="cp-report-figs">
+            <span>واجد شرایط <b>{{ l.matched_count }}</b></span>
+            <span class="cp-ok">ارسال‌شده <b>{{ l.sent_count }}</b></span>
+            {% if l.failed_count %}<span class="cp-bad">ناموفق <b>{{ l.failed_count }}</b></span>{% endif %}
+          </div>
+        </summary>
+        <div class="cp-report-more">
+          <div class="cp-sms">{{ l.message }}</div>
+          {% if l.recipients %}
+            <div class="cp-scroll">
+              <table class="cp-table">
+                <thead><tr><th>نام</th><th>شماره</th><th>وضعیت</th><th>خطا</th></tr></thead>
+                <tbody>
+                  {% for r in l.recipients %}
+                    <tr>
+                      <td>{{ r.name|default:"—" }}</td>
+                      <td class="cp-num">{{ r.phone|default:"—" }}</td>
+                      <td>{% if r.status == 'SENT' %}<span class="cp-ok">ارسال‌شده</span>{% else %}<span class="cp-bad">ناموفق</span>{% endif %}</td>
+                      <td>{{ r.error|default:"" }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="cp-hint">برای این ارسال (قدیمی‌تر از ثبت فهرست گیرندگان) فقط شمار کلی ذخیره شده است.</p>
+          {% endif %}
+        </div>
+      </details>
+    {% endfor %}
+  </section>
+  {% endif %}
+{% endif %}
 </div>
+
+<dialog class="cp-dialog" id="cp-confirm">
+  <div class="cp-dialog-body">
+    <h3 id="cp-confirm-title">ارسال انجام شود؟</h3>
+    <p id="cp-confirm-text"></p>
+  </div>
+  <div class="cp-dialog-actions">
+    <button type="button" class="cp-btn cp-btn--ghost" id="cp-confirm-cancel">انصراف</button>
+    <button type="button" class="cp-btn cp-btn--primary" id="cp-confirm-ok"><span class="material-symbols-outlined">send</span>بله، ارسال شود</button>
+  </div>
+</dialog>
 
 <script>
 (function () {
-  var form = document.getElementById('pc-form');
-  if (!form) return;
+  var fa = function (n) { return String(n).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[d]; }); };
 
-  // ── Live preview ──
-  function bind(inputId, render) {
-    var el = document.getElementById(inputId);
-    if (el) el.addEventListener('input', render);
-  }
-  var pvTitle = document.getElementById('pv-title');
-  var pvBody = document.getElementById('pv-body');
-  var pvImage = document.getElementById('pv-image');
-
-  bind('pc-title', function () {
-    pvTitle.textContent = this.value || 'عنوان اعلان';
+  // ── Character counters ──
+  document.querySelectorAll('[data-counter-for]').forEach(function (el) {
+    var input = document.getElementById(el.dataset.counterFor);
+    if (!input) return;
+    var update = function () { el.textContent = fa(input.value.length) + ' / ' + fa(el.dataset.max); };
+    input.addEventListener('input', update); update();
   });
-  bind('pc-body', function () {
-    pvBody.textContent = this.value || 'متن اعلان اینجا نمایش داده می‌شود.';
-  });
-  bind('pc-image', function () {
-    var v = this.value.trim();
-    // A half-typed URL 404s noisily in the console on every keystroke; only
-    // attempt to load something that at least looks complete.
-    if (/^https?:\/\/.+/.test(v)) { pvImage.src = v; pvImage.style.display = ''; }
-    else { pvImage.removeAttribute('src'); pvImage.style.display = 'none'; }
-  });
-  pvImage.addEventListener('error', function () { this.style.display = 'none'; });
 
-  // ── Live recipient count ──
-  var countsBox = document.getElementById('pc-counts');
-  var labels = { visitor: 'مشتریان', owner: 'صاحبان کسب‌وکار' };
-  var timer = null;
-
-  function card(title, value, hint) {
-    return '<div class="pc-card"><div class="pc-card-title">' + title +
-           '</div><div class="pc-card-value">' + value + '</div>' +
-           (hint ? '<div class="pc-card-title" style="margin-block-start:4px">' + hint + '</div>' : '') +
-           '</div>';
-  }
-
-  function refresh() {
-    var params = new URLSearchParams();
-    var any = false;
-    ['visitor', 'owner'].forEach(function (a) {
-      var cb = form.querySelector('[name=audience_' + a + ']');
-      if (cb && cb.checked) { params.set('audience_' + a, '1'); any = true; }
-    });
-    if (!any) { countsBox.innerHTML = ''; return; }
-
-    params.set('business_category', form.querySelector('[name=business_category]').value);
-    var opt = form.querySelector('[name=exclude_opted_out]');
-    params.set('exclude_opted_out', opt && opt.checked ? '1' : '0');
-
-    countsBox.innerHTML = card('در حال شمارش…', '…');
-    fetch('{% url "admin:core_campaign_count" %}?' + params.toString(), {
-      credentials: 'same-origin',
-    })
-      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-      .then(function (d) {
-        var html = '';
-        Object.keys(d.audiences).forEach(function (a) {
-          var v = d.audiences[a];
-          html += card(labels[a] + ' — اعلان فعال', v.reachable,
-                       'از ' + v.matched + ' نفر واجد شرایط');
-        });
-        countsBox.innerHTML = html;
-      })
-      // The count is a convenience, not a gate: if it fails the operator can
-      // still send and read the real numbers off the result message.
-      .catch(function () { countsBox.innerHTML = card('تعداد مخاطب', '—', 'شمارش ناموفق بود'); });
-  }
-
-  form.querySelectorAll('[data-count]').forEach(function (el) {
-    el.addEventListener('change', function () {
-      clearTimeout(timer);
-      timer = setTimeout(refresh, 150);
+  // ── Insert a {token} at the cursor ──
+  document.querySelectorAll('[data-insert]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var t = document.getElementById(btn.dataset.target);
+      if (!t) return;
+      var s = t.selectionStart != null ? t.selectionStart : t.value.length;
+      var e = t.selectionEnd != null ? t.selectionEnd : t.value.length;
+      t.value = t.value.slice(0, s) + btn.dataset.insert + t.value.slice(e);
+      t.focus();
+      t.selectionStart = t.selectionEnd = s + btn.dataset.insert.length;
+      t.dispatchEvent(new Event('input'));
     });
   });
 
-  refresh();
-
-  // ── Expiry-SMS live count ──
-  var esDays = document.getElementById('es-days');
-  var esCounts = document.getElementById('es-counts');
-  var esTimer = null;
-
-  function esRefresh() {
-    var days = esDays.value;
-    if (!days || Number(days) <= 0) { esCounts.innerHTML = ''; return; }
-
-    esCounts.innerHTML = card('در حال شمارش…', '…');
-    fetch('{% url "admin:core_expiry_sms_count" %}?days_before=' + encodeURIComponent(days), {
-      credentials: 'same-origin',
-    })
-      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-      .then(function (d) {
-        esCounts.innerHTML = card('اشتراک‌های واجد شرایط', d.matched,
-                                   'تا ' + days + ' روز دیگر منقضی می‌شوند');
-      })
-      .catch(function () { esCounts.innerHTML = card('تعداد', '—', 'شمارش ناموفق بود'); });
+  // ── Confirm dialog before any bulk send ──
+  var dialog = document.getElementById('cp-confirm');
+  var pendingForm = null, pendingSubmitter = null, bypass = false;
+  function ask(form, submitter, title, text) {
+    if (!dialog || typeof dialog.showModal !== 'function') return window.confirm(text);
+    pendingForm = form; pendingSubmitter = submitter;
+    document.getElementById('cp-confirm-title').textContent = title;
+    document.getElementById('cp-confirm-text').textContent = text;
+    dialog.showModal();
+    return false;
+  }
+  if (dialog) {
+    document.getElementById('cp-confirm-cancel').onclick = function () { dialog.close(); };
+    document.getElementById('cp-confirm-ok').onclick = function () {
+      dialog.close(); bypass = true;
+      if (pendingForm.requestSubmit) pendingForm.requestSubmit(pendingSubmitter); else pendingForm.submit();
+    };
   }
 
-  if (esDays) {
-    esDays.addEventListener('input', function () {
-      clearTimeout(esTimer);
-      esTimer = setTimeout(esRefresh, 150);
+  // ════════ Push ════════
+  var pushForm = document.getElementById('pc-form');
+  if (pushForm) {
+    var pvTitle = document.getElementById('pv-title'), pvBody = document.getElementById('pv-body'), pvImage = document.getElementById('pv-image');
+    document.getElementById('pc-title').addEventListener('input', function () { pvTitle.textContent = this.value || 'عنوان اعلان'; });
+    document.getElementById('pc-body').addEventListener('input', function () {
+      pvBody.textContent = (this.value || 'متن اعلان اینجا نمایش داده می‌شود.').replace(/\{full_name\}/g, 'سارا احمدی');
+    });
+    document.getElementById('pc-image').addEventListener('input', function () {
+      var v = this.value.trim();
+      // A half-typed URL 404s on every keystroke; only load what looks complete.
+      if (/^https:\/\/.+\..+/.test(v)) { pvImage.src = v; pvImage.style.display = ''; }
+      else { pvImage.removeAttribute('src'); pvImage.style.display = 'none'; }
+    });
+    pvImage.addEventListener('error', function () { this.style.display = 'none'; });
+
+    var reach = { visitor: null, owner: null }, matched = { visitor: null, owner: null }, timer = null;
+    var sendBtn = document.getElementById('pc-send');
+    function selected() {
+      return ['visitor', 'owner'].filter(function (a) { var cb = pushForm.querySelector('[name=audience_' + a + ']'); return cb && cb.checked; });
+    }
+    function paintTotals() {
+      var sel = selected(), r = 0, m = 0, known = true;
+      sel.forEach(function (a) { if (reach[a] == null) known = false; r += reach[a] || 0; m += matched[a] || 0; });
+      document.getElementById('pc-reach').textContent = sel.length && known ? fa(r) : '—';
+      document.getElementById('pc-matched').textContent = sel.length && known ? fa(m) : '—';
+      sendBtn.disabled = sel.length === 0;
+    }
+    function refresh() {
+      var params = new URLSearchParams();
+      ['visitor', 'owner'].forEach(function (a) { params.set('audience_' + a, '1'); });
+      params.set('business_category', pushForm.querySelector('[name=business_category]').value);
+      var opt = pushForm.querySelector('[name=exclude_opted_out]');
+      params.set('exclude_opted_out', opt && opt.checked ? '1' : '0');
+      document.querySelectorAll('[data-stat]').forEach(function (el) { el.textContent = 'در حال شمارش…'; });
+      fetch('{% url "admin:core_campaign_count" %}?' + params.toString(), { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (d) {
+          ['visitor', 'owner'].forEach(function (a) {
+            var v = d.audiences[a], el = document.querySelector('[data-stat=' + a + ']');
+            reach[a] = v ? v.reachable : 0; matched[a] = v ? v.matched : 0;
+            if (el) el.textContent = v ? fa(v.reachable) + ' نفر با اعلان فعال · از ' + fa(v.matched) + ' نفر' : '—';
+          });
+          paintTotals();
+        })
+        // The count is a convenience, not a gate: sending still works and
+        // reports the real numbers.
+        .catch(function () { document.querySelectorAll('[data-stat]').forEach(function (el) { el.textContent = 'شمارش ناموفق بود'; }); });
+    }
+    pushForm.querySelectorAll('[data-count]').forEach(function (el) {
+      el.addEventListener('change', function () {
+        paintTotals();
+        if (el.name.indexOf('audience_') !== 0) { clearTimeout(timer); timer = setTimeout(refresh, 150); }
+      });
+    });
+    refresh(); paintTotals();
+
+    pushForm.addEventListener('submit', function (ev) {
+      if (bypass) { bypass = false; return; }
+      var sel = selected();
+      var names = { visitor: 'مشتریان', owner: 'صاحبان کسب‌وکار' };
+      var parts = sel.map(function (a) { return names[a] + (reach[a] != null ? ' (' + fa(reach[a]) + ' نفر)' : ''); });
+      if (!ask(pushForm, ev.submitter, 'اعلان ارسال شود؟', 'این اعلان همین حالا برای ' + parts.join(' و ') + ' فرستاده می‌شود و قابل برگشت نیست.')) ev.preventDefault();
+    });
+  }
+
+  // ════════ Renewal reminder SMS ════════
+  // Iranian SMS gateways bill in UCS-2 segments once Persian text is involved:
+  // 70 chars for one, 67 per part once it splits. data-suffix-len is the exact
+  // length api.sms.signed() appends (footer + لغو11), computed server-side.
+  function segments(len) { return len <= 0 ? 0 : (len <= 70 ? 1 : Math.ceil(len / 67)); }
+  var sample = { '{full_name}': 'مریم رستگار', '{days}': '۳', '{plan}': 'پرو' };
+  document.querySelectorAll('[data-sms-counter-for]').forEach(function (el) {
+    var t = document.getElementById(el.dataset.smsCounterFor);
+    var pv = t && document.getElementById(t.dataset.preview);
+    var update = function () {
+      var total = t.value.length + parseInt(t.dataset.suffixLen || '0', 10);
+      t.dataset.segments = segments(total);
+      el.textContent = fa(total) + ' کاراکتر با امضا · ' + fa(segments(total)) + ' پیامک';
+      if (pv) {
+        var text = t.value;
+        Object.keys(sample).forEach(function (k) { text = text.split(k).join(sample[k]); });
+        pv.textContent = (text || '…') + '\n\nنوبت‌یار\nلغو11';
+      }
+      t.dispatchEvent(new Event('segments'));
+    };
+    t.addEventListener('input', update); update();
+  });
+
+  var esForm = document.getElementById('es-form');
+  if (esForm) {
+    var esMatched = null, esTimer = null;
+    var esMessage = document.getElementById('es-message');
+    function esPaintCost() {
+      var seg = parseInt(esMessage.dataset.segments || '1', 10);
+      document.getElementById('es-cost').textContent = esMatched == null ? '—' : fa(esMatched * seg);
+      document.getElementById('es-send-label').textContent =
+        esMatched == null ? 'ارسال' : (esMatched ? 'ارسال برای ' + fa(esMatched) + ' نفر' : 'کسی در این فیلتر نیست');
+      document.getElementById('es-send').disabled = esMatched === 0;
+    }
+    esMessage.addEventListener('segments', esPaintCost);
+    function esRefresh() {
+      var params = new URLSearchParams(new FormData(esForm));
+      params.delete('csrfmiddlewaretoken'); params.delete('expiry_message');
+      // The hidden 0 + checked 1 pair: keep the last value only.
+      var skips = params.getAll('skip_reminded'); params.delete('skip_reminded'); params.set('skip_reminded', skips[skips.length - 1] || '0');
+      if (!(parseInt(params.get('expiry_days_before'), 10) > 0)) { esMatched = null; esPaintCost(); return; }
+      document.getElementById('es-matched').textContent = '…';
+      fetch('{% url "admin:core_expiry_sms_count" %}?' + params.toString(), { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (d) {
+          esMatched = d.matched;
+          document.getElementById('es-matched').textContent = fa(d.matched);
+          var box = document.getElementById('es-recipients'), body = document.getElementById('es-rows');
+          box.style.display = d.matched ? '' : 'none';
+          body.innerHTML = '';
+          d.rows.forEach(function (r) {
+            var tr = document.createElement('tr');
+            [r.name || '—', r.phone || '—', r.plan, fa(r.days_left)].forEach(function (v, i) {
+              var td = document.createElement('td'); td.textContent = v; if (i === 1 || i === 3) td.className = 'cp-num'; tr.appendChild(td);
+            });
+            body.appendChild(tr);
+          });
+          document.getElementById('es-rows-more').textContent =
+            d.matched > d.rows.length ? fa(d.rows.length) + ' نفر اول از ' + fa(d.matched) + ' نفر نمایش داده شده‌اند.' : '';
+          esPaintCost();
+        })
+        .catch(function () { esMatched = null; document.getElementById('es-matched').textContent = '—'; esPaintCost(); });
+    }
+    esForm.querySelectorAll('[data-es-count]').forEach(function (el) {
+      el.addEventListener(el.type === 'number' ? 'input' : 'change', function () { clearTimeout(esTimer); esTimer = setTimeout(esRefresh, 200); });
     });
     esRefresh();
-  }
 
-  // ── Expiry-SMS character/segment counter ──
-  // Iranian SMS gateways bill in UCS-2 segments once Persian text is
-  // involved: 70 chars for one segment, 67 per segment once it splits into
-  // several (the extra 3 chars per part go to the concatenation header).
-  // `data-suffix-len` is the exact length of what api.sms.signed() appends
-  // after whatever staff type (footer + لغو11), computed server-side in
-  // core.admin_site so this never drifts from the real value sent.
-  var esMessage = document.getElementById('es-message');
-  var esCharCount = document.getElementById('es-charcount');
-
-  function smsSegments(len) {
-    if (len <= 0) return 0;
-    if (len <= 70) return 1;
-    return Math.ceil(len / 67);
-  }
-
-  function esUpdateCount() {
-    if (!esMessage || !esCharCount) return;
-    var suffixLen = parseInt(esMessage.dataset.suffixLen || '0', 10);
-    var total = esMessage.value.length + suffixLen;
-    var segments = smsSegments(total);
-    esCharCount.textContent =
-      total + ' کاراکتر با احتساب امضا و لغو۱۱ (خودِ متن: ' + esMessage.value.length + ' کاراکتر)' +
-      ' → ' + segments + ' پیامک برای هر گیرنده';
-  }
-
-  if (esMessage) {
-    esMessage.addEventListener('input', esUpdateCount);
-    esUpdateCount();
+    esForm.addEventListener('submit', function (ev) {
+      if (bypass) { bypass = false; return; }
+      if (ev.submitter && ev.submitter.hasAttribute('data-no-confirm')) return;
+      var seg = parseInt(esMessage.dataset.segments || '1', 10);
+      var text = esMatched != null
+        ? 'این پیامک همین حالا برای ' + fa(esMatched) + ' صاحب اشتراک فرستاده می‌شود (حدود ' + fa(esMatched * seg) + ' پیامک). قابل برگشت نیست.'
+        : 'این پیامک همین حالا برای همه‌ی صاحبان اشتراکِ این فیلتر فرستاده می‌شود. قابل برگشت نیست.';
+      if (!ask(esForm, ev.submitter, 'پیامک ارسال شود؟', text)) ev.preventDefault();
+    });
   }
 })();
 </script>

@@ -305,6 +305,10 @@ class SubscriptionReminderSettings(models.Model):
                   verbose_name='قالب پیام',
     )
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
+    # Stamped by run_subscription_lifecycle every time it runs, on or off, so
+    # the admin can tell "the switch is on but nothing is scheduling the job"
+    # apart from "the job runs and simply had nobody to remind".
+    last_run_at = models.DateTimeField(null=True, blank=True, verbose_name='آخرین اجرای زمان‌بند')
 
     class Meta:
         db_table = 'accounting_subscription_reminder_settings'
@@ -328,15 +332,35 @@ class SubscriptionReminderSettings(models.Model):
         return obj
 
     def render_message(self, *, plan_name, days_left, owner_name=''):
-        try:
-            return self.message_template.format(plan=plan_name, days=days_left, full_name=owner_name)
-        except (KeyError, ValueError, IndexError):
-            # A malformed template (typo'd placeholder, stray brace) must not
-            # take down the whole reminder job — fall back to the field's
-            # own default rather than crashing the cron run.
-            return self._meta.get_field('message_template').default.format(
-                plan=plan_name, days=days_left, full_name=owner_name,
-            )
+        template = self.message_template or self._meta.get_field('message_template').default
+        return render_reminder_text(
+            template, owner_name=owner_name, days_left=days_left, plan_name=plan_name,
+        )
+
+
+# The tokens a renewal reminder may use, in the order the admin offers them.
+REMINDER_TOKENS = (
+    ('{full_name}', 'نام صاحب‌حساب'),
+    ('{days}', 'روز باقی‌مانده'),
+    ('{plan}', 'نام پلن'),
+)
+
+
+def render_reminder_text(template, *, owner_name, days_left, plan_name):
+    """Fill a renewal-reminder template — the one renderer behind both the
+    cron-run reminder and the manual send in the admin, so a template reads
+    the same whichever way it goes out.
+
+    Plain token replacement rather than ``str.format``: a stray brace or an
+    unknown ``{token}`` stays as typed instead of raising, so one typo can
+    neither crash the cron run nor silently swap in a different message.
+    """
+    return (
+        template
+        .replace('{full_name}', owner_name or '')
+        .replace('{days}', str(days_left))
+        .replace('{plan}', plan_name or '')
+    )
 
 class StorePurchase(models.Model):
     """One in-app purchase made through an Android store (Myket for now).

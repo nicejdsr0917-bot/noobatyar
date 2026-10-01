@@ -43,7 +43,12 @@ class Command(BaseCommand):
     def _send_renewal_reminders(self, now):
         from api.sms import send_sms, signed
 
+        from core.models import ExpirySmsLog
+
         settings_row = SubscriptionReminderSettings.load()
+        # Stamped on every run, switch on or off — the admin shows it so an
+        # operator can see whether anything is actually scheduling this job.
+        SubscriptionReminderSettings.objects.filter(pk=settings_row.pk).update(last_run_at=now)
         if not settings_row.is_enabled:
             self.stdout.write("یادآوری تمدید: خاموش است (SubscriptionReminderSettings.is_enabled=False)")
             return
@@ -56,12 +61,16 @@ class Command(BaseCommand):
             ends_at__lte=window_end,
         ).select_related("user", "plan")
 
+        sent = failed = 0
+        recipients = []
         for sub in due:
+            name = sub.user.name or ""
             phone = getattr(sub.user, "phone", None)
+            ok, err = False, "بدون شماره تلفن"
             if phone:
                 days = max(1, sub.days_left())
                 msg = signed(settings_row.render_message(
-                    plan_name=sub.plan.name, days_left=days, owner_name=sub.user.name,
+                    plan_name=sub.plan.name, days_left=days, owner_name=name,
                 ))
                 try:
                     # Platform-level notice to the owner about their own
@@ -70,11 +79,30 @@ class Command(BaseCommand):
                     if not ok:
                         self.stderr.write(f"reminder SMS failed for {phone}: {err}")
                 except Exception as exc:  # noqa: BLE001 — reminder must not crash the job
+                    ok, err = False, str(exc)
                     self.stderr.write(f"reminder SMS failed for {phone}: {exc}")
+            if ok:
+                sent += 1
+                recipients.append({"name": name, "phone": phone, "status": "SENT"})
+            else:
+                failed += 1
+                recipients.append({"name": name, "phone": phone or "", "status": "FAILED", "error": err or ""})
             sub.reminder_sent = True
             sub.save(update_fields=["reminder_sent"])
 
-        self.stdout.write(f"یادآوری تمدید: {due.count() if hasattr(due, 'count') else 0} مورد")
+        # In the same report as the admin's manual sends, so it shows
+        # everything that actually went out — not only what staff sent.
+        if recipients:
+            ExpirySmsLog.objects.create(
+                source=ExpirySmsLog.SOURCE_AUTO,
+                message=settings_row.message_template,
+                days_before=settings_row.days_before,
+                filters={"plans": [], "skip_reminded": True},
+                matched_count=len(recipients), sent_count=sent, failed_count=failed,
+                recipients=recipients, sent_by=None,
+            )
+
+        self.stdout.write(f"یادآوری تمدید: {len(recipients)} مورد")
 
     # ── 2 & 3. Expiry + graceful downgrade ───────────────────────────────────
     def _expire_and_downgrade(self, now):

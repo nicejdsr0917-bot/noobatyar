@@ -278,9 +278,11 @@ class MarketingPushLog(models.Model):
 
 class ExpirySmsLog(models.Model):
     """
-    Audit trail for one manual SMS blast to business owners whose Noobatyar
-    subscription (accounting.Subscription) is ending soon
-    (NobatyarAdminSite.expiry_sms_send_view).
+    Audit trail for one batch of renewal-reminder SMS to business owners whose
+    Noobatyar subscription (accounting.Subscription) is ending soon — a
+    manual send from the admin (NobatyarAdminSite.expiry_sms_send_view), a
+    run of the automatic reminder (run_subscription_lifecycle), or a test
+    send to the operator's own number; see ``source``.
 
     One row per send, not one row per recipient — same aggregate-log
     reasoning as MarketingPushLog: an operator triggers this by hand a few
@@ -289,19 +291,32 @@ class ExpirySmsLog(models.Model):
     per-person breakdown as JSON on the one row rather than needing a whole
     separate table + joins just to answer "who did we message".
 
-    ``{full_name}`` in ``message`` is replaced with the *owner's own name*
-    (``User.name``), deliberately not the business name — staff asked for
-    the person's name here, unlike ``core.messaging._personalize``'s
-    ``{business_name}`` token used for per-business admin messages.
-
-    Distinct from the automated ``accounting.SubscriptionReminderSettings``
-    reminder (run via cron, fixed wording, gated by an on/off switch): this
-    is the manual, write-it-yourself-and-send-now counterpart for an
-    operator who wants to reach expiring owners on demand.
+    ``message`` is stored as typed, tokens and all; each recipient got it
+    filled by ``accounting.models.render_reminder_text`` — ``{full_name}``
+    the *owner's own name* (``User.name``, deliberately not the business
+    name, unlike ``core.messaging._personalize``'s ``{business_name}``),
+    ``{days}`` their days left, ``{plan}`` their plan.
     """
 
+    SOURCE_MANUAL = 'manual'
+    SOURCE_AUTO = 'auto'
+    SOURCE_TEST = 'test'
+    SOURCE_CHOICES = [
+        (SOURCE_MANUAL, 'دستی'),
+        (SOURCE_AUTO, 'خودکار'),
+        (SOURCE_TEST, 'آزمایشی'),
+    ]
+
+    # Manual sends from the admin, the cron-run reminder (logged here too, so
+    # the report covers everything that actually went out), and test sends to
+    # the operator's own number.
+    source = models.CharField(
+        max_length=10, choices=SOURCE_CHOICES, default=SOURCE_MANUAL, verbose_name='نوع ارسال',
+    )
     message = models.TextField(verbose_name='متن ارسال‌شده')
     days_before = models.PositiveIntegerField(verbose_name='تا چند روز مانده به پایان اشتراک')
+    # The rest of the audience as sent: {"plans": [names], "skip_reminded": bool}.
+    filters = models.JSONField(default=dict, blank=True, verbose_name='فیلترها')
     matched_count = models.PositiveIntegerField(verbose_name='تعداد واجد شرایط')
     sent_count = models.PositiveIntegerField(default=0, verbose_name='ارسال‌شده')
     failed_count = models.PositiveIntegerField(default=0, verbose_name='ناموفق')

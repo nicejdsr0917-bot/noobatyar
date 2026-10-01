@@ -48,6 +48,18 @@ BODY_MAX = 1000
 # rejected at compose time instead of being sent and silently doing nothing.
 DEEP_LINK_SCHEME = 'noobatyar'
 
+# The pages the owner app knows how to open from a deep link — mirrors
+# NotificationNavigationManager.kt in mobile_owner. The admin offers these as
+# a list instead of a free-text field, so nobody has to remember the paths.
+DEEP_LINK_PAGES = [
+    ('noobatyar://home', 'داشبورد (خانه)'),
+    ('noobatyar://visitors', 'مراجعین'),
+    ('noobatyar://notifications', 'اعلان یادآوری'),
+    ('noobatyar://sms-report', 'گزارش ارسال‌ها'),
+    ('noobatyar://addons', 'بسته‌ها و اشتراک'),
+    ('noobatyar://settings', 'تنظیمات'),
+]
+
 
 class CampaignError(ValueError):
     """Raised for a payload a human still has to fix (empty body, bad URL)."""
