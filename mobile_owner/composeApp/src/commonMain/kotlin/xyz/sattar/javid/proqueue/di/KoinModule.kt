@@ -59,6 +59,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.GetMyEntitlementsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetAddonsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.BuyAddonUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetCurrentUserUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.user.SyncUserProfileUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetPlansUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CreatePaymentUseCase
 import xyz.sattar.javid.proqueue.feature.businessList.BusinessListViewModel
@@ -123,6 +124,7 @@ val appModule: Module = module {
     factory { ResetPasswordUseCase(get()) }
     factory { GetMySubscriptionUseCase(get()) }
     factory { GetCurrentUserUseCase(get()) }
+    factory { SyncUserProfileUseCase(get()) }
     factory { GetPlansUseCase(get()) }
     factory { CreatePaymentUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase(get(), get(), get()) }
@@ -220,5 +222,5 @@ val appModule: Module = module {
     viewModel { SendOTPViewModel(get(), get()) }
     viewModel { ResetPasswordViewModel(get()) }
     viewModel { LoginViewModel(get()) }
-    viewModel { UserViewModel(get(), get(), get(), get(), get()) }
+    viewModel { UserViewModel(get(), get(), get(), get(), get(), get()) }
 }

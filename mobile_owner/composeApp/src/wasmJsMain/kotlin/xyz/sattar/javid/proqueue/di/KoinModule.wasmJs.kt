@@ -9,7 +9,7 @@ import xyz.sattar.javid.proqueue.data.localDataSource.business.BusinessLocalSour
 import xyz.sattar.javid.proqueue.data.localDataSource.business.InMemoryBusinessLocalSource
 import xyz.sattar.javid.proqueue.data.localDataSource.message.InMemoryMessageLocalSource
 import xyz.sattar.javid.proqueue.data.localDataSource.message.MessageLocalSource
-import xyz.sattar.javid.proqueue.data.localDataSource.user.InMemoryUserLocalSource
+import xyz.sattar.javid.proqueue.data.localDataSource.user.WebUserLocalSource
 import xyz.sattar.javid.proqueue.data.localDataSource.user.UserLocalSource
 import xyz.sattar.javid.proqueue.data.localDataSource.visitor.InMemoryVisitorLocalSource
 import xyz.sattar.javid.proqueue.data.localDataSource.visitor.VisitorLocalSource
@@ -26,7 +26,7 @@ val webPlatformModule = module {
     single<BusinessLocalSource> { InMemoryBusinessLocalSource() }
     single<VisitorLocalSource> { InMemoryVisitorLocalSource() }
     single<MessageLocalSource> { InMemoryMessageLocalSource() }
-    single<UserLocalSource> { InMemoryUserLocalSource() }
+    single<UserLocalSource> { WebUserLocalSource() }
     single<AppointmentLocalSource> { InMemoryAppointmentLocalSource(get(), get()) }
     single<NotificationScheduler> { WebNotificationScheduler() }
 }
