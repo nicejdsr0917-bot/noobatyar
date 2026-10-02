@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.navigation.navHost
 
+import xyz.sattar.javid.proqueue.core.navigation.BrowserBackBinding
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -19,6 +20,8 @@ fun BusinessNavHost(
     onNavigateToAuth: () -> Unit
 ) {
     val navController = rememberNavController()
+    // Web: browser back pops a screen here instead of leaving the site.
+    BrowserBackBinding(navController)
 
     // Capped at the host for the same reason as AuthNavHost: both screens
     // here are card lists / forms, not data-dense views.

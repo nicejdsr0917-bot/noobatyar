@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.navigation.navHost
 
+import xyz.sattar.javid.proqueue.core.navigation.BrowserBackBinding
 import xyz.sattar.javid.proqueue.feature.calendar.CalendarScreen
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -72,6 +73,8 @@ fun MainNavHost(
     onNavigateToLogin: () -> Unit = {}
 ) {
     val navController = rememberNavController()
+    // Web: browser back pops a screen here instead of leaving the site.
+    BrowserBackBinding(navController)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 

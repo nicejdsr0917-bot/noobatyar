@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.navigation.navHost
 
+import xyz.sattar.javid.proqueue.core.navigation.BrowserBackBinding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.navigation.compose.NavHost
@@ -22,6 +23,8 @@ fun AuthNavHost(
     onRegisterComplete: () -> Unit
 ) {
     val navController = rememberNavController()
+    // Web: browser back pops a screen here instead of leaving the site.
+    BrowserBackBinding(navController)
     // The introduction is a phone-width screen only: a desktop browser goes
     // straight to the login. Read once — finishing the introduction navigates
     // away from it, and a recomposition (or a resized window) must not swap
