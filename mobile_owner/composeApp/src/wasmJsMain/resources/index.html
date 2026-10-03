@@ -108,7 +108,11 @@
          */
         #compose-root {
             position: fixed;
-            top: 0;
+            /* 0 on a fresh install (opaque status bar), the status-bar height
+               on an install made while the style was black-translucent: the
+               style is fixed when the app is added to the home screen, so
+               both kinds of install are out there and this has to fit each. */
+            top: env(safe-area-inset-top, 0px);
             bottom: 0;
             left: env(safe-area-inset-left, 0px);
             right: env(safe-area-inset-right, 0px);
