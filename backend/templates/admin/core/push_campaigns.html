@@ -868,8 +868,17 @@
       'برای ادامه‌ی خدمات و نمایش کسب‌وکارتان به مشتریان، همین حالا تمدید کنید';
     var esDefaultExpiring = esMessage.value;
     var esLastDefault = esDefaultExpiring;
+    // "Ending in N days" wants a small window (the reminder lead time); "ended
+    // in the last N days" wants a wide one, or a lapsed owner is only reachable
+    // for the first few days after they leave.
+    var esDays = document.getElementById('es-days');
+    var esDaysExpiring = esDays.value, ES_DAYS_EXPIRED = '30', esLastDays = esDaysExpiring;
     function esApplyMode() {
       var expired = esForm.querySelector('input[name="expiry_mode"]:checked').value === 'expired';
+      var nextDays = expired ? ES_DAYS_EXPIRED : esDaysExpiring;
+      if (esDays.value === esLastDays) { esDays.value = nextDays; }
+      esLastDays = nextDays;
+      esRefresh();
       document.getElementById('es-days-label').textContent = expired
         ? 'اشتراک‌هایی که در این چند روز گذشته تمام شده‌اند'
         : 'اشتراک‌هایی که تا چند روز دیگر تمام می‌شوند';
