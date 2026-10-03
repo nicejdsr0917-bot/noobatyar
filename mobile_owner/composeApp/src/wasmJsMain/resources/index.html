@@ -23,11 +23,24 @@
          * theme is dark (PreferencesManager.wasmJs.kt, section 7.2), so this
          * is the color that's actually correct to show first, not a filler.
          */
+        /*
+         * The document itself never scrolls: the app draws on its own canvas
+         * and handles every gesture itself. A scrollable body made iOS Safari
+         * scroll the page when a field took focus, which collapsed its toolbar,
+         * which resized the viewport, which made the keyboard close again a
+         * moment after it opened (first field only; by the second tap the
+         * toolbar was already collapsed). Pinning the document stops that.
+         */
         html, body {
             background: #0F0F0F;
             margin: 0;
             padding: 0;
+            position: fixed;
+            inset: 0;
+            width: 100%;
             height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
         }
 
         /*
@@ -83,9 +96,20 @@
          * as separate elements means Compose can mount and start rendering
          * underneath while the loading screen keeps covering it on top.
          */
+        /*
+         * viewport-fit=cover + a translucent status bar (the installed app)
+         * lets the page draw under the status bar, the notch and the home
+         * indicator. Compose on the web has no idea those exist, so toolbars
+         * ended up behind the clock. The root is inset by the safe areas
+         * instead; the body behind it is the same colour, so there is no seam.
+         * On Android/desktop the insets are 0 and nothing changes.
+         */
         #compose-root {
             position: fixed;
-            inset: 0;
+            top: env(safe-area-inset-top, 0px);
+            right: env(safe-area-inset-right, 0px);
+            bottom: env(safe-area-inset-bottom, 0px);
+            left: env(safe-area-inset-left, 0px);
         }
 
         /*
