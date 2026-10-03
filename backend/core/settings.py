@@ -279,6 +279,8 @@ if not ZIBAL_MERCHANT_ID:
 # web app has an appointments screen to land on, so this is app.noobatyar.ir
 # rather than the API host.
 CLIENT_WEB_URL = os.getenv('CLIENT_WEB_URL', 'https://app.noobatyar.ir')
+# The owner web panel: where its payers are sent back to after the gateway.
+PANEL_WEB_URL = os.getenv('PANEL_WEB_URL', 'https://panel.noobatyar.ir')
 SITE_URL = os.getenv('SITE_URL', 'http://localhost:8000')  # Your site's base URL
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

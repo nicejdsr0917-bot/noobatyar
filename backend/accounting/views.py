@@ -38,6 +38,31 @@ def _client_callback(path: str) -> str:
     return f'{base}{path}'
 
 
+def _from_web_panel(request) -> bool:
+    """True when the payment was started by the owner web panel (a browser),
+    not by the native apps.
+
+    The gateway sends the payer back to a web page either way, but only the
+    native apps own the ``noobatyar://`` link that page uses to return. In a
+    browser that link is an invalid address (Safari shows an error), so the
+    panel gets its own return page that goes back to the panel instead. The
+    browser tells us who is asking in the Origin header on its API calls.
+    """
+    from django.conf import settings
+
+    panel = (getattr(settings, 'PANEL_WEB_URL', '') or '').rstrip('/')
+    origin = (request.headers.get('Origin') or '').rstrip('/')
+    if not origin:
+        return False
+    return origin == panel or origin.startswith(('http://localhost', 'http://127.0.0.1'))
+
+
+def _payment_callback(request, path: str) -> str:
+    """The callback URL for this request: the panel's page for browsers,
+    the app-link page for everyone else."""
+    return _client_callback(f'{path}-web' if _from_web_panel(request) else path)
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def plan_list(request):
@@ -190,7 +215,7 @@ def buy_addon(request):
     result = AddOnPaymentService().create_payment(
         user=request.user,
         pack=pack,
-        callback_url=_client_callback('/home/payment-result-addon'),
+        callback_url=_payment_callback(request, '/home/payment-result-addon'),
     )
     if not result['success']:
         return APIResponse.error(message=result.get('error', 'خطا در ایجاد درخواست پرداخت'))
@@ -249,7 +274,7 @@ def pay_for_plan(request):  # ✅ sync
     result = payment_service.create_payment(  # ✅ بدون await
         user=user,
         plan=plan,
-        callback_url=_client_callback('/home/payment-result'),
+        callback_url=_payment_callback(request, '/home/payment-result'),
     )
 
     if not result['success']:

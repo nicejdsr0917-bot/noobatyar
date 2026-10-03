@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { buildAppReturnLink, tryReturnToApp } from '@/lib/appReturn';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { PANEL_URL, buildAppReturnLink, isWebPanelReturn, tryReturnToApp } from '@/lib/appReturn';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
@@ -20,10 +20,15 @@ function PaymentResultAddonContent() {
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const appLink = buildAppReturnLink({
-    success: result?.success ?? false,
-    txn: trackId,
-  });
+  // A payer from the web panel has no app to jump into: send them back to the
+  // panel. Everyone else gets the noobatyar:// link of the native apps.
+  const toPanel = isWebPanelReturn(usePathname());
+  const appLink = toPanel
+    ? PANEL_URL
+    : buildAppReturnLink({
+        success: result?.success ?? false,
+        txn: trackId,
+      });
 
   // Once the outcome is known, hand the user straight back to the app. The
   // button below stays regardless: browsers often block a custom-scheme jump
@@ -31,6 +36,8 @@ function PaymentResultAddonContent() {
   useEffect(() => {
     if (!loading && result) tryReturnToApp(appLink);
   }, [loading, result, appLink]);
+  // (tryReturnToApp is a plain navigation, so for the panel it is a normal
+  // redirect back; the visible button below stays either way.)
 
   useEffect(() => {
     if (!trackId) {
@@ -93,7 +100,7 @@ function PaymentResultAddonContent() {
             <p style={styles.message}>{result?.message}</p>
             {result?.success && <p style={styles.sub}>بسته افزودنی فعال شد</p>}
             <a href={appLink} style={styles.button}>
-              بازگشت به اپلیکیشن
+              {toPanel ? 'بازگشت به پنل' : 'بازگشت به اپلیکیشن'}
             </a>
           </>
         )}
