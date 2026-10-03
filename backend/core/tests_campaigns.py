@@ -81,6 +81,77 @@ class ExpiryAudienceTests(TestCase):
         self.assertEqual(ids, {self.soon.id, self.other_plan.id})
 
 
+class ExpiredAudienceTests(TestCase):
+    """Owners whose plan already ended and who never came back."""
+
+    def setUp(self):
+        self.pro = make_plan('پرو')
+        self.basic = make_plan('پایه')
+        self.lapsed = make_sub(make_user('09120000301'), self.pro, -3, status='expired')
+        # Ended, but the cron hasn't flipped it to 'expired' yet — still lapsed.
+        self.unflipped = make_sub(make_user('09120000302'), self.basic, -2)
+        self.too_old = make_sub(make_user('09120000303'), self.pro, -40, status='expired')
+        self.still_active = make_sub(make_user('09120000304'), self.pro, 5)
+        self.cancelled = make_sub(make_user('09120000305'), self.pro, -3, status='cancelled')
+        renewed = make_user('09120000306')
+        make_sub(renewed, self.pro, -3, status='expired')
+        make_sub(renewed, self.pro, 20)  # paid again
+        self.renewed_user = renewed
+        # Lapsed twice: only the latest subscription counts, once.
+        twice = make_user('09120000307')
+        make_sub(twice, self.pro, -20, status='expired')
+        self.twice = make_sub(twice, self.pro, -4, status='expired')
+
+    def ids(self, **kwargs):
+        return set(expiry_sms_audience(7, mode='expired', **kwargs).values_list('id', flat=True))
+
+    def test_lapsed_and_not_renewed_within_window(self):
+        self.assertEqual(self.ids(skip_reminded=False), {self.lapsed.id, self.unflipped.id, self.twice.id})
+
+    def test_renewed_owner_is_never_in_it(self):
+        users = set(expiry_sms_audience(30, mode='expired', skip_reminded=False).values_list('user_id', flat=True))
+        self.assertNotIn(self.renewed_user.id, users)
+
+    def test_plan_filter(self):
+        self.assertEqual(self.ids(plan_ids=[self.basic.id], skip_reminded=False), {self.unflipped.id})
+
+    def test_uses_its_own_reminded_flag(self):
+        # The "ending soon" message already spent reminder_sent for these owners.
+        Subscription.objects.update(reminder_sent=True)
+        self.assertEqual(self.ids(), {self.lapsed.id, self.unflipped.id, self.twice.id})
+        Subscription.objects.filter(id=self.lapsed.id).update(expired_reminder_sent=True)
+        self.assertEqual(self.ids(), {self.unflipped.id, self.twice.id})
+
+
+@mock.patch('api.sms.send_sms', return_value=(True, ''))
+class SendExpiredSmsTests(TestCase):
+    def setUp(self):
+        self.plan = make_plan('پرو')
+        self.owner = make_user('09120000401', name='مریم')
+        self.sub = make_sub(self.owner, self.plan, -3, status='expired', reminder_sent=True)
+        self.staff = make_user('09120000402', name='ادمین', is_staff=True)
+
+    def test_days_is_days_since_the_end_and_flag_is_its_own(self, send_sms):
+        log = send_expiry_sms('{full_name} {days} {plan}', 7, actor=self.staff, mode='expired')
+
+        self.assertEqual((log.matched_count, log.sent_count), (1, 1))
+        self.assertIn('مریم 2 پرو', send_sms.call_args[0][1])
+        self.assertEqual(log.filters['mode'], 'expired')
+        self.sub.refresh_from_db()
+        self.assertTrue(self.sub.expired_reminder_sent)
+
+    def test_second_send_skips_and_expiring_mode_is_untouched(self, send_sms):
+        send_expiry_sms('x', 7, actor=self.staff, mode='expired')
+        log = send_expiry_sms('x', 7, actor=self.staff, mode='expired')
+        self.assertEqual(log.matched_count, 0)
+        self.assertEqual(send_sms.call_count, 1)
+        # An expired send never marks the "ending soon" flag as sent.
+        other = make_sub(make_user('09120000403'), self.plan, 2)
+        send_expiry_sms('x', 7, actor=self.staff, mode='expired')
+        other.refresh_from_db()
+        self.assertFalse(other.reminder_sent)
+
+
 @mock.patch('api.sms.send_sms', return_value=(True, ''))
 class SendExpirySmsTests(TestCase):
     def setUp(self):
@@ -106,7 +177,7 @@ class SendExpirySmsTests(TestCase):
 
     def test_records_plan_filter(self, send_sms):
         log = send_expiry_sms('یادآوری', 3, actor=self.staff, plan_ids=[self.plan.id])
-        self.assertEqual(log.filters, {'plans': ['پرو'], 'skip_reminded': True})
+        self.assertEqual(log.filters, {'plans': ['پرو'], 'skip_reminded': True, 'mode': 'expiring'})
 
     def test_test_send_goes_to_the_operator_only(self, send_sms):
         log = send_expiry_sms_test('{full_name} {days} {plan}', 5, actor=self.staff)
@@ -190,6 +261,23 @@ class CampaignPageTests(TestCase):
         self.assertEqual(data['matched'], 1)
         self.assertEqual(data['rows'][0]['name'], 'مریم')
         self.assertEqual(data['rows'][0]['plan'], 'پرو')
+
+    def test_count_expired_mode_lists_lapsed_owners(self):
+        grant(self.staff, 'core.send_expiry_sms')
+        plan = make_plan('پرو')
+        make_sub(make_user('09120000403', name='سارا'), plan, -3, status='expired')
+        make_sub(make_user('09120000404', name='علی'), plan, 2)  # still active: not in this mode
+        data = self.client.get(
+            reverse('admin:core_expiry_sms_count'), {'days_before': 7, 'expiry_mode': 'expired'},
+        ).json()
+        self.assertEqual(data['matched'], 1)
+        self.assertEqual(data['rows'][0]['name'], 'سارا')
+        self.assertEqual(data['rows'][0]['days_left'], 2)  # days since it ended
+
+    def test_page_offers_the_expired_audience(self):
+        grant(self.staff, 'core.send_expiry_sms')
+        response = self.client.get(self.url, {'tab': 'sms'})
+        self.assertContains(response, 'name="expiry_mode" value="expired"')
 
     def test_autosend_saves_its_own_fields(self):
         grant(self.staff, 'core.send_expiry_sms')

@@ -472,8 +472,16 @@
       <div class="cp-card-head"><span class="cp-head-icon material-symbols-outlined">send</span>
         <div><h2>ارسال دستی</h2><p>همین حالا، با متن و فیلتر دلخواه.</p></div></div>
       <div class="cp-card-body">
+        <div class="cp-field">
+          <span class="cp-label">گیرندگان</span>
+          <div class="cp-chips">
+            <label class="cp-chip"><input type="radio" name="expiry_mode" value="expiring" checked data-es-count>در حال اتمام اشتراک</label>
+            <label class="cp-chip"><input type="radio" name="expiry_mode" value="expired" data-es-count>اشتراک تمام شده و تمدید نکرده‌اند</label>
+          </div>
+        </div>
+
         <label class="cp-field">
-          <span class="cp-label">اشتراک‌هایی که تا چند روز دیگر تمام می‌شوند</span>
+          <span class="cp-label" id="es-days-label">اشتراک‌هایی که تا چند روز دیگر تمام می‌شوند</span>
           <input type="number" name="expiry_days_before" id="es-days" min="1" class="cp-ltr cp-num-input"
                  value="{{ reminder_settings.days_before|default:3 }}" data-es-count>
         </label>
@@ -509,6 +517,8 @@
               </button>
             {% endfor %}
           </div>
+          <p class="cp-hint" id="es-expired-hint" style="display:none;margin-top:8px">
+            برای اشتراک‌های تمام‌شده، <code>{days}</code> یعنی چند روز از پایان اشتراک گذشته است.</p>
         </div>
 
         <div class="cp-field">
@@ -525,7 +535,7 @@
           <summary class="cp-label" style="cursor:pointer">فهرست گیرندگان</summary>
           <div class="cp-scroll" style="margin-top:10px">
             <table class="cp-table">
-              <thead><tr><th>نام</th><th>شماره</th><th>پلن</th><th>روز مانده</th></tr></thead>
+              <thead><tr><th>نام</th><th>شماره</th><th>پلن</th><th id="es-days-col">روز مانده</th></tr></thead>
               <tbody id="es-rows"></tbody>
             </table>
           </div>
@@ -627,7 +637,7 @@
           <div class="cp-report-meta">
             {{ l.sent_at_display }} ·
             {% if l.sent_by %}{{ l.sent_by.name|default:l.sent_by.phone }}{% elif l.source == 'auto' %}زمان‌بند{% else %}—{% endif %}
-            {% if l.source != 'test' %} · تا {{ l.days_before }} روز مانده{% endif %}
+            {% if l.source != 'test' %}{% if l.filters.mode == 'expired' %} · تمام‌شده در {{ l.days_before }} روز گذشته (تمدید نکرده){% else %} · تا {{ l.days_before }} روز مانده{% endif %}{% endif %}
             {% if l.filters.plans %} · پلن: {{ l.filters.plans|join:"، " }}{% endif %}
           </div>
           <div class="cp-report-figs">
@@ -850,6 +860,29 @@
         })
         .catch(function () { esMatched = null; document.getElementById('es-matched').textContent = '—'; esPaintCost(); });
     }
+    // Two audiences share this form: owners whose plan is about to end, and
+    // owners whose plan already ended and who never renewed. Switching swaps
+    // the wording around the days field and, if nobody has edited the message,
+    // the starter text.
+    var ES_DEFAULT_EXPIRED = '{full_name} عزیز، اشتراک شما در نوبت‌یار تمام شده است\n' +
+      'برای ادامه‌ی خدمات و نمایش کسب‌وکارتان به مشتریان، همین حالا تمدید کنید';
+    var esDefaultExpiring = esMessage.value;
+    var esLastDefault = esDefaultExpiring;
+    function esApplyMode() {
+      var expired = esForm.querySelector('input[name="expiry_mode"]:checked').value === 'expired';
+      document.getElementById('es-days-label').textContent = expired
+        ? 'اشتراک‌هایی که در این چند روز گذشته تمام شده‌اند'
+        : 'اشتراک‌هایی که تا چند روز دیگر تمام می‌شوند';
+      document.getElementById('es-days-col').textContent = expired ? 'روز از پایان' : 'روز مانده';
+      document.getElementById('es-expired-hint').style.display = expired ? '' : 'none';
+      var next = expired ? ES_DEFAULT_EXPIRED : esDefaultExpiring;
+      if (esMessage.value === esLastDefault) {
+        esMessage.value = next;
+        esMessage.dispatchEvent(new Event('input'));
+      }
+      esLastDefault = next;
+    }
+    esForm.querySelectorAll('input[name="expiry_mode"]').forEach(function (el) { el.addEventListener('change', esApplyMode); });
     esForm.querySelectorAll('[data-es-count]').forEach(function (el) {
       el.addEventListener(el.type === 'number' ? 'input' : 'change', function () { clearTimeout(esTimer); esTimer = setTimeout(esRefresh, 200); });
     });

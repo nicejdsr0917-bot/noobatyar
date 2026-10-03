@@ -66,6 +66,8 @@ class Subscription(models.Model):
     ends_at = models.DateTimeField(verbose_name='پایان')                   # تاریخ پایان
     # آیا پیامک یادآوری تمدید برای این اشتراک ارسال شده؟ (چرخه‌ی عمر پلن)
     reminder_sent = models.BooleanField(default=False, verbose_name='یادآوری ارسال‌شده')
+    # آیا بعد از پایان اشتراک، پیامک «تمدید نکرده‌اید» برایش ارسال شده؟ (ارسال دستی از پنل ادمین)
+    expired_reminder_sent = models.BooleanField(default=False, verbose_name='پیام پس از انقضا ارسال‌شده')
 
     class Meta:
         verbose_name = 'اشتراک'

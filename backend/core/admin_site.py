@@ -904,6 +904,11 @@ class NobatyarAdminSite(UnfoldAdminSite):
         skip_reminded = data.get('skip_reminded', '1') != '0'
         return days_before, plan_ids, skip_reminded
 
+    @staticmethod
+    def _expiry_mode(data):
+        """'expired' (lapsed and not renewed) or the default 'expiring'."""
+        return 'expired' if data.get('expiry_mode') == 'expired' else 'expiring'
+
     def expiry_sms_count_view(self, request):
         """Live audience for the manual send: the count and the first rows of
         who exactly it reaches (name, phone, plan, days left).
@@ -912,23 +917,26 @@ class NobatyarAdminSite(UnfoldAdminSite):
         shows them in the send report — the preview is that list, a moment
         earlier, so nobody sends blind.
         """
-        from core.messaging import expiry_sms_audience
+        from core.messaging import days_for_sms, expiry_sms_audience
 
         if not request.user.has_perm('core.send_expiry_sms'):
             raise PermissionDenied
 
         days_before, plan_ids, skip_reminded = self._expiry_audience_params(request.GET)
+        mode = self._expiry_mode(request.GET)
         if days_before <= 0:
             return JsonResponse({'error': 'تعداد روز باید عددی مثبت باشد.'}, status=400)
 
-        subs = expiry_sms_audience(days_before, plan_ids=plan_ids, skip_reminded=skip_reminded)
+        subs = expiry_sms_audience(
+            days_before, plan_ids=plan_ids, skip_reminded=skip_reminded, mode=mode,
+        )
         preview_limit = 50
         rows = [
             {
                 'name': sub.user.name or '',
                 'phone': getattr(sub.user, 'phone', '') or '',
                 'plan': sub.plan.name,
-                'days_left': max(1, sub.days_left()),
+                'days_left': days_for_sms(sub, mode),
             }
             for sub in subs[:preview_limit]
         ]
@@ -962,6 +970,7 @@ class NobatyarAdminSite(UnfoldAdminSite):
         log = send_expiry_sms(
             message, days_before, actor=request.user,
             plan_ids=plan_ids, skip_reminded=skip_reminded,
+            mode=self._expiry_mode(request.POST),
         )
         if log.matched_count == 0:
             messages.warning(request, 'با این فیلترها کسی پیدا نشد؛ پیامکی ارسال نشد.')
