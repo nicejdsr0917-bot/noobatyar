@@ -100,6 +100,9 @@ class UserRepositoryImpl(
         return userApiService.buyAddon(packId)
     }
 
+    override suspend fun checkoutQuote(kind: String, id: Int, channel: String) =
+        userApiService.checkoutQuote(kind, id, channel)
+
     override suspend fun storeIntent(store: String, kind: String, id: Int) =
         userApiService.storeIntent(store, xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto(kind, id))
 

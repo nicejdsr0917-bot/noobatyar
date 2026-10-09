@@ -19,7 +19,7 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from accounting.models import AddOnPack, AddOnPurchase
-from accounting import usage
+from accounting import pricing, usage
 
 logger = logging.getLogger(__name__)
 
@@ -91,9 +91,11 @@ class AddOnPaymentService:
 
     def create_payment(self, user, pack: AddOnPack, callback_url: str) -> Dict[str, Any]:
         order_id = f"ADDON-{user.id}-{pack.id}-{int(timezone.now().timestamp())}"
+        # Pack price + VAT + Zibal's fee — the total the confirm dialog showed.
+        total = pricing.quote(pack.price, pricing.CHANNEL_ZIBAL)["total"]
         payload = {
             "merchant": settings.ZIBAL_MERCHANT_ID,
-            "amount": pack.price * 10,  # تومان → ریال
+            "amount": total * 10,  # تومان → ریال
             "callbackUrl": callback_url,
             "orderId": order_id,
         }
@@ -116,7 +118,7 @@ class AddOnPaymentService:
             AddOnPurchase.objects.create(
                 user=user,
                 pack=pack,
-                amount=pack.price,
+                amount=total,
                 track_id=track_id,
                 order_id=order_id,
                 status="pending",

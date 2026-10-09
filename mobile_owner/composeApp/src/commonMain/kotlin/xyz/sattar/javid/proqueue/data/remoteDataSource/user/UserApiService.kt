@@ -2,6 +2,7 @@ package xyz.sattar.javid.proqueue.data.remoteDataSource.user
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.patch
 import io.ktor.client.request.setBody
@@ -102,6 +103,14 @@ class UserApiService(private val httpClient: HttpClient) {
         return httpClient.post("accounting/addons/buy/") {
             contentType(ContentType.Application.Json)
             setBody(BuyAddonRequestDto(packId))
+        }.toApiResponse()
+    }
+
+    suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto> {
+        return httpClient.get("accounting/checkout/quote/") {
+            parameter("kind", kind)
+            parameter("id", id)
+            parameter("channel", channel)
         }.toApiResponse()
     }
 

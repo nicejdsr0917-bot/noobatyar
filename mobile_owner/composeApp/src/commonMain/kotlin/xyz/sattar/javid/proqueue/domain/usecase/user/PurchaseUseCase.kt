@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.domain.usecase.user
 
+import xyz.sattar.javid.proqueue.core.billing.CheckoutConfirmation
 import xyz.sattar.javid.proqueue.core.billing.OwnedPurchase
 import xyz.sattar.javid.proqueue.core.billing.StoreBilling
 import xyz.sattar.javid.proqueue.core.billing.StoreBillingProvider
@@ -33,15 +34,31 @@ class PurchaseUseCase(
 ) {
     suspend fun plan(planId: Int): PurchaseOutcome {
         val billing = StoreBillingProvider.billing
-            ?: return createPaymentUseCase(planId).toRedirect { it.paymentUrl }
-        if (planId == TRIAL_PLAN_ID) return PurchaseOutcome.Failed("سرویس آزمایشی قابل خرید و با تمدید نیست")
+        if (billing != null && planId == TRIAL_PLAN_ID) return PurchaseOutcome.Failed("سرویس آزمایشی قابل خرید و با تمدید نیست")
+        confirmTotal(billing, KIND_PLAN, planId)?.let { return it }
+        if (billing == null) return createPaymentUseCase(planId).toRedirect { it.paymentUrl }
         return viaStore(billing, KIND_PLAN, planId)
     }
 
     suspend fun addon(packId: Int): PurchaseOutcome {
         val billing = StoreBillingProvider.billing
-            ?: return buyAddonUseCase(packId).toRedirect { it.paymentUrl }
+        confirmTotal(billing, KIND_ADDON, packId)?.let { return it }
+        if (billing == null) return buyAddonUseCase(packId).toRedirect { it.paymentUrl }
         return viaStore(billing, KIND_ADDON, packId)
+    }
+
+    /**
+     * Shows the price + VAT + gateway/store cut and waits for the buyer to
+     * accept it. Null means go ahead; otherwise the outcome to stop with.
+     */
+    private suspend fun confirmTotal(billing: StoreBilling?, kind: String, id: Int): PurchaseOutcome? {
+        val channel = billing?.storeKey ?: CHANNEL_ZIBAL
+        val quote = when (val r = repository.checkoutQuote(kind, id, channel)) {
+            is ApiResponse.Success -> r.data
+            is ApiResponse.Error -> return PurchaseOutcome.Failed(r.message)
+        }
+        if (quote.total <= 0) return null
+        return if (CheckoutConfirmation.confirm(quote)) null else PurchaseOutcome.Cancelled
     }
 
     /**
@@ -93,5 +110,6 @@ class PurchaseUseCase(
         const val KIND_PLAN = "plan"
         const val KIND_ADDON = "addon"
         const val TRIAL_PLAN_ID = 1
+        const val CHANNEL_ZIBAL = "zibal"
     }
 }

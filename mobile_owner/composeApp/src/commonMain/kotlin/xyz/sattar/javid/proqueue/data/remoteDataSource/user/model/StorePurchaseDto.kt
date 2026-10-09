@@ -32,3 +32,19 @@ data class StoreVerifyDto(
     @SerialName("kind") val kind: String = "",
     @SerialName("message") val message: String = ""
 )
+
+/**
+ * GET accounting/checkout/quote/ — what a purchase will cost, line by line
+ * (backend accounting/pricing.py). Toman. Shown in the confirm dialog before
+ * the Zibal gateway or the store opens.
+ */
+@Serializable
+data class CheckoutQuoteDto(
+    @SerialName("title") val title: String = "",
+    /** "zibal" | "myket" */
+    @SerialName("channel") val channel: String,
+    @SerialName("base") val base: Long,
+    @SerialName("vat") val vat: Long,
+    @SerialName("fee") val fee: Long,
+    @SerialName("total") val total: Long
+)

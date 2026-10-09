@@ -29,6 +29,7 @@ import proqueue.composeapp.generated.resources.notification_permission_prompt_al
 import proqueue.composeapp.generated.resources.notification_permission_prompt_later
 import proqueue.composeapp.generated.resources.notification_permission_prompt_message
 import proqueue.composeapp.generated.resources.notification_permission_prompt_title
+import xyz.sattar.javid.proqueue.core.billing.CheckoutConfirmHost
 import xyz.sattar.javid.proqueue.core.network.GlobalError
 import xyz.sattar.javid.proqueue.core.network.GlobalErrorManager
 import xyz.sattar.javid.proqueue.core.navigation.navHost.AuthNavHost
@@ -205,6 +206,7 @@ fun App() {
         }
         }
 
+        CheckoutConfirmHost()
         ToastyHost(hostState = globalSnackbarHostState)
         }
         }

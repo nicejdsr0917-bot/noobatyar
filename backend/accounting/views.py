@@ -16,7 +16,7 @@ from .serializers import (
     PlanSerializer, SubscriptionSerializer, BuyPlanSerializer,
     AddOnPackSerializer, BuyAddOnSerializer,
 )
-from . import entitlements, usage
+from . import entitlements, pricing, usage
 from rest_framework.decorators import api_view, permission_classes
 
 
@@ -253,6 +253,39 @@ def payment_callback(request):
         'message': result['message'],
         'data': result.get('data', {})
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def checkout_quote(request):
+    """
+    مبلغ نهایی یک خرید با جزئیات (قیمت، مالیات، کارمزد درگاه/مایکت) تا اپ
+    پیش از رفتن به درگاه یا مایکت آن را به کاربر نشان دهد و تأیید بگیرد.
+    Query: kind=plan|addon, id, channel=zibal|myket
+    """
+    kind = request.query_params.get('kind')
+    channel = request.query_params.get('channel') or pricing.CHANNEL_ZIBAL
+    if channel not in pricing.CHANNELS:
+        return APIResponse.error(message='روش پرداخت نامعتبر است')
+    try:
+        item_id = int(request.query_params.get('id'))
+    except (TypeError, ValueError):
+        return APIResponse.error(message='شناسه نامعتبر است')
+
+    if kind == 'plan':
+        item = Plan.objects.filter(id=item_id, is_active=True).first()
+        base = pricing.plan_base(item) if item else None
+    elif kind == 'addon':
+        item = AddOnPack.objects.filter(id=item_id, is_active=True).first()
+        base = item.price if item else None
+    else:
+        return APIResponse.error(message='نوع خرید نامعتبر است')
+    if item is None:
+        return APIResponse.error(message='مورد پیدا نشد', code=404)
+
+    data = pricing.quote(base, channel)
+    data['title'] = item.name
+    return APIResponse.success(data=data)
 
 
 # ── Myket in-app billing (store build of the owner app) ──────────────────────

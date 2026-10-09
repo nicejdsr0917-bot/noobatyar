@@ -4,6 +4,7 @@ import logging
 from django.conf import settings
 from django.utils import timezone
 from accounting.models import Transaction
+from accounting import pricing
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +16,8 @@ class ZibalPaymentService:
         """Create payment request and return payment URL"""
         order_id = self._generate_order_id(user.id, plan.id)
         
-        # استفاده از قیمت تخفیف‌خورده در صورت وجود
-        final_price = plan.discount_price if plan.discount_price is not None else plan.price
+        # قیمت پلن + مالیات + کارمزد زیبال؛ همان مبلغی که دیالوگ تأیید به کاربر نشان داده
+        final_price = pricing.quote(pricing.plan_base(plan), pricing.CHANNEL_ZIBAL)["total"]
 
         payload = {
             "merchant": settings.ZIBAL_MERCHANT_ID,

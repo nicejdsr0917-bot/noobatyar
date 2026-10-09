@@ -38,6 +38,15 @@ class Plan(models.Model):
     def __str__(self):
         return f"{self.name} - {self.price:,} تومان"
 
+    def clean(self):
+        # Free plans (the trial) stay allowed; a paid one has a floor.
+        from django.core.exceptions import ValidationError
+        from accounting.pricing import MIN_SELLABLE_PRICE
+        for field in ("price", "discount_price"):
+            value = getattr(self, field)
+            if value and value < MIN_SELLABLE_PRICE:
+                raise ValidationError({field: f"قیمت پلن پولی نباید کمتر از {MIN_SELLABLE_PRICE:,} تومان باشد."})
+
     def get_end_date(self, start_date=None):
         """تاریخ پایان اشتراک رو حساب میکنه"""
         if start_date is None:
@@ -154,6 +163,12 @@ class AddOnPack(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.price:,} تومان"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        from accounting.pricing import MIN_SELLABLE_PRICE
+        if self.is_active and self.price < MIN_SELLABLE_PRICE:
+            raise ValidationError({"price": f"قیمت بسته‌ی فعال نباید کمتر از {MIN_SELLABLE_PRICE:,} تومان باشد."})
 
 
 class AddOnPurchase(models.Model):
