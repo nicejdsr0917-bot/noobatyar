@@ -3,7 +3,6 @@ from . import views
 
 urlpatterns = [
     path('plans/', views.plan_list),               # لیست پلن‌ها
-    path('plans/buy/', views.buy_plan),            # خرید پلن
     path('my-subscription/', views.my_subscription),  # اشتراک من
     path('my-entitlements/', views.my_entitlements),  # قابلیت‌ها و مصرف
 

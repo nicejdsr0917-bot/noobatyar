@@ -75,67 +75,6 @@ def plan_list(request):
     )
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def buy_plan(request):
-    """
-    خرید مستقیم پلن (بدون درگاه):
-    - اشتراک قبلی expire
-    - اشتراک جدید
-    - VIP upgrade
-    """
-    serializer = BuyPlanSerializer(data=request.data)
-    if not serializer.is_valid():
-        return APIResponse.error(message=_extract_error(serializer.errors))
-
-    plan_id = serializer.validated_data['plan_id']
-
-    try:
-        plan = Plan.objects.get(id=plan_id, is_active=True)
-    except Plan.DoesNotExist:
-        return APIResponse.error(message='پلن پیدا نشد', code=404)
-
-    user = request.user
-
-    # بررسی اشتراک فعلی برای تمدید زمان
-    active_sub = Subscription.objects.filter(user=user, status='active').first()
-    
-    # اگر اشتراک فعال و معتبری وجود دارد، از تاریخ پایان آن شروع می‌کنیم
-    # در غیر این صورت از همین الان شروع می‌کنیم
-    if active_sub and active_sub.is_valid():
-        start_date = active_sub.ends_at
-        active_sub.status = 'expired'
-        active_sub.save(update_fields=['status'])
-    else:
-        # اگر اشتراک منقضی شده هم وجود داشته باشد، آن را غیرفعال می‌کنیم
-        Subscription.objects.filter(user=user, status='active').update(status='expired')
-        start_date = timezone.now()
-
-    # Create new subscription
-    subscription = Subscription.objects.create(
-        user=user,
-        plan=plan,
-        ends_at=plan.get_end_date(start_date=start_date)
-    )
-
-    # VIP upgrade
-    if plan.is_vip and user.role != 'BUSINESS_OWNER':
-        user.role = 'BUSINESS_OWNER'
-        user.save(update_fields=['role'])
-
-    # Unlock businesses that were locked under a smaller/expired plan.
-    from business.services import sync_locks
-    sync_locks(user)
-
-    serializer = SubscriptionSerializer(subscription)
-    return APIResponse.success(
-        data=serializer.data,
-        message=f'پلن {plan.name} با موفقیت فعال شد',
-        status=201
-    )
-
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_subscription(request):  # ✅ sync
