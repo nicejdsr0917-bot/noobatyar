@@ -10,6 +10,23 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.9.7 — 2026-10-09
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- پیش از پرداخت، جزئیات مبلغ (قیمت، مالیات بر ارزش افزوده و کارمزد پرداخت) نمایش داده می‌شود و پرداخت فقط با تأیید شما انجام می‌شود.
+- بهبودهای پنل وب و رفع چند ایراد.
+<!-- fa:end -->
+
+### mobile_owner
+- Checkout confirm dialog: every plan/pack purchase fetches `accounting/checkout/quote/` and shows price, VAT and the Zibal fee or Myket cut before opening the gateway or Myket billing (`core/billing/CheckoutConfirmation.kt`, `PurchaseUseCase`).
+- Web panel: fills the screen when installed, toolbar below the status bar, browser back stays in the panel, payers return to the panel.
+
+### backend
+- `accounting/pricing.py`: price is the net; VAT 10% and Zibal's fee are added on top, Myket store prices grossed up for VAT, Myket's 15% and Shaparak. `manage.py myket_prices` lists the Myket panel prices. Paid items can't be priced under 10,000 toman.
+- Security: removed `accounting/plans/buy/`, which activated any plan without payment.
+- Admin: renewal SMS to owners whose subscription ended.
+
 ## v1.9.6 — 2026-10-01
 
 <!-- fa:start -->
