@@ -8,6 +8,12 @@ on:
 permissions:
   contents: write
 
+# The version code is the last release's plus one (see "Derive version from
+# tag"), so two tag pushes running at once would both pick the same number.
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -31,7 +37,24 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           VERSION_NAME="${TAG#v}"
           echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
-          echo "version_code=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+          # Version code = last release's + 1. Every release writes its code
+          # into Config.xcconfig on develop ("Sync iOS version with tag"
+          # below), so develop's copy is the last one shipped — read from
+          # develop rather than the tagged commit, which may predate it.
+          # Releases up to v1.9.7 used epoch seconds (1791557881); stores only
+          # accept a higher code than the one they have, so the count goes on
+          # from there instead of restarting.
+          git fetch --depth=1 origin develop
+          PREV_CODE=$(git show FETCH_HEAD:mobile_owner/iosApp/Configuration/Config.xcconfig \
+            | sed -n 's/^CURRENT_PROJECT_VERSION=\([0-9]*\)$/\1/p')
+          if [ -z "$PREV_CODE" ]; then
+            echo "::error::No numeric CURRENT_PROJECT_VERSION in Config.xcconfig on develop"
+            exit 1
+          fi
+          VERSION_CODE=$((PREV_CODE + 1))
+          echo "Version code: ${PREV_CODE} -> ${VERSION_CODE}"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
 
       - name: Decode keystore
         working-directory: mobile_owner/composeApp
