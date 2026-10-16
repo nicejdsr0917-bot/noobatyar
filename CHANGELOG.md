@@ -10,6 +10,27 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.9.8 — 2026-10-17
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- برنامه حالا انگلیسی هم دارد؛ زبان را از تنظیمات عوض کنید.
+- تصویرهای اشتراک (کد QR، استوری، شماره کارت و کارت یادآوری) آماده‌ی چاپ در اندازه‌ی ۱۴×۲۱ سانتی‌متر شدند و چیدمانشان مرتب‌تر شد؛ مناسب استند روی میز پذیرش.
+- در نسخه‌ی مایکت، فاکتور فقط قیمت و مالیات را نشان می‌دهد (جمع پرداختی تغییری نکرده).
+<!-- fa:end -->
+
+### mobile_owner
+- i18n: all UI strings in `composeResources/values` (fa) and `values-en`; generated `Str` follows the in-app `AppLocale` (direction, Nunito/Yekan, Gregorian calendar and Latin digits in English). Language picker in Settings.
+- Share cards export at 1654 × 2480 px (14 × 21 cm, 300 dpi, pHYs-tagged); shared centred header/footer, signature no longer overlays the link, QR size adapts so long names fit.
+- Myket checkout shows price + VAT only (Myket's cut folded into the price).
+- iOS compiles again (`iosMain` now depends on `roomMain`).
+
+### front_client
+- Persian/English switch (`lang` cookie), logical CSS; SSR locale read per request from context instead of a shared module variable.
+
+### ci
+- Android versionCode = previous release's + 1 (from `Config.xcconfig` on develop), instead of epoch seconds.
+
 ## v1.9.7 — 2026-10-09
 
 <!-- fa:start -->
