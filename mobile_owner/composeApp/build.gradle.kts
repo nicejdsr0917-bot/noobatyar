@@ -120,7 +120,11 @@ kotlin {
         common {
             group("room") {
                 withAndroidTarget()
-                withIos()
+                // The existing "ios" group, not withIos(): that would hang
+                // roomMain under the leaf ios targets only, and K2 lets iosMain
+                // see just its own parents — DbFactoryIos and MainViewController
+                // (iosMain) then can't resolve AppDatabase or roomModule.
+                group("ios")
             }
         }
     }
