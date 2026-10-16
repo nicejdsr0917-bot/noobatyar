@@ -162,7 +162,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
               <a
                 href={`https://maps.google.com/?q=${encodeURIComponent(biz.address)}`}
                 target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 13, color: 'var(--color-primary)', lineHeight: 1.7, textAlign: 'left', textDecoration: 'none', fontWeight: 600 }}
+                style={{ fontSize: 13, color: 'var(--color-primary)', lineHeight: 1.7, textAlign: 'end', textDecoration: 'none', fontWeight: 600 }}
               >
                 {biz.address}
               </a>

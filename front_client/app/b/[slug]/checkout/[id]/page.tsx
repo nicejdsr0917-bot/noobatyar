@@ -320,7 +320,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
               padding: '12px 14px',
               marginBottom: 16,
               fontSize: 12.5,
-              textAlign: 'right',
+              textAlign: 'start',
               lineHeight: 1.8,
             }}
           >
@@ -346,7 +346,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                 style={{
                   fontSize: 13.5,
                   fontWeight: 700,
-                  textAlign: 'right',
+                  textAlign: 'start',
                   marginBottom: 16,
                   display: 'flex',
                   alignItems: 'center',
@@ -393,7 +393,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
 
               <div
                 style={{
-                  textAlign: 'right',
+                  textAlign: 'start',
                   fontSize: 12.5,
                   color: 'var(--color-muted)',
                   marginBottom: 14,
@@ -403,13 +403,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
               </div>
 
               {biz?.deposit_amount ? (
-                <div style={{ textAlign: 'right', fontSize: 15, fontWeight: 700, color: 'var(--color-text)' }}>
+                <div style={{ textAlign: 'start', fontSize: 15, fontWeight: 700, color: 'var(--color-text)' }}>
                   {t('depositAmount')}{biz.deposit_amount.toLocaleString(intlLocale())} {t('toman')}{depositMode === 'OPTIONAL' && (
                     <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-muted)' }}> {t('optional2')}</span>
                   )}
                 </div>
               ) : (
-                <div style={{ textAlign: 'right', fontSize: 12.5, color: 'var(--color-muted)' }}>
+                <div style={{ textAlign: 'start', fontSize: 12.5, color: 'var(--color-muted)' }}>
                   {t('agreeOnAmountWithBusiness')}</div>
               )}
             </div>
@@ -494,7 +494,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                 <p style={{ margin: '24px 0 8px', fontSize: 12, color: 'var(--color-faint)' }}>
                   {t('afterPayingEnterTrackingNumber')}</p>
 
-                <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: 'start' }}>
                   <TextField
                     value={paymentRef}
                     onChange={setPaymentRef}

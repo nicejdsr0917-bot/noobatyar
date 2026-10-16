@@ -345,7 +345,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             border: '1px solid var(--color-error)',
             borderRadius: 12, padding: '14px 18px',
             fontSize: 13, color: 'var(--color-error)', fontWeight: 600,
-            textAlign: 'right', lineHeight: 1.6,
+            textAlign: 'start', lineHeight: 1.6,
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <Icon name="block" size={18} />

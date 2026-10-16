@@ -169,7 +169,7 @@ export default function ProfilePage() {
                       >
                         <Icon name={ACTION_ICON[entry.action] ?? 'info'} size={17} />
                       </span>
-                      <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+                      <div style={{ flex: 1, minWidth: 0, textAlign: 'start' }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)' }}>
                           {entry.action_label}
                         </div>

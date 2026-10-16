@@ -75,7 +75,7 @@ export default function AppointmentsPage() {
               display: 'flex',
               alignItems: 'center',
               gap: 9,
-              textAlign: 'right',
+              textAlign: 'start',
               background:
                 paymentResult === 'success' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
               color: paymentResult === 'success' ? '#16a34a' : '#dc2626',

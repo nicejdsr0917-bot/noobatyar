@@ -141,7 +141,7 @@ export default function AppointmentCard({ appt }: { appt: Appointment }) {
         {/* Business identity — right (reading start) in RTL */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
           <BusinessAvatar logo={appt.business.logo} category={appt.business.category} />
-          <div style={{ textAlign: 'right', minWidth: 0 }}>
+          <div style={{ textAlign: 'start', minWidth: 0 }}>
             <h3
               style={{
                 fontSize: 15,

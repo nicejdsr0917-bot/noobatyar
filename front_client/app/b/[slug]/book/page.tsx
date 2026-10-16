@@ -443,7 +443,7 @@ export default function BookingPage({ params }: Props) {
 
       {/* ── Time Slots ── */}
       <div className="section">
-        <div className="section-title" style={{ textAlign: 'right', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="section-title" style={{ textAlign: 'start', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span>{t('freeTimes')}{selectedDayMonth}</span>
           {!slotsLoading && availableCount > 0 && (
             <span style={{
@@ -520,7 +520,7 @@ export default function BookingPage({ params }: Props) {
       {selectedSlot && (menuServices.length > 0 || allowCustomService) && (
         <div className="section" style={{ paddingTop: 0 }}>
           <label
-            style={{ display: 'block', textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}
+            style={{ display: 'block', textAlign: 'start', fontSize: 13, fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}
           >
             {t('whichServiceDoYouWant')}</label>
 

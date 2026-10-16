@@ -13,19 +13,22 @@ export function parseLocale(value: string | undefined | null): Locale {
 
 export const dirOf = (locale: Locale) => (locale === 'fa' ? 'rtl' : 'ltr');
 
-// Server-side rendering of client components has no <html> to read, so
-// I18nProvider records the request's locale here before its subtree renders.
-// Pages here fetch their data in the browser, so what SSR renders is mostly
-// shells; in the browser the server-stamped <html lang> is the source.
-let ssrLocale: Locale = DEFAULT_LOCALE;
-export function setSsrLocale(locale: Locale) {
-  ssrLocale = locale;
+// Server-side rendering of client components has no <html> to read, and
+// requests render concurrently: a module-level "current locale" set by one
+// request is read by another one's components whenever its render resumes
+// after an await. So the locale comes from I18nProvider's React context of the
+// component being rendered, through a reader client.tsx installs (this module
+// is also imported by server components, which can't touch React context).
+// In the browser the server-stamped <html lang> is the source.
+let readSsrLocale: (() => Locale | undefined) | undefined;
+export function setSsrLocaleReader(reader: () => Locale | undefined) {
+  readSsrLocale = reader;
 }
 
 /** The active UI language. */
 export function getLocale(): Locale {
   if (typeof document !== 'undefined') return parseLocale(document.documentElement.lang);
-  return ssrLocale;
+  return readSsrLocale?.() ?? DEFAULT_LOCALE;
 }
 
 export function translate(locale: Locale, key: MessageKey, ...args: (string | number)[]): string {

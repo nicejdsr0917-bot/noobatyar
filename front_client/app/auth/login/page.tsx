@@ -315,7 +315,7 @@ function LoginForm() {
               padding: '12px 14px',
               color: 'var(--color-error)',
               fontSize: 13,
-              textAlign: 'right',
+              textAlign: 'start',
               marginTop: 12,
             }}
             role="alert"

@@ -112,7 +112,7 @@ function BookingSuccess() {
               category={appt.business.category}
               size={42}
             />
-            <div style={{ textAlign: 'right', flex: 1, minWidth: 0 }}>
+            <div style={{ textAlign: 'start', flex: 1, minWidth: 0 }}>
               <h3 style={{ fontSize: 14, fontWeight: 700 }}>{appt.business.title}</h3>
               {status && (
                 <span
