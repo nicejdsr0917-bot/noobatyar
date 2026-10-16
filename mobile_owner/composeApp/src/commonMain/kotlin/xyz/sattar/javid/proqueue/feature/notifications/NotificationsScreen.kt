@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.notifications
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
 import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import xyz.sattar.javid.proqueue.core.utils.AppInfo
@@ -31,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
@@ -105,7 +105,7 @@ private fun NotificationsPhoneContent(
             TopAppBar(
                 title = {
                     Text(
-                        stringResource(Res.string.reminders_notifications_item),
+                        Str.reminders_notifications_item,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -121,7 +121,7 @@ private fun NotificationsPhoneContent(
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.background, shadowElevation = 8.dp) {
                 AppButton(
-                    text = stringResource(Res.string.save_settings),
+                    text = Str.save_settings,
                     onClick = { onIntent(NotificationsIntent.SaveSettings) },
                     isLoading = uiState.isLoading,
                     modifier = Modifier
@@ -154,8 +154,8 @@ private fun NotificationsPhoneContent(
                 entitlements = uiState.entitlements,
                 plans = uiState.plans,
                 featureKey = EntitlementKeys.PUSH_NOTIFICATIONS,
-                title = stringResource(Res.string.enable_notifications),
-                description = "برای دریافت اعلان نوبت جدید و یادآوری روی گوشی یا مرورگر خودتان، پلن شما باید این ویژگی را پوشش دهد.",
+                title = Str.enable_notifications,
+                description = Str.to_get_new_appointment_and,
                 onUpgrade = { planId -> onIntent(NotificationsIntent.UpgradePlan(planId)) }
             ) {
                 OwnerCard(uiState = uiState, onIntent = onIntent)
@@ -244,8 +244,8 @@ private fun SubTitle(text: String) {
 private fun OwnerCard(uiState: NotificationsState, onIntent: (NotificationsIntent) -> Unit) {
     SectionCard(
         icon = Icons.Rounded.Notifications,
-        title = stringResource(Res.string.enable_notifications),
-        subtitle = "اعلان نوبت جدید و یادآوری نوبت‌ها روی گوشی خودتان",
+        title = Str.enable_notifications,
+        subtitle = Str.new_appointment_and_reminder_notifications,
         checked = uiState.isNotificationsEnabled,
         onCheckedChange = { onIntent(NotificationsIntent.ToggleNotifications(it)) }
     ) {
@@ -261,19 +261,19 @@ private fun OwnerCard(uiState: NotificationsState, onIntent: (NotificationsInten
                 Icon(Icons.Rounded.NotificationsOff, null, tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "این دستگاه اجازه‌ی نمایش اعلان را نداده؛ یادآوری‌ها روی همین گوشی دیده نمی‌شوند.",
+                    Str.this_device_hasnt_allowed_notifications,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.weight(1f)
                 )
                 TextButton(onClick = { onIntent(NotificationsIntent.ToggleNotifications(true)) }) {
-                    Text("اجازه بده", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
+                    Text(Str.notification_permission_prompt_allow, color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(14.dp))
         }
 
-        SubTitle(stringResource(Res.string.notification_reminder_time))
+        SubTitle(Str.notification_reminder_time)
         Spacer(Modifier.height(10.dp))
         val current = uiState.reminderMinutes.toIntOrNull()
         // A value saved earlier from the old free-text field stays selectable.
@@ -289,7 +289,7 @@ private fun OwnerCard(uiState: NotificationsState, onIntent: (NotificationsInten
                     leadingIcon = if (current == minutes) {
                         { Icon(Icons.Rounded.Timer, null, Modifier.size(16.dp)) }
                     } else null,
-                    label = { Text("${minutes.toString().toPersianDigits()} دقیقه") },
+                    label = { Text(Str.min(minutes.toString().toPersianDigits())) },
                     shape = RoundedCornerShape(12.dp)
                 )
             }
@@ -307,29 +307,29 @@ private fun ClientCard(
     val panel = uiState.reminderDelivery == ReminderDelivery.PANEL.value
     SectionCard(
         icon = Icons.Rounded.Sms,
-        title = "یادآوری برای مشتری",
-        subtitle = "پیش از نوبت، پیامک یادآوری برای مشتری فرستاده شود",
+        title = Str.customer_reminder,
+        subtitle = Str.send_customer_reminder_sms_before,
         checked = uiState.remindClient,
         onCheckedChange = { onIntent(NotificationsIntent.ToggleRemindClient(it)) }
     ) {
-        SubTitle(stringResource(Res.string.reminder_delivery_title))
+        SubTitle(Str.reminder_delivery_title)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ChoiceTile(
                 icon = Icons.Rounded.PhoneAndroid,
-                title = "دستی از گوشی شما",
-                badge = "رایگان",
+                title = Str.manually_from_your_phone,
+                badge = Str.free,
                 selected = !panel,
                 // A browser has no SIM card to send a manual SMS from.
                 locked = AppInfo.isWeb,
-                lockedBadge = "فقط در اپ موبایل",
+                lockedBadge = Str.mobile_app_only,
                 onClick = { onIntent(NotificationsIntent.SetDelivery(ReminderDelivery.MANUAL.value)) },
                 modifier = Modifier.weight(1f)
             )
             ChoiceTile(
                 icon = Icons.Rounded.CloudUpload,
-                title = "خودکار از پنل",
-                badge = "از اعتبار پیامک",
+                title = Str.automatically_from_panel,
+                badge = Str.uses_sms_credit,
                 selected = panel,
                 locked = !uiState.canUsePanelDelivery,
                 onClick = { onIntent(NotificationsIntent.SetDelivery(ReminderDelivery.PANEL.value)) },
@@ -338,15 +338,15 @@ private fun ClientCard(
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            if (panel) stringResource(Res.string.reminder_delivery_panel_description)
-            else stringResource(Res.string.reminder_delivery_manual_description),
+            if (panel) Str.reminder_delivery_panel_description
+            else Str.reminder_delivery_manual_description,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (!uiState.canUsePanelDelivery) {
             Spacer(Modifier.height(4.dp))
             Text(
-                stringResource(Res.string.reminder_delivery_panel_locked),
+                Str.reminder_delivery_panel_locked,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -359,7 +359,7 @@ private fun ClientCard(
         ) {
             Icon(Icons.Rounded.EditNote, null, Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("متن پیامک یادآوری")
+            Text(Str.reminder_sms_text)
         }
     }
 }
@@ -373,7 +373,7 @@ fun HandleEffects(
     onRequestPermission: () -> Unit,
     onOpenPaymentUrl: (String) -> Unit = {}
 ) {
-    val savedMessage = stringResource(Res.string.settings_saved)
+    val savedMessage = Str.settings_saved
     events.collectWithLifecycleAware { event ->
         when (event) {
             NotificationsEvent.NavigateBack -> onNavigateBack()

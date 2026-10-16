@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,10 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
-import org.jetbrains.compose.resources.stringResource
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.coming_soon_badge
-import proqueue.composeapp.generated.resources.coming_soon_hint
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
 
@@ -106,7 +103,7 @@ private fun ComingSoonFeatureCard(title: String, description: String) {
                     shape = RoundedCornerShape(50)
                 ) {
                     Text(
-                        text = stringResource(Res.string.coming_soon_badge),
+                        text = Str.coming_soon_badge,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
@@ -122,7 +119,7 @@ private fun ComingSoonFeatureCard(title: String, description: String) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                stringResource(Res.string.coming_soon_hint),
+                Str.coming_soon_hint,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -175,7 +172,7 @@ private fun LockedFeatureCard(
             if (unlockingPlan != null) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "این قابلیت با پلن «${unlockingPlan.name}» فعال می‌شود",
+                    Str.this_feature_is_unlocked_with(unlockingPlan.name),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -185,7 +182,7 @@ private fun LockedFeatureCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("ارتقا به ${unlockingPlan.name} · ${unlockingPlan.priceDisplay}")
+                    Text(Str.upgrade_to(unlockingPlan.name, unlockingPlan.priceDisplay))
                 }
             }
         }

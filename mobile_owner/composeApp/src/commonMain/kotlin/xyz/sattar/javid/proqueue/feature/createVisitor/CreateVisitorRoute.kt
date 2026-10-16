@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createVisitor
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -48,17 +49,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.confirm
-import proqueue.composeapp.generated.resources.create_visitor
-import proqueue.composeapp.generated.resources.edit
-import proqueue.composeapp.generated.resources.edit_visitor
-import proqueue.composeapp.generated.resources.phone
-import proqueue.composeapp.generated.resources.register_visitor
-import proqueue.composeapp.generated.resources.visitor_name
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
 import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
@@ -170,8 +162,8 @@ fun CreateVisitorScreen(
         val phone = phoneNumber.trim()
         val nameInvalid = name.length < 3
         val phoneInvalid = phone.length < 7
-        onNameErrorUpdate(if (nameInvalid) "نام صحیح نیست" else null)
-        onPhoneErrorUpdate(if (phoneInvalid) "شماره تلفن صحیح نیست" else null)
+        onNameErrorUpdate(if (nameInvalid) Str.name_is_not_valid else null)
+        onPhoneErrorUpdate(if (phoneInvalid) Str.phone_number_is_not_valid else null)
         if (!nameInvalid && !phoneInvalid) {
             onIntent(CreateVisitorIntent.CreateVisitor(name, phone))
         }
@@ -239,7 +231,7 @@ private fun CreateVisitorPhoneContent(
             TopAppBar(
                 title = {
                     Text(
-                        if (isEditing) stringResource(Res.string.edit_visitor) else stringResource(Res.string.create_visitor),
+                        if (isEditing) Str.edit_visitor else Str.create_visitor,
                         style = MaterialTheme.typography.titleMedium
                     )
                 },
@@ -265,7 +257,7 @@ private fun CreateVisitorPhoneContent(
                 shadowElevation = 8.dp
             ) {
                 AppButton(
-                    text = if (isEditing) stringResource(Res.string.edit) else stringResource(Res.string.register_visitor),
+                    text = if (isEditing) Str.edit else Str.register_visitor,
                     onClick = onSubmit,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -335,7 +327,7 @@ private fun CreateVisitorWebContent(
             TopAppBar(
                 title = {
                     Text(
-                        if (isEditing) stringResource(Res.string.edit_visitor) else stringResource(Res.string.create_visitor),
+                        if (isEditing) Str.edit_visitor else Str.create_visitor,
                         style = MaterialTheme.typography.titleMedium
                     )
                 },
@@ -397,7 +389,7 @@ private fun CreateVisitorWebContent(
                         Spacer(modifier = Modifier.height(4.dp))
 
                         AppButton(
-                            text = if (isEditing) stringResource(Res.string.edit) else stringResource(Res.string.register_visitor),
+                            text = if (isEditing) Str.edit else Str.register_visitor,
                             onClick = onSubmit,
                             modifier = Modifier.fillMaxWidth(),
                             isLoading = uiState.isLoading
@@ -427,7 +419,7 @@ private fun ColumnScope.CreateVisitorFormFields(
     AppTextField(
         value = fullName,
         onValueChange = onFullName,
-        label = stringResource(Res.string.visitor_name),
+        label = Str.visitor_name,
         modifier = Modifier.fillMaxWidth(),
         leadingIcon = {
             Icon(
@@ -449,7 +441,7 @@ private fun ColumnScope.CreateVisitorFormFields(
         maxLength = 11,
         value = phoneNumber,
         onValueChange = onPhoneNumber,
-        label = stringResource(Res.string.phone),
+        label = Str.phone,
         isError = phoneError != null,
         errorMessage = phoneError,
         leadingIcon = {

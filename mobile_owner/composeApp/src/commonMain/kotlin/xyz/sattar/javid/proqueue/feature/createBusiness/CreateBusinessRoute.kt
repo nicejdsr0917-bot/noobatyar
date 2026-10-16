@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.location.GeoPoint
 import xyz.sattar.javid.proqueue.core.ui.components.map.BusinessLocationField
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
@@ -65,22 +66,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.accept
-import proqueue.composeapp.generated.resources.address
-import proqueue.composeapp.generated.resources.business_name
-import proqueue.composeapp.generated.resources.cancel
-import proqueue.composeapp.generated.resources.confirm
-import proqueue.composeapp.generated.resources.create_business
-import proqueue.composeapp.generated.resources.default_time_service
-import proqueue.composeapp.generated.resources.example_work_end
-import proqueue.composeapp.generated.resources.example_work_start
-import proqueue.composeapp.generated.resources.phone
-import proqueue.composeapp.generated.resources.work_end_hour
-import proqueue.composeapp.generated.resources.work_start_hour
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.components.AppTextField
@@ -424,7 +411,7 @@ fun CreateBusinessScreen(
         BusinessFormStep.IDENTITY -> {
             val t = title.trim()
             val invalid = t.length < 3 || t.length > 50
-            onTitleErrorUpdate(if (invalid) "نام باید بین ۳ تا ۵۰ کاراکتر باشد" else null)
+            onTitleErrorUpdate(if (invalid) Str.name_must_be_3_to else null)
             !invalid
         }
 
@@ -432,7 +419,7 @@ fun CreateBusinessScreen(
             val d = defaultProgress.trim()
             val durationInvalid = d.toIntOrNull() == null
             onDefaultProgressErrorUpdate(
-                if (durationInvalid) "مدت زمان سرویس را انتخاب کنید" else null
+                if (durationInvalid) Str.choose_service_duration else null
             )
 
             val wsInt = workStartHour.trim().toIntOrNull()
@@ -443,7 +430,7 @@ fun CreateBusinessScreen(
                 wsInt !in 0..23 || weInt !in 0..23 || wmInt !in 0..59 || emInt !in 0..59 ||
                 (wsInt * 60 + wmInt) >= (weInt * 60 + emInt)
             onWorkHoursErrorUpdate(
-                if (hoursInvalid) "ساعت پایان کار باید بعد از ساعت شروع باشد" else null
+                if (hoursInvalid) Str.closing_time_must_be_after else null
             )
 
             !durationInvalid && !hoursInvalid
@@ -458,11 +445,11 @@ fun CreateBusinessScreen(
             val a = address.trim()
             val phoneInvalid = p.length < 7
             val addressInvalid = a.isEmpty() || a.length > 300
-            onPhoneErrorUpdate(if (phoneInvalid) "شماره تلفن صحیح نیست" else null)
+            onPhoneErrorUpdate(if (phoneInvalid) Str.phone_number_is_not_valid else null)
             onAddressErrorUpdate(
                 when {
-                    a.isEmpty() -> "آدرس الزامی است"
-                    a.length > 300 -> "آدرس نباید بیشتر از ۳۰۰ کاراکتر باشد"
+                    a.isEmpty() -> Str.address_is_required
+                    a.length > 300 -> Str.address_cant_be_longer_than
                     else -> null
                 }
             )
@@ -528,7 +515,7 @@ fun CreateBusinessScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (uiState.businessId == 0L) stringResource(Res.string.create_business) else "ویرایش کسب‌وکار",
+                        if (uiState.businessId == 0L) Str.create_business else Str.edit_business,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -574,13 +561,13 @@ fun CreateBusinessScreen(
                                 modifier = Modifier.weight(1f).height(52.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("قبلی", style = MaterialTheme.typography.labelLarge)
+                                Text(Str.previous, style = MaterialTheme.typography.labelLarge)
                             }
                         }
 
                         if (currentStep < BusinessFormStep.count - 1) {
                             AppButton(
-                                text = "بعدی",
+                                text = Str.next,
                                 onClick = {
                                     if (validateStep(currentStep)) {
                                         currentStep += 1
@@ -592,7 +579,7 @@ fun CreateBusinessScreen(
                             )
                         } else {
                             AppButton(
-                                text = stringResource(Res.string.accept),
+                                text = Str.accept,
                                 onClick = {
                             val t = title.trim()
                             val p = phone.trim()
@@ -623,11 +610,11 @@ fun CreateBusinessScreen(
                                 (wsInt * 60 + wmInt) >= (weInt * 60 + emInt)
                             val addressInvalid = a.isEmpty() || a.length > 300
 
-                            onTitleErrorUpdate(if (titleInvalid) "نام باید بین ۳ تا ۵۰ کاراکتر باشد" else null)
-                            onPhoneErrorUpdate(if (phoneInvalid) "شماره تلفن صحیح نیست" else null)
-                            onAddressErrorUpdate(if (a.isEmpty()) "آدرس الزامی است" else if (a.length > 300) "آدرس نباید بیشتر از ۳۰۰ کاراکتر باشد" else null)
-                            onDefaultProgressErrorUpdate(if (defaultInvalid) "مدت زمان سرویس را انتخاب کنید" else null)
-                            onWorkHoursErrorUpdate(if (hoursInvalid) "ساعات کاری معتبر نیستند" else null)
+                            onTitleErrorUpdate(if (titleInvalid) Str.name_must_be_3_to else null)
+                            onPhoneErrorUpdate(if (phoneInvalid) Str.phone_number_is_not_valid else null)
+                            onAddressErrorUpdate(if (a.isEmpty()) Str.address_is_required else if (a.length > 300) Str.address_cant_be_longer_than else null)
+                            onDefaultProgressErrorUpdate(if (defaultInvalid) Str.choose_service_duration else null)
+                            onWorkHoursErrorUpdate(if (hoursInvalid) Str.opening_hours_arent_valid else null)
 
                             if (!titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid) {
                                 val intent =
@@ -793,7 +780,7 @@ fun CreateBusinessScreen(
                         )
                     } else {
                         Text(
-                            "عکس انتخاب شد",
+                            Str.photo_selected,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -826,7 +813,7 @@ fun CreateBusinessScreen(
                 AppTextField(
                     value = selectedCategoryText,
                     onValueChange = {},
-                    label = "دسته‌بندی",
+                    label = Str.category,
                     modifier = Modifier.fillMaxWidth(),
                     leadingIcon = {
                         Icon(
@@ -852,7 +839,7 @@ fun CreateBusinessScreen(
             AppTextField(
                 value = title,
                 onValueChange = onTitle,
-                label = stringResource(Res.string.business_name),
+                label = Str.business_name,
                 maxLength = 50,
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = {
@@ -873,7 +860,7 @@ fun CreateBusinessScreen(
             AppTextField(
                 value = bio,
                 onValueChange = onBio,
-                label = "معرفی کسب‌وکار (Bio)",
+                label = Str.about_business_bio,
                 // Must stay equal to BIO_MAX_LENGTH in backend/business/models.py:
                 // this is the only thing stopping the owner from typing a
                 // description the server will then reject on save, after they
@@ -908,7 +895,7 @@ fun CreateBusinessScreen(
                 AppTextField(
                     value = defaultProgress.toIntOrNull()?.let { formatServiceDuration(it) } ?: "",
                     onValueChange = {},
-                    label = stringResource(Res.string.default_time_service),
+                    label = Str.default_time_service,
                     isError = defaultProgressError != null,
                     errorMessage = defaultProgressError,
                     leadingIcon = {
@@ -967,10 +954,10 @@ fun CreateBusinessScreen(
                 if (!uiState.isLoading) showServicesSheet = true
             }) {
                 AppTextField(
-                    value = if (services.isEmpty()) "" else "${services.size} خدمت انتخاب شده",
+                    value = if (services.isEmpty()) "" else Str.services_selected(services.size),
                     onValueChange = {},
-                    label = "لیست خدمات",
-                    placeholder = "خدماتی که ارائه می‌دهید را انتخاب کنید",
+                    label = Str.service_list,
+                    placeholder = Str.choose_services_you_offer,
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Category,
@@ -1009,7 +996,7 @@ fun CreateBusinessScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "مشتری بتواند خدمت خارج از لیست اضافه کند",
+                        text = Str.let_customers_add_service_thats,
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.weight(1f)
                     )
@@ -1019,8 +1006,8 @@ fun CreateBusinessScreen(
                     )
                 }
                 Text(
-                    text = "اگر خاموش باشد، مشتری هنگام رزرو فقط از همین لیست " +
-                            "انتخاب می‌کند و نمی‌تواند خدمت جدیدی بنویسد.",
+                    text = Str.when_off_customers_can_only +
+                            Str.and_cant_write_in_new,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1036,7 +1023,7 @@ fun CreateBusinessScreen(
                 maxLength = 11,
                 value = phone,
                 onValueChange = onPhone,
-                label = stringResource(Res.string.phone),
+                label = Str.phone,
                 isError = phoneError != null,
                 errorMessage = phoneError,
                 leadingIcon = {
@@ -1065,7 +1052,7 @@ fun CreateBusinessScreen(
                 enabled = !uiState.isLoading,
                 value = address,
                 onValueChange = onAddress,
-                label = stringResource(Res.string.address),
+                label = Str.address,
                 maxLength = 100,
                 isError = addressError != null,
                 errorMessage = addressError,
@@ -1098,7 +1085,7 @@ fun CreateBusinessScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "نمایش اطلاعات تماس به کاربران مهمان",
+                    text = Str.show_contact_details_to_guest,
                     style = MaterialTheme.typography.bodyLarge
                 )
                 androidx.compose.material3.Switch(
@@ -1117,7 +1104,7 @@ fun CreateBusinessScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "اطلاع‌رسانی پیامکی نوبت جدید به خودم",
+                        text = Str.sms_me_about_new_appointments,
                         style = MaterialTheme.typography.bodyLarge
                     )
                     androidx.compose.material3.Switch(
@@ -1126,9 +1113,9 @@ fun CreateBusinessScreen(
                     )
                 }
                 Text(
-                    text = "این پیامک از سهمیه‌ی پیامک شما کم می‌شود. اگر نوبت‌های " +
-                            "جدید را در همین اپ دنبال می‌کنید، خاموش کردنش هزینه‌ی هر " +
-                            "نوبت را یک پیامک کمتر می‌کند.",
+                    text = Str.this_sms_is_taken_from +
+                            Str.appointments_in_this_app_turning +
+                            Str.per_appointment,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1156,12 +1143,12 @@ fun CreateBusinessScreen(
     pendingSubmit?.let { submit ->
         AlertDialog(
             onDismissRequest = { pendingSubmit = null },
-            title = { Text("ارسال دوباره برای بررسی") },
+            title = { Text(Str.resubmit_for_review) },
             text = {
                 Text(
-                    "با تغییر نام، معرفی، آدرس یا لوگو، کسب‌وکار شما دوباره به صف " +
-                            "بررسی ادمین می‌رود و تا زمان تأیید، برای مراجعین نمایش داده " +
-                            "نمی‌شود. نوبت‌های ثبت‌شده‌ی فعلی تغییری نمی‌کنند."
+                    Str.changing_name_bio_address_or +
+                            Str.admin_review_queue_and_it +
+                            Str.its_approved_existing_appointments_are
                 )
             },
             confirmButton = {
@@ -1169,12 +1156,12 @@ fun CreateBusinessScreen(
                     pendingSubmit = null
                     submit()
                 }) {
-                    Text("ذخیره و ارسال برای بررسی")
+                    Text(Str.save_and_submit_for_review)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingSubmit = null }) {
-                    Text(stringResource(Res.string.cancel))
+                    Text(Str.cancel)
                 }
             }
         )
@@ -1184,16 +1171,16 @@ fun CreateBusinessScreen(
     if (uiState.businessCreated && uiState.businessId == 0L) {
         AlertDialog(
             onDismissRequest = { onIntent(CreateBusinessIntent.BusinessCreated) },
-            title = { Text("کسب‌وکار شما ثبت شد") },
+            title = { Text(Str.your_business_has_been_created) },
             text = {
                 Text(
-                    "کسب‌وکار شما پس از تأیید ادمین منتشر می‌شود. تا آن زمان می‌توانید " +
-                            "تنظیمات را کامل کنید، اما مراجعین آن را نمی‌بینند."
+                    Str.your_business_will_be_published +
+                            Str.finish_setting_it_up_but
                 )
             },
             confirmButton = {
                 TextButton(onClick = { onIntent(CreateBusinessIntent.BusinessCreated) }) {
-                    Text(stringResource(Res.string.confirm))
+                    Text(Str.confirm)
                 }
             }
         )
@@ -1239,7 +1226,7 @@ fun CreateBusinessScreen(
                     .padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
                 Text(
-                    text = "انتخاب دسته‌بندی",
+                    text = Str.choose_category,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
@@ -1248,7 +1235,7 @@ fun CreateBusinessScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("جستجو...") },
+                    placeholder = { Text(Str.search) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Search")
                     },

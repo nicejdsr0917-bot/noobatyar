@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
@@ -87,7 +88,7 @@ fun NumberPicker(
         IconButton(onClick = { stepBy(-1) }, modifier = Modifier.size(28.dp)) {
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowUp,
-                contentDescription = "قبلی",
+                contentDescription = Str.previous,
                 tint = MaterialTheme.colorScheme.primary
             )
         }
@@ -144,7 +145,7 @@ fun NumberPicker(
         IconButton(onClick = { stepBy(1) }, modifier = Modifier.size(28.dp)) {
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowDown,
-                contentDescription = "بعدی",
+                contentDescription = Str.next,
                 tint = MaterialTheme.colorScheme.primary
             )
         }

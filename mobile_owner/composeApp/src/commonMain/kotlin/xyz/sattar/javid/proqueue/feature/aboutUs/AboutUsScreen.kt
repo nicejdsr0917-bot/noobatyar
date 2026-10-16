@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.aboutUs
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
 import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import androidx.compose.ui.unit.sp
@@ -46,7 +48,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.*
 import xyz.sattar.javid.proqueue.core.utils.AppInfo
 
@@ -64,10 +65,6 @@ private val HeroViolets = listOf(
     Color(0xFFA855F7),
     Color(0xFF7C3AED)
 )
-
-/** Converts ASCII digits to Persian digits for display. */
-private fun String.toPersianDigits(): String =
-    map { c -> if (c in '0'..'9') "۰۱۲۳۴۵۶۷۸۹"[c - '0'] else c }.joinToString("")
 
 @Composable
 fun AboutUsScreen(
@@ -90,7 +87,7 @@ fun AboutUsContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = stringResource(Res.string.about_us_title),
+                        text = Str.about_us_title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -133,7 +130,7 @@ fun AboutUsContent(
                 // huge gaps between words on every line but the last.
                 SettingsCard {
                     Text(
-                        text = stringResource(Res.string.about_us_description),
+                        text = Str.about_us_description,
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Start,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -154,7 +151,7 @@ fun AboutUsContent(
                 SettingsCard {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = stringResource(Res.string.about_us_follow_us),
+                            text = Str.about_us_follow_us,
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
@@ -165,7 +162,7 @@ fun AboutUsContent(
                         // messenger's own web app), so they fill the tile as-is;
                         // Instagram/website are white glyphs on a drawn tile.
                         SocialRow(
-                            title = stringResource(Res.string.social_bale),
+                            title = Str.social_bale,
                             handle = "ble.ir/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_bale),
                             tile = SolidColor(Color(0xFF00B894)),
@@ -175,7 +172,7 @@ fun AboutUsContent(
                         )
                         SocialDivider()
                         SocialRow(
-                            title = stringResource(Res.string.social_eitaa),
+                            title = Str.social_eitaa,
                             handle = "eitaa.com/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_eitaa),
                             tile = SolidColor(Color(0xFFF47435)),
@@ -185,7 +182,7 @@ fun AboutUsContent(
                         )
                         SocialDivider()
                         SocialRow(
-                            title = stringResource(Res.string.social_rubika),
+                            title = Str.social_rubika,
                             handle = "rubika.ir/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_rubika),
                             // Rubika's icon is a hexagon on transparency — a white
@@ -197,7 +194,7 @@ fun AboutUsContent(
                         )
                         SocialDivider()
                         SocialRow(
-                            title = stringResource(Res.string.instagram),
+                            title = Str.instagram,
                             handle = "@noobatyar",
                             painter = painterResource(Res.drawable.ic_social_instagram),
                             tile = InstagramGradient,
@@ -207,7 +204,7 @@ fun AboutUsContent(
                         )
                         SocialDivider()
                         SocialRow(
-                            title = stringResource(Res.string.social_website),
+                            title = Str.social_website,
                             handle = "noobatyar.ir",
                             painter = painterResource(Res.drawable.ic_social_website),
                             tile = Brush.linearGradient(listOf(Color(0xFFA855F7), Color(0xFF6D28D9))),
@@ -221,14 +218,14 @@ fun AboutUsContent(
                 SettingsCard {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = stringResource(Res.string.about_us_developer),
+                            text = Str.about_us_developer,
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                         SocialRow(
-                            title = stringResource(Res.string.about_us_developer),
+                            title = Str.about_us_developer,
                             handle = "@javiddev",
                             painter = null,
                             badge = "</>",
@@ -455,7 +452,7 @@ private fun HeroCard() {
                     ) {
                         Image(
                             painter = painterResource(Res.drawable.main_icon),
-                            contentDescription = stringResource(Res.string.about_us_app_name),
+                            contentDescription = Str.about_us_app_name,
                             modifier = Modifier
                                 .size(72.dp)
                                 .clip(RoundedCornerShape(18.dp))
@@ -464,13 +461,13 @@ private fun HeroCard() {
                 }
 
                 Text(
-                    text = stringResource(Res.string.about_us_app_name),
+                    text = Str.about_us_app_name,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White
                 )
                 Text(
-                    text = stringResource(Res.string.about_us_app_description),
+                    text = Str.about_us_app_description,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.88f),
                     textAlign = TextAlign.Center
@@ -480,7 +477,7 @@ private fun HeroCard() {
                     shape = RoundedCornerShape(50)
                 ) {
                     Text(
-                        text = "${stringResource(Res.string.app_version)} ${AppInfo.versionName.toPersianDigits()}",
+                        text = "${Str.app_version} ${AppInfo.versionName.toPersianDigits()}",
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White,

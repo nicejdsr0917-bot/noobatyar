@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,19 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.approve_action
-import proqueue.composeapp.generated.resources.complete_action
-import proqueue.composeapp.generated.resources.contact_options
-import proqueue.composeapp.generated.resources.delete_appointment
-import proqueue.composeapp.generated.resources.no_show_action
-import proqueue.composeapp.generated.resources.phone_call
-import proqueue.composeapp.generated.resources.reject_action
-import proqueue.composeapp.generated.resources.sms
-import proqueue.composeapp.generated.resources.telegram
-import proqueue.composeapp.generated.resources.to_label
-import proqueue.composeapp.generated.resources.verify_receipt
 import proqueue.composeapp.generated.resources.whatsapp
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
@@ -146,14 +135,14 @@ fun QueueItemCard(
                     IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = stringResource(Res.string.contact_options),
+                            contentDescription = Str.contact_options,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         // --- Contact the visitor ---
                         DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.sms)) },
+                            text = { Text(Str.sms) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, contentDescription = null) },
                             onClick = {
                                 showMenu = false
@@ -161,7 +150,7 @@ fun QueueItemCard(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.whatsapp)) },
+                            text = { Text(Str.whatsapp) },
                             leadingIcon = { Icon(painterResource(Res.drawable.whatsapp), contentDescription = null) },
                             onClick = {
                                 showMenu = false
@@ -169,7 +158,7 @@ fun QueueItemCard(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.telegram)) },
+                            text = { Text(Str.telegram) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null) },
                             onClick = {
                                 showMenu = false
@@ -177,7 +166,7 @@ fun QueueItemCard(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.phone_call)) },
+                            text = { Text(Str.phone_call) },
                             leadingIcon = { Icon(Icons.Rounded.Call, contentDescription = null) },
                             trailingIcon = {
                                 Text(
@@ -196,7 +185,7 @@ fun QueueItemCard(
                         // for why that is worth a separate entry rather than
                         // an option inside one of them.
                         DropdownMenuItem(
-                            text = { Text("کارت یادآوری") },
+                            text = { Text(Str.reminder_card) },
                             leadingIcon = { Icon(Icons.Rounded.Image, contentDescription = null) },
                             onClick = {
                                 showMenu = false
@@ -208,7 +197,7 @@ fun QueueItemCard(
                         HorizontalDivider()
                         if (isPending) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.reject_action), color = MaterialTheme.colorScheme.error) },
+                                text = { Text(Str.reject_action, color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = { Icon(Icons.Rounded.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showMenu = false
@@ -217,7 +206,7 @@ fun QueueItemCard(
                             )
                         } else {
                             DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.no_show_action), color = MaterialTheme.colorScheme.error) },
+                                text = { Text(Str.no_show_action, color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = { Icon(Icons.Rounded.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showMenu = false
@@ -225,7 +214,7 @@ fun QueueItemCard(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.delete_appointment), color = MaterialTheme.colorScheme.error) },
+                                text = { Text(Str.delete_appointment, color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showMenu = false
@@ -246,7 +235,7 @@ fun QueueItemCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "$endTimeOnly ${stringResource(Res.string.to_label)} $startTimeOnly",
+                    text = "$endTimeOnly ${Str.to_label} $startTimeOnly",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
@@ -309,9 +298,9 @@ fun QueueItemCard(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = when {
-                        isPendingVerification -> stringResource(Res.string.verify_receipt)
-                        isPending -> stringResource(Res.string.approve_action)
-                        else -> stringResource(Res.string.complete_action)
+                        isPendingVerification -> Str.verify_receipt
+                        isPending -> Str.approve_action
+                        else -> Str.complete_action
                     },
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { MAP_ATTRIBUTION, MAP_MAX_ZOOM, MAP_TILE_URL, type LatLng } from '@/lib/maps';
+import { t } from '@/lib/i18n';
 
 // Tabler's map-pin, filled with the page's primary colour (the business's own
 // colour on a .themed page). A divIcon rather than Leaflet's default marker:
@@ -79,7 +80,7 @@ export default function BusinessMap({ location, title }: Props) {
       className="biz-map"
       dir="ltr"
       role="region"
-      aria-label={`موقعیت ${title} روی نقشه`}
+      aria-label={t('locationOnMap', title)}
     />
   );
 }

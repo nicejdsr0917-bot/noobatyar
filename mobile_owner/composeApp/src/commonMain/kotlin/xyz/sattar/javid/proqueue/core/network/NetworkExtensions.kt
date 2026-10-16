@@ -1,27 +1,27 @@
 package xyz.sattar.javid.proqueue.core.network
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.util.network.UnresolvedAddressException
-import org.jetbrains.compose.resources.getString
 import proqueue.composeapp.generated.resources.*
 
 @PublishedApi
-internal suspend fun getStringInternal(resource: org.jetbrains.compose.resources.StringResource): String = getString(resource)
+internal fun getStringInternal(resource: String): String = resource
 
 @PublishedApi
-internal val genericErrorResource = Res.string.generic_error
+internal val genericErrorResource get() = Str.generic_error
 @PublishedApi
-internal val connectionTimeoutResource = Res.string.connection_timeout
+internal val connectionTimeoutResource get() = Str.connection_timeout
 @PublishedApi
-internal val noInternetResource = Res.string.no_internet
+internal val noInternetResource get() = Str.no_internet
 @PublishedApi
-internal val serverConnectionFailedResource = Res.string.server_connection_failed
+internal val serverConnectionFailedResource get() = Str.server_connection_failed
 @PublishedApi
-internal val sslErrorResource = Res.string.ssl_error
+internal val sslErrorResource get() = Str.ssl_error
 
 suspend inline fun <reified T> HttpResponse.toApiResponse(): ApiResponse<T> {
     val response = this
@@ -163,19 +163,19 @@ suspend fun extractErrorMessage(rawBody: String, statusCode: Int = 0): String {
     }
 
     // 3. Fallback to HTTP status code message
-    return getString(httpStatusResource(statusCode))
+    return httpStatusResource(statusCode)
 }
 
-fun httpStatusResource(code: Int): org.jetbrains.compose.resources.StringResource = when (code) {
-    400 -> Res.string.invalid_input
-    401 -> Res.string.unauthorized
-    403 -> Res.string.forbidden
-    404 -> Res.string.not_found
-    408 -> Res.string.connection_timeout
-    409 -> Res.string.conflict_error
-    422 -> Res.string.unprocessable_entity
-    429 -> Res.string.too_many_requests
-    in 500..599 -> Res.string.server_error
-    0   -> Res.string.no_internet
-    else -> Res.string.generic_error
+fun httpStatusResource(code: Int): String = when (code) {
+    400 -> Str.invalid_input
+    401 -> Str.unauthorized
+    403 -> Str.forbidden
+    404 -> Str.not_found
+    408 -> Str.connection_timeout
+    409 -> Str.conflict_error
+    422 -> Str.unprocessable_entity
+    429 -> Str.too_many_requests
+    in 500..599 -> Str.server_error
+    0   -> Str.no_internet
+    else -> Str.generic_error
 }

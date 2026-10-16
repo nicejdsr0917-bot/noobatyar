@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.border
 import kotlin.reflect.KClass
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -7,7 +8,6 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ShoppingBag
-import proqueue.composeapp.generated.resources.about_us_label
 import xyz.sattar.javid.proqueue.core.navigation.AppScreens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Logout
@@ -48,17 +50,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.advanced_settings_title
-import proqueue.composeapp.generated.resources.appName
-import proqueue.composeapp.generated.resources.logout_label
-import proqueue.composeapp.generated.resources.messages_auto_item
-import proqueue.composeapp.generated.resources.notice_section_title
-import proqueue.composeapp.generated.resources.reminders_notifications_item
-import proqueue.composeapp.generated.resources.settings_sidebar_item
-import proqueue.composeapp.generated.resources.sms_report_title
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.feature.profile.UserEvent
@@ -162,7 +154,7 @@ fun AppSidebar(
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = stringResource(Res.string.appName),
+                text = Str.appName,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 // Explicit: the sidebar paints its background with a modifier
@@ -181,7 +173,7 @@ fun AppSidebar(
             val isSelected = isOnScreen(tab.route::class)
             SidebarItem(
                 icon = if (isSelected) tab.iconSelected else tab.iconUnSelected,
-                label = stringResource(tab.title),
+                label = (tab.title),
                 selected = isSelected,
                 onClick = { onTabSelected(tab) }
             )
@@ -190,7 +182,7 @@ fun AppSidebar(
         // a destination in its own right, one click from anywhere.
         SidebarItem(
             icon = Icons.Rounded.CalendarMonth,
-            label = "تقویم و رزرو نوبت",
+            label = Str.calendar_booking,
             selected = isOnScreen(AppScreens.Calendar::class),
             onClick = { onNavigate(AppScreens.Calendar()) }
         )
@@ -209,50 +201,50 @@ fun AppSidebar(
             SidebarDivider()
         }
 
-        SidebarGroupLabel("جذب مشتری")
+        SidebarGroupLabel(Str.get_customers)
         SidebarItem(
             icon = Icons.Rounded.Share,
-            label = "اشتراک لینک نوبت",
+            label = Str.share_booking_link,
             selected = isOnScreen(AppScreens.ShareBusiness::class),
             onClick = { onNavigate(AppScreens.ShareBusiness) }
         )
         SidebarItem(
             icon = Icons.Rounded.LocalOffer,
-            label = "پیامک تبلیغاتی",
+            label = Str.promotional_sms,
             selected = isOnScreen(AppScreens.PromoCampaign::class),
             onClick = { onNavigate(AppScreens.PromoCampaign) }
         )
         SidebarItem(
             icon = Icons.Rounded.ShoppingBag,
-            label = "بسته‌های افزودنی",
+            label = Str.add_on_packs,
             selected = isOnScreen(AppScreens.AddOns::class),
             onClick = { onNavigate(AppScreens.AddOns) }
         )
 
         SidebarDivider()
 
-        SidebarGroupLabel("ارتباط با مشتری")
+        SidebarGroupLabel(Str.customer_contact)
         SidebarItem(
             icon = Icons.Rounded.Campaign,
-            label = stringResource(Res.string.notice_section_title),
+            label = Str.notice_section_title,
             selected = isOnScreen(AppScreens.EmergencyNotice::class),
             onClick = { settingsViewModel.sendIntent(SettingsIntent.OnEmergencyNoticeClick) }
         )
         SidebarItem(
-            icon = Icons.Rounded.Message,
-            label = stringResource(Res.string.messages_auto_item),
+            icon = Icons.AutoMirrored.Rounded.Message,
+            label = Str.messages_auto_item,
             selected = isOnScreen(AppScreens.Messages::class),
             onClick = { settingsViewModel.sendIntent(SettingsIntent.OnMessagesClick) }
         )
         SidebarItem(
             icon = Icons.Rounded.Sms,
-            label = stringResource(Res.string.sms_report_title),
+            label = Str.sms_report_title,
             selected = isOnScreen(AppScreens.SmsReport::class),
             onClick = { settingsViewModel.sendIntent(SettingsIntent.OnSmsReportClick) }
         )
         SidebarItem(
             icon = Icons.Rounded.Notifications,
-            label = stringResource(Res.string.reminders_notifications_item),
+            label = Str.reminders_notifications_item,
             selected = isOnScreen(AppScreens.Notifications::class),
             onClick = { settingsViewModel.sendIntent(SettingsIntent.OnNotificationsClick) }
         )
@@ -270,21 +262,21 @@ fun AppSidebar(
                 // settings_sidebar_item for its label: here it reads as
                 // "settings" among settings rows, not as a menu affordance.
                 icon = if (isSelected) Icons.Rounded.Settings else Icons.Outlined.Settings,
-                label = stringResource(Res.string.settings_sidebar_item),
+                label = Str.settings_sidebar_item,
                 selected = isSelected,
                 onClick = { onTabSelected(MainTab.Settings) }
             )
         }
         SidebarItem(
             icon = Icons.Rounded.Info,
-            label = stringResource(Res.string.about_us_label),
+            label = Str.about_us_label,
             selected = isOnScreen(AppScreens.AboutUs::class),
             onClick = { onNavigate(AppScreens.AboutUs) }
         )
 
         SidebarItem(
-            icon = Icons.Rounded.Logout,
-            label = stringResource(Res.string.logout_label),
+            icon = Icons.AutoMirrored.Rounded.Logout,
+            label = Str.logout_label,
             tint = MaterialTheme.colorScheme.error,
             onClick = { userViewModel.sendIntent(UserIntent.Logout) }
         )
@@ -340,7 +332,7 @@ private fun AdvancedSettingsSidebarItem(selected: Boolean, onClick: () -> Unit) 
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
-            text = stringResource(Res.string.advanced_settings_title),
+            text = Str.advanced_settings_title,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
             color = Color.White,

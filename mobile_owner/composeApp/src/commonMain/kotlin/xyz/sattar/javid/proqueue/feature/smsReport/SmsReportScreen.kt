@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.smsReport
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -60,7 +61,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
 import xyz.sattar.javid.proqueue.core.ui.components.EmptyState
@@ -138,9 +138,9 @@ private fun ReportContent(
     onIntent: (SmsReportIntent) -> Unit
 ) {
     var searching by rememberSaveable { mutableStateOf(uiState.searchQuery.isNotEmpty()) }
-    val smsEmptySubtitle = stringResource(Res.string.sms_report_empty_subtitle)
-    val errorTitle = stringResource(Res.string.sms_report_error_title)
-    val retryLabel = stringResource(Res.string.sms_report_retry)
+    val smsEmptySubtitle = Str.sms_report_empty_subtitle
+    val errorTitle = Str.sms_report_error_title
+    val retryLabel = Str.sms_report_retry
 
     Scaffold(
         snackbarHost = { ToastyHost(hostState = snackbarHostState) },
@@ -160,7 +160,7 @@ private fun ReportContent(
                                 )
                             } else {
                                 Text(
-                                    stringResource(Res.string.sms_report_title),
+                                    Str.sms_report_title,
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -181,9 +181,9 @@ private fun ReportContent(
                         }) {
                             Icon(
                                 if (searching) Icons.Rounded.Close else Icons.Rounded.Search,
-                                contentDescription = stringResource(
-                                    if (searching) Res.string.sms_report_search_clear
-                                    else Res.string.sms_report_search_placeholder
+                                contentDescription = (
+                                    if (searching) Str.sms_report_search_clear
+                                    else Str.sms_report_search_placeholder
                                 )
                             )
                         }
@@ -255,7 +255,7 @@ private fun ReportContent(
                     uiState = uiState,
                     isEmpty = uiState.logs.isEmpty(),
                     emptyIcon = Icons.Rounded.Sms,
-                    emptyTitle = "پیامکی پیدا نشد",
+                    emptyTitle = Str.no_sms_found,
                     emptySubtitle = smsEmptySubtitle,
                     errorTitle = errorTitle,
                     retryLabel = retryLabel,
@@ -278,8 +278,8 @@ private fun ReportContent(
                     uiState = uiState,
                     isEmpty = uiState.pushLogs.isEmpty(),
                     emptyIcon = Icons.Rounded.NotificationsActive,
-                    emptyTitle = "اعلانی پیدا نشد",
-                    emptySubtitle = "اعلان‌های یادآوری که برای گوشی مشتریان فرستاده می‌شود اینجا ثبت می‌شود.",
+                    emptyTitle = Str.no_notifications_found,
+                    emptySubtitle = Str.reminder_notifications_sent_to_customers,
                     errorTitle = errorTitle,
                     retryLabel = retryLabel,
                     onRetry = { onIntent(SmsReportIntent.Load) }
@@ -371,7 +371,7 @@ private fun SearchBarField(query: String, onQueryChange: (String) -> Unit) {
         Box(Modifier.weight(1f)) {
             if (query.isEmpty()) {
                 Text(
-                    stringResource(Res.string.sms_report_search_placeholder),
+                    Str.sms_report_search_placeholder,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -401,8 +401,8 @@ private fun ChannelSwitch(selected: ReportChannel, onSelect: (ReportChannel) -> 
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         listOf(
-            Triple(ReportChannel.SMS, Icons.Rounded.Sms, "پیامک‌ها"),
-            Triple(ReportChannel.PUSH, Icons.Rounded.NotificationsActive, "اعلان‌ها"),
+            Triple(ReportChannel.SMS, Icons.Rounded.Sms, Str.sms_2),
+            Triple(ReportChannel.PUSH, Icons.Rounded.NotificationsActive, Str.notifications),
         ).forEach { (channel, icon, label) ->
             val on = channel == selected
             Row(
@@ -443,18 +443,18 @@ private fun SmsSummaryHero(summary: SmsLogSummaryDto) {
     HeroBox {
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
-                Text(stringResource(Res.string.sms_report_summary_title), color = Color.White.copy(alpha = 0.85f),
+                Text(Str.sms_report_summary_title, color = Color.White.copy(alpha = 0.85f),
                     style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        if (unlimited) stringResource(Res.string.sms_report_summary_unlimited) else remaining.fa(),
+                        if (unlimited) Str.sms_report_summary_unlimited else remaining.fa(),
                         color = Color.White, fontWeight = FontWeight.ExtraBold,
                         style = MaterialTheme.typography.headlineMedium
                     )
                     if (!unlimited) {
                         Spacer(Modifier.width(6.dp))
-                        Text("از ${summary.monthlyQuota.fa()} باقی‌مانده", color = Color.White.copy(alpha = 0.8f),
+                        Text(Str.of_left(summary.monthlyQuota.fa()), color = Color.White.copy(alpha = 0.8f),
                             style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 6.dp))
                     }
                 }
@@ -466,7 +466,7 @@ private fun SmsSummaryHero(summary: SmsLogSummaryDto) {
             ) {
                 Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("کیف پول ${summary.walletBalance.fa()}", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                Text(Str.wallet_2(summary.walletBalance.fa()), color = Color.White, style = MaterialTheme.typography.labelSmall)
             }
         }
         if (!unlimited && summary.monthlyQuota > 0) {
@@ -481,9 +481,9 @@ private fun SmsSummaryHero(summary: SmsLogSummaryDto) {
         }
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HeroStat(stringResource(Res.string.sms_report_summary_used), summary.monthlyUsed.fa(), Modifier.weight(1f))
-            HeroStat(stringResource(Res.string.sms_report_summary_sent), summary.sentThisMonth.fa(), Modifier.weight(1f))
-            HeroStat(stringResource(Res.string.sms_report_summary_failed), summary.failedThisMonth.fa(), Modifier.weight(1f))
+            HeroStat(Str.sms_report_summary_used, summary.monthlyUsed.fa(), Modifier.weight(1f))
+            HeroStat(Str.sms_report_summary_sent, summary.sentThisMonth.fa(), Modifier.weight(1f))
+            HeroStat(Str.sms_report_summary_failed, summary.failedThisMonth.fa(), Modifier.weight(1f))
         }
     }
 }
@@ -495,15 +495,15 @@ private fun PushSummaryHero(summary: PushLogSummaryDto) {
             Icon(Icons.Rounded.NotificationsActive, null, tint = Color.White)
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
-                Text("اعلان‌های این ماه", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                Text("اعلان رایگان است و از اعتبار پیامک کم نمی‌کند", color = Color.White.copy(alpha = 0.8f),
+                Text(Str.this_months_notifications, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                Text(Str.notifications_are_free_and_dont, color = Color.White.copy(alpha = 0.8f),
                     style = MaterialTheme.typography.labelSmall)
             }
         }
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HeroStat("ارسال‌شده", summary.sentThisMonth.fa(), Modifier.weight(1f))
-            HeroStat("ناموفق", summary.failedThisMonth.fa(), Modifier.weight(1f))
+            HeroStat(Str.sms_report_filter_sent, summary.sentThisMonth.fa(), Modifier.weight(1f))
+            HeroStat(Str.sms_report_filter_failed, summary.failedThisMonth.fa(), Modifier.weight(1f))
         }
     }
 }
@@ -542,20 +542,20 @@ private fun FilterBar(
     onRange: (SmsReportDateRange) -> Unit
 ) {
     val ranges = listOf(
-        SmsReportDateRange.ALL to Res.string.sms_report_date_filter_all,
-        SmsReportDateRange.TODAY to Res.string.sms_report_date_filter_today,
-        SmsReportDateRange.THIS_WEEK to Res.string.sms_report_date_filter_week,
-        SmsReportDateRange.THIS_MONTH to Res.string.sms_report_date_filter_month
+        SmsReportDateRange.ALL to Str.sms_report_date_filter_all,
+        SmsReportDateRange.TODAY to Str.sms_report_date_filter_today,
+        SmsReportDateRange.THIS_WEEK to Str.sms_report_date_filter_week,
+        SmsReportDateRange.THIS_MONTH to Str.sms_report_date_filter_month
     )
     var menuOpen by remember { mutableStateOf(false) }
 
     val statusChips: @Composable () -> Unit = {
-        StatusChip(status == null, stringResource(Res.string.sms_report_filter_all)) { onStatus(null) }
-        StatusChip(status == SmsLogStatus.SENT, stringResource(Res.string.sms_report_filter_sent)) { onStatus(SmsLogStatus.SENT) }
-        StatusChip(status == SmsLogStatus.FAILED, stringResource(Res.string.sms_report_filter_failed)) { onStatus(SmsLogStatus.FAILED) }
+        StatusChip(status == null, Str.sms_report_filter_all) { onStatus(null) }
+        StatusChip(status == SmsLogStatus.SENT, Str.sms_report_filter_sent) { onStatus(SmsLogStatus.SENT) }
+        StatusChip(status == SmsLogStatus.FAILED, Str.sms_report_filter_failed) { onStatus(SmsLogStatus.FAILED) }
         // Push is free, so it has no quota-skipped state.
         if (channel == ReportChannel.SMS) {
-            StatusChip(status == SmsLogStatus.SKIPPED_QUOTA, stringResource(Res.string.sms_report_filter_skipped)) {
+            StatusChip(status == SmsLogStatus.SKIPPED_QUOTA, Str.sms_report_filter_skipped) {
                 onStatus(SmsLogStatus.SKIPPED_QUOTA)
             }
         }
@@ -567,13 +567,13 @@ private fun FilterBar(
                 onClick = { menuOpen = true },
                 leadingIcon = { Icon(Icons.Rounded.CalendarMonth, null, Modifier.size(16.dp)) },
                 trailingIcon = { Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(16.dp)) },
-                label = { Text(stringResource(ranges.first { it.first == range }.second)) },
+                label = { Text((ranges.first { it.first == range }.second)) },
                 shape = RoundedCornerShape(12.dp)
             )
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 ranges.forEach { (r, label) ->
                     DropdownMenuItem(
-                        text = { Text(stringResource(label), fontWeight = if (r == range) FontWeight.Bold else null) },
+                        text = { Text(label, fontWeight = if (r == range) FontWeight.Bold else null) },
                         onClick = { menuOpen = false; onRange(r) }
                     )
                 }
@@ -631,14 +631,14 @@ private fun LogRow(
     val failed = status == SmsLogStatus.FAILED
     val skipped = status == SmsLogStatus.SKIPPED_QUOTA
     val (statusIcon, statusColor, statusLabel) = when {
-        failed -> Triple(Icons.Rounded.ErrorOutline, MaterialTheme.colorScheme.error, stringResource(Res.string.sms_report_status_failed))
-        skipped -> Triple(Icons.Rounded.WarningAmber, Amber, stringResource(Res.string.sms_report_status_skipped))
-        else -> Triple(Icons.Rounded.CheckCircle, Green, stringResource(Res.string.sms_report_status_sent))
+        failed -> Triple(Icons.Rounded.ErrorOutline, MaterialTheme.colorScheme.error, Str.sms_report_status_failed)
+        skipped -> Triple(Icons.Rounded.WarningAmber, Amber, Str.sms_report_status_skipped)
+        else -> Triple(Icons.Rounded.CheckCircle, Green, Str.sms_report_status_sent)
     }
     // A null visitor means the message went to the owner (new-booking notice).
     val toOwner = visitor == null
     val recipient = visitor?.let { it.fullName.ifBlank { it.phoneNumber } }
-        ?: stringResource(Res.string.sms_report_owner_recipient)
+        ?: Str.sms_report_owner_recipient
     val time = sentAt?.takeIf { it.isNotBlank() }?.let {
         runCatching { DateTimeUtils.formatDateTime(DateTimeUtils.parseIsoToEpochMillis(it)) }.getOrNull()
     }
@@ -711,7 +711,7 @@ private fun String.previewText(): String =
  */
 private fun String.withoutFooter(): String =
     lines()
-        .filterNot { it.trim() == "نوبت‌یار" || it.trim() == "لغو11" }
+        .filterNot { it.trim() == "نوبت‌یار" || it.trim() == "لغو11" } // i18n-keep: SMS footer lines
         .joinToString("\n")
         .replace(Regex("\n{2,}"), "\n")
         .trim()
@@ -722,7 +722,7 @@ private fun String.withoutFooter(): String =
  */
 private fun String.humanError(): String {
     Regex("""['"]status['"]\s*:\s*['"]([^'"]+)['"]""").find(this)?.let {
-        return "پاسخ سامانه‌ی پیامک: ${it.groupValues[1]}"
+        return Str.sms_gateway_response(it.groupValues[1])
     }
-    return if (trimStart().startsWith("{")) "سامانه‌ی پیامک ارسال را نپذیرفت" else this
+    return if (trimStart().startsWith("{")) Str.sms_gateway_rejected_message else this
 }

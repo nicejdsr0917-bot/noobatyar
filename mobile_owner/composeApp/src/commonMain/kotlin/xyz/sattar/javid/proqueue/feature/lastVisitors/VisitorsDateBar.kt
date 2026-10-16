@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -37,11 +38,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.status_completed
-import proqueue.composeapp.generated.resources.status_no_show
-import proqueue.composeapp.generated.resources.status_waiting
 import xyz.sattar.javid.proqueue.core.ui.components.DateBottomSheet
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.domain.usecase.GetRangeReportUseCase
@@ -85,10 +81,12 @@ internal object DateRanges {
     }
 }
 
-private enum class DatePreset(val label: String, val range: () -> Pair<Long, Long>) {
-    TODAY("امروز", DateRanges::today),
-    NEXT_WEEK("۷ روز آینده", DateRanges::nextWeek),
-    LAST_MONTH("۳۰ روز گذشته", DateRanges::lastMonth),
+private enum class DatePreset(private val labelRef: () -> String, val range: () -> Pair<Long, Long>) {
+    TODAY(Str::sms_report_date_filter_today, DateRanges::today),
+    NEXT_WEEK(Str::next_7_days, DateRanges::nextWeek),
+    LAST_MONTH(Str::last_30_days, DateRanges::lastMonth),;
+
+    val label: String get() = labelRef()
 }
 
 /**
@@ -149,8 +147,8 @@ internal fun VisitorsDateBar(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            DateField("از", from, { pickingFrom = true }, Modifier.weight(1f))
-            DateField("تا", to, { pickingTo = true }, Modifier.weight(1f))
+            DateField(Str.from, from, { pickingFrom = true }, Modifier.weight(1f))
+            DateField(Str.to_label, to, { pickingTo = true }, Modifier.weight(1f))
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -175,16 +173,16 @@ internal fun VisitorsDateBar(
 /** Same set as Appointment.STATUS_CHOICES on the backend. */
 @Composable
 internal fun appointmentStatusOptions(): List<Pair<String?, String>> = listOf(
-    null to "همه",
-    "LOCKED" to "در حال پرداخت",
-    "PENDING_VERIFICATION" to "💳 در انتظار تأیید فیش",
-    "PENDING_APPROVAL" to "در انتظار تایید",
-    "CONFIRMED" to "تأیید شده",
-    "WAITING" to stringResource(Res.string.status_waiting),
-    "IN_PROGRESS" to "در حال سرویس",
-    "COMPLETED" to stringResource(Res.string.status_completed),
-    "NO_SHOW" to stringResource(Res.string.status_no_show),
-    "CANCELLED" to "لغو شده"
+    null to Str.sms_report_filter_all,
+    "LOCKED" to Str.paying,
+    "PENDING_VERIFICATION" to Str.receipt_awaiting_approval,
+    "PENDING_APPROVAL" to Str.awaiting_approval,
+    "CONFIRMED" to Str.approved,
+    "WAITING" to Str.status_waiting,
+    "IN_PROGRESS" to Str.in_service,
+    "COMPLETED" to Str.status_completed,
+    "NO_SHOW" to Str.status_no_show,
+    "CANCELLED" to Str.status_cancelled
 )
 
 @Composable
@@ -326,7 +324,7 @@ internal fun VisitorsFilterStrip(
                 )
                 Icon(
                     Icons.Rounded.ExpandMore,
-                    contentDescription = if (dateExpanded) "بستن بازه" else "تغییر بازه",
+                    contentDescription = if (dateExpanded) Str.close_range else Str.change_range,
                     modifier = Modifier.size(18.dp).rotate(chevronRotation)
                 )
             }
@@ -370,7 +368,7 @@ internal fun VisitorsFilterStrip(
                 ) {
                     Icon(
                         Icons.Rounded.Tune,
-                        contentDescription = "فیلتر",
+                        contentDescription = Str.filter,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
@@ -392,7 +390,7 @@ internal fun VisitorsFilterStrip(
 
 /** "04/01 – 06/07" within one year, full dates otherwise. */
 private fun compactRangeLabel(from: Long, to: Long): String {
-    if (from == 0L || to == 0L) return "بازه"
+    if (from == 0L || to == 0L) return Str.range
     val f = DateTimeUtils.getJalaliDate(from)
     val t = DateTimeUtils.getJalaliDate(to)
     if (f == t) return f
@@ -422,7 +420,7 @@ private fun CompactStatusChip(status: String, onClear: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)
             )
-            Icon(Icons.Rounded.Close, contentDescription = "حذف فیلتر وضعیت", modifier = Modifier.size(14.dp))
+            Icon(Icons.Rounded.Close, contentDescription = Str.remove_status_filter, modifier = Modifier.size(14.dp))
         }
     }
 }

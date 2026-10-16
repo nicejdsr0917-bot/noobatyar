@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.domain.usecase
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.domain.model.message.MessageToken
@@ -21,7 +22,7 @@ class GenerateReminderMessageUseCase {
 
         val date = DateTimeUtils.formatMillisDateOnly(appointmentMillis)
         val time = DateTimeUtils.formatTime(appointmentMillis)
-        val duration = serviceDuration?.let { "$it" } ?: "مشخص نشده"
+        val duration = serviceDuration?.let { "$it" } ?: Str.not_specified
 
         var message = template
         message = message.replace(MessageToken.Visitor.token, visitorName)
@@ -36,7 +37,7 @@ class GenerateReminderMessageUseCase {
     }
 
     private fun getDefaultTemplate(): String {
-        return "با سلام {visitor} عزیز 🌹؛ یادآوری نوبت شما در {business} برای ساعت {time}. مدت زمان خدمت به شما حدود {duration} است. لطفاً تا {minutes} دقیقه دیگر در محل حضور داشته باشید."
+        return "با سلام {visitor} عزیز 🌹؛ یادآوری نوبت شما در {business} برای ساعت {time}. مدت زمان خدمت به شما حدود {duration} است. لطفاً تا {minutes} دقیقه دیگر در محل حضور داشته باشید." // i18n-keep: customer SMS text
     }
 
     fun generatePreview(
@@ -50,7 +51,7 @@ class GenerateReminderMessageUseCase {
             businessId = -1,
             businessTitle = businessTitle,
             businessAddress = businessAddress,
-            visitorName = "سارا",
+            visitorName = "سارا", // i18n-keep: customer SMS text
             appointmentMillis = DateTimeUtils.systemCurrentMilliseconds(),
             reminderMinutes = reminderMinutes.toString(),
             serviceDuration = serviceDuration,

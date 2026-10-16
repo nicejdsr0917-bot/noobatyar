@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.promo
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
 import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
@@ -93,7 +94,7 @@ fun PromoCampaignScreen(
     // comes from the server in the confirm dialog.
     val sample = PanelSmsSuffix.sign(
         state.message
-            .replace(PromoCampaignViewModel.NAME_TOKEN, "مریم")
+            .replace(PromoCampaignViewModel.NAME_TOKEN, "مریم") // i18n-keep: sample name inside the Persian SMS preview
             .replace(PromoCampaignViewModel.BUSINESS_TOKEN, state.businessTitle)
     )
     val selectedCount = overview?.audiences?.firstOrNull { it.key == state.audience }?.count ?: 0
@@ -104,7 +105,7 @@ fun PromoCampaignScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("پیامک تبلیغاتی", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(Str.promotional_sms, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -113,7 +114,7 @@ fun PromoCampaignScreen(
                 },
                 actions = {
                     IconButton(onClick = { viewModel.sendIntent(PromoCampaignIntent.Load) }) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "بروزرسانی")
+                        Icon(Icons.Rounded.Refresh, contentDescription = Str.refresh)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -128,7 +129,7 @@ fun PromoCampaignScreen(
                             .navigationBarsPadding()
                     ) {
                         Text(
-                            text = "حدود ${estimatedParts.fa()} پیامک برای ${selectedCount.fa()} نفر",
+                            text = Str.about_sms_for_people(estimatedParts.fa(), selectedCount.fa()),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.fillMaxWidth(),
@@ -136,7 +137,7 @@ fun PromoCampaignScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         AppButton(
-                            text = "بررسی هزینه و ارسال",
+                            text = Str.review_cost_and_send,
                             onClick = { viewModel.sendIntent(PromoCampaignIntent.RequestSend) },
                             isLoading = state.isPreviewing,
                             enabled = state.message.isNotBlank() && selectedCount > 0 && overview.withinSendWindow,
@@ -168,7 +169,7 @@ fun PromoCampaignScreen(
 
             val historyBlock: @Composable () -> Unit = {
                 if (overview.campaigns.isNotEmpty()) {
-                    Section(title = "کمپین‌های قبلی", icon = Icons.Rounded.History) {
+                    Section(title = Str.previous_campaigns, icon = Icons.Rounded.History) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             overview.campaigns.forEach { c ->
                                 CampaignRow(c) { viewModel.sendIntent(PromoCampaignIntent.OpenCampaign(c.id)) }
@@ -186,8 +187,8 @@ fun PromoCampaignScreen(
                     Banner(
                         icon = Icons.Rounded.Schedule,
                         tint = Amber,
-                        text = "خط پیامک تبلیغاتی فقط بین ساعت ${overview.sendWindowStart.fa()} تا " +
-                            "${overview.sendWindowEnd.fa()} پیامک تحویل می‌دهد؛ می‌توانید متن را آماده کنید و در این بازه ارسال کنید."
+                        text = Str.promotional_sms_line_only_delivers(overview.sendWindowStart.fa()) +
+                            Str.you_can_prepare_text_and(overview.sendWindowEnd.fa())
                     )
                 }
 
@@ -199,7 +200,7 @@ fun PromoCampaignScreen(
                     spacing = 14.dp,
                     start = {
                 // ── 1. Audience ──
-                Section(title = "۱. به چه کسانی بفرستیم؟", icon = Icons.Rounded.Groups) {
+                Section(title = Str.t_1_who_should_we_send, icon = Icons.Rounded.Groups) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         overview.audiences.forEach { audience ->
                             AudienceOption(
@@ -214,9 +215,9 @@ fun PromoCampaignScreen(
                 }
 
                 // ── 2. Message ──
-                Section(title = "۲. متن پیامک", icon = Icons.Rounded.Sms) {
+                Section(title = Str.t_2_sms_text, icon = Icons.Rounded.Sms) {
                     Text(
-                        "با یکی از الگوها شروع کنید یا متن خودتان را بنویسید. «نام مشتری» برای هر نفر با اسم خودش پر می‌شود.",
+                        Str.start_from_template_or_write,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -248,7 +249,7 @@ fun PromoCampaignScreen(
                     )
                     AssistChip(
                         onClick = { viewModel.sendIntent(PromoCampaignIntent.InsertName) },
-                        label = { Text("+ نام مشتری") },
+                        label = { Text(Str.customer_name_2) },
                         shape = RoundedCornerShape(12.dp),
                         colors = AssistChipDefaults.assistChipColors(labelColor = MaterialTheme.colorScheme.primary)
                     )
@@ -257,7 +258,7 @@ fun PromoCampaignScreen(
                     },
                     end = {
                 // ── 3. Preview & cost ──
-                Section(title = "۳. پیش‌نمایش و هزینه", icon = Icons.Rounded.Campaign) {
+                Section(title = Str.t_3_preview_and_cost, icon = Icons.Rounded.Campaign) {
                     SmsBubble(
                         body = sample.removeSuffix(PanelSmsSuffix.TEXT),
                         lockedSuffix = true
@@ -265,8 +266,8 @@ fun PromoCampaignScreen(
                     Spacer(Modifier.height(12.dp))
                     SmsCounter(
                         text = sample,
-                        footnote = "هر پیامک فارسی ۷۰ کاراکتر است (در پیام چندبخشی ۶۷). نقطه حذف می‌شود چون خط " +
-                            "پیامکی آن را لینک حساب می‌کند. هر پیامک از اعتبار پیامک شما کسر می‌شود."
+                        footnote = Str.each_persian_sms_is_70_3 +
+                            Str.line_treats_them_as_links
                     )
                 }
                 // ── History ──
@@ -295,17 +296,17 @@ fun PromoCampaignScreen(
 }
 
 private fun audienceHint(key: String) = when (key) {
-    "recent" -> "مشتری‌هایی که در ماه اخیر آمده‌اند؛ برای معرفی خدمت جدید یا دعوت به مراجعه‌ی بعدی"
-    "inactive" -> "مشتری‌هایی که مدتی است نیامده‌اند؛ بهترین گروه برای پیشنهاد تخفیف و برگرداندنشان"
-    else -> "همه‌ی مشتری‌های فهرست شما (به جز بایگانی‌شده‌ها)"
+    "recent" -> Str.customers_who_came_in_last
+    "inactive" -> Str.customers_who_havent_come_in
+    else -> Str.all_customers_on_your_list
 }
 
 private fun readyLabel(index: Int) = when (index) {
-    0 -> "دلتنگی"
-    1 -> "تخفیف ویژه"
-    2 -> "خدمت جدید"
-    3 -> "رزرو زودهنگام"
-    else -> "الگوی ${(index + 1).fa()}"
+    0 -> Str.we_miss_you
+    1 -> Str.special_discount
+    2 -> Str.new_service
+    3 -> Str.early_booking
+    else -> Str.template((index + 1).fa())
 }
 
 @Composable
@@ -325,21 +326,21 @@ private fun Hero(overview: PromoSmsOverviewDto) {
                 ) { Icon(Icons.Rounded.Campaign, null, tint = Color.White) }
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text("مشتری‌هایتان را برگردانید", color = Color.White, fontWeight = FontWeight.Bold,
+                    Text(Str.win_your_customers_back, color = Color.White, fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium)
-                    Text("با یک پیامک، تخفیف یا خبر تازه را به همه‌شان برسانید",
+                    Text(Str.send_discount_or_news_to,
                         color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodySmall)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HeroStat(
-                    label = "اعتبار پیامک",
-                    value = overview.availableCredit?.fa() ?: "نامحدود",
+                    label = Str.sms_credit,
+                    value = overview.availableCredit?.fa() ?: Str.sms_report_summary_unlimited,
                     modifier = Modifier.weight(1f)
                 )
                 HeroStat(
-                    label = "ساعت ارسال",
-                    value = "${overview.sendWindowStart.fa()} تا ${overview.sendWindowEnd.fa()}",
+                    label = Str.sending_hours,
+                    value = Str.to_3(overview.sendWindowStart.fa(), overview.sendWindowEnd.fa()),
                     dot = if (overview.withinSendWindow) Green else Amber,
                     modifier = Modifier.weight(1f)
                 )
@@ -370,15 +371,15 @@ private fun HeroStat(label: String, value: String, modifier: Modifier = Modifier
 
 @Composable
 private fun LockedCard(onUpgrade: () -> Unit) {
-    Section(title = "این قابلیت در پلن فعلی شما نیست", icon = Icons.Rounded.Lock) {
+    Section(title = Str.this_feature_isnt_in_your, icon = Icons.Rounded.Lock) {
         Text(
-            "با پیامک تبلیغاتی می‌توانید به مشتری‌هایی که مدتی نیامده‌اند پیشنهاد تخفیف بدهید، خدمت تازه را معرفی کنید " +
-                "و نوبت‌های خالی را پر کنید — هر پیامک با نام خود مشتری و بدون نیاز به پنل پیامکی جداگانه.",
+            Str.with_promotional_sms_you_can +
+                Str.and_fill_empty_slots_each,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(12.dp))
-        AppButton(text = "مشاهده‌ی پلن‌ها و ارتقا", onClick = onUpgrade, modifier = Modifier.fillMaxWidth())
+        AppButton(text = Str.see_plans_and_upgrade, onClick = onUpgrade, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -445,7 +446,7 @@ private fun AudienceOption(label: String, hint: String, count: Int, selected: Bo
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(count.fa(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
                 color = if (selected) primary else MaterialTheme.colorScheme.onSurface)
-            Text("نفر", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(Str.people, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -474,12 +475,12 @@ private fun CampaignRow(c: PromoCampaignDto, onClick: () -> Unit) {
         Spacer(Modifier.width(10.dp))
         Column(horizontalAlignment = Alignment.End) {
             StatusChip(
-                text = if (sending) "در حال ارسال" else "ارسال شد",
+                text = if (sending) Str.sending else Str.sms_report_status_sent,
                 tint = if (sending) Amber else Green
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "${c.sentCount.fa()} از ${c.recipientCount.fa()}",
+                Str.of(c.sentCount.fa(), c.recipientCount.fa()),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -516,24 +517,24 @@ private fun ConfirmDialog(
     AlertDialog(
         onDismissRequest = { if (!sending) onDismiss() },
         icon = { Icon(Icons.Rounded.Campaign, null, tint = MaterialTheme.colorScheme.primary) },
-        title = { Text("ارسال کمپین", fontWeight = FontWeight.Bold) },
+        title = { Text(Str.send_campaign, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ConfirmLine("گیرندگان", "${preview.recipientCount.fa()} نفر")
-                ConfirmLine("هر پیامک", "${preview.partsPerMessage.fa()} بخش")
-                ConfirmLine("مجموع هزینه", "${preview.totalParts.fa()} پیامک", bold = true)
-                ConfirmLine("اعتبار فعلی شما", preview.availableCredit?.let { "${it.fa()} پیامک" } ?: "نامحدود")
+                ConfirmLine(Str.recipients, Str.people_2(preview.recipientCount.fa()))
+                ConfirmLine(Str.per_sms, Str.parts(preview.partsPerMessage.fa()))
+                ConfirmLine(Str.total_cost, Str.sms_3(preview.totalParts.fa()), bold = true)
+                ConfirmLine(Str.your_current_credit, preview.availableCredit?.let { Str.sms_3(it.fa()) } ?: Str.sms_report_summary_unlimited)
                 when {
                     !preview.enoughCredit -> Banner(
                         Icons.Rounded.ErrorOutline, MaterialTheme.colorScheme.error,
-                        "اعتبار شما برای این کمپین کافی نیست؛ ابتدا بسته‌ی پیامک تهیه کنید."
+                        Str.you_dont_have_enough_credit
                     )
                     !preview.withinSendWindow -> Banner(
                         Icons.Rounded.Schedule, Amber,
-                        "الان خارج از ساعت مجاز ارسال است؛ در بازه‌ی مجاز دوباره تلاش کنید."
+                        Str.its_outside_allowed_sending_hours
                     )
                     else -> Text(
-                        "پس از تأیید، ارسال بلافاصله شروع می‌شود و قابل لغو نیست.",
+                        Str.once_confirmed_sending_starts_immediately,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -542,16 +543,16 @@ private fun ConfirmDialog(
         },
         confirmButton = {
             if (!preview.enoughCredit) {
-                TextButton(onClick = onGetCredit) { Text("خرید اعتبار پیامک") }
+                TextButton(onClick = onGetCredit) { Text(Str.buy_sms_credit) }
             } else {
                 TextButton(onClick = onConfirm, enabled = !sending && preview.withinSendWindow) {
                     if (sending) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else Text("تأیید و ارسال", fontWeight = FontWeight.Bold)
+                    else Text(Str.confirm_and_send, fontWeight = FontWeight.Bold)
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !sending) { Text("انصراف") }
+            TextButton(onClick = onDismiss, enabled = !sending) { Text(Str.cancel) }
         }
     )
 }
@@ -570,14 +571,14 @@ private fun ConfirmLine(label: String, value: String, bold: Boolean = false) {
 private fun CampaignSheet(campaign: PromoCampaignDto, onDismiss: () -> Unit) {
     AdaptiveSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-            Text("جزئیات کمپین", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(Str.campaign_details, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(campaign.message, style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatusChip("${campaign.sentCount.fa()} ارسال‌شده", Green)
-                if (campaign.failedCount > 0) StatusChip("${campaign.failedCount.fa()} ناموفق", MaterialTheme.colorScheme.error)
-                if (campaign.skippedCount > 0) StatusChip("${campaign.skippedCount.fa()} بدون اعتبار", Amber)
+                StatusChip(Str.sent(campaign.sentCount.fa()), Green)
+                if (campaign.failedCount > 0) StatusChip(Str.failed(campaign.failedCount.fa()), MaterialTheme.colorScheme.error)
+                if (campaign.skippedCount > 0) StatusChip(Str.out_of_credit(campaign.skippedCount.fa()), Amber)
             }
             Spacer(Modifier.height(12.dp))
             HorizontalDivider()

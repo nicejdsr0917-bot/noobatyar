@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.visitorDetails
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.flow.Flow
@@ -50,7 +51,7 @@ class VisitorDetailsViewModel(
                         content = intent.content,
                         businessTitle = intent.businessTitle
                     )
-                    if (!success) emit(PartialState.ShowMessage("خطا در ثبت پیام"))
+                    if (!success) emit(PartialState.ShowMessage(Str.couldnt_save_message))
 
                     val visitor = uiState.value.visitor
                     val business = BusinessStateHolder.selectedBusiness.value
@@ -65,14 +66,14 @@ class VisitorDetailsViewModel(
                         )
                     }
                 } catch (e: Exception) {
-                    emit(PartialState.ShowMessage(e.message ?: "خطا در ثبت پیام"))
+                    emit(PartialState.ShowMessage(e.message ?: Str.couldnt_save_message))
                 }
             }
             is VisitorDetailsIntent.DeleteMessage -> flow {
                 try {
                     val success = messageRepository.deleteMessage(intent.id)
                     if (!success) {
-                        emit(PartialState.ShowMessage("حذف پیام با خطا مواجه شد"))
+                        emit(PartialState.ShowMessage(Str.couldnt_delete_message))
                     }
                     val visitor = uiState.value.visitor
                     val business = BusinessStateHolder.selectedBusiness.value
@@ -87,7 +88,7 @@ class VisitorDetailsViewModel(
                         )
                     }
                 } catch (e: Exception) {
-                    emit(PartialState.ShowMessage(e.message ?: "خطا در حذف پیام"))
+                    emit(PartialState.ShowMessage(e.message ?: Str.couldnt_delete_message_2))
                 }
             }
         }
@@ -136,7 +137,7 @@ class VisitorDetailsViewModel(
         try {
             val business = BusinessStateHolder.selectedBusiness.value
             if (business == null) {
-                emit(PartialState.ShowMessage("کسب‌وکاری انتخاب نشده است", ToastyType.Warning))
+                emit(PartialState.ShowMessage(Str.no_business_selected_2, ToastyType.Warning))
                 return@flow
             }
 
@@ -165,10 +166,10 @@ class VisitorDetailsViewModel(
                 val messages = mergedMessages(visitorId, business.id)
                 emit(PartialState.DetailsLoaded(visitor, appointments, messages))
             } else {
-                emit(PartialState.ShowMessage("اطلاعات یافت نشد"))
+                emit(PartialState.ShowMessage(Str.information_not_found))
             }
         } catch (e: Exception) {
-            emit(PartialState.ShowMessage(e.message ?: "خطا در بارگذاری اطلاعات"))
+            emit(PartialState.ShowMessage(e.message ?: Str.couldnt_load_information))
         }
     }
 }

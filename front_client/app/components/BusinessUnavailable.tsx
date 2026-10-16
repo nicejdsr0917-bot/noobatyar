@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import SupportLinks from '@/app/components/SupportLinks';
+import { t } from '@/lib/i18n';
 
 /**
  * The single "this booking link doesn't lead anywhere right now" screen.
@@ -31,7 +34,7 @@ export default function BusinessUnavailable() {
             local static SVG; next/image adds no value and needs explicit sizing. */}
         <img
           src="/icons/icon-192.png"
-          alt="نوبت‌یار"
+          alt={t('noobatyar')}
           width={84}
           height={84}
           style={{ borderRadius: 22, marginBottom: 22 }}
@@ -45,8 +48,7 @@ export default function BusinessUnavailable() {
             marginBottom: 10,
           }}
         >
-          این کسب‌وکار در دسترس نیست
-        </h1>
+          {t('thisBusinessIsntAvailable')}</h1>
 
         <p
           style={{
@@ -57,10 +59,8 @@ export default function BusinessUnavailable() {
             marginBottom: 26,
           }}
         >
-          این لینک معتبر نیست یا این کسب‌وکار در حال حاضر در نوبت‌یار فعال نیست
-          <br />
-          نشانی را دوباره بررسی کنید یا از خود کسب‌وکار لینک تازه بگیرید
-        </p>
+          {t('thisLinkIsntValidOr')}<br />
+          {t('checkAddressAgainOrAsk')}</p>
 
         <p
           style={{
@@ -70,8 +70,7 @@ export default function BusinessUnavailable() {
             marginBottom: 12,
           }}
         >
-          فکر می‌کنید اشتباهی رخ داده؟
-        </p>
+          {t('thinkSomethingsWrong')}</p>
 
         <SupportLinks />
 
@@ -85,8 +84,7 @@ export default function BusinessUnavailable() {
             fontWeight: 600,
           }}
         >
-          بازگشت به نوبت‌یار
-        </Link>
+          {t('backToNoobatyar')}</Link>
       </div>
     </div>
   );

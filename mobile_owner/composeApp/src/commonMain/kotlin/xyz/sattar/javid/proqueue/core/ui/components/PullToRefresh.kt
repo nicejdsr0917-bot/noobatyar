@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import xyz.sattar.javid.proqueue.core.navigation.OnTabRefreshRequested
 import androidx.compose.animation.core.Animatable
@@ -295,7 +296,7 @@ private fun DesktopRefreshButton(
             } else {
                 Icon(
                     imageVector = Icons.Rounded.Refresh,
-                    contentDescription = "بروزرسانی",
+                    contentDescription = Str.refresh,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -384,10 +385,10 @@ private fun PullIndicator(
         if (offset > thresholdPx * 0.35f || isRefreshing) {
             Text(
                 text = when {
-                    finishing -> "بروز شد"
-                    isRefreshing -> "در حال بروزرسانی…"
-                    readyToRelease -> "رها کنید"
-                    else -> "برای بروزرسانی بکشید"
+                    finishing -> Str.updated
+                    isRefreshing -> Str.refreshing
+                    readyToRelease -> Str.release
+                    else -> Str.pull_to_refresh
                 },
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (readyToRelease || isRefreshing) FontWeight.Bold else FontWeight.Medium,

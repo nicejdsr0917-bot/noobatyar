@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.messages
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
 import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import xyz.sattar.javid.proqueue.core.utils.AppInfo
@@ -44,7 +45,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
@@ -95,7 +95,7 @@ fun MessagesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        stringResource(Res.string.messages_auto_item),
+                        Str.messages_auto_item,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -117,7 +117,7 @@ fun MessagesScreen(
             ) {
                 AppButton(
                     onClick = { viewModel.sendIntent(MessagesIntent.Save) },
-                    text = stringResource(Res.string.messages_save),
+                    text = Str.messages_save,
                     isLoading = uiState.isSaving,
                     enabled = !uiState.isLoading,
                     modifier = Modifier
@@ -150,15 +150,15 @@ fun MessagesScreen(
             // ── 1. Who sends ──
             Section(
                 step = 1,
-                title = stringResource(Res.string.reminder_delivery_title),
-                subtitle = stringResource(Res.string.reminder_delivery_subtitle)
+                title = Str.reminder_delivery_title,
+                subtitle = Str.reminder_delivery_subtitle
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ChoiceTile(
                         icon = Icons.Rounded.PhoneAndroid,
-                        title = "دستی از گوشی شما",
-                        badge = "رایگان",
-                        lockedBadge = "فقط در اپ موبایل",
+                        title = Str.manually_from_your_phone,
+                        badge = Str.free,
+                        lockedBadge = Str.mobile_app_only,
                         selected = !uiState.isPanel,
                         // Manual delivery opens the phone's own SMS app. A
                         // browser has no SIM card to hand that to, so on web
@@ -170,8 +170,8 @@ fun MessagesScreen(
                     )
                     ChoiceTile(
                         icon = Icons.Rounded.CloudUpload,
-                        title = "خودکار از پنل",
-                        badge = "از اعتبار پیامک",
+                        title = Str.automatically_from_panel,
+                        badge = Str.uses_sms_credit,
                         selected = uiState.isPanel,
                         locked = !uiState.canUsePanelDelivery,
                         onClick = { viewModel.sendIntent(MessagesIntent.SetDelivery(ReminderDelivery.PANEL.value)) },
@@ -190,31 +190,31 @@ fun MessagesScreen(
                         panel && notificationsOff -> StatusBanner(
                             icon = Icons.Rounded.WarningAmber,
                             tint = WarningAmber,
-                            text = "اعلان‌های این کسب‌وکار خاموش است؛ تا از «تنظیمات اعلان‌ها» روشن نشود، " +
-                                "سرور هیچ یادآوری‌ای نمی‌فرستد."
+                            text = Str.notifications_are_off_for_this +
+                                Str.server_wont_send_any_reminders
                         )
                         panel -> StatusBanner(
                             icon = Icons.Rounded.CheckCircle,
                             tint = SuccessGreen,
-                            text = "سرور ${uiState.reminderMinutes.toString().toPersianDigits()} دقیقه قبل از هر نوبت، " +
-                                "پیامک یادآوری را خودش برای مشتری می‌فرستد؛ لازم نیست کاری انجام دهید.",
-                            actionLabel = "گزارش پیامک‌های ارسال‌شده",
+                            text = Str.minutes_before_each_appointment_server(uiState.reminderMinutes.toString().toPersianDigits()) +
+                                Str.sends_reminder_sms_to_customer,
+                            actionLabel = Str.sent_sms_report,
                             actionIcon = Icons.AutoMirrored.Rounded.ReceiptLong,
                             onAction = { viewModel.sendIntent(MessagesIntent.OpenSmsReport) }
                         )
                         !allowed -> StatusBanner(
                             icon = Icons.Rounded.Lock,
                             tint = MaterialTheme.colorScheme.primary,
-                            text = stringResource(Res.string.reminder_delivery_panel_locked) +
-                                " با ارسال خودکار، دیگر لازم نیست یادآوری‌ها را خودتان بفرستید.",
-                            actionLabel = "فعال‌سازی ارسال خودکار",
+                            text = Str.reminder_delivery_panel_locked +
+                                Str.with_automatic_sending_you_no,
+                            actionLabel = Str.turn_on_automatic_sending,
                             onAction = { viewModel.sendIntent(MessagesIntent.UpgradeForPanelDelivery) }
                         )
                         else -> StatusBanner(
                             icon = Icons.Rounded.Info,
                             tint = MaterialTheme.colorScheme.primary,
-                            text = "سر زمان یادآوری اعلانی برایتان می‌آید و پیامک با همین متن از سیم‌کارت خودتان " +
-                                "برای مشتری ارسال می‌شود."
+                            text = Str.at_reminder_time_you_get +
+                                Str.to_customer
                         )
                     }
                 }
@@ -223,8 +223,8 @@ fun MessagesScreen(
             // ── 2. When ──
             Section(
                 step = 2,
-                title = stringResource(Res.string.reminder_lead_time_title),
-                subtitle = stringResource(Res.string.reminder_lead_time_description),
+                title = Str.reminder_lead_time_title,
+                subtitle = Str.reminder_lead_time_description,
                 icon = Icons.Rounded.Schedule
             ) {
                 FlowRow(
@@ -235,7 +235,7 @@ fun MessagesScreen(
                         FilterChip(
                             selected = uiState.reminderMinutes == minutes,
                             onClick = { viewModel.sendIntent(MessagesIntent.SetReminder(minutes)) },
-                            label = { Text("${minutes.toString().toPersianDigits()} دقیقه") },
+                            label = { Text(Str.min(minutes.toString().toPersianDigits())) },
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
@@ -251,9 +251,9 @@ fun MessagesScreen(
                 if (panel) {
                     Section(
                         step = 3,
-                        title = "انتخاب متن پیامک",
-                        subtitle = "در ارسال خودکار، متن از میان الگوهای تأییدشده انتخاب می‌شود و قابل ویرایش نیست " +
-                            "تا همیشه با قوانین خط پیامکی (بدون لینک و با «لغو۱۱») سازگار بماند."
+                        title = Str.choose_sms_text,
+                        subtitle = Str.with_automatic_sending_text_is +
+                            Str.so_it_always_complies_with
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             ReminderTemplates.all.forEach { tpl ->
@@ -269,8 +269,8 @@ fun MessagesScreen(
                 } else {
                     Section(
                         step = 3,
-                        title = stringResource(Res.string.message_text),
-                        subtitle = "با لمس هر متغیر، آن را به متن اضافه کنید؛ هنگام ارسال با اطلاعات واقعی مشتری جایگزین می‌شود."
+                        title = Str.message_text,
+                        subtitle = Str.tap_variable_to_add_it
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -304,7 +304,7 @@ fun MessagesScreen(
                         )
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            text = stringResource(Res.string.messages_ready_subtitle),
+                            text = Str.messages_ready_subtitle,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -318,7 +318,7 @@ fun MessagesScreen(
                             uiState.readyTemplates.forEachIndexed { index, tpl ->
                                 SuggestionChip(
                                     onClick = { viewModel.sendIntent(MessagesIntent.ApplyReadyTemplate(tpl)) },
-                                    label = { Text("الگوی ${(index + 1).toString().toPersianDigits()}") },
+                                    label = { Text(Str.template((index + 1).toString().toPersianDigits())) },
                                     shape = RoundedCornerShape(12.dp)
                                 )
                             }
@@ -335,8 +335,8 @@ fun MessagesScreen(
             val finalText = if (uiState.isPanel) PanelSmsSuffix.sign(body) else body
             Section(
                 step = 4,
-                title = stringResource(Res.string.messages_preview_label),
-                subtitle = "همان پیامکی که مشتری دریافت می‌کند (با نام نمونه).",
+                title = Str.messages_preview_label,
+                subtitle = Str.exact_sms_customer_receives_with,
                 icon = Icons.Rounded.Sms
             ) {
                 SmsBubble(
@@ -348,10 +348,10 @@ fun MessagesScreen(
                 SmsCounter(
                     text = finalText,
                     footnote = if (uiState.isPanel) {
-                        "هر پیامک فارسی ۷۰ کاراکتر است (در پیام چندبخشی ۶۷). برای هر نوبت حدود " +
-                            "$parts پیامک از اعتبار شما کسر می‌شود؛ طول نام مشتری هم در آن اثر دارد."
+                        Str.each_persian_sms_is_70 +
+                            Str.sms_are_deducted_from_your(parts)
                     } else {
-                        "هر پیامک فارسی ۷۰ کاراکتر است (در پیام چندبخشی ۶۷). پیامک از سیم‌کارت خودتان و با تعرفه‌ی اپراتور ارسال می‌شود."
+                        Str.each_persian_sms_is_70_2
                     }
                 )
             }
@@ -505,12 +505,14 @@ private fun PanelTemplateOption(
     }
 }
 
-enum class MessageToken(val label: String, val token: String) {
-    Visitor("نام مشتری", "{visitor}"),
-    Business("نام کسب‌وکار", "{business}"),
-    Address("آدرس", "{address}"),
-    Date("تاریخ", "{date}"),
-    Time("ساعت", "{time}"),
-    Minutes("دقیقه یادآوری", "{minutes}"),
-    Duration("زمان سرویس", "{duration}")
+enum class MessageToken(private val labelRef: () -> String, val token: String) {
+    Visitor(Str::customer_name, "{visitor}"),
+    Business(Str::business_name, "{business}"),
+    Address(Str::address, "{address}"),
+    Date(Str::date, "{date}"),
+    Time(Str::time, "{time}"),
+    Minutes(Str::reminder_minutes, "{minutes}"),
+    Duration(Str::service_time, "{duration}");
+
+    val label: String get() = labelRef()
 }

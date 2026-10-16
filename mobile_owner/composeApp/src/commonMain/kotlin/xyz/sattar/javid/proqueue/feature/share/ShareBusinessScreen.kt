@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.share
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.widthIn
 import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
@@ -173,7 +175,7 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
             TopAppBar(
                 title = {
                     Text(
-                        text = "اشتراک‌گذاری نوبت‌دهی",
+                        text = Str.share_booking,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
@@ -202,7 +204,7 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                 // state, and not something the owner can act on.
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "ابتدا یک کسب‌وکار انتخاب کنید",
+                        text = Str.select_business_first,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -247,12 +249,12 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
             val hintText: @Composable () -> Unit = {
                     Text(
                         text = when (mode) {
-                            ShareMode.QR -> "مناسب پست اینستاگرام و چاپ روی میز پذیرش"
-                            ShareMode.LINK -> "مناسب پیام مستقیم به مشتری"
-                            ShareMode.PROFILE -> "مناسب استوری اینستاگرام و واتساپ"
+                            ShareMode.QR -> Str.great_for_instagram_posts_and
+                            ShareMode.LINK -> Str.great_for_direct_message_to
+                            ShareMode.PROFILE -> Str.great_for_instagram_and_whatsapp
                             ShareMode.CARD ->
-                                if (b.cardNumber.isBlank()) "برای واریز بیعانه، شماره کارت‌تان را اینجا ثبت کنید"
-                                else "مناسب ارسال به مشتری برای واریز بیعانه"
+                                if (b.cardNumber.isBlank()) Str.add_your_card_number_here
+                                else Str.great_for_sending_to_customers
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -262,9 +264,9 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
             val actionBar: @Composable () -> Unit = {
                 ShareActionBar(
                     primaryLabel = when {
-                        mode == ShareMode.LINK -> "ارسال لینک"
-                        mode == ShareMode.CARD && b.cardNumber.isBlank() -> "ثبت شماره کارت"
-                        else -> "اشتراک‌گذاری تصویر"
+                        mode == ShareMode.LINK -> Str.send_link
+                        mode == ShareMode.CARD && b.cardNumber.isBlank() -> Str.add_card_number
+                        else -> Str.share_image
                     },
                     exporting = exporting,
                     onShare = {
@@ -313,9 +315,9 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                         link
                     },
                     copyLabel = if (mode == ShareMode.CARD && b.cardNumber.isNotBlank()) {
-                        "کپی شماره کارت"
+                        Str.copy_card_number
                     } else {
-                        "کپی لینک"
+                        Str.copy_link
                     },
                 )
             }
@@ -382,7 +384,7 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
 /** The message the link travels inside. A bare URL arrives in a chat with no
  *  idea what it is — and a customer who doesn't recognise it doesn't tap it. */
 private fun shareMessage(business: Business, link: String): String =
-    "برای رزرو نوبت در «${business.title}» روی این لینک بزنید:\n$link"
+    Str.tap_this_link_to_book(business.title, link)
 
 // ─────────────────────── export scaffolding ───────────────────────
 
@@ -402,13 +404,13 @@ private fun ShareModeSelector(
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        ShareModePill("کد QR", Icons.Rounded.QrCode2, selected == ShareMode.QR,
+        ShareModePill(Str.qr_code, Icons.Rounded.QrCode2, selected == ShareMode.QR,
             { onSelect(ShareMode.QR) }, Modifier.weight(1f))
-        ShareModePill("لینک", Icons.Rounded.Link, selected == ShareMode.LINK,
+        ShareModePill(Str.link, Icons.Rounded.Link, selected == ShareMode.LINK,
             { onSelect(ShareMode.LINK) }, Modifier.weight(1f))
-        ShareModePill("استوری", Icons.Rounded.Person, selected == ShareMode.PROFILE,
+        ShareModePill(Str.story, Icons.Rounded.Person, selected == ShareMode.PROFILE,
             { onSelect(ShareMode.PROFILE) }, Modifier.weight(1f))
-        ShareModePill("شماره کارت", Icons.Rounded.CreditCard, selected == ShareMode.CARD,
+        ShareModePill(Str.card_number, Icons.Rounded.CreditCard, selected == ShareMode.CARD,
             { onSelect(ShareMode.CARD) }, Modifier.weight(1f))
     }
 }
@@ -499,7 +501,7 @@ private fun QrPosterCard(business: Business, link: String) {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "برای رزرو نوبت اسکن کنید",
+                text = Str.scan_to_book_appointment,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -553,7 +555,7 @@ private fun BookingQrCode(link: String, size: Int) {
     }
     Image(
         painter = painter,
-        contentDescription = "کد QR نوبت‌دهی",
+        contentDescription = Str.booking_qr_code,
         modifier = Modifier.size(size.dp),
     )
 }
@@ -597,7 +599,7 @@ private fun LinkShareCard(business: Business, link: String) {
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "این لینک را در بیو، کانال یا پیام مستقیم بگذارید؛ مشتری با یک کلیک صفحه نوبت‌دهی شما را می‌بیند.",
+                text = Str.put_this_link_in_your,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -662,16 +664,16 @@ private fun ProfileStoryCard(business: Business, link: String) {
                 ) {
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
                         Text(
-                            text = "چطور نوبت بگیرم؟",
+                            text = Str.how_do_i_book,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = ShareVioletDeep,
                         )
                         Spacer(Modifier.height(14.dp))
-                        GuideStep(1, "روی لینک داخل بایو بزنید تا صفحه‌ی نوبت‌دهی باز شود.")
-                        GuideStep(2, "با شماره موبایل‌تان وارد شوید؛ کد تأیید برایتان پیامک می‌شود.")
-                        GuideStep(3, "روز و ساعت خالی را انتخاب کنید.")
-                        GuideStep(4, "نوبت را تأیید کنید؛ وضعیتش را در «نوبت‌های من» می‌بینید.")
+                        GuideStep(1, Str.tap_link_in_bio_to)
+                        GuideStep(2, Str.sign_in_with_your_mobile)
+                        GuideStep(3, Str.pick_free_day_and_time)
+                        GuideStep(4, Str.confirm_appointment_you_can_track)
                     }
                 }
             }
@@ -699,7 +701,7 @@ private fun GuideStep(number: Int, text: String) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "۰۱۲۳۴۵۶۷۸۹"[number].toString(),
+                text = number.toString().toPersianDigits(),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -725,9 +727,9 @@ private fun String.asCardGroups(): String =
     filter { it.isDigit() }.chunked(4).joinToString("  ")
 
 private fun cardShareMessage(business: Business): String = buildString {
-    append("شماره کارت ${business.title}\n")
+    append(Str.card_number_of_n(business.title))
     append(business.cardNumber.asCardGroups())
-    if (business.cardOwnerName.isNotBlank()) append("\nبه نام ${business.cardOwnerName}")
+    if (business.cardOwnerName.isNotBlank()) append(Str.nin_name_of(business.cardOwnerName))
     detectIranianBank(business.cardNumber)?.let { append("\n${it.name}") }
 }
 
@@ -810,7 +812,7 @@ private fun CardNumberPosterCard(business: Business) {
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = "شماره کارت برای واریز",
+                        text = Str.card_number_for_transfer,
                         fontSize = 11.sp,
                         color = Color.White.copy(alpha = 0.75f),
                         maxLines = 1,
@@ -867,7 +869,7 @@ private fun CardNumberPosterCard(business: Business) {
                             Spacer(Modifier.width(8.dp))
                         }
                         Text(
-                            text = bank?.name ?: "کارت بانکی",
+                            text = bank?.name ?: Str.bank_card,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
@@ -913,7 +915,7 @@ private fun CardNumberPosterCard(business: Business) {
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        text = "لطفاً مبلغ را به این کارت واریز کنید",
+                        text = Str.please_transfer_amount_to_this,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = ShareVioletDeep,
@@ -963,14 +965,14 @@ private fun MissingCardPrompt(onAdd: () -> Unit) {
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                text = "هنوز شماره کارتی ثبت نکرده‌اید",
+                text = Str.you_havent_added_card_number,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "شماره کارت و نام صاحب حساب را ثبت کنید تا کارت آماده‌ی ارسال ساخته شود. همین شماره برای دریافت بیعانه هم استفاده می‌شود.",
+                text = Str.add_your_card_number_and,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -996,14 +998,14 @@ private fun AddCardDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("شماره کارت", fontWeight = FontWeight.Bold)
+            Text(Str.card_number, fontWeight = FontWeight.Bold)
         },
         text = {
             Column {
                 AppTextField(
                     value = number,
                     onValueChange = { number = it.filter { c -> c.isDigit() } },
-                    label = "شماره کارت (۱۶ رقم)",
+                    label = Str.card_number_16_digits,
                     keyboardType = KeyboardType.Number,
                     maxLength = 16,
                     visualTransformation = CardNumberVisualTransformation(),
@@ -1025,14 +1027,14 @@ private fun AddCardDialog(
                 AppTextField(
                     value = owner,
                     onValueChange = { owner = it },
-                    label = "نام صاحب حساب",
+                    label = Str.account_holder_name,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
         confirmButton = {
             Text(
-                text = "ثبت",
+                text = Str.accept,
                 fontWeight = FontWeight.Bold,
                 color = if (valid) ShareViolet else MaterialTheme.colorScheme.outline,
                 modifier = Modifier
@@ -1043,7 +1045,7 @@ private fun AddCardDialog(
         },
         dismissButton = {
             Text(
-                text = "انصراف",
+                text = Str.cancel,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))

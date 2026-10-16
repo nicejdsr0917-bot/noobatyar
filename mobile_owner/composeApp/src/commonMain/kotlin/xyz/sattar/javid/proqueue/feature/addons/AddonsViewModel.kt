@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.addons
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
@@ -32,7 +33,7 @@ class AddonsViewModel(
                 is ApiResponse.Error -> emit(AddonsState.PartialState.ShowMessage(UiMessage.error(response.message)))
             }
         } catch (e: Exception) {
-            emit(AddonsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در دریافت بسته‌ها")))
+            emit(AddonsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_load_packs)))
         }
         emit(AddonsState.PartialState.IsLoading(false))
     }
@@ -47,7 +48,7 @@ class AddonsViewModel(
                 is PurchaseOutcome.Failed -> emit(AddonsState.PartialState.ShowMessage(UiMessage.error(outcome.message)))
             }
         } catch (e: Exception) {
-            emit(AddonsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در برقراری ارتباط")))
+            emit(AddonsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.connection_error)))
         }
         emit(AddonsState.PartialState.SetPurchasing(null))
     }

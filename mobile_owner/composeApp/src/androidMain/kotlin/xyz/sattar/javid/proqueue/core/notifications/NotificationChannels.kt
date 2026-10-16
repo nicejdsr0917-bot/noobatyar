@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.notifications
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -37,10 +38,10 @@ object NotificationChannels {
         manager.createNotificationChannel(
             NotificationChannel(
                 APPOINTMENT_REMINDERS,
-                "یادآوری نوبت‌ها",
+                Str.appointment_reminders,
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "یادآوری نوبت‌های نزدیک و اطلاع از نوبت‌های جدید"
+                description = Str.reminders_for_upcoming_appointments_and
             }
         )
     }

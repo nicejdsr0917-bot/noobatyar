@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.visitorDetails
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.animation.AnimatedVisibility
@@ -32,6 +33,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Delete
@@ -81,23 +84,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import kotlinx.coroutines.flow.Flow
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.appointments_tab
-import proqueue.composeapp.generated.resources.contact_options
-import proqueue.composeapp.generated.resources.delete
-import proqueue.composeapp.generated.resources.empty_messages_subtitle
-import proqueue.composeapp.generated.resources.empty_messages_title
-import proqueue.composeapp.generated.resources.message_text
-import proqueue.composeapp.generated.resources.messages_tab
-import proqueue.composeapp.generated.resources.phone_call
-import proqueue.composeapp.generated.resources.send
-import proqueue.composeapp.generated.resources.sms
-import proqueue.composeapp.generated.resources.telegram
-import proqueue.composeapp.generated.resources.visitor_details_title
-import proqueue.composeapp.generated.resources.visitor_no_appointments_subtitle
-import proqueue.composeapp.generated.resources.visitor_no_appointments_title
 import proqueue.composeapp.generated.resources.whatsapp
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
@@ -244,7 +232,7 @@ fun VisitorDetailsScreenContent(
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 Text(
-                    text = stringResource(Res.string.message_text),
+                    text = Str.message_text,
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -285,7 +273,7 @@ fun VisitorDetailsScreenContent(
                     showMessageSheet = false
                 }) {
                     Text(
-                        text = "${stringResource(Res.string.send)} ${
+                        text = "${Str.send} ${
                             channelLabel(
                                 currentChannel
                             )
@@ -299,7 +287,7 @@ fun VisitorDetailsScreenContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(Res.string.visitor_details_title)) },
+                title = { Text(Str.visitor_details_title) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
@@ -344,13 +332,13 @@ fun VisitorDetailsScreenContent(
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = uiState.message?.text ?: "اطلاعات مشتری در دسترس نیست",
+                        text = uiState.message?.text ?: Str.customer_details_arent_available,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(onClick = onRetry) {
-                        Text("تلاش مجدد")
+                        Text(Str.retry_action)
                     }
                 }
             }
@@ -469,8 +457,8 @@ private fun VisitorDetailsPhoneBody(
                 stickyHeader {
                     SectionTabs(
                         labels = listOf(
-                            stringResource(Res.string.messages_tab),
-                            stringResource(Res.string.appointments_tab)
+                            Str.messages_tab,
+                            Str.appointments_tab
                         ),
                         selectedIndex = selectedTabIndex,
                         onSelected = { selectedTabIndex = it },
@@ -483,9 +471,9 @@ private fun VisitorDetailsPhoneBody(
                         item {
                             EmptyState(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                icon = Icons.Rounded.Message,
-                                title = stringResource(Res.string.empty_messages_title),
-                                subtitle = stringResource(Res.string.empty_messages_subtitle)
+                                icon = Icons.AutoMirrored.Rounded.Message,
+                                title = Str.empty_messages_title,
+                                subtitle = Str.empty_messages_subtitle
                             )
                         }
                     } else {
@@ -508,8 +496,8 @@ private fun VisitorDetailsPhoneBody(
                             EmptyState(
                                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                                 icon = Icons.Rounded.EventNote,
-                                title = stringResource(Res.string.visitor_no_appointments_title),
-                                subtitle = stringResource(Res.string.visitor_no_appointments_subtitle)
+                                title = Str.visitor_no_appointments_title,
+                                subtitle = Str.visitor_no_appointments_subtitle
                             )
                         }
                     } else {
@@ -600,8 +588,8 @@ private fun VisitorDetailsWebBody(
 
                 SectionTabs(
                     labels = listOf(
-                        stringResource(Res.string.messages_tab),
-                        stringResource(Res.string.appointments_tab)
+                        Str.messages_tab,
+                        Str.appointments_tab
                     ),
                     selectedIndex = selectedTabIndex,
                     onSelected = { selectedTabIndex = it },
@@ -617,9 +605,9 @@ private fun VisitorDetailsWebBody(
                     if (uiState.messages.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             EmptyState(
-                                icon = Icons.Rounded.Message,
-                                title = stringResource(Res.string.empty_messages_title),
-                                subtitle = stringResource(Res.string.empty_messages_subtitle)
+                                icon = Icons.AutoMirrored.Rounded.Message,
+                                title = Str.empty_messages_title,
+                                subtitle = Str.empty_messages_subtitle
                             )
                         }
                     } else if (isExpanded) {
@@ -654,8 +642,8 @@ private fun VisitorDetailsWebBody(
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             EmptyState(
                                 icon = Icons.Rounded.EventNote,
-                                title = stringResource(Res.string.visitor_no_appointments_title),
-                                subtitle = stringResource(Res.string.visitor_no_appointments_subtitle)
+                                title = Str.visitor_no_appointments_title,
+                                subtitle = Str.visitor_no_appointments_subtitle
                             )
                         }
                     } else if (isExpanded) {
@@ -729,7 +717,7 @@ fun CommunicationSection(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = stringResource(Res.string.contact_options),
+            text = Str.contact_options,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold
@@ -742,22 +730,22 @@ fun CommunicationSection(
         ) {
             CommunicationButton(
                 icon = Icons.Rounded.Call,
-                label = stringResource(Res.string.phone_call),
+                label = Str.phone_call,
                 onClick = { openPhoneDial(visitor.phoneNumber) }
             )
             CommunicationButton(
-                icon = Icons.Rounded.Message,
-                label = stringResource(Res.string.sms),
+                icon = Icons.AutoMirrored.Rounded.Message,
+                label = Str.sms,
                 onClick = { onComposeMessage("SMS") }
             )
             CommunicationButton(
                 icon = Res.drawable.whatsapp,
-                label = stringResource(Res.string.whatsapp),
+                label = Str.whatsapp,
                 onClick = { onComposeMessage("WHATSAPP") }
             )
             CommunicationButton(
-                icon = Icons.Rounded.Send,
-                label = stringResource(Res.string.telegram),
+                icon = Icons.AutoMirrored.Rounded.Send,
+                label = Str.telegram,
                 onClick = { onComposeMessage("TELEGRAM") }
             )
         }
@@ -819,7 +807,7 @@ fun CommunicationButton(
                 )
 
                 else -> Icon(
-                    Icons.Rounded.Send,
+                    Icons.AutoMirrored.Rounded.Send,
                     contentDescription = label,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
@@ -839,11 +827,11 @@ fun CommunicationButton(
 @Composable
 fun HistorySection(appointments: List<AppointmentWithDetails>, messages: List<Message>) {
     var selectedTabIndex by remember { mutableStateOf(0) }
-    val tabs = listOf("ارسال پیام", "نوبت‌ها")
+    val tabs = listOf(Str.send_message, Str.appointments_tab)
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "سوابق",
+            text = Str.history_title,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold
@@ -871,9 +859,9 @@ fun MessagesList(messages: List<Message>) {
     if (messages.isEmpty()) {
         EmptyState(
             modifier = Modifier.fillMaxWidth().padding(32.dp),
-            icon = Icons.Rounded.Message,
-            title = stringResource(Res.string.empty_messages_title),
-            subtitle = stringResource(Res.string.empty_messages_subtitle)
+            icon = Icons.AutoMirrored.Rounded.Message,
+            title = Str.empty_messages_title,
+            subtitle = Str.empty_messages_subtitle
         )
     } else {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -893,8 +881,8 @@ fun AppointmentsList(appointments: List<AppointmentWithDetails>) {
         EmptyState(
             modifier = Modifier.fillMaxWidth().padding(32.dp),
             icon = Icons.Rounded.EventNote,
-            title = stringResource(Res.string.visitor_no_appointments_title),
-            subtitle = stringResource(Res.string.visitor_no_appointments_subtitle)
+            title = Str.visitor_no_appointments_title,
+            subtitle = Str.visitor_no_appointments_subtitle
         )
     } else {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -925,9 +913,9 @@ fun HandleEffects(
 
 @Composable
 private fun channelLabel(channel: String): String = when (channel) {
-    "SMS" -> stringResource(Res.string.sms)
-    "WHATSAPP" -> stringResource(Res.string.whatsapp)
-    "TELEGRAM" -> stringResource(Res.string.telegram)
+    "SMS" -> Str.sms
+    "WHATSAPP" -> Str.whatsapp
+    "TELEGRAM" -> Str.telegram
     else -> channel
 }
 
@@ -974,7 +962,7 @@ fun MessageItemCard(
                                 text = {
 
                                     Text(
-                                        stringResource(Res.string.delete),
+                                        Str.delete,
                                         color = MaterialTheme.colorScheme.error
                                     )
                                 },
@@ -998,7 +986,7 @@ fun MessageItemCard(
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Rounded.Message,
+                    imageVector = Icons.AutoMirrored.Rounded.Message,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1030,7 +1018,7 @@ fun MessageItemCard(
                         color = errorColor.copy(alpha = if (isDark) 0.3f else 0.12f)
                     ) {
                         Text(
-                            text = "ارسال نشد",
+                            text = Str.sms_report_status_failed,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,

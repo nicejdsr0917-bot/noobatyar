@@ -6,6 +6,7 @@ import { businessCategoryLabel, mediaUrl, type Appointment } from '@/lib/api';
 import { STATUS_LABELS, formatDate, toPersianNumerals } from '@/lib/format';
 import Icon from './Icon';
 import { CategoryGlyph } from './CategoryArt';
+import { t } from '@/lib/i18n';
 
 /** Business logo, falling back to the category icon when there is none. */
 export function BusinessAvatar({
@@ -80,8 +81,7 @@ export function Countdown({ target }: { target: number }) {
     return (
       <span className="countdown" style={{ color: 'var(--color-muted)' }}>
         <Icon name="schedule" size={14} />
-        زمان نوبت فرا رسیده است
-      </span>
+        {t('itsAppointmentTime')}</span>
     );
   }
 
@@ -89,14 +89,13 @@ export function Countdown({ target }: { target: number }) {
   const days = Math.floor(left.hours / 24);
   const label =
     days >= 1
-      ? `${toPersianNumerals(days)} روز و ${toPersianNumerals(left.hours % 24)} ساعت`
-      : `${toPersianNumerals(left.hours)} ساعت و ${toPersianNumerals(left.minutes)} دقیقه`;
+      ? t('daysAndHours', toPersianNumerals(days), toPersianNumerals(left.hours % 24))
+      : t('hoursAndMinutes', toPersianNumerals(left.hours), toPersianNumerals(left.minutes));
 
   return (
     <span className="countdown" style={{ color, fontWeight: 700 }}>
       <Icon name="schedule" size={14} />
-      {label} مانده
-    </span>
+      {label} {t('left')}</span>
   );
 }
 
@@ -198,8 +197,7 @@ export default function AppointmentCard({ appt }: { appt: Appointment }) {
           }}
         >
           <Icon name="calendar" size={14} />
-          تاریخ نوبت
-        </div>
+          {t('appointmentDate')}</div>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text)' }}>
           {formatDate(appt.appointment_date)}
         </div>
@@ -210,14 +208,12 @@ export default function AppointmentCard({ appt }: { appt: Appointment }) {
           {appt.reminder_push_sent && (
             <span className="reminder-chip">
               <Icon name="notifications" size={12} />
-              اعلان یادآوری ارسال شد
-            </span>
+              {t('reminderNotificationSent')}</span>
           )}
           {appt.reminder_sms_sent && (
             <span className="reminder-chip">
               <Icon name="sms" size={12} />
-              پیامک یادآوری ارسال شد
-            </span>
+              {t('reminderSmsSent')}</span>
           )}
         </div>
       )}
@@ -253,8 +249,7 @@ export default function AppointmentCard({ appt }: { appt: Appointment }) {
           }}
         >
           <Icon name="creditCard" size={16} />
-          تکمیل پرداخت
-        </button>
+          {t('completePayment')}</button>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,28 +53,28 @@ private data class ModerationVisuals(
 @Composable
 private fun visualsFor(status: ModerationStatus, isDark: Boolean): ModerationVisuals = when (status) {
     ModerationStatus.PENDING -> ModerationVisuals(
-        label = "در انتظار تأیید",
+        label = Str.pending_approval,
         icon = Icons.Rounded.HourglassTop,
         background = if (isDark) Color(0xFFE65100).copy(alpha = 0.4f) else Color(0xFFFFF3E0),
         content = if (isDark) Color(0xFFFFCC80) else Color(0xFFE65100)
     )
 
     ModerationStatus.APPROVED -> ModerationVisuals(
-        label = "تأیید شده",
+        label = Str.approved,
         icon = Icons.Rounded.Verified,
         background = if (isDark) Color(0xFF1B5E20).copy(alpha = 0.4f) else Color(0xFFE8F5E9),
         content = if (isDark) Color(0xFFA5D6A7) else Color(0xFF2E7D32)
     )
 
     ModerationStatus.REJECTED -> ModerationVisuals(
-        label = "تأیید نشده",
+        label = Str.not_approved,
         icon = Icons.Rounded.ErrorOutline,
         background = if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE),
         content = if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828)
     )
 
     ModerationStatus.SUSPENDED -> ModerationVisuals(
-        label = "تعلیق شده",
+        label = Str.suspended,
         icon = Icons.Rounded.Block,
         background = if (isDark) Color(0xFF37474F).copy(alpha = 0.5f) else Color(0xFFECEFF1),
         content = if (isDark) Color(0xFFB0BEC5) else Color(0xFF455A64)
@@ -157,20 +158,20 @@ fun ModerationBanner(
 
     val visuals = visualsFor(status, isDarkSurface())
     val title = when (status) {
-        ModerationStatus.PENDING -> "در انتظار تأیید ادمین"
-        ModerationStatus.REJECTED -> "کسب‌وکار شما تأیید نشد"
-        ModerationStatus.SUSPENDED -> "کسب‌وکار شما تعلیق شده است"
+        ModerationStatus.PENDING -> Str.waiting_for_admin_approval
+        ModerationStatus.REJECTED -> Str.your_business_was_not_approved
+        ModerationStatus.SUSPENDED -> Str.your_business_has_been_suspended
         ModerationStatus.APPROVED -> ""
     }
     val body = when (status) {
         ModerationStatus.PENDING ->
-            "کسب‌وکار شما در صف بررسی است و تا زمان تأیید، برای مراجعین نمایش داده نمی‌شود."
+            Str.your_business_is_in_review
 
         ModerationStatus.REJECTED ->
-            "تا زمان اصلاح و تأیید مجدد، کسب‌وکار شما برای مراجعین نمایش داده نمی‌شود."
+            Str.your_business_wont_be_shown
 
         ModerationStatus.SUSPENDED ->
-            "نمایش کسب‌وکار شما برای مراجعین متوقف شده است."
+            Str.your_business_is_no_longer
 
         ModerationStatus.APPROVED -> ""
     }
@@ -220,7 +221,7 @@ fun ModerationBanner(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "دلیل بررسی‌کننده:",
+                                text = Str.reviewers_reason,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -236,7 +237,7 @@ fun ModerationBanner(
 
                 if (status == ModerationStatus.PENDING && business.moderationSubmittedAt > 0) {
                     Text(
-                        text = "ارسال برای بررسی: ${DateTimeUtils.getJalaliDate(business.moderationSubmittedAt)}",
+                        text = Str.submitted_for_review(DateTimeUtils.getJalaliDate(business.moderationSubmittedAt)),
                         style = MaterialTheme.typography.labelSmall,
                         color = visuals.content.copy(alpha = 0.8f)
                     )
@@ -261,7 +262,7 @@ fun ModerationBanner(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "ویرایش و ارسال مجدد",
+                            text = Str.edit_and_resubmit,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = visuals.content
@@ -269,7 +270,7 @@ fun ModerationBanner(
                     }
                 } else if (status.requiresSupportContact) {
                     Text(
-                        text = "این وضعیت با ویرایش کسب‌وکار برطرف نمی‌شود. برای پیگیری با پشتیبانی تماس بگیرید.",
+                        text = Str.editing_your_business_wont_resolve,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = visuals.content

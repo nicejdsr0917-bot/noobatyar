@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,7 +63,7 @@ fun WorkHoursField(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             TimeDisplayField(
-                label = "ساعت شروع کار",
+                label = Str.work_start_hour,
                 value = timeText(workStartHour, workStartMinute),
                 isError = isError,
                 enabled = enabled,
@@ -70,7 +71,7 @@ fun WorkHoursField(
                 modifier = Modifier.weight(1f),
             )
             TimeDisplayField(
-                label = "ساعت پایان کار",
+                label = Str.work_end_hour,
                 value = timeText(workEndHour, workEndMinute),
                 isError = isError,
                 enabled = enabled,

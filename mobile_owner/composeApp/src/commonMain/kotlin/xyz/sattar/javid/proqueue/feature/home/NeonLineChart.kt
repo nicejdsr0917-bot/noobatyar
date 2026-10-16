@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -38,7 +39,7 @@ fun NeonLineCanvas(
     modifier: Modifier = Modifier,
     height: Dp = 130.dp,
     lineColor: Color = MaterialTheme.colorScheme.primary,
-    emptyLabel: String = "هنوز داده‌ای برای نمایش نیست",
+    emptyLabel: String = Str.no_data_to_show_yet,
 ) {
     val peak = counts.maxOrNull() ?: 0
 

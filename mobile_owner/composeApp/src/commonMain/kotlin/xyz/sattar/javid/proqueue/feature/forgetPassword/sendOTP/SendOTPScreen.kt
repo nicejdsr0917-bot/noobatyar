@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.sendOTP
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.ui.draw.clip
 import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
 import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
@@ -46,10 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.back
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
 import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
@@ -124,7 +122,7 @@ private fun SendOTPPhoneContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "کد راستی‌آزمایی",
+                        text = Str.verification_code,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -135,7 +133,7 @@ private fun SendOTPPhoneContent(
                     IconButton(onClick = { onIntent(SendOTPIntent.BackPress) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.back)
+                            contentDescription = Str.back
                         )
                     }
                 },
@@ -182,14 +180,14 @@ private fun ColumnScope.SendOTPFormFields(
     }
 
     Text(
-        text = "کد راستی‌آزمایی",
+        text = Str.verification_code,
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onBackground
     )
 
     Text(
-        text = "کد ارسال شده به ${uiState.phone} را وارد کنید",
+        text = Str.enter_code_sent_to(uiState.phone),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
@@ -238,7 +236,7 @@ private fun SendOTPWebContent(
 
         TextButton(onClick = { onIntent(SendOTPIntent.BackPress) }) {
             Text(
-                text = "بازگشت",
+                text = Str.back,
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -259,7 +257,7 @@ fun TimerAndResendButton(
     ) {
         if (remainingTime > 0) {
             Text(
-                text = "ارسال مجدد کد در ${remainingTime.toTimerFormat()} دیگر ",
+                text = Str.resend_code_in(remainingTime.toTimerFormat()),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -278,7 +276,7 @@ fun TimerAndResendButton(
                     .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
                 Text(
-                    text = "ارسال مجدد کد",
+                    text = Str.resend_code,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium

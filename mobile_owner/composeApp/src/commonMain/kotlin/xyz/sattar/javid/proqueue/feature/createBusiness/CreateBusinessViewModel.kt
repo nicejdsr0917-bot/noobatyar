@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.network.ApiException
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
@@ -123,7 +124,7 @@ class CreateBusinessViewModel(
                 )
             )
         } catch (e: Exception) {
-            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در افزودن خدمت")))
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_add_service)))
         }
     }
 
@@ -155,7 +156,7 @@ class CreateBusinessViewModel(
                 is PurchaseOutcome.Failed -> emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(outcome.message)))
             }
         } catch (e: Exception) {
-            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در برقراری ارتباط")))
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.connection_error)))
         }
     }
 
@@ -215,7 +216,7 @@ class CreateBusinessViewModel(
         if (business != null) {
             emit(CreateBusinessState.PartialState.BusinessLoaded(business))
         } else {
-            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error("بیزینس یافت نشد")))
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(Str.business_not_found)))
         }
     }
 
@@ -308,7 +309,7 @@ class CreateBusinessViewModel(
             // 403 is the plan saying no to a setting (the server names which) —
             // a warning, not a failure. Anything else goes to the generic error.
             if (e.code != 403) throw e
-            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.warning(e.message ?: "این قابلیت در پلن فعلی شما نیست")))
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.warning(e.message ?: Str.this_feature_isnt_in_your)))
             return@flow
         }
         if (updatedBusiness != null) {
@@ -319,7 +320,7 @@ class CreateBusinessViewModel(
             }
             emit(CreateBusinessState.PartialState.BusinessCreated)
         } else {
-            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error("خطا در عملیات")))
+            emit(CreateBusinessState.PartialState.ShowMessage(UiMessage.error(Str.operation_error)))
         }
     }
 }

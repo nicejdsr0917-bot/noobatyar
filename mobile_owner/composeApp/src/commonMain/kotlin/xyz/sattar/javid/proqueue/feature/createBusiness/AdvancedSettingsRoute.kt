@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
@@ -31,10 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.accept
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
@@ -124,7 +122,7 @@ fun AdvancedSettingsRoute(
             TopAppBar(
                 title = {
                     Text(
-                        text = "تنظیمات پیشرفته",
+                        text = Str.advanced_settings_title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -150,7 +148,7 @@ fun AdvancedSettingsRoute(
                   Column(modifier = Modifier.padding(top = 10.dp)) {
                     SaveStatus(isDirty = isDirty)
                     AppButton(
-                        text = if (isDirty) "ذخیره‌ی تغییرات" else stringResource(Res.string.accept),
+                        text = if (isDirty) Str.save_changes else Str.accept,
                         enabled = isDirty,
                         onClick = {
                             viewModel.sendIntent(
@@ -286,11 +284,11 @@ fun AdvancedSettingsRoute(
 @Composable
 private fun PlanSummaryCard(entitlements: EntitlementsResponseDto?) {
     val features = listOf(
-        EntitlementKeys.ONLINE_GATEWAY to "درگاه آنلاین",
-        EntitlementKeys.DEPOSIT to "بیعانه و کارت‌به‌کارت",
-        EntitlementKeys.CAPACITY_CONTROL to "کنترل ظرفیت",
-        EntitlementKeys.PROMOTIONAL_SMS to "پیامک تبلیغاتی",
-        EntitlementKeys.AUTO_REMINDER_SMS to "یادآوری خودکار",
+        EntitlementKeys.ONLINE_GATEWAY to Str.online_gateway,
+        EntitlementKeys.DEPOSIT to Str.deposit_card_transfer,
+        EntitlementKeys.CAPACITY_CONTROL to Str.capacity_control,
+        EntitlementKeys.PROMOTIONAL_SMS to Str.promotional_sms,
+        EntitlementKeys.AUTO_REMINDER_SMS to Str.automatic_reminders,
     ).filterNot { entitlements?.isComingSoon(it.first) == true }
     val active = features.count { entitlements?.hasFeature(it.first) == true }
 
@@ -308,7 +306,7 @@ private fun PlanSummaryCard(entitlements: EntitlementsResponseDto?) {
                 Icon(Icons.Rounded.WorkspacePremium, contentDescription = null, tint = Color.White)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "قابلیت‌های حرفه‌ای کسب‌وکار",
+                    Str.pro_business_features,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
@@ -316,7 +314,7 @@ private fun PlanSummaryCard(entitlements: EntitlementsResponseDto?) {
                 )
                 if (entitlements != null) {
                     Text(
-                        "${active.toString().toPersianDigits()} از ${features.size.toString().toPersianDigits()} فعال",
+                        Str.of_active(active.toString().toPersianDigits(), features.size.toString().toPersianDigits()),
                         color = Color.White,
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier
@@ -375,7 +373,7 @@ private fun SaveStatus(isDirty: Boolean) {
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            text = if (isDirty) "تغییرات ذخیره‌نشده دارید" else "همه‌ی تنظیمات ذخیره شده است",
+            text = if (isDirty) Str.you_have_unsaved_changes else Str.all_settings_are_saved,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

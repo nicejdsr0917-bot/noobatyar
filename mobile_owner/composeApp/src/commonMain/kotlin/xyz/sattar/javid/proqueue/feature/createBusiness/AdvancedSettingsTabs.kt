@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.coming_soon_badge
 import proqueue.composeapp.generated.resources.coming_soon_hint
@@ -89,9 +89,9 @@ fun AdvancedSettingsTabs(
     // hours — it is basic scheduling info, not a paid/advanced capability, and
     // living here made it easy to miss when setting up a new business.
     val tabs = listOf(
-        Icons.Rounded.Payments to "پرداخت",
-        Icons.Rounded.EventSeat to "ظرفیت و بیعانه",
-        Icons.Rounded.Campaign to "پیامک و تبلیغات",
+        Icons.Rounded.Payments to Str.payment,
+        Icons.Rounded.EventSeat to Str.capacity_deposit,
+        Icons.Rounded.Campaign to Str.sms_promotion,
     )
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -169,7 +169,7 @@ private fun PaymentTab(
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            "روش‌های دریافت وجه را انتخاب کنید.",
+            Str.choose_how_you_get_paid,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -177,8 +177,8 @@ private fun PaymentTab(
         // پرداخت در محل — رایگان در همه‌ی پلن‌ها
         PaymentMethodCard(
             icon = Icons.Rounded.Storefront,
-            title = "پرداخت در محل",
-            description = "مشتری هنگام مراجعه، وجه را حضوری پرداخت می‌کند.",
+            title = Str.pay_on_site,
+            description = Str.customer_pays_in_person_when,
             checked = acceptedPaymentMethods.contains("CASH"),
             onCheckedChange = { toggle("CASH", it) },
             enabled = !isLoading,
@@ -189,14 +189,14 @@ private fun PaymentTab(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.DEPOSIT,
-            title = "کارت به کارت",
-            description = "دریافت مبلغ نوبت با انتقال کارت‌به‌کارت.",
+            title = Str.deposit_method_card,
+            description = Str.receive_appointment_fee_by_card,
             onUpgrade = onUpgrade
         ) {
             PaymentMethodCard(
                 icon = Icons.Rounded.CreditCard,
-                title = "کارت به کارت",
-                description = "مشتری مبلغ را به کارت شما واریز و فیش را ارسال می‌کند.",
+                title = Str.deposit_method_card,
+                description = Str.customer_transfers_amount_to_your,
                 checked = acceptedPaymentMethods.contains("CARD"),
                 onCheckedChange = { toggle("CARD", it) },
                 enabled = !isLoading,
@@ -213,7 +213,7 @@ private fun PaymentTab(
                     enabled = !isLoading,
                     value = cardNumber,
                     onValueChange = onCardNumber,
-                    label = "شماره کارت (۱۶ رقم)",
+                    label = Str.card_number_16_digits,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Number,
                     maxLength = 16,
@@ -234,7 +234,7 @@ private fun PaymentTab(
                     enabled = !isLoading,
                     value = cardOwnerName,
                     onValueChange = onCardOwnerName,
-                    label = "نام صاحب کارت",
+                    label = Str.cardholder_name,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Text
                 )
@@ -246,14 +246,14 @@ private fun PaymentTab(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.ONLINE_GATEWAY,
-            title = "درگاه پرداخت آنلاین",
-            description = "دریافت مبلغ نوبت مستقیم از طریق درگاه بانکی.",
+            title = Str.online_payment_gateway,
+            description = Str.receive_appointment_fee_directly_through,
             onUpgrade = onUpgrade
         ) {
             PaymentMethodCard(
                 icon = Icons.Rounded.AccountBalance,
-                title = "درگاه پرداخت آنلاین",
-                description = "مشتری مستقیم به درگاه بانکی می‌رود و نوبت بلافاصله قطعی می‌شود.",
+                title = Str.online_payment_gateway,
+                description = Str.customer_goes_straight_to_bank,
                 checked = acceptedPaymentMethods.contains("ONLINE"),
                 onCheckedChange = { toggle("ONLINE", it) },
                 enabled = !isLoading,
@@ -262,26 +262,26 @@ private fun PaymentTab(
                     enabled = !isLoading,
                     value = merchantId,
                     onValueChange = onMerchantId,
-                    label = "مرچنت آیدی زیبال (Merchant ID)",
+                    label = Str.zibal_merchant_id,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Text
                 )
                 FieldHint(
-                    "با پر کردن این فیلد، بیعانه به حساب زیبالِ شما واریز می‌شود و " +
-                        "نوبت بدون بررسی فیش قطعی می‌شود. مرچنت آیدی را از پنل zibal.ir بردارید."
+                    Str.with_this_filled_in_deposits +
+                        Str.appointment_is_confirmed_without_checking
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 AppTextField(
                     enabled = !isLoading,
                     value = paymentLink,
                     onValueChange = onPaymentLink,
-                    label = "لینک پرداخت (در نبودِ مرچنت آیدی)",
+                    label = Str.payment_link_when_theres_no,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Uri
                 )
                 FieldHint(
-                    "فقط وقتی لازم است که حساب زیبال ندارید. چون مبلغ به لینک فرستاده " +
-                        "نمی‌شود، لینک باید مبلغِ ثابتِ برابر با بیعانه داشته باشد."
+                    Str.only_needed_if_you_dont +
+                        Str.link_must_have_fixed_amount
                 )
             }
         }
@@ -408,16 +408,18 @@ private fun PaymentMethodCard(
  * OPTIONAL is a real third state: the client may pay the deposit or choose to
  * settle in person, so it must not collapse into a boolean.
  */
-enum class DepositMode(val value: String, val label: String) {
-    NONE("NONE", "بدون بیعانه"),
-    OPTIONAL("OPTIONAL", "اختیاری"),
-    MANDATORY("MANDATORY", "اجباری");
+enum class DepositMode(val value: String, private val labelRef: () -> String) {
+    NONE("NONE", Str::no_deposit),
+    OPTIONAL("OPTIONAL", Str::optional_2),
+    MANDATORY("MANDATORY", Str::required);
+    val label: String get() = labelRef()
+
 
     companion object {
         fun describe(value: String): String = when (value) {
-            OPTIONAL.value -> "مشتری می‌تواند بیعانه را پرداخت کند یا «پرداخت در محل» را انتخاب کند."
-            MANDATORY.value -> "مشتری برای نهایی شدن نوبت باید بیعانه را پرداخت کند."
-            else -> "نوبت بدون دریافت بیعانه ثبت می‌شود."
+            OPTIONAL.value -> Str.customer_can_pay_deposit_or
+            MANDATORY.value -> Str.customer_must_pay_deposit_to
+            else -> Str.appointment_is_booked_without_deposit
         }
     }
 }
@@ -441,20 +443,20 @@ private fun CapacityTab(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.CAPACITY_CONTROL,
-            title = "کنترل ظرفیت ساعتی",
-            description = "محدود کردن حداکثر تعداد نوبت در هر ساعت.",
+            title = Str.hourly_capacity_control,
+            description = Str.limit_maximum_number_of_appointments,
             onUpgrade = onUpgrade
         ) {
           SettingCard(
               icon = Icons.Rounded.EventSeat,
-              title = "کنترل ظرفیت ساعتی",
-              description = "جلوی شلوغی را بگیرید: در هر ساعت بیش از این تعداد نوبت پذیرفته نمی‌شود."
+              title = Str.hourly_capacity_control,
+              description = Str.prevent_overcrowding_no_more_than
           ) {
             AppTextField(
                 enabled = !isLoading,
                 value = maxAppointmentsPerHour,
                 onValueChange = onMaxAppointmentsPerHour,
-                label = "حداکثر نوبت در هر ساعت (خالی = نامحدود)",
+                label = Str.max_appointments_per_hour_empty,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardType = KeyboardType.Number
             )
@@ -465,14 +467,14 @@ private fun CapacityTab(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.DEPOSIT,
-            title = "دریافت بیعانه",
-            description = "از مشتری هنگام رزرو بیعانه دریافت کنید.",
+            title = Str.take_deposit,
+            description = Str.collect_deposit_from_customer_when,
             onUpgrade = onUpgrade
         ) {
           SettingCard(
               icon = Icons.Rounded.AccountBalanceWallet,
-              title = "دریافت بیعانه",
-              description = "نوبت‌های بی‌حاضری را کم کنید: مشتری هنگام رزرو بخشی از مبلغ را پرداخت می‌کند."
+              title = Str.take_deposit,
+              description = Str.cut_down_on_no_shows
           ) {
             Column {
                 // Three real modes, not a switch: OPTIONAL is a distinct
@@ -505,7 +507,7 @@ private fun CapacityTab(
                         enabled = !isLoading,
                         value = depositAmount,
                         onValueChange = onDepositAmount,
-                        label = "مبلغ بیعانه (تومان)",
+                        label = Str.deposit_amount_toman,
                         modifier = Modifier.fillMaxWidth(),
                         keyboardType = KeyboardType.Number,
                         visualTransformation = xyz.sattar.javid.proqueue.core.ui.utils.CurrencyVisualTransformation()
@@ -515,8 +517,8 @@ private fun CapacityTab(
                     // the «پرداخت» tab. Without saying so, the two screens look
                     // unrelated and it is not obvious how the money arrives.
                     Text(
-                        text = "بیعانه از همان روش‌هایی گرفته می‌شود که در تب «پرداخت» " +
-                                "فعال کرده‌اید — کارت به کارت یا درگاه آنلاین.",
+                        text = Str.deposit_is_collected_with_methods +
+                                Str.card_transfer_or_online_gateway,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -549,19 +551,19 @@ private fun MessagingTab(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.PROMOTIONAL_SMS,
-            title = "کمپین پیامک تبلیغاتی",
-            description = "به مشتری‌هایتان با نام خودشان پیامک تخفیف و خبر تازه بفرستید.",
+            title = Str.promotional_sms_campaign,
+            description = Str.send_your_customers_discount_and,
             onUpgrade = onUpgrade
         ) {
             SettingCard(
                 icon = Icons.Rounded.Campaign,
-                title = "کمپین پیامک تبلیغاتی",
-                description = "مشتری‌هایی که مدتی نیامده‌اند را با یک پیشنهاد برگردانید، خدمت تازه را معرفی کنید " +
-                    "یا نوبت‌های خالی را پر کنید. قبل از ارسال، تعداد گیرنده و هزینه‌ی دقیق را می‌بینید."
+                title = Str.promotional_sms_campaign,
+                description = Str.win_back_customers_who_havent +
+                    Str.or_fill_empty_slots_before
             ) {
-                IncludedFeatureRow("ارسال با نام هر مشتری و از خط رسمی نوبت‌یار")
+                IncludedFeatureRow(Str.sent_with_each_customers_name)
                 Spacer(Modifier.height(6.dp))
-                IncludedFeatureRow("انتخاب مخاطب: همه، مراجعه‌ی اخیر، یا مشتری‌های غایب")
+                IncludedFeatureRow(Str.choose_audience_everyone_recent_visitors)
                 Spacer(Modifier.height(14.dp))
                 Button(
                     onClick = onOpenPromoCampaign,
@@ -570,7 +572,7 @@ private fun MessagingTab(
                 ) {
                     Icon(Icons.Rounded.Campaign, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("ساخت کمپین جدید")
+                    Text(Str.create_new_campaign)
                 }
             }
         }
@@ -579,22 +581,22 @@ private fun MessagingTab(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.AUTO_REMINDER_SMS,
-            title = "یادآوری خودکار نوبت",
-            description = "پیامک یادآوری پیش از هر نوبت، خودکار از سرور برای مشتری ارسال می‌شود.",
+            title = Str.automatic_appointment_reminders,
+            description = Str.reminder_sms_is_sent_to,
             onUpgrade = onUpgrade
         ) {
             SettingCard(
                 icon = Icons.Rounded.NotificationsActive,
-                title = "یادآوری خودکار نوبت",
-                description = "پیش از هر نوبت، پیامک یادآوری بدون نیاز به کاری از طرف شما برای مشتری ارسال می‌شود. " +
-                    "متن، زمان ارسال و روش ارسال را از صفحه‌ی پیام خودکار تنظیم کنید."
+                title = Str.automatic_appointment_reminders,
+                description = Str.before_each_appointment_reminder_sms +
+                    Str.set_text_timing_and_delivery
             ) {
                 OutlinedButton(
                     onClick = onOpenReminders,
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("تنظیم پیام یادآوری")
+                    Text(Str.set_up_reminder_message)
                 }
             }
         }

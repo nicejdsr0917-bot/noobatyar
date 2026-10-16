@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.profile
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -90,7 +91,7 @@ private fun PaymentResultPhoneContent(
                 Spacer(modifier = Modifier.height(32.dp))
 
                 AppButton(
-                    text = if (success) "بسیار عالی" else "فهمیدم",
+                    text = if (success) Str.great else Str.got_it_2,
                     onClick = onDone,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -144,7 +145,7 @@ private fun PaymentResultWebContent(
                 Spacer(modifier = Modifier.height(32.dp))
 
                 AppButton(
-                    text = if (success) "بسیار عالی" else "فهمیدم",
+                    text = if (success) Str.great else Str.got_it_2,
                     onClick = onDone,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -191,7 +192,7 @@ private fun PaymentResultBody(
     Spacer(modifier = Modifier.height(24.dp))
 
     Text(
-        text = if (success) "پرداخت موفقیت‌آمیز" else "خطا در پرداخت",
+        text = if (success) Str.payment_successful else Str.payment_failed,
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
         color = if (success) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
@@ -202,9 +203,9 @@ private fun PaymentResultBody(
 
     Text(
         text = if (success)
-            "اشتراک شما با موفقیت فعال شد. اکنون می‌توانید از تمامی امکانات نوبت یار استفاده کنید."
+            Str.your_subscription_is_now_active
         else
-            "متأسفانه فرآیند پرداخت با خطا مواجه شد. اگر مبلغی از حساب شما کسر شده، طی ۷۲ ساعت آینده بازگشت داده می‌شود.",
+            Str.unfortunately_payment_failed_if_any,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
@@ -222,10 +223,10 @@ private fun PaymentResultBody(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 if (!ref.isNullOrBlank()) {
-                    ResultRow(label = "کد پیگیری:", value = ref)
+                    ResultRow(label = Str.tracking_code, value = ref)
                 }
                 if (!amount.isNullOrBlank()) {
-                    ResultRow(label = "مبلغ پرداختی:", value = "$amount تومان")
+                    ResultRow(label = Str.amount_paid, value = Str.toman(amount))
                 }
             }
         }

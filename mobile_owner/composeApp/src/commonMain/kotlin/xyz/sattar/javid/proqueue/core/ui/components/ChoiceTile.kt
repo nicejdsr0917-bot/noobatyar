@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,7 +39,7 @@ fun ChoiceTile(
     modifier: Modifier = Modifier,
     /** Why a locked tile is locked. A plan gate by default; the web build
      *  passes its own reason for options a browser can't do at all. */
-    lockedBadge: String = "نیاز به ارتقا"
+    lockedBadge: String = Str.upgrade_required
 ) {
     val primary = MaterialTheme.colorScheme.primary
     Column(

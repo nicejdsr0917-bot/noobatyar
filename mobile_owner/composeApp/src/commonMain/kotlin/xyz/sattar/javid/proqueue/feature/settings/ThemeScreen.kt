@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -54,15 +55,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.theme_appearance
-import proqueue.composeapp.generated.resources.theme_dark
 import proqueue.composeapp.generated.resources.theme_dark_hint
-import proqueue.composeapp.generated.resources.theme_light
 import proqueue.composeapp.generated.resources.theme_light_hint
-import proqueue.composeapp.generated.resources.theme_preview_caption
-import proqueue.composeapp.generated.resources.theme_system
 import proqueue.composeapp.generated.resources.theme_system_hint
 import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.core.state.AppThemeMode
@@ -126,7 +121,7 @@ fun ThemeScreen(onNavigateBack: () -> Unit) {
             TopAppBar(
                 title = {
                     Text(
-                        text = stringResource(Res.string.theme_appearance),
+                        text = Str.theme_appearance,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -175,7 +170,7 @@ fun ThemeScreen(onNavigateBack: () -> Unit) {
                     }
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        text = stringResource(Res.string.theme_preview_caption),
+                        text = Str.theme_preview_caption,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -191,21 +186,21 @@ fun ThemeScreen(onNavigateBack: () -> Unit) {
             ) {
                 ThemeOption(
                     mode = AppThemeMode.LIGHT,
-                    title = stringResource(Res.string.theme_light),
+                    title = Str.theme_light,
                     selected = themeMode == AppThemeMode.LIGHT,
                     onClick = { select(AppThemeMode.LIGHT) },
                     modifier = Modifier.weight(1f)
                 )
                 ThemeOption(
                     mode = AppThemeMode.DARK,
-                    title = stringResource(Res.string.theme_dark),
+                    title = Str.theme_dark,
                     selected = themeMode == AppThemeMode.DARK,
                     onClick = { select(AppThemeMode.DARK) },
                     modifier = Modifier.weight(1f)
                 )
                 ThemeOption(
                     mode = AppThemeMode.SYSTEM,
-                    title = stringResource(Res.string.theme_system),
+                    title = Str.theme_system,
                     selected = themeMode == AppThemeMode.SYSTEM,
                     onClick = { select(AppThemeMode.SYSTEM) },
                     modifier = Modifier.weight(1f)
@@ -213,11 +208,11 @@ fun ThemeScreen(onNavigateBack: () -> Unit) {
             }
 
             Text(
-                text = stringResource(
+                text = (
                     when (themeMode) {
-                        AppThemeMode.LIGHT -> Res.string.theme_light_hint
-                        AppThemeMode.DARK -> Res.string.theme_dark_hint
-                        AppThemeMode.SYSTEM -> Res.string.theme_system_hint
+                        AppThemeMode.LIGHT -> Str.theme_light_hint
+                        AppThemeMode.DARK -> Str.theme_dark_hint
+                        AppThemeMode.SYSTEM -> Str.theme_system_hint
                     }
                 ),
                 style = MaterialTheme.typography.bodyMedium,

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,11 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.accept
-import proqueue.composeapp.generated.resources.notice_section_title
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.components.AppScaffold
 import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
@@ -54,7 +51,7 @@ fun EmergencyNoticeScreen(
             TopAppBar(
                 title = {
                     Text(
-                        stringResource(Res.string.notice_section_title),
+                        Str.notice_section_title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -90,7 +87,7 @@ fun EmergencyNoticeScreen(
             )
             if (uiState.noticeDirty) {
                 AppButton(
-                    text = stringResource(Res.string.accept),
+                    text = Str.accept,
                     onClick = { viewModel.sendIntent(SettingsIntent.SaveNotice) },
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                     isLoading = uiState.isSavingNotice

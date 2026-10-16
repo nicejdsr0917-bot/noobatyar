@@ -7,13 +7,14 @@ import Toolbar from '@/app/components/Toolbar';
 import AppointmentCard from '@/app/components/AppointmentCard';
 import Icon from '@/app/components/Icon';
 import AppBanner from '@/app/components/AppBanner';
+import { t } from '@/lib/i18n';
 
 type Tab = 'UPCOMING' | 'PAST' | 'CANCELED';
 
 const TAB_LABELS: Record<Tab, string> = {
-  UPCOMING: 'پیش‌رو',
-  PAST: 'قبلی',
-  CANCELED: 'لغو شده',
+  get UPCOMING() { return t('upcoming'); },
+  get PAST() { return t('past'); },
+  get CANCELED() { return t('cancelled'); },
 };
 
 export default function AppointmentsPage() {
@@ -44,7 +45,7 @@ export default function AppointmentsPage() {
     }
     getMyAppointments(token)
       .then(setAppointments)
-      .catch(() => setError('خطا در بارگذاری نوبت‌ها'))
+      .catch(() => setError(t('couldntLoadAppointments')))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -57,8 +58,8 @@ export default function AppointmentsPage() {
   return (
     <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
       <Toolbar
-        title="نوبت‌های من"
-        actions={[{ icon: 'person', label: 'پروفایل من', onClick: () => router.push('/profile') }]}
+        title={t('myAppointments')}
+        actions={[{ icon: 'person', label: t('myProfile'), onClick: () => router.push('/profile') }]}
       />
 
       <div style={{ padding: '24px' }}>
@@ -83,8 +84,8 @@ export default function AppointmentsPage() {
             <Icon name={paymentResult === 'success' ? 'checkCircle' : 'error'} size={20} />
             <span>
               {paymentResult === 'success'
-                ? 'پرداخت بیعانه با موفقیت انجام شد و نوبت شما قطعی است.'
-                : 'پرداخت انجام نشد. نوبت شما ثبت نهایی نشده است.'}
+                ? t('depositPaidSuccessfullyYourAppointment')
+                : t('paymentFailedYourAppointmentHasnt')}
             </span>
           </div>
         )}
@@ -134,8 +135,7 @@ export default function AppointmentsPage() {
             </span>
             <h3>{error}</h3>
             <button className="btn-primary" style={{ marginTop: 18, height: 48 }} onClick={() => location.reload()}>
-              تلاش مجدد
-            </button>
+              {t('tryAgain')}</button>
           </div>
         )}
 
@@ -144,8 +144,8 @@ export default function AppointmentsPage() {
             <span className="empty-state-icon">
               <Icon name="eventBusy" size={26} />
             </span>
-            <h3>نوبتی یافت نشد</h3>
-            <p>شما در این بخش نوبتی ندارید</p>
+            <h3>{t('noAppointmentsFound')}</h3>
+            <p>{t('youHaveNoAppointmentsIn')}</p>
           </div>
         )}
 

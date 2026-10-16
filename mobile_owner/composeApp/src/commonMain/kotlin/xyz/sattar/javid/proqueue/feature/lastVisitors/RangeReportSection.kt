@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -66,8 +67,8 @@ fun RangeReportSection(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     EmptyState(
                         icon = Icons.Rounded.EventNote,
-                        title = "لیست مشتری‌ها بارگذاری نشد",
-                        subtitle = "اتصال خود را بررسی کنید و دوباره تلاش کنید"
+                        title = Str.couldnt_load_customer_list,
+                        subtitle = Str.check_your_connection_and_try
                     )
                 }
             }
@@ -81,7 +82,7 @@ fun RangeReportSection(
                         )
                         if (report.clamped) {
                             Text(
-                                text = "فقط ${GetRangeReportUseCase.MAX_RANGE_DAYS} روز آخرِ این بازه شمرده شده",
+                                text = Str.only_last_days_of_this(GetRangeReportUseCase.MAX_RANGE_DAYS),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.tertiary,
                                 modifier = Modifier.padding(top = 6.dp)
@@ -112,7 +113,7 @@ private fun CustomerOrderingRow(
     ) {
         Icon(
             Icons.AutoMirrored.Rounded.Sort,
-            contentDescription = "مرتب‌سازی",
+            contentDescription = Str.sort,
             modifier = Modifier.size(18.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -155,8 +156,8 @@ private fun CustomerList(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 EmptyState(
                     icon = Icons.Rounded.Groups,
-                    title = "مشتری‌ای در این بازه نبوده",
-                    subtitle = "بازه‌ی دیگری را امتحان کنید",
+                    title = Str.no_customers_in_this_range,
+                    subtitle = Str.try_different_range,
                     modifier = Modifier.padding(top = 32.dp)
                 )
             }
@@ -173,7 +174,7 @@ private fun CustomerList(
                     if (isLoadingMore) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     } else {
-                        TextButton(onClick = onLoadMore) { Text("نمایش بیشتر") }
+                        TextButton(onClick = onLoadMore) { Text(Str.show_more) }
                     }
                 }
             }
@@ -203,7 +204,7 @@ private fun CustomerRow(customer: RangeCustomer, onClick: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = customer.fullName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "؟",
+                    text = customer.fullName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: Str.text_2,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -212,7 +213,7 @@ private fun CustomerRow(customer: RangeCustomer, onClick: () -> Unit) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = customer.fullName.ifBlank { "بدون نام" },
+                    text = customer.fullName.ifBlank { Str.no_name },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -220,7 +221,7 @@ private fun CustomerRow(customer: RangeCustomer, onClick: () -> Unit) {
                 )
                 Text(
                     text = customer.phoneNumber +
-                        (customer.lastVisit?.let { " · آخرین: ${DateTimeUtils.getJalaliDate(it)}" } ?: ""),
+                        (customer.lastVisit?.let { Str.last(DateTimeUtils.getJalaliDate(it)) } ?: ""),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -233,7 +234,7 @@ private fun CustomerRow(customer: RangeCustomer, onClick: () -> Unit) {
                 shape = RoundedCornerShape(50)
             ) {
                 Text(
-                    text = "${customer.appointmentCount} نوبت",
+                    text = Str.appointments(customer.appointmentCount),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import androidx.lifecycle.viewModelScope
@@ -63,7 +64,7 @@ class SettingsViewModel(
     private fun saveNotice(): Flow<SettingsState.PartialState> = flow {
         val business = BusinessStateHolder.selectedBusiness.value
         if (business == null) {
-            emit(SettingsState.PartialState.ShowMessage(UiMessage.warning("کسب‌وکار انتخاب نشده")))
+            emit(SettingsState.PartialState.ShowMessage(UiMessage.warning(Str.no_business_selected)))
             return@flow
         }
         emit(SettingsState.PartialState.IsSavingNotice(true))
@@ -77,12 +78,12 @@ class SettingsViewModel(
             if (updated != null) {
                 BusinessStateHolder.selectBusiness(updated)
                 emit(SettingsState.PartialState.LoadSettings(updated))
-                emit(SettingsState.PartialState.ShowMessage(UiMessage.success("پیام اضطراری ذخیره شد")))
+                emit(SettingsState.PartialState.ShowMessage(UiMessage.success(Str.emergency_notice_saved)))
             } else {
-                emit(SettingsState.PartialState.ShowMessage(UiMessage.error("خطا در ذخیره پیام اضطراری")))
+                emit(SettingsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_save_emergency_notice)))
             }
         } catch (e: Exception) {
-            emit(SettingsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در ذخیره پیام اضطراری")))
+            emit(SettingsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_save_emergency_notice)))
         } finally {
             emit(SettingsState.PartialState.IsSavingNotice(false))
         }
@@ -96,7 +97,7 @@ class SettingsViewModel(
                 deleteBusinessUseCase(currentBusiness.id)
                 sendEvent(SettingsEvent.BusinessDeleted)
             } catch (e: Exception) {
-                emit(SettingsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در حذف کسب‌وکار")))
+                emit(SettingsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_delete_business)))
             } finally {
                 emit(SettingsState.PartialState.IsLoading(false))
             }

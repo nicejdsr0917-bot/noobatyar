@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,9 +47,9 @@ import xyz.sattar.javid.proqueue.core.ui.WindowSize
  * viewport is the clearest tell of a stretched phone UI). Screens put their
  * actions at the end of [content] instead.
  *
- * RTL: the app forces [androidx.compose.ui.unit.LayoutDirection.Rtl]
- * (ui/theme/Theme.kt), so the Row's first child lands on the *right*. The form
- * goes first because that is where a Persian reader starts.
+ * Direction follows the UI language (ui/theme/Theme.kt), so the Row's first
+ * child lands on the reading-start edge. The form goes first because that is
+ * where the reader starts.
  */
 @Composable
 fun AuthWebLayout(
@@ -111,13 +112,13 @@ fun AuthWebLayout(
                     ) {
                         AnimatedNoobatyarMark(modifier = Modifier.size(120.dp))
                         Text(
-                            text = "نوبت‌یار",
+                            text = Str.about_us_app_name,
                             style = MaterialTheme.typography.displaySmall,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = "نوبت‌دهی هوشمند برای کسب‌وکارت.",
+                            text = Str.smart_booking_for_your_business,
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White.copy(alpha = 0.85f),
                             textAlign = TextAlign.Center

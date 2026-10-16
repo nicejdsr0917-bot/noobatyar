@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.utils
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import org.jetbrains.compose.resources.DrawableResource
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.bank_ansar
@@ -57,39 +58,39 @@ import proqueue.composeapp.generated.resources.bank_tourism
  */
 data class BankInfo(val name: String, val logo: DrawableResource)
 
-private val BIN_TABLE: Map<String, BankInfo> = mapOf(
-    "603799" to BankInfo("بانک ملی ایران", Res.drawable.bank_melli),
-    "589210" to BankInfo("بانک سپه", Res.drawable.bank_sepah),
-    "610433" to BankInfo("بانک ملت", Res.drawable.bank_mellat),
-    "589463" to BankInfo("بانک رفاه کارگران", Res.drawable.bank_refah),
-    "585983" to BankInfo("بانک تجارت", Res.drawable.bank_tejarat),
-    "627353" to BankInfo("بانک تجارت", Res.drawable.bank_tejarat),
-    "603770" to BankInfo("بانک کشاورزی", Res.drawable.bank_keshavarzi),
-    "639217" to BankInfo("بانک کشاورزی", Res.drawable.bank_keshavarzi),
-    "628023" to BankInfo("بانک مسکن", Res.drawable.bank_maskan),
-    "627760" to BankInfo("پست بانک ایران", Res.drawable.bank_post),
-    "502908" to BankInfo("بانک توسعه تعاون", Res.drawable.bank_tosee_taavon),
-    "627412" to BankInfo("بانک اقتصاد نوین", Res.drawable.bank_eghtesad_novin),
-    "622106" to BankInfo("بانک پارسیان", Res.drawable.bank_parsian),
-    "639194" to BankInfo("بانک پارسیان", Res.drawable.bank_parsian),
-    "502229" to BankInfo("بانک پاسارگاد", Res.drawable.bank_pasargad),
-    "639347" to BankInfo("بانک پاسارگاد", Res.drawable.bank_pasargad),
-    "627488" to BankInfo("بانک کارآفرین", Res.drawable.bank_karafarin),
-    "621986" to BankInfo("بانک سامان", Res.drawable.bank_saman),
-    "639346" to BankInfo("بانک سینا", Res.drawable.bank_sina),
-    "639607" to BankInfo("بانک سرمایه", Res.drawable.bank_sarmayeh),
-    "636949" to BankInfo("بانک حکمت ایرانیان", Res.drawable.bank_hekmat_iranian),
-    "502938" to BankInfo("بانک دی", Res.drawable.bank_dey),
-    "505785" to BankInfo("بانک ایران زمین", Res.drawable.bank_iran_zamin),
-    "504172" to BankInfo("بانک قرض‌الحسنه رسالت", Res.drawable.bank_resalat),
-    "606373" to BankInfo("بانک قرض‌الحسنه مهر ایران", Res.drawable.bank_mehr_iran),
-    "627381" to BankInfo("بانک انصار", Res.drawable.bank_ansar),
-    "502806" to BankInfo("بانک شهر", Res.drawable.bank_shahr),
-    "505416" to BankInfo("بانک گردشگری", Res.drawable.bank_tourism),
-    "603769" to BankInfo("بانک صادرات ایران", Res.drawable.bank_saderat),
-    "606256" to BankInfo("موسسه اعتباری ملل", Res.drawable.bank_melal),
-    "207177" to BankInfo("بانک توسعه صادرات", Res.drawable.bank_edbi),
-    "627648" to BankInfo("بانک توسعه صادرات", Res.drawable.bank_edbi),
+private val BIN_TABLE: Map<String, BankInfo> get() = mapOf(
+    "603799" to BankInfo(Str.bank_melli_iran, Res.drawable.bank_melli),
+    "589210" to BankInfo(Str.bank_sepah, Res.drawable.bank_sepah),
+    "610433" to BankInfo(Str.bank_mellat, Res.drawable.bank_mellat),
+    "589463" to BankInfo(Str.refah_kargaran_bank, Res.drawable.bank_refah),
+    "585983" to BankInfo(Str.tejarat_bank, Res.drawable.bank_tejarat),
+    "627353" to BankInfo(Str.tejarat_bank, Res.drawable.bank_tejarat),
+    "603770" to BankInfo(Str.keshavarzi_bank, Res.drawable.bank_keshavarzi),
+    "639217" to BankInfo(Str.keshavarzi_bank, Res.drawable.bank_keshavarzi),
+    "628023" to BankInfo(Str.bank_maskan, Res.drawable.bank_maskan),
+    "627760" to BankInfo(Str.post_bank_of_iran, Res.drawable.bank_post),
+    "502908" to BankInfo(Str.tosee_taavon_bank, Res.drawable.bank_tosee_taavon),
+    "627412" to BankInfo(Str.en_bank_eghtesad_novin, Res.drawable.bank_eghtesad_novin),
+    "622106" to BankInfo(Str.parsian_bank, Res.drawable.bank_parsian),
+    "639194" to BankInfo(Str.parsian_bank, Res.drawable.bank_parsian),
+    "502229" to BankInfo(Str.pasargad_bank, Res.drawable.bank_pasargad),
+    "639347" to BankInfo(Str.pasargad_bank, Res.drawable.bank_pasargad),
+    "627488" to BankInfo(Str.karafarin_bank, Res.drawable.bank_karafarin),
+    "621986" to BankInfo(Str.saman_bank, Res.drawable.bank_saman),
+    "639346" to BankInfo(Str.sina_bank, Res.drawable.bank_sina),
+    "639607" to BankInfo(Str.sarmayeh_bank, Res.drawable.bank_sarmayeh),
+    "636949" to BankInfo(Str.hekmat_iranian_bank, Res.drawable.bank_hekmat_iranian),
+    "502938" to BankInfo(Str.day_bank, Res.drawable.bank_dey),
+    "505785" to BankInfo(Str.iran_zamin_bank, Res.drawable.bank_iran_zamin),
+    "504172" to BankInfo(Str.resalat_qarz_al_hasaneh_bank, Res.drawable.bank_resalat),
+    "606373" to BankInfo(Str.mehr_iran_qarz_al_hasaneh, Res.drawable.bank_mehr_iran),
+    "627381" to BankInfo(Str.ansar_bank, Res.drawable.bank_ansar),
+    "502806" to BankInfo(Str.shahr_bank, Res.drawable.bank_shahr),
+    "505416" to BankInfo(Str.tourism_bank, Res.drawable.bank_tourism),
+    "603769" to BankInfo(Str.bank_saderat_iran, Res.drawable.bank_saderat),
+    "606256" to BankInfo(Str.melal_credit_institution, Res.drawable.bank_melal),
+    "207177" to BankInfo(Str.export_development_bank, Res.drawable.bank_edbi),
+    "627648" to BankInfo(Str.export_development_bank, Res.drawable.bank_edbi),
 )
 
 /** [cardNumber] may contain spaces/dashes from a visual transformation — only

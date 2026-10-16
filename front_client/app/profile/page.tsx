@@ -6,6 +6,7 @@ import { getMe, getMyActivity, type ActivityEntry, type Visitor } from '@/lib/ap
 import { formatIsoDate, STATUS_LABELS } from '@/lib/format';
 import Toolbar from '@/app/components/Toolbar';
 import Icon, { type IconName } from '@/app/components/Icon';
+import { t } from '@/lib/i18n';
 
 // One icon per action so the log is scannable without reading every line.
 const ACTION_ICON: Record<string, IconName> = {
@@ -33,19 +34,19 @@ function describe(entry: ActivityEntry): string {
   if (entry.action === 'APPOINTMENT_STATUS_CHANGED' || entry.action === 'APPOINTMENT_CANCELLED') {
     const from = statusText(d.old);
     const to = statusText(d.new);
-    if (from && to) return `از «${from}» به «${to}»`;
-    return to ? `به «${to}»` : '';
+    if (from && to) return t('fromTo', from, to);
+    return to ? t('to2', to) : '';
   }
 
   if (entry.action === 'APPOINTMENT_BOOKED') {
     const s = statusText(d.status);
-    return s ? `وضعیت: ${s}` : '';
+    return s ? t('status', s) : '';
   }
 
   if (entry.action === 'PROFILE_UPDATED') {
     const changed = d.changed as Record<string, { from?: string; to?: string }> | undefined;
     if (!changed) return '';
-    const names: Record<string, string> = { full_name: 'نام', phone_number: 'شماره' };
+    const names: Record<string, string> = { full_name: t('name2'), phone_number: t('number') };
     return Object.entries(changed)
       .map(([field, v]) => `${names[field] ?? field}: «${v.from ?? '—'}» → «${v.to ?? '—'}»`)
       .join(' · ');
@@ -77,7 +78,7 @@ export default function ProfilePage() {
         setVisitor(me);
         setActivity(log);
       })
-      .catch(() => setError('خطا در بارگذاری پروفایل'))
+      .catch(() => setError(t('couldntLoadProfile')))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -85,7 +86,7 @@ export default function ProfilePage() {
     <div className="page-content">
       {/* No logout action here — the full-width button below is the one exit,
           kept singular rather than duplicated between the toolbar and the page. */}
-      <Toolbar title="پروفایل من" actions={[{ icon: 'calendar', label: 'نوبت‌های من', onClick: () => router.push('/appointments') }]} />
+      <Toolbar title={t('myProfile')} actions={[{ icon: 'calendar', label: t('myAppointments'), onClick: () => router.push('/appointments') }]} />
 
       <div style={{ padding: '24px 24px' }}>
         {loading ? (
@@ -101,8 +102,7 @@ export default function ProfilePage() {
             </span>
             <p style={{ color: 'var(--color-muted)', marginBottom: 20 }}>{error}</p>
             <button className="btn-primary" onClick={() => location.reload()}>
-              تلاش مجدد
-            </button>
+              {t('tryAgain')}</button>
             {/* Always offer the way out: if the failure is the stored session
                 itself, retrying forever is the one thing that cannot help. */}
             <div style={{ marginTop: 14 }}>
@@ -118,8 +118,7 @@ export default function ProfilePage() {
                   fontFamily: 'inherit',
                 }}
               >
-                خروج از حساب و ورود دوباره
-              </button>
+                {t('signOutAndSignIn')}</button>
             </div>
           </div>
         ) : (
@@ -127,12 +126,12 @@ export default function ProfilePage() {
             {visitor && (
               <div className="info-card" style={{ marginBottom: 28 }}>
                 <div className="info-row">
-                  <span className="label">نام</span>
+                  <span className="label">{t('name2')}</span>
                   <span className="value">{visitor.full_name || '—'}</span>
                 </div>
                 <div className="info-divider" />
                 <div className="info-row">
-                  <span className="label">شماره موبایل</span>
+                  <span className="label">{t('mobileNumber')}</span>
                   <span className="value" style={{ direction: 'ltr' }}>
                     {visitor.phone_number}
                   </span>
@@ -140,15 +139,15 @@ export default function ProfilePage() {
               </div>
             )}
 
-            <h2 className="section-title">تاریخچه فعالیت</h2>
+            <h2 className="section-title">{t('activityHistory')}</h2>
 
             {activity.length === 0 ? (
               <div className="empty-state">
                 <span className="empty-state-icon">
                   <Icon name="receipt" size={26} />
                 </span>
-                <h3>فعالیتی ثبت نشده</h3>
-                <p>رویدادهای مربوط به نوبت‌ها و حساب شما اینجا نمایش داده می‌شود.</p>
+                <h3>{t('noActivityYet')}</h3>
+                <p>{t('eventsAboutYourAppointmentsAnd')}</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -189,7 +188,7 @@ export default function ProfilePage() {
                         <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 6 }}>
                           {formatIsoDate(entry.created_at)}
                           {entry.business_title ? ` · ${entry.business_title}` : ''}
-                          {` · توسط ${entry.actor_label}`}
+                          {t('by', entry.actor_label)}
                         </div>
                       </div>
                     </div>
@@ -214,8 +213,7 @@ export default function ProfilePage() {
                 cursor: 'pointer',
               }}
             >
-              خروج از حساب
-            </button>
+              {t('signOut')}</button>
           </>
         )}
       </div>

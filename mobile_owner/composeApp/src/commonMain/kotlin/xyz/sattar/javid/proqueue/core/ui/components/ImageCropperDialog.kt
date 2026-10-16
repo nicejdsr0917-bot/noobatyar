@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -146,10 +147,10 @@ fun ImageCropperDialog(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onDismiss, enabled = !isWorking) {
-                    Icon(Icons.Rounded.Close, contentDescription = "بستن", tint = Color.White)
+                    Icon(Icons.Rounded.Close, contentDescription = Str.close, tint = Color.White)
                 }
                 Text(
-                    text = "برش لوگو",
+                    text = Str.crop_logo,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -165,13 +166,13 @@ fun ImageCropperDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "برای جابه‌جایی بکشید، با دو انگشت بزرگ‌نمایی کنید",
+                    text = Str.drag_to_move_pinch_to,
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.75f)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 AppButton(
-                    text = "تأیید و برش",
+                    text = Str.confirm_and_crop,
                     onClick = {
                         if (isWorking) return@AppButton
                         isWorking = true

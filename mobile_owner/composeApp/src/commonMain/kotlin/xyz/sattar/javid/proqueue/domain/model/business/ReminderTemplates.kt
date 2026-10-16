@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.domain.model.business
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+
+
 /**
  * The fixed wordings a PANEL (server-sent) reminder can use.
  *
@@ -18,31 +21,31 @@ data class ReminderTemplate(val key: String, val label: String, val text: String
 object ReminderTemplates {
     const val DEFAULT_KEY = "classic"
 
-    val all: List<ReminderTemplate> = listOf(
+    val all: List<ReminderTemplate> get() = listOf(
         ReminderTemplate(
             key = "classic",
-            label = "رسمی",
-            text = "{visitor} عزیز، نوبت شما در {business} ساعت {time} تاریخ {date} است\n" +
-                "لطفاً چند دقیقه زودتر تشریف بیاورید"
+            label = Str.formal,
+            text = "{visitor} عزیز، نوبت شما در {business} ساعت {time} تاریخ {date} است\n" + // i18n-keep: customer SMS template
+                "لطفاً چند دقیقه زودتر تشریف بیاورید" // i18n-keep: customer SMS template
         ),
         ReminderTemplate(
             key = "friendly",
-            label = "دوستانه",
-            text = "سلام {visitor} جان\n" +
-                "{minutes} دقیقه دیگر نوبت شما در {business} است (ساعت {time})\n" +
-                "منتظرتان هستیم"
+            label = Str.friendly,
+            text = "سلام {visitor} جان\n" + // i18n-keep: customer SMS template
+                "{minutes} دقیقه دیگر نوبت شما در {business} است (ساعت {time})\n" + // i18n-keep: customer SMS template
+                "منتظرتان هستیم" // i18n-keep: customer SMS template
         ),
         ReminderTemplate(
             key = "short",
-            label = "کوتاه",
-            text = "یادآوری نوبت {business}: امروز ساعت {time}\n" +
-                "{visitor} عزیز منتظرتان هستیم"
+            label = Str.short,
+            text = "یادآوری نوبت {business}: امروز ساعت {time}\n" + // i18n-keep: customer SMS template
+                "{visitor} عزیز منتظرتان هستیم" // i18n-keep: customer SMS template
         ),
         ReminderTemplate(
             key = "confirm",
-            label = "با درخواست تماس",
-            text = "{visitor} عزیز، نوبت شما در {business} ساعت {time} تاریخ {date} است\n" +
-                "اگر امکان حضور ندارید لطفاً با ما تماس بگیرید"
+            label = Str.with_call_request,
+            text = "{visitor} عزیز، نوبت شما در {business} ساعت {time} تاریخ {date} است\n" + // i18n-keep: customer SMS template
+                "اگر امکان حضور ندارید لطفاً با ما تماس بگیرید" // i18n-keep: customer SMS template
         ),
     )
 
@@ -56,8 +59,8 @@ object ReminderTemplates {
  * customer actually receives.
  */
 object PanelSmsSuffix {
-    const val FOOTER = "نوبت‌یار"
-    const val OPT_OUT = "لغو11"
+    const val FOOTER = "نوبت‌یار" // i18n-keep: part of the SMS the customer receives
+    const val OPT_OUT = "لغو11" // i18n-keep: customer SMS template
     const val TEXT = "\n\n$FOOTER\n$OPT_OUT"
 
     /** Mirrors `api.sms.signed()`: the line rejects a full stop as a link. */

@@ -8,6 +8,7 @@ import AppointmentCard from '@/app/components/AppointmentCard';
 import Icon from '@/app/components/Icon';
 import AppBanner from '@/app/components/AppBanner';
 import { useVisitorToken } from '@/lib/visitorToken';
+import { t } from '@/lib/i18n';
 
 /** Statuses that are over and done with — never "upcoming". */
 const CLOSED = ['COMPLETED', 'CANCELLED', 'NO_SHOW'];
@@ -35,7 +36,7 @@ export default function HomeClient() {
     let live = true;
     getMyAppointments(token)
       .then((list) => live && setAppointments(list))
-      .catch(() => live && setError('نوبت‌های شما بارگذاری نشد'));
+      .catch(() => live && setError(t('couldntLoadYourAppointments')));
     return () => {
       live = false;
     };
@@ -55,7 +56,7 @@ export default function HomeClient() {
       <div className="home-brand">
         {/* eslint-disable-next-line @next/next/no-img-element -- local static brand mark */}
         <img src="/icons/icon-192.png" alt="" width={34} height={34} />
-        <span>نوبت‌یار</span>
+        <span>{t('noobatyar')}</span>
       </div>
 
       {/* ── App banner ── */}
@@ -67,11 +68,10 @@ export default function HomeClient() {
       <div className="section" style={{ paddingTop: 12 }}>
         <div className="section-head">
           <Icon name="calendar" size={18} color="var(--color-primary)" />
-          <h2>نوبت‌های من</h2>
+          <h2>{t('myAppointments')}</h2>
           {auth === 'authed' && upcoming.length > HOME_LIMIT && (
             <button className="link" onClick={() => router.push('/appointments')}>
-              همه
-              <Icon name="chevronLeft" size={14} />
+              {t('all')}<Icon name="chevronLeft" size={14} />
             </button>
           )}
         </div>
@@ -87,15 +87,14 @@ export default function HomeClient() {
             <span className="empty-state-icon">
               <Icon name="person" size={26} />
             </span>
-            <h3>برای دیدن نوبت‌هایتان وارد شوید</h3>
-            <p>پس از ورود، همهٔ نوبت‌های رزروشده اینجا نمایش داده می‌شود</p>
+            <h3>{t('signInToSeeYour')}</h3>
+            <p>{t('afterSigningInAllYour')}</p>
             <button
               className="btn-primary"
               style={{ marginTop: 18, height: 48 }}
               onClick={() => router.push('/auth/login?redirect=/')}
             >
-              ورود / ثبت‌نام
-            </button>
+              {t('signInSignUp')}</button>
           </div>
         ) : error ? (
           <div className="empty-state">
@@ -108,24 +107,22 @@ export default function HomeClient() {
               style={{ marginTop: 18, height: 48 }}
               onClick={() => location.reload()}
             >
-              <Icon name="refresh" size={17} style={{ display: 'inline-block', verticalAlign: '-3px', marginLeft: 6 }} />
-              تلاش مجدد
-            </button>
+              <Icon name="refresh" size={17} style={{ display: 'inline-block', verticalAlign: '-3px', marginInlineEnd: 6 }} />
+              {t('tryAgain')}</button>
           </div>
         ) : shown.length === 0 ? (
           <div className="empty-state">
             <span className="empty-state-icon">
               <Icon name="eventBusy" size={26} />
             </span>
-            <h3>نوبت پیش‌رویی ندارید</h3>
-            <p>وقتی نوبتی رزرو کنید، اینجا نمایش داده می‌شود</p>
+            <h3>{t('noUpcomingAppointments')}</h3>
+            <p>{t('whenYouBookAppointmentIt')}</p>
             <button
               className="btn-primary"
               style={{ marginTop: 18, height: 48, background: 'var(--color-surface)', color: 'var(--color-primary)', border: '1.5px solid var(--color-primary)', boxShadow: 'none' }}
               onClick={() => router.push('/appointments')}
             >
-              سوابق نوبت‌ها
-            </button>
+              {t('appointmentHistory')}</button>
           </div>
         ) : (
           shown.map((appt) => <AppointmentCard key={appt.id} appt={appt} />)
@@ -135,8 +132,7 @@ export default function HomeClient() {
       {/* ── Support ── */}
       <div className="section" style={{ paddingTop: 8, textAlign: 'center' }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text)', marginBottom: 12 }}>
-          ارتباط با ما
-        </p>
+          {t('contactUs')}</p>
         <SupportLinks />
       </div>
     </div>

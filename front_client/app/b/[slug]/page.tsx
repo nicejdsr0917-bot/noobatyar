@@ -4,6 +4,9 @@ import { getBusinessByCode, businessCategoryLabel, mediaUrl, type Business } fro
 import { businessLocation } from '@/lib/maps';
 import { absoluteBusinessUrl } from '@/lib/site';
 import BusinessProfileClient from './BusinessProfileClient';
+import { getServerT } from '@/lib/i18n/server';
+
+type T = Awaited<ReturnType<typeof getServerT>>;
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -51,12 +54,12 @@ const SCHEMA_TYPE: Record<string, string> = {
   OTHER: 'LocalBusiness',
 };
 
-function businessDescription(biz: Business): string {
+function businessDescription(biz: Business, t: T): string {
   // bio is the owner's own words and is the only part a search result can show
   // that another business would not also say, so it leads when it exists.
   const parts = [
     biz.bio?.trim(),
-    `رزرو آنلاین نوبت در ${biz.title}`,
+    t('bookAppointmentOnlineAt', biz.title),
     businessCategoryLabel(biz),
     biz.address?.trim(),
   ].filter(Boolean);
@@ -90,6 +93,7 @@ export async function generateViewport({ params }: Props): Promise<Viewport> {
 }
 
 export async function generateMetadata({ params }: Props) {
+  const t = await getServerT();
   const { slug } = await params;
   const code = slug.replace(/^Noobatyar-/i, '');
   // Override the root manifest so "add to home screen" installs *this*
@@ -97,8 +101,8 @@ export async function generateMetadata({ params }: Props) {
   const manifest = `/b/${slug}/manifest.webmanifest`;
   try {
     const biz = await getBusinessByCode(code);
-    const title = `${biz.title} | نوبت‌یار`;
-    const description = businessDescription(biz);
+    const title = t('noobatyar2', biz.title);
+    const description = businessDescription(biz, t);
     // Canonical is built from the *stored* code, not from the slug in the URL.
     // The slug is matched case-insensitively and the `Noobatyar-` prefix is
     // optional in practice, so several URLs reach this same page; without this
@@ -115,7 +119,7 @@ export async function generateMetadata({ params }: Props) {
         title,
         description,
         url: canonical,
-        siteName: 'نوبت‌یار',
+        siteName: t('noobatyar'),
         locale: 'fa_IR',
         type: 'website',
         ...(logo ? { images: [{ url: logo, alt: biz.title }] } : {}),
@@ -128,7 +132,7 @@ export async function generateMetadata({ params }: Props) {
       },
     };
   } catch {
-    return { title: 'نوبت‌یار', manifest };
+    return { title: t('noobatyar'), manifest };
   }
 }
 
@@ -144,7 +148,7 @@ export async function generateMetadata({ params }: Props) {
  *  open, and claiming Saturday–Friday would put a wrong "Open now" on the
  *  search result. It needs weekday data on the model first.
  */
-function businessJsonLd(biz: Business, canonical: string) {
+function businessJsonLd(biz: Business, canonical: string, t: T) {
   const logo = mediaUrl(biz.logo);
   const location = businessLocation(biz);
   return {
@@ -152,7 +156,7 @@ function businessJsonLd(biz: Business, canonical: string) {
     '@type': SCHEMA_TYPE[biz.category] ?? 'LocalBusiness',
     name: biz.title,
     url: canonical,
-    description: businessDescription(biz),
+    description: businessDescription(biz, t),
     ...(logo ? { image: logo, logo } : {}),
     ...(biz.phone ? { telephone: biz.phone } : {}),
     ...(biz.address
@@ -185,7 +189,7 @@ function businessJsonLd(biz: Business, canonical: string) {
                 'http://schema.org/MobileWebPlatform',
               ],
             },
-            result: { '@type': 'Reservation', name: `نوبت در ${biz.title}` },
+            result: { '@type': 'Reservation', name: t('bookAt', biz.title) },
           },
         }
       : {}),
@@ -193,6 +197,7 @@ function businessJsonLd(biz: Business, canonical: string) {
 }
 
 export default async function BusinessProfilePage({ params }: Props) {
+  const t = await getServerT();
   const { slug } = await params;
   const code = slug.replace(/^Noobatyar-/i, '');
 
@@ -213,7 +218,7 @@ export default async function BusinessProfilePage({ params }: Props) {
         // input: a `<` inside a business title would end the script tag early,
         // so it is escaped the way schema.org markup conventionally is.
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(businessJsonLd(business, canonical)).replace(
+          __html: JSON.stringify(businessJsonLd(business, canonical, t)).replace(
             /</g,
             '\\u003c'
           ),

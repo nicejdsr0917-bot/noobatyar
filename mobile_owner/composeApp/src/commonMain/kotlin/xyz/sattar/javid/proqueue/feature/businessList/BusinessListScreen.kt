@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.businessList
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -92,17 +93,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.business_list
-import proqueue.composeapp.generated.resources.cancel
-import proqueue.composeapp.generated.resources.create_first_business
-import proqueue.composeapp.generated.resources.delete
-import proqueue.composeapp.generated.resources.delete_business
-import proqueue.composeapp.generated.resources.delete_business_confirmation
-import proqueue.composeapp.generated.resources.no_business_found
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.ui.theme.AppTheme
@@ -138,8 +130,8 @@ fun BusinessListScreen(
     if (businessToDelete != null) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { businessToDelete = null },
-            title = { Text(stringResource(Res.string.delete_business)) },
-            text = { Text(stringResource(Res.string.delete_business_confirmation)) },
+            title = { Text(Str.delete_business) },
+            text = { Text(Str.delete_business_confirmation) },
             confirmButton = {
                 androidx.compose.material3.TextButton(
                     onClick = {
@@ -150,12 +142,12 @@ fun BusinessListScreen(
                     },
                     colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(Res.string.delete))
+                    Text(Str.delete)
                 }
             },
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { businessToDelete = null }) {
-                    Text(stringResource(Res.string.cancel))
+                    Text(Str.cancel)
                 }
             }
         )
@@ -185,7 +177,7 @@ fun BusinessListScreenContent(
             TopAppBar(
                 title = {
                     Text(
-                        stringResource(Res.string.business_list),
+                        Str.business_list,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -366,7 +358,7 @@ fun BusinessItem(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("ویرایش") },
+                            text = { Text(Str.edit) },
                             onClick = {
                                 showMenu = false
                                 onEdit()
@@ -376,7 +368,7 @@ fun BusinessItem(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("حذف", color = MaterialTheme.colorScheme.error) },
+                            text = { Text(Str.delete, color = MaterialTheme.colorScheme.error) },
                             onClick = {
                                 showMenu = false
                                 onDelete()
@@ -401,7 +393,7 @@ fun BusinessItem(
                 }
                 BusinessInfoRow(
                     icon = Icons.Rounded.Schedule,
-                    text = "${hhmm(business.workStartHour, business.workStartMinute)} تا " +
+                    text = Str.to_2(hhmm(business.workStartHour, business.workStartMinute)) +
                         hhmm(business.workEndHour, business.workEndMinute),
                     trailing = { OpenStatusPill(status = openStatusOf(business)) }
                 )
@@ -411,7 +403,7 @@ fun BusinessItem(
                 if (business.moderationStatus != null && !business.isPubliclyVisible) {
                     BusinessInfoRow(
                         icon = Icons.Rounded.VisibilityOff,
-                        text = "برای مراجعین نمایش داده نمی‌شود"
+                        text = Str.not_shown_to_clients
                     )
                 }
             }
@@ -427,7 +419,7 @@ fun BusinessItem(
                 ModerationBadge(business = business)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = "ورود به پنل",
+                    text = Str.open_panel,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -524,9 +516,9 @@ private fun openStatusOf(
 @Composable
 private fun OpenStatusPill(status: OpenStatus) {
     val (label, color) = when (status) {
-        OpenStatus.Open -> "باز است" to SuccessColor
-        OpenStatus.Closed -> "بسته است" to MaterialTheme.colorScheme.onSurfaceVariant
-        OpenStatus.ClosedToday -> "امروز تعطیل" to BrandAmber
+        OpenStatus.Open -> Str.open to SuccessColor
+        OpenStatus.Closed -> Str.closed to MaterialTheme.colorScheme.onSurfaceVariant
+        OpenStatus.ClosedToday -> Str.closed_today to BrandAmber
     }
     Surface(
         shape = RoundedCornerShape(50),
@@ -587,7 +579,7 @@ fun EmptyBusinessState(
         BrandIllustration(size = 190.dp) { NewBusinessIllustration() }
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = stringResource(Res.string.no_business_found),
+            text = Str.no_business_found,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -595,13 +587,13 @@ fun EmptyBusinessState(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = stringResource(Res.string.create_first_business),
+            text = Str.create_first_business,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
-        AppButton(text = "ساخت کسب‌وکار", onClick = onCreate)
+        AppButton(text = Str.create_business_2, onClick = onCreate)
     }
 }
 
@@ -673,7 +665,7 @@ fun HandleEvents(
                 scope.launch {
                     val result = snackbarHostState.showSnackbar(
                         message = it.message,
-                        actionLabel = "تلاش مجدد",
+                        actionLabel = Str.retry_action,
                         duration = androidx.compose.material3.SnackbarDuration.Long
                     )
                     if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.navigation
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Menu
@@ -9,7 +10,6 @@ import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
-import org.jetbrains.compose.resources.StringResource
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.home_menu_item
 import proqueue.composeapp.generated.resources.last_visitors_menu_item
@@ -120,14 +120,14 @@ sealed class AppScreens {
 
 
 sealed interface MainTab {
-    val title: StringResource
+    val title: String
     val iconSelected: ImageVector
     val iconUnSelected: ImageVector
     val route: AppScreens
 
     @Serializable
     data object Home : MainTab {
-        override val title = Res.string.home_menu_item
+        override val title get() = Str.home_menu_item
         override val iconSelected = Icons.Rounded.Home
         override val iconUnSelected = Icons.Outlined.Home
         override val route = AppScreens.Home
@@ -135,7 +135,7 @@ sealed interface MainTab {
 
     @Serializable
     data object LastVisitors : MainTab {
-        override val title = Res.string.last_visitors_menu_item
+        override val title get() = Str.last_visitors_menu_item
         override val iconSelected = Icons.Rounded.People
         override val iconUnSelected = Icons.Outlined.People
         override val route = AppScreens.Visitors
@@ -143,7 +143,7 @@ sealed interface MainTab {
 
     @Serializable
     data object Settings : MainTab {
-        override val title = Res.string.settings_menu_item
+        override val title get() = Str.settings_menu_item
         override val iconSelected = Icons.Rounded.Menu
         override val iconUnSelected = Icons.Outlined.Menu
         override val route = AppScreens.Settings

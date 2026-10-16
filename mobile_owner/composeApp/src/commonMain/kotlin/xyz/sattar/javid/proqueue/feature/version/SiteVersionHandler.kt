@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.version
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -101,15 +102,15 @@ private fun SiteVersionSheet(onGetIt: () -> Unit, onLater: () -> Unit) {
 
             Spacer(Modifier.height(16.dp))
             Text(
-                "امکانات تازه، زودتر از همه",
+                Str.new_features_before_anyone_else,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "ما بسیاری از امکانات جدید نوبت‌یار را اول در نسخه‌ی سایت منتشر می‌کنیم. " +
-                    "با نصب نسخه‌ی سایت، به‌روزرسانی‌ها را زودتر و مرتب‌تر دریافت می‌کنید.",
+                Str.we_release_many_new_noobatyar +
+                    Str.install_website_version_to_get,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -124,21 +125,21 @@ private fun SiteVersionSheet(onGetIt: () -> Unit, onLater: () -> Unit) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Benefit(Icons.Rounded.AutoAwesome, "دسترسی زودتر به قابلیت‌های تازه")
-                Benefit(Icons.Rounded.Bolt, "رفع سریع‌تر مشکلات و بهبودها")
-                Benefit(Icons.Rounded.Lock, "همه‌ی اطلاعات، نوبت‌ها و اشتراک شما سر جایش می‌ماند")
+                Benefit(Icons.Rounded.AutoAwesome, Str.earlier_access_to_new_features)
+                Benefit(Icons.Rounded.Bolt, Str.faster_fixes_and_improvements)
+                Benefit(Icons.Rounded.Lock, Str.all_your_data_appointments_and)
             }
 
             Spacer(Modifier.height(28.dp))
             AppButton(
-                text = "دریافت از سایت نوبت‌یار",
+                text = Str.download_from_noobatyar_website,
                 onClick = onGetIt,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    "بعداً",
+                    Str.notification_permission_prompt_later,
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

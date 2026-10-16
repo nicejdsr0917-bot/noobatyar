@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.i18n.AppLocale
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -37,9 +40,11 @@ import androidx.compose.ui.unit.dp
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 
 /** Which period the trend card is showing. */
-private enum class TrendPeriod(val label: String) {
-    WEEKLY("هفتگی"),
-    MONTHLY("ماهانه"),
+private enum class TrendPeriod(private val labelRef: () -> String) {
+    WEEKLY(Str::weekly),
+    MONTHLY(Str::monthly),;
+
+    val label: String get() = labelRef()
 }
 
 /**
@@ -86,14 +91,14 @@ fun HomeTrendCard(
     }
     val labels = when (period) {
         TrendPeriod.WEEKLY -> weeklyCounts.indices.map { i ->
-            if (i == weeklyCounts.lastIndex) "امروز" else "${weeklyCounts.size - 1 - i} روز"
+            if (i == weeklyCounts.lastIndex) Str.sms_report_date_filter_today else Str.d(weeklyCounts.size - 1 - i)
         }
-        TrendPeriod.MONTHLY -> counts.indices.map { "هفته ${it + 1}" }
+        TrendPeriod.MONTHLY -> counts.indices.map { Str.week(it + 1) }
     }
     val total = counts.sum()
     val caption = when (period) {
-        TrendPeriod.WEEKLY -> "نوبت در ۷ روز اخیر"
-        TrendPeriod.MONTHLY -> "نوبت در ${selectedMonth?.label.orEmpty()}"
+        TrendPeriod.WEEKLY -> Str.appointments_in_last_7_days
+        TrendPeriod.MONTHLY -> Str.appointments_in(selectedMonth?.label.orEmpty())
     }
 
     Card(
@@ -131,13 +136,15 @@ fun HomeTrendCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "مشاهده",
+                        text = Str.view,
                         style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        softWrap = false,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Icon(
-                        imageVector = Icons.Rounded.ChevronLeft,
+                        imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp),

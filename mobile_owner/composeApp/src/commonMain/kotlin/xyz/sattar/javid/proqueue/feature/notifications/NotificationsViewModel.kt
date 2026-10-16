@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.notifications
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
 import kotlinx.coroutines.flow.Flow
@@ -65,7 +66,7 @@ class NotificationsViewModel(
             // owner never reaches a state the server would answer with a 403.
             is NotificationsIntent.SetDelivery -> flow {
                 if (intent.delivery == ReminderDelivery.PANEL.value && !uiState.value.canUsePanelDelivery) {
-                    emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning("ارسال خودکار یادآوری در پلن فعلی شما نیست")))
+                    emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning(Str.automatic_reminders_arent_included_in_2)))
                     return@flow
                 }
                 emit(NotificationsState.PartialState.DeliveryChanged(intent.delivery))
@@ -87,7 +88,7 @@ class NotificationsViewModel(
                     // settings, so at least tell them that instead of nothing.
                     sendEvent(
                         NotificationsEvent.ShowToast(
-                            UiMessage.warning("اجازه ارسال اعلان داده نشد. برای فعال‌سازی، دسترسی اعلان این برنامه را از تنظیمات مرورگر یا سیستم خود فعال کنید.")
+                            UiMessage.warning(Str.notification_permission_wasnt_granted_to)
                         )
                     )
                 }
@@ -159,10 +160,10 @@ class NotificationsViewModel(
                 emit(NotificationsState.PartialState.PanelAllowedChanged(loadPanelEntitlement()))
                 emitAll(loadPushFeatureGate())
             } else {
-                emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning("کسب و کاری انتخاب نشده است")))
+                emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning(Str.no_business_selected_3)))
             }
         } catch (e: Exception) {
-            emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در بارگذاری تنظیمات")))
+            emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_load_settings)))
         } finally {
             emit(NotificationsState.PartialState.IsLoading(false))
         }
@@ -219,7 +220,7 @@ class NotificationsViewModel(
                 is PurchaseOutcome.Failed -> emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(outcome.message)))
             }
         } catch (e: Exception) {
-            emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در برقراری ارتباط")))
+            emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.connection_error)))
         }
     }
 
@@ -230,7 +231,7 @@ class NotificationsViewModel(
             val currentBusiness = BusinessStateHolder.selectedBusiness.value
 
             if (currentBusiness == null) {
-                emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning("کسب و کاری انتخاب نشده است")))
+                emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning(Str.no_business_selected_3)))
                 return@flow
             }
 
@@ -263,7 +264,7 @@ class NotificationsViewModel(
                 emit(NotificationsState.PartialState.DeliveryChanged(delivery))
                 sendEvent(NotificationsEvent.ShowSavedConfirmation)
             } else {
-                emit(NotificationsState.PartialState.ShowMessage(UiMessage.error("خطا در ذخیره تنظیمات")))
+                emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_save_settings)))
             }
         } catch (e: ApiException) {
             // The whole business goes out on this save, so a 403 can be about
@@ -280,14 +281,14 @@ class NotificationsViewModel(
                 emit(NotificationsState.PartialState.PanelAllowedChanged(false))
             }
             // 403 is the plan saying no, not something breaking.
-            val text = e.message ?: "خطا در ذخیره تنظیمات"
+            val text = e.message ?: Str.couldnt_save_settings
             emit(
                 NotificationsState.PartialState.ShowMessage(
                     if (e.code == 403) UiMessage.warning(text) else UiMessage.error(text)
                 )
             )
         } catch (e: Exception) {
-            emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در ذخیره تنظیمات")))
+            emit(NotificationsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_save_settings)))
         } finally {
             emit(NotificationsState.PartialState.IsLoading(false))
         }

@@ -1,5 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.text.style.TextOverflow
+import xyz.sattar.javid.proqueue.core.i18n.AppLocale
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -472,7 +478,7 @@ fun PlanBannerSection(
 
         if (plans.size > 1) {
             Text(
-                text = "برای مشاهده‌ی سایر طرح‌ها بکشید ⟷",
+                text = Str.swipe_to_see_other_plans,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -535,7 +541,7 @@ private fun PlanCarousel(
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "طرح‌های اشتراک",
+                text = Str.subscription_plans,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
@@ -550,7 +556,7 @@ private fun PlanCarousel(
                 },
                 enabled = listState.canScrollBackward
             ) {
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "طرح قبلی")
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = Str.previous_plan)
             }
             Spacer(Modifier.width(6.dp))
             FilledTonalIconButton(
@@ -563,7 +569,7 @@ private fun PlanCarousel(
                 },
                 enabled = listState.canScrollForward
             ) {
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "طرح بعدی")
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = Str.next_plan)
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -604,26 +610,27 @@ fun PlanBannerItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Matches the server-side (Persian) plan names, so these stay literal.
     val (gradientColors, badgeLabel) = when {
-        plan.name.contains("پرو پلاس") -> Pair(
+        plan.name.contains("پرو پلاس") -> Pair( // i18n-keep: server plan name
             listOf(Color(0xFF4A148C), Color(0xFF6A1B9A), Color(0xFFE65100)),
-            "💎 پرو پلاس"
+            Str.pro_plus_2
         )
-        plan.name.contains("پرو") -> Pair(
+        plan.name.contains("پرو") -> Pair( // i18n-keep: server plan name
             listOf(Color(0xFF1A237E), Color(0xFF283593), Color(0xFF7C4DFF)),
-            "🚀 پرو"
+            Str.pro_2
         )
-        plan.name.contains("اکو") -> Pair(
+        plan.name.contains("اکو") -> Pair( // i18n-keep: server plan name
             listOf(Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)),
-            "🌿 اکو"
+            Str.eco_2
         )
-        plan.name.contains("پایه") -> Pair(
+        plan.name.contains("پایه") -> Pair( // i18n-keep: server plan name
             listOf(Color(0xFF0D47A1), Color(0xFF1565C0), Color(0xFF1976D2)),
-            "⚡ پایه"
+            Str.basic_2
         )
         else -> Pair(
             listOf(Color(0xFF37474F), Color(0xFF455A64), Color(0xFF607D8B)),
-            "🌱 آزمایشی"
+            Str.trial
         )
     }
 
@@ -684,7 +691,7 @@ fun PlanBannerItem(
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text(
-                                    text = "رایگان",
+                                    text = Str.free,
                                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = Color.White,
@@ -799,7 +806,7 @@ fun PlanBannerItem(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "خرید اشتراک",
+                            text = Str.buy_subscription,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 10.dp),
@@ -843,7 +850,7 @@ fun DashboardStatsGrid(
         ) {
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "تکمیل شده",
+                title = Str.complete_action,
                 value = stats.completedAppointments.toString(),
                 containerColor = if (isDark) Color(0xFF1B5E20).copy(alpha = 0.4f) else Color(0xFFE8F5E9),
                 contentColor = if (isDark) Color(0xFFA5D6A7) else Color(0xFF2E7D32),
@@ -852,7 +859,7 @@ fun DashboardStatsGrid(
             )
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "کل مراجعین",
+                title = Str.total_clients,
                 value = stats.totalVisitors.toString(),
                 containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.4f else 0.7f),
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -866,7 +873,7 @@ fun DashboardStatsGrid(
         ) {
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "عدم حضور",
+                title = Str.status_no_show,
                 value = stats.noShowAppointments.toString(),
                 containerColor = if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE),
                 contentColor = if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828),
@@ -875,7 +882,7 @@ fun DashboardStatsGrid(
             )
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "لغو شده",
+                title = Str.status_cancelled,
                 value = stats.cancelledAppointments.toString(),
                 containerColor = if (isDark) Color(0xFF4A148C).copy(alpha = 0.4f) else Color(0xFFF3E5F5),
                 contentColor = if (isDark) Color(0xFFCE93D8) else Color(0xFF6A1B9A),
@@ -916,7 +923,7 @@ fun QueueStatRow(count: Int, onClick: () -> Unit = {}) {
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "افراد در صف",
+                    text = Str.in_queue,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = if (isDark) Color(0xFF81D4FA) else Color(0xFF0277BD)
@@ -948,7 +955,7 @@ fun StatCard(
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().height(100.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(if (AppLocale.isEnglish) 108.dp else 100.dp)) {
             // Large background icon
             Icon(
                 imageVector = icon,
@@ -966,22 +973,50 @@ fun StatCard(
                     .fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
+                val titleIcon = @Composable {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = contentColor.copy(alpha = 0.7f)
                     )
+                }
+                val titleText = @Composable {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.labelMedium,
                         color = contentColor.copy(alpha = 0.8f),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
+                }
+                // English labels ("Completed", "Total clients") are longer than
+                // the Persian ones this tile was sized for; beside the icon they
+                // broke mid-word on narrow tiles, so in English the label gets
+                // its own line under the icon.
+                if (AppLocale.isEnglish) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        titleIcon()
+                        // One line, shrinking to fit rather than breaking a word.
+                        BasicText(
+                            text = title,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = contentColor.copy(alpha = 0.8f),
+                                fontWeight = FontWeight.Bold
+                            ),
+                            maxLines = 1,
+                            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 12.sp)
+                        )
+                    }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        titleIcon()
+                        titleText()
+                    }
                 }
                 
                 Text(
@@ -1025,7 +1060,7 @@ fun UsageMeterSection(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "مصرف این ماه",
+                    text = Str.this_months_usage,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1035,21 +1070,21 @@ fun UsageMeterSection(
             Spacer(modifier = Modifier.height(16.dp))
 
             UsageRow(
-                label = "نوبت‌ها",
+                label = Str.appointments_tab,
                 icon = Icons.Rounded.Event,
                 used = appt.used,
                 quota = appt.quota,
-                trailingNote = if (appt.wallet > 0) "کیف‌پول: ${appt.wallet}" else null
+                trailingNote = if (appt.wallet > 0) Str.wallet(appt.wallet) else null
             )
 
             Spacer(modifier = Modifier.height(14.dp))
 
             UsageRow(
-                label = "پیامک",
+                label = Str.sms,
                 icon = Icons.Rounded.Sms,
                 used = smsUsed,
                 quota = sms.quota,
-                trailingNote = if (sms.wallet > 0) "کیف‌پول: ${sms.wallet}" else null
+                trailingNote = if (sms.wallet > 0) Str.wallet(sms.wallet) else null
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -1061,7 +1096,7 @@ fun UsageMeterSection(
             ) {
                 Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("خرید بسته‌ی افزودنی", style = MaterialTheme.typography.labelMedium)
+                Text(Str.buy_add_on_pack, style = MaterialTheme.typography.labelMedium)
             }
         }
     }

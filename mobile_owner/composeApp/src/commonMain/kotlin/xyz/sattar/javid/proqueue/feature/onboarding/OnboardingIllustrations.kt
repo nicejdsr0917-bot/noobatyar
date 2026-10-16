@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.onboarding
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -114,12 +115,12 @@ internal fun BookingLinkIllustration() {
         )
         FloatingChip(
             icon = Icons.Rounded.CalendarMonth,
-            label = "شنبه ۱۰:۳۰",
+            label = Str.sat_10_30,
             modifier = Modifier.align(Alignment.TopStart).offset(x = 4.dp, y = 22.dp)
         )
         FloatingChip(
             icon = Icons.Rounded.CheckCircle,
-            label = "رزرو شد",
+            label = Str.booked,
             iconTint = SuccessColor,
             phaseMillis = 700,
             modifier = Modifier.align(Alignment.BottomEnd).offset(x = (-2).dp, y = (-24).dp)
@@ -188,12 +189,12 @@ internal fun ReminderIllustration() {
         }
         FloatingChip(
             icon = Icons.Rounded.Sms,
-            label = "یادآوری نوبت فردا",
+            label = Str.tomorrows_appointment_reminder,
             modifier = Modifier.align(Alignment.TopEnd).offset(x = 0.dp, y = 18.dp)
         )
         FloatingChip(
             icon = Icons.Rounded.Schedule,
-            label = "۲ ساعت قبل",
+            label = Str.t_2_hours_before,
             phaseMillis = 900,
             modifier = Modifier.align(Alignment.BottomStart).offset(x = 6.dp, y = (-22).dp)
         )
@@ -231,13 +232,13 @@ internal fun StatsIllustration() {
         }
         FloatingChip(
             icon = Icons.Rounded.TaskAlt,
-            label = "۱۲ انجام‌شده",
+            label = Str.t_12_done,
             iconTint = SuccessColor,
             modifier = Modifier.align(Alignment.TopStart).offset(x = 2.dp, y = 26.dp)
         )
         FloatingChip(
             icon = Icons.Rounded.Groups,
-            label = "۳ در صف",
+            label = Str.t_3_in_queue,
             phaseMillis = 800,
             modifier = Modifier.align(Alignment.BottomEnd).offset(x = (-6).dp, y = (-22).dp)
         )

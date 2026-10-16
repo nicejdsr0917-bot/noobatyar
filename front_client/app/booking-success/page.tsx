@@ -7,6 +7,7 @@ import { STATUS_LABELS, formatDate } from '@/lib/format';
 import { BusinessAvatar } from '@/app/components/AppointmentCard';
 import Icon from '@/app/components/Icon';
 import AppBanner from '@/app/components/AppBanner';
+import { t } from '@/lib/i18n';
 
 /** Colours for the confetti burst. Brand purple + the success greens. */
 const CONFETTI_COLORS = ['#8b5cf6', '#a78bfa', '#34d399', '#10b981', '#fbbf24'];
@@ -81,8 +82,8 @@ function BookingSuccess() {
       <button
         type="button"
         className="success-close"
-        aria-label="بستن"
-        title="بستن"
+        aria-label={t('close')}
+        title={t('close')}
         onClick={() => router.replace(closeHref)}
       >
         <Icon name="close" size={20} />
@@ -96,11 +97,11 @@ function BookingSuccess() {
         </svg>
       </div>
 
-      <h1 className="success-title">نوبت شما ثبت شد</h1>
+      <h1 className="success-title">{t('yourAppointmentIsBooked')}</h1>
       <p className="success-sub">
         {kind === 'paid'
-          ? 'پرداخت شما ثبت شد. پس از بررسی فیش توسط کسب‌وکار، نوبت قطعی می‌شود و به شما اطلاع می‌دهیم.'
-          : 'درخواست نوبت شما برای کسب‌وکار ارسال شد. به‌محض تأیید، از طریق پیامک و اعلان به شما خبر می‌دهیم.'}
+          ? t('yourPaymentWasRecordedOnce')
+          : t('yourRequestWasSentTo')}
       </p>
 
       {appt && (
@@ -137,8 +138,7 @@ function BookingSuccess() {
           <div className="info-row">
             <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <Icon name="calendar" size={14} />
-              تاریخ و ساعت
-            </span>
+              {t('dateAndTime')}</span>
             <span className="value">{formatDate(appt.appointment_date)}</span>
           </div>
         </div>
@@ -146,8 +146,7 @@ function BookingSuccess() {
 
       <div className="success-actions">
         <button className="btn-primary" onClick={() => router.replace('/appointments')}>
-          مشاهدهٔ نوبت‌های من
-        </button>
+          {t('seeMyAppointments')}</button>
         <button
           className="btn-primary"
           style={{
@@ -159,8 +158,7 @@ function BookingSuccess() {
           }}
           onClick={() => router.replace('/')}
         >
-          صفحهٔ اصلی
-        </button>
+          {t('home')}</button>
       </div>
 
       {/* ── Noobatyar Promo ──

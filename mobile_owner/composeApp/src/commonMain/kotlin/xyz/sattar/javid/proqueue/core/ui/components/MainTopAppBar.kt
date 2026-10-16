@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
@@ -18,9 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
-import org.jetbrains.compose.resources.stringResource
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.home_menu_item
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.LocalHazeState
 import xyz.sattar.javid.proqueue.feature.profile.ProfileAvatar
@@ -40,7 +38,7 @@ fun MainTopAppBar(
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
     val selectedBusiness by BusinessStateHolder.selectedBusiness.collectAsState()
-    val displayTitle = title ?: selectedBusiness?.title ?: stringResource(Res.string.home_menu_item)
+    val displayTitle = title ?: selectedBusiness?.title ?: Str.home_menu_item
     val hazeState = LocalHazeState.current
     val glassTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
 

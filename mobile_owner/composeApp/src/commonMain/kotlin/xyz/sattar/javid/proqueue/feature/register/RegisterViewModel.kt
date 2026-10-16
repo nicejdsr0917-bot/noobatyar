@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.register
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
@@ -34,9 +35,9 @@ class RegisterViewModel(
         if (name.isEmpty() || phone.isEmpty() || password.isEmpty()) {
             emit(
                 ValidationError(
-                    phoneError = if (phone.isEmpty()) "شماره همراه را وارد کنید" else null,
-                    passwordError = if (password.isEmpty()) "رمز عبور را وارد کنید" else null,
-                    nameError = if (name.isEmpty()) "نام را وارد کنید" else null
+                    phoneError = if (phone.isEmpty()) Str.enter_your_mobile_number else null,
+                    passwordError = if (password.isEmpty()) Str.enter_your_password else null,
+                    nameError = if (name.isEmpty()) Str.enter_your_name else null
                 )
             )
             return@flow

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.calendar
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,13 +39,7 @@ import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
 
-private val JalaliMonths = listOf(
-    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
-)
-
 /** Saturday-first, the Iranian week. */
-private val WeekdayInitials = listOf("ش", "ی", "د", "س", "چ", "پ", "ج")
 
 /**
  * The desktop calendar's side panel: a whole month as a grid instead of the
@@ -74,7 +69,7 @@ fun MonthGridBlock(
     val nextMonthDay = monthDays.lastOrNull()?.let { last -> window.firstOrNull { it > last } }
 
     BlockCard(
-        title = "تقویم",
+        title = Str.calendar,
         icon = Icons.Rounded.CalendarMonth
     ) {
         // Previous month on the reading-start side (right, under RTL) and
@@ -83,10 +78,10 @@ fun MonthGridBlock(
         // pointing right; "Right" is forward and is drawn pointing left.
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { previousMonthDay?.let(onDateSelected) }, enabled = previousMonthDay != null) {
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "ماه قبل")
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = Str.previous_month)
             }
             Text(
-                text = "${JalaliMonths.getOrElse(selected.month - 1) { "" }} ${selected.year.toString().toPersianDigits()}",
+                text = "${DateTimeUtils.jalaliMonthName(selected.month - 1)} ${selected.year.toString().toPersianDigits()}",
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
@@ -94,12 +89,12 @@ fun MonthGridBlock(
                 color = MaterialTheme.colorScheme.onSurface
             )
             IconButton(onClick = { nextMonthDay?.let(onDateSelected) }, enabled = nextMonthDay != null) {
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "ماه بعد")
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = Str.next_month)
             }
         }
         Spacer(Modifier.padding(top = 6.dp))
         Row(Modifier.fillMaxWidth()) {
-            WeekdayInitials.forEach {
+            DateTimeUtils.weekdayInitials().forEach {
                 Text(
                     text = it,
                     modifier = Modifier.weight(1f),
@@ -111,8 +106,8 @@ fun MonthGridBlock(
         }
         Spacer(Modifier.padding(top = 6.dp))
 
-        // Mon=0..Sun=6 from getWeekday, shifted so Saturday is column 0.
-        val leading = monthDays.firstOrNull()?.let { (DateTimeUtils.getWeekday(it) + 2) % 7 } ?: 0
+        // Saturday-first in Persian, Sunday-first in English.
+        val leading = monthDays.firstOrNull()?.let { DateTimeUtils.weekGridColumn(it) } ?: 0
         val cells: List<Long?> = List(leading) { null } + monthDays
         cells.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -191,23 +186,23 @@ fun DaySummaryBlock(
     val bookedMinutes = active.sumOf { it.appointment.serviceDuration ?: 30 }
 
     BlockCard(
-        title = "خلاصه‌ی ${DateTimeUtils.getDayOfWeekName(selectedDate)}",
+        title = Str.summary(DateTimeUtils.getDayOfWeekName(selectedDate)),
         icon = Icons.Rounded.Insights
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SummaryTile("نوبت", active.size, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-            SummaryTile("در انتظار", pending, Color(0xFFF59E0B), Modifier.weight(1f))
-            SummaryTile("انجام‌شده", done, Color(0xFF22C55E), Modifier.weight(1f))
+            SummaryTile(Str.appointments_2, active.size, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+            SummaryTile(Str.status_waiting, pending, Color(0xFFF59E0B), Modifier.weight(1f))
+            SummaryTile(Str.done, done, Color(0xFF22C55E), Modifier.weight(1f))
         }
         Spacer(Modifier.padding(top = 10.dp))
         val hours = bookedMinutes / 60
         val minutes = bookedMinutes % 60
         Text(
-            text = if (bookedMinutes == 0) "هنوز زمانی رزرو نشده"
-            else "زمان رزروشده: " + buildString {
-                if (hours > 0) append("${hours.toString().toPersianDigits()} ساعت")
-                if (hours > 0 && minutes > 0) append(" و ")
-                if (minutes > 0) append("${minutes.toString().toPersianDigits()} دقیقه")
+            text = if (bookedMinutes == 0) Str.nothing_booked_yet
+            else Str.booked_time + buildString {
+                if (hours > 0) append(Str.h(hours.toString().toPersianDigits()))
+                if (hours > 0 && minutes > 0) append(Str.and_label)
+                if (minutes > 0) append(Str.min(minutes.toString().toPersianDigits()))
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant

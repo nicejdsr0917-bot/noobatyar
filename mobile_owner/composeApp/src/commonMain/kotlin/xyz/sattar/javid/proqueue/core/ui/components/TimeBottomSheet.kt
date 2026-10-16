@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,11 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.confirm
-import proqueue.composeapp.generated.resources.hour_label
-import proqueue.composeapp.generated.resources.minute_label
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
 import xyz.sattar.javid.proqueue.core.ui.WindowSize
 
@@ -61,7 +57,7 @@ fun TimeBottomSheet(
             ) {
                 // Minute Picker
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(Res.string.minute_label), style = MaterialTheme.typography.labelMedium)
+                    Text(Str.minute_label, style = MaterialTheme.typography.labelMedium)
                     NumberPicker(
                         range = 0..59,
                         initialValue = minute,
@@ -75,7 +71,7 @@ fun TimeBottomSheet(
 
                 // Hour Picker
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(Res.string.hour_label), style = MaterialTheme.typography.labelMedium)
+                    Text(Str.hour_label, style = MaterialTheme.typography.labelMedium)
                     NumberPicker(
                         range = 0..23,
                         initialValue = hour,
@@ -104,7 +100,7 @@ fun TimeBottomSheet(
                     }
                 }
             ) {
-                Text(stringResource(Res.string.confirm))
+                Text(Str.confirm)
             }
         }
     }

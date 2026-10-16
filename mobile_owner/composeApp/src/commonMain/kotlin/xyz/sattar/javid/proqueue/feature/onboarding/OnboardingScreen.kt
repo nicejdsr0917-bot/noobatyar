@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.onboarding
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -124,43 +125,43 @@ private class OnboardingPage(
     val illustration: @Composable (settled: Boolean) -> Unit,
 )
 
-private val OnboardingPages = listOf(
+private val OnboardingPages get() = listOf(
     OnboardingPage(
-        title = "به نوبت‌یار خوش آمدید",
-        body = "نوبت‌ها، صف انتظار و مشتری‌های کسب‌وکارتان را از یک‌جا مدیریت کنید؛ بدون دفتر و تماس‌های پشت‌سرهم.",
+        title = Str.welcome_to_noobatyar,
+        body = Str.manage_your_businesss_appointments_waiting,
         illustration = { settled -> WelcomeIllustration(settled) }
     ),
     OnboardingPage(
-        title = "رزرو آنلاین با یک لینک",
-        body = "لینک یا QR اختصاصی کسب‌وکارتان را به مشتری‌ها بدهید تا خودشان ساعت خالی را انتخاب کنند و نوبت بگیرند.",
+        title = Str.online_booking_with_one_link,
+        body = Str.give_customers_your_businesss_own,
         illustration = { BookingLinkIllustration() }
     ),
     OnboardingPage(
-        title = "یادآوری خودکار، غیبت کمتر",
-        body = "قبل از هر نوبت برای مشتری یادآوری فرستاده می‌شود؛ خودکار از پنل، یا با یک لمس از گوشی خودتان.",
+        title = Str.automatic_reminders_fewer_no_shows,
+        body = Str.reminder_goes_to_customer_before,
         illustration = { ReminderIllustration() }
     ),
     OnboardingPage(
-        title = "همه‌چیز زیر نظر شما",
-        body = "صف امروز، نوبت‌های انجام‌شده، غیبت‌ها و روند هفتگی را در یک نگاه ببینید.",
+        title = Str.everything_at_glance,
+        body = Str.see_todays_queue_completed_appointments,
         illustration = { StatsIllustration() }
     ),
     OnboardingPage(
-        title = "در سه قدم شروع کنید",
-        body = "برای استفاده از نوبت‌یار اول یک حساب کاربری بسازید.",
+        title = Str.get_started_in_three_steps,
+        body = Str.to_use_noobatyar_first_create,
         steps = listOf(
-            "ثبت‌نام با نام، شماره موبایل و رمز عبور",
-            "ساخت پروفایل کسب‌وکار",
-            "فرستادن لینک رزرو برای مشتری‌ها"
+            Str.sign_up_with_your_name,
+            Str.create_your_business_profile,
+            Str.send_booking_link_to_your
         ),
         illustration = { settled -> NewAccountIllustration(settled) }
     ),
 )
 
-private const val PrimaryLabelNext = "بعدی"
-private const val PrimaryLabelRegister = "ثبت‌نام و شروع"
-private const val LoginLabel = "حساب دارم، ورود"
-private const val SkipLabel = "رد شدن"
+private val PrimaryLabelNext get() = Str.next
+private val PrimaryLabelRegister get() = Str.sign_up_and_start
+private val LoginLabel get() = Str.i_have_account_sign_in
+private val SkipLabel get() = Str.skip
 
 // ── Phone ───────────────────────────────────────────────────────────────────
 
@@ -241,7 +242,7 @@ private fun OnboardingHeader(
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "نوبت‌یار",
+            text = Str.about_us_app_name,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground

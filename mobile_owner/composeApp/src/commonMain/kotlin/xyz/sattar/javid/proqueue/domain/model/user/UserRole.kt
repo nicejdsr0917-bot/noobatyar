@@ -1,10 +1,15 @@
 package xyz.sattar.javid.proqueue.domain.model.user
 
-enum class UserRole(val value: String, val persianName: String) {
-    BUSINESS_OWNER("BUSINESS_OWNER", "صاحب کسب‌وکار"),
-    CLIENT("CLIENT", "مشتری"),
-    ADMIN("ADMIN", "مدیر"),
-    UNKNOWN("UNKNOWN", "نامشخص");
+import xyz.sattar.javid.proqueue.core.i18n.Str
+
+
+enum class UserRole(val value: String, private val persianNameRef: () -> String) {
+    BUSINESS_OWNER("BUSINESS_OWNER", Str::business_owner),
+    CLIENT("CLIENT", Str::customer),
+    ADMIN("ADMIN", Str::admin),
+    UNKNOWN("UNKNOWN", Str::unknown);
+    val persianName: String get() = persianNameRef()
+
 
     companion object {
         fun fromString(value: String?): UserRole {

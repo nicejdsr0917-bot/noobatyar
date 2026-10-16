@@ -1,5 +1,8 @@
+'use client';
+
 import type { Business } from '@/lib/api';
 import Icon from './Icon';
+import { t } from '@/lib/i18n';
 
 /**
  * The owner's short advisory — "closed today", "running an hour late",
@@ -41,7 +44,7 @@ export default function BusinessNotice({ business, style }: Props) {
           <Icon name="info" size={18} />
         </div>
         <div className="notice-text">
-          <div className="notice-k">اطلاعیه کسب‌وکار</div>
+          <div className="notice-k">{t('businessNotice')}</div>
           {/* dir="auto" so a notice written in Persian, or one that opens with
               a Latin word or a number, still lays out from the correct side. */}
           <div className="notice-v" dir="auto">{message}</div>

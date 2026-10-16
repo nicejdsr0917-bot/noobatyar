@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.login
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
 import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
 import xyz.sattar.javid.proqueue.core.ui.components.LoginIllustration
@@ -131,7 +132,7 @@ private fun LoginPhoneContent(
                     // Just the product name: "ورود" here told every new
                     // visitor they were expected to log in already.
                     Text(
-                        text = "نوبت‌یار",
+                        text = Str.about_us_app_name,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -159,7 +160,7 @@ private fun LoginPhoneContent(
                         // fields, where it is seen first; a second button here
                         // only competed with "ورود".
                         AppButton(
-                            text = "ورود",
+                            text = Str.sign_in,
                             onClick = { onIntent(LoginIntent.Submit) },
                             isLoading = uiState.isLoading
                         )
@@ -215,7 +216,7 @@ private fun ColumnScope.LoginFormFields(
     }
 
     Text(
-        text = "ورود به حساب کاربری",
+        text = Str.sign_in_to_your_account,
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onBackground
@@ -233,7 +234,7 @@ private fun ColumnScope.LoginFormFields(
     AppTextField(
         value = uiState.phone,
         onValueChange = { onIntent(LoginIntent.PhoneChanged(it)) },
-        label = "شماره موبایل",
+        label = Str.mobile_number,
         isError = uiState.phoneError != null,
         errorMessage = uiState.phoneError,
         enabled = !uiState.isLoading,
@@ -252,7 +253,7 @@ private fun ColumnScope.LoginFormFields(
     AppTextField(
         value = uiState.password,
         onValueChange = { onIntent(LoginIntent.PasswordChanged(it)) },
-        label = "رمز عبور",
+        label = Str.password,
         isError = uiState.passwordError != null,
         errorMessage = uiState.passwordError,
         enabled = !uiState.isLoading,
@@ -272,7 +273,7 @@ private fun ColumnScope.LoginFormFields(
         modifier = Modifier.clickable {
             onIntent(LoginIntent.ForgetPassword(uiState.phone))
         },
-        text = "فراموشی رمز عبور",
+        text = Str.forgot_password,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -288,7 +289,7 @@ private fun ColumnScope.LoginFormFields(
         // way in. Worded for everyone, so it doesn't reveal whether the
         // number has an account.
         Text(
-            text = "هنوز ثبت‌نام نکرده‌اید؟ ثبت‌نام کنید",
+            text = Str.not_registered_yet_sign_up,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -335,19 +336,19 @@ private fun NoAccountCard(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "حساب کاربری ندارید؟",
+                    text = Str.dont_have_account,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "برای شروع، اول ثبت‌نام کنید",
+                    text = Str.to_get_started_sign_up,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
-                text = "ثبت‌نام",
+                text = Str.sign_up_3,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -377,7 +378,7 @@ private fun LoginWebContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         AppButton(
-            text = "ورود",
+            text = Str.sign_in,
             onClick = { onIntent(LoginIntent.Submit) },
             isLoading = uiState.isLoading
         )

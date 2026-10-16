@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.push
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -54,7 +55,7 @@ class PushMessagingService : FirebaseMessagingService(), KoinComponent {
     override fun onMessageReceived(message: RemoteMessage) {
         val title = message.notification?.title
             ?: message.data["title"]
-            ?: "نوبت‌یار"
+            ?: Str.about_us_app_name
         val body = message.notification?.body
             ?: message.data["body"]
             ?: return

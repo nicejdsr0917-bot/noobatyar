@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -37,10 +38,6 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import org.jetbrains.compose.resources.stringResource
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.click_to_view_full
-import proqueue.composeapp.generated.resources.payment_receipt
 import xyz.sattar.javid.proqueue.core.utils.AppConfig
 
 /**
@@ -64,7 +61,7 @@ fun CollapsibleReceipt(
     val receiptUrl = if (receipt.startsWith("http")) receipt else "${AppConfig.baseUrl}$receipt"
     var expanded by rememberSaveable(receipt) { mutableStateOf(initiallyExpanded) }
     val chevron by animateFloatAsState(if (expanded) 180f else 0f)
-    val label = stringResource(Res.string.payment_receipt)
+    val label = Str.payment_receipt
 
     Column(modifier = modifier.fillMaxWidth()) {
         Surface(
@@ -129,7 +126,7 @@ fun CollapsibleReceipt(
                     contentScale = ContentScale.Crop
                 )
                 Text(
-                    text = stringResource(Res.string.click_to_view_full),
+                    text = Str.click_to_view_full,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)

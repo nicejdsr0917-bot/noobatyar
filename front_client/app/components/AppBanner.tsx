@@ -1,4 +1,7 @@
+'use client';
+
 import Icon from '@/app/components/Icon';
+import { t } from '@/lib/i18n';
 
 /**
  * The Noobatyar promo banner.
@@ -32,14 +35,14 @@ export type AppBannerVariant = 'owner' | 'consumer';
 
 const COPY: Record<AppBannerVariant, { title: string; body: string; cta: string }> = {
   owner: {
-    title: 'صاحب کسب‌وکار هستید؟',
-    body: 'نوبت‌دهی آنلاین با نوبت‌یار برای کسب‌وکار شما',
-    cta: 'شروع رایگان در noobatyar.ir',
+    get title() { return t('ownBusiness'); },
+    get body() { return t('onlineBookingForYourBusiness'); },
+    get cta() { return t('startFreeAtNoobatyarIr'); },
   },
   consumer: {
-    title: 'اپلیکیشن نوبت‌یار',
-    body: 'نوبت کسب‌وکارهای مورد علاقه‌تان را در چند ثانیه رزرو کنید',
-    cta: 'مشاهده در noobatyar.ir',
+    get title() { return t('noobatyarApp'); },
+    get body() { return t('bookYourFavoriteBusinessesIn'); },
+    get cta() { return t('seeItAtNoobatyarIr'); },
   },
 };
 

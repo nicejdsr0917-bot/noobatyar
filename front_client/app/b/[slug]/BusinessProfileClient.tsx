@@ -12,6 +12,7 @@ import LockedContact, { LockedMap, isWithheld } from '@/app/components/LockedCon
 import { baladUrl, businessLocation, neshanUrl } from '@/lib/maps';
 import { toPersianDigits as toFa } from '@/lib/validation';
 import { useVisitorToken } from '@/lib/visitorToken';
+import { t } from '@/lib/i18n';
 
 interface Props {
   business: Business;
@@ -70,7 +71,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
     bio.split('\n').length > HERO_TAGLINE_MAX_LINES || bio.length > HERO_TAGLINE_MAX_CHARS;
   const heroTagline = bioIsProse
     ? ''
-    : bio || `ارائه خدمات تخصصی در زمینه ${businessCategoryLabel(business)} توسط کادر مجرب.`;
+    : bio || t('specializedServicesByExperiencedTeam', businessCategoryLabel(business));
 
   // ── Stat values (short, so they fit the compact cards) ──
   // Minute suffix only when non-zero: "۹ تا ۲۱" reads better than "۹:۰۰ تا
@@ -78,16 +79,16 @@ export default function BusinessProfileClient({ business, slug }: Props) {
   // actually opens on a half hour is exactly when the suffix earns its space.
   const formatWorkTime = (hour: number, minute: number | undefined) =>
     minute ? `${toFa(String(hour).padStart(2, '0'))}:${toFa(String(minute).padStart(2, '0'))}` : toFa(String(hour).padStart(2, '0'));
-  const workHours = `${formatWorkTime(business.work_start_hour, business.work_start_minute)} تا ${formatWorkTime(business.work_end_hour, business.work_end_minute)}`;
+  const workHours = t('to', formatWorkTime(business.work_start_hour, business.work_start_minute), formatWorkTime(business.work_end_hour, business.work_end_minute));
 
   const depositText =
     business.deposit_mode === 'NONE'
-      ? 'رایگان'
+      ? t('free')
       : business.deposit_amount
-        ? `${toFa(business.deposit_amount.toLocaleString('en-US'))} ت`
+        ? t('t', toFa(business.deposit_amount.toLocaleString('en-US')))
         : business.deposit_mode === 'MANDATORY'
-          ? 'اجباری'
-          : 'اختیاری';
+          ? t('required')
+          : t('optional');
 
   // Payment comes from accepted_payment_methods. The older single-value
   // payment_method is only a fallback: the owner app never sends it, so it is
@@ -103,12 +104,12 @@ export default function BusinessProfileClient({ business, slug }: Props) {
   const acceptsCash = methods.includes('CASH');
 
   const paymentText =
-    acceptsOnline && acceptsCard ? 'آنلاین / کارت'
-      : acceptsOnline ? 'آنلاین'
-        : acceptsCard && acceptsCash ? 'کارت / محل'
-          : acceptsCard ? 'کارت به کارت'
-            : acceptsCash ? 'در محل'
-              : 'ندارد';
+    acceptsOnline && acceptsCard ? t('onlineCard')
+      : acceptsOnline ? t('online')
+        : acceptsCard && acceptsCash ? t('cardOnSite')
+          : acceptsCard ? t('cardTransfer')
+            : acceptsCash ? t('onSite')
+              : t('none');
 
   const paymentIcon: IconName = acceptsOnline
     ? 'payments'
@@ -196,17 +197,17 @@ export default function BusinessProfileClient({ business, slug }: Props) {
         <div className="stat-grid">
           <div className="stat-card">
             <div className="ico"><Icon name="schedule" size={20} /></div>
-            <div className="k">ساعات کاری</div>
+            <div className="k">{t('openingHours')}</div>
             <div className="v">{workHours}</div>
           </div>
           <div className="stat-card">
             <div className="ico"><Icon name="creditCard" size={20} /></div>
-            <div className="k">بیعانه</div>
+            <div className="k">{t('deposit')}</div>
             <div className="v">{depositText}</div>
           </div>
           <div className="stat-card">
             <div className="ico"><Icon name={paymentIcon} size={20} /></div>
-            <div className="k">روش پرداخت</div>
+            <div className="k">{t('paymentMethod')}</div>
             <div className="v">{paymentText}</div>
           </div>
         </div>
@@ -221,7 +222,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
           <div className="biz-about">
             <div className="biz-about-head">
               <span className="ico"><Icon name="info" size={17} /></span>
-              <h2>درباره‌ی ما</h2>
+              <h2>{t('aboutUs')}</h2>
             </div>
             <p className={bioExpanded ? 'biz-about-text' : 'biz-about-text clamped'}>
               {bio}
@@ -232,7 +233,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
               onClick={() => setBioExpanded((v) => !v)}
               aria-expanded={bioExpanded}
             >
-              {bioExpanded ? 'کمتر' : 'بیشتر'}
+              {bioExpanded ? t('less') : t('more')}
               <Icon name={bioExpanded ? 'chevronUp' : 'chevronDown'} size={15} />
             </button>
           </div>
@@ -251,7 +252,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
               <div className="biz-address">
                 <div className="pin"><Icon name="locationOn" size={19} /></div>
                 <div className="addr-text">
-                  <div className="addr-k">آدرس</div>
+                  <div className="addr-k">{t('address')}</div>
                   <div className="addr-v">{business.address}</div>
                 </div>
               </div>
@@ -264,8 +265,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
                 rel="noopener noreferrer"
               >
                 <Icon name="directions" size={17} />
-                مسیریابی با نشان
-              </a>
+                {t('directionsWithNeshan')}</a>
               <a
                 className="biz-route-btn"
                 href={baladUrl(location)}
@@ -273,8 +273,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
                 rel="noopener noreferrer"
               >
                 <Icon name="directions" size={17} />
-                مسیریابی با بلد
-              </a>
+                {t('directionsWithBalad')}</a>
             </div>
           </div>
         </div>
@@ -288,7 +287,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
           >
             <div className="pin"><Icon name="locationOn" size={19} /></div>
             <div className="addr-text">
-              <div className="addr-k">آدرس</div>
+              <div className="addr-k">{t('address')}</div>
               <div className="addr-v">{business.address}</div>
             </div>
             <span className="chevron"><Icon name="chevronLeft" size={18} /></span>
@@ -305,7 +304,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             <div className="biz-address">
               <div className="pin"><Icon name="locationOn" size={19} /></div>
               <div className="addr-text">
-                <div className="addr-k">آدرس</div>
+                <div className="addr-k">{t('address')}</div>
                 <div className="addr-v">
                   {business.address ?? <LockedContact kind="address" />}
                 </div>
@@ -314,12 +313,10 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             <div className="biz-route">
               <span className="biz-route-btn is-locked" aria-disabled="true">
                 <Icon name="lock" size={16} />
-                مسیریابی با نشان
-              </span>
+                {t('directionsWithNeshan')}</span>
               <span className="biz-route-btn is-locked" aria-disabled="true">
                 <Icon name="lock" size={16} />
-                مسیریابی با بلد
-              </span>
+                {t('directionsWithBalad')}</span>
             </div>
           </div>
         </div>
@@ -328,7 +325,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
           <div className="biz-address">
             <div className="pin"><Icon name="locationOn" size={19} /></div>
             <div className="addr-text">
-              <div className="addr-k">آدرس</div>
+              <div className="addr-k">{t('address')}</div>
               <div className="addr-v"><LockedContact kind="address" /></div>
             </div>
           </div>
@@ -352,8 +349,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <Icon name="block" size={18} />
-            ثبت نوبت در حال حاضر غیرفعال است
-          </div>
+            {t('bookingIsCurrentlyDisabled')}</div>
         </div>
       )}
 
@@ -385,16 +381,15 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             style={!bookingEnabled ? { background: 'var(--color-faint)', boxShadow: 'none', cursor: 'not-allowed' } : {}}
           >
             {!bookingEnabled
-              ? 'ثبت نوبت غیرفعال است'
+              ? t('bookingIsDisabled')
               : isNavigating
-                ? <>در حال بارگذاری<span className="btn-spinner" /></>
-                : isSignedIn ? 'گرفتن نوبت' : 'ورود / ثبت‌نام و گرفتن نوبت'}
+                ? <>{t('loading')}<span className="btn-spinner" /></>
+                : isSignedIn ? t('bookAppointment') : t('signInSignUpAnd')}
           </button>
           {isSignedIn && (
             <button className="btn-secondary" onClick={() => router.push('/appointments')}>
               <Icon name="calendar" size={18} />
-              نوبت‌های من
-            </button>
+              {t('myAppointments')}</button>
           )}
         </div>
       </div>

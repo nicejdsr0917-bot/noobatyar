@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,7 +72,7 @@ fun SmsBubble(body: String, lockedSuffix: Boolean, modifier: Modifier = Modifier
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "(ثابت، غیرقابل حذف)",
+                        text = Str.fixed_cant_be_removed,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
@@ -97,12 +98,12 @@ fun SmsCounter(text: String, footnote: String, modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CounterPill(value = length.toString().toPersianDigits(), label = "کاراکتر", tint = MaterialTheme.colorScheme.primary)
+            CounterPill(value = length.toString().toPersianDigits(), label = Str.characters, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(8.dp))
-            CounterPill(value = parts.toString().toPersianDigits(), label = "پیامک", tint = partsColor)
+            CounterPill(value = parts.toString().toPersianDigits(), label = Str.sms, tint = partsColor)
             Spacer(Modifier.width(10.dp))
             Text(
-                text = "${left.toString().toPersianDigits()} کاراکتر تا پیامک بعدی",
+                text = Str.characters_until_next_sms(left.toString().toPersianDigits()),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)

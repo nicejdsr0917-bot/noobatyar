@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.calendar
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.rememberScrollState
@@ -27,10 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.back
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
@@ -80,14 +78,14 @@ fun CalendarScreenContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "تقویم نوبت‌دهی",
+                        text = Str.booking_calendar,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = { onIntent(CalendarIntent.BackPress) }) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(Res.string.back))
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, Str.back)
                     }
                 },
                 actions = {
@@ -107,7 +105,7 @@ fun CalendarScreenContent(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
-                            contentDescription = "بروزرسانی",
+                            contentDescription = Str.refresh,
                             tint = if (uiState.isLoading)
                                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                             else
@@ -255,7 +253,7 @@ private fun ClosedDayBanner() {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "این روز جزو روزهای تعطیل کسب‌وکار شماست",
+                text = Str.this_day_is_one_of,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
@@ -293,21 +291,7 @@ fun DaysHeader(
     // three-month window a fixed "first day" header would label مهر as شهریور
     // for two thirds of the strip.
     val persianDate = DateTimeUtils.getJalaliDateParts(selectedDate)
-    val monthName = when(persianDate.month) {
-        1 -> "فروردین"
-        2 -> "اردیبهشت"
-        3 -> "خرداد"
-        4 -> "تیر"
-        5 -> "مرداد"
-        6 -> "شهریور"
-        7 -> "مهر"
-        8 -> "آبان"
-        9 -> "آذر"
-        10 -> "دی"
-        11 -> "بهمن"
-        12 -> "اسفند"
-        else -> ""
-    }
+    val monthName = DateTimeUtils.jalaliMonthName(persianDate.month - 1)
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         Row(
@@ -647,7 +631,7 @@ fun TimeSlotRow(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "${appointment.appointment.serviceDuration ?: 30} دقیقه",
+                                    text = Str.min(appointment.appointment.serviceDuration ?: 30),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold
                                 )

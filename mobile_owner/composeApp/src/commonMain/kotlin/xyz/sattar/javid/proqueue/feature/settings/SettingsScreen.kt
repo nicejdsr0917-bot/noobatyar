@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.i18n.AppLanguage
+import xyz.sattar.javid.proqueue.core.i18n.AppLocale
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -18,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -55,7 +60,6 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SubscriptionDto
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
@@ -123,19 +127,19 @@ fun SettingsScreen(
             onDismissRequest = { showNotificationToast = false },
             confirmButton = {
                 TextButton(onClick = { showNotificationToast = false }) {
-                    Text(stringResource(Res.string.confirm))
+                    Text(Str.confirm)
                 }
             },
-            title = { Text(stringResource(Res.string.notification_title)) },
-            text = { Text(stringResource(Res.string.coming_soon_message)) }
+            title = { Text(Str.notification_title) },
+            text = { Text(Str.coming_soon_message) }
         )
     }
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text(stringResource(Res.string.delete_business)) },
-            text = { Text(stringResource(Res.string.delete_business_confirmation)) },
+            title = { Text(Str.delete_business) },
+            text = { Text(Str.delete_business_confirmation) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -144,12 +148,12 @@ fun SettingsScreen(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(Res.string.delete))
+                    Text(Str.delete)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(stringResource(Res.string.cancel))
+                    Text(Str.cancel)
                 }
             }
         )
@@ -249,19 +253,19 @@ fun SettingsContent(
                                 onEditClick = { onIntent(SettingsIntent.OnEditBusinessClick(business.id)) }
                             )
                         }
-                        SettingsGroupLabel("مدیریت کسب‌وکار")
+                        SettingsGroupLabel(Str.manage_business)
                         SettingsTiles(
                             tiles = listOf(
                                 SettingsTile(
                                     icon = Icons.Rounded.Factory,
-                                    title = stringResource(Res.string.change_business),
-                                    subtitle = "رفتن به کسب‌وکار دیگری از لیست",
+                                    title = Str.change_business,
+                                    subtitle = Str.switch_to_another_business_from,
                                     onClick = { onIntent(SettingsIntent.OnChangeBusinessClick) }
                                 ),
                                 SettingsTile(
                                     icon = Icons.Rounded.Edit,
-                                    title = stringResource(Res.string.edit_business_title),
-                                    subtitle = "نام، لوگو، ساعت کاری و خدمات",
+                                    title = Str.edit_business_title,
+                                    subtitle = Str.name_logo_opening_hours_and,
                                     onClick = {
                                         uiState.currentBusiness?.let { business ->
                                             onIntent(SettingsIntent.OnEditBusinessClick(business.id))
@@ -270,22 +274,26 @@ fun SettingsContent(
                                 ),
                                 SettingsTile(
                                     icon = Icons.Rounded.Delete,
-                                    title = stringResource(Res.string.delete_business),
-                                    subtitle = "حذف این کسب‌وکار از حساب شما",
+                                    title = Str.delete_business,
+                                    subtitle = Str.remove_this_business_from_your,
                                     danger = true,
                                     onClick = onShowDeleteDialog
                                 )
                             )
                         )
                         // The app's look, not the business's — its own group.
-                        SettingsGroupLabel("ظاهر برنامه")
+                        SettingsGroupLabel(Str.app_appearance)
                         SettingsCard {
-                            SettingsItem(
-                                icon = Icons.Rounded.Palette,
-                                title = stringResource(Res.string.theme_appearance),
-                                subtitle = stringResource(Res.string.theme_settings),
-                                onClick = onShowThemeSheet
-                            )
+                            Column {
+                                SettingsItem(
+                                    icon = Icons.Rounded.Palette,
+                                    title = Str.theme_appearance,
+                                    subtitle = Str.theme_settings,
+                                    onClick = onShowThemeSheet
+                                )
+                                HorizontalDivider()
+                                LanguageSettingsItem()
+                            }
                         }
                     }
                 }
@@ -329,7 +337,7 @@ fun SettingsContent(
             )
                 },
                 end = {
-            SettingsGroupLabel("ارتباط با مشتری")
+            SettingsGroupLabel(Str.customer_contact)
             SettingsCard {
                 Column {
                     // Its own row rather than an inline switch+textfield card —
@@ -338,17 +346,17 @@ fun SettingsContent(
                     // EmergencyNoticeScreen.
                     SettingsItem(
                         icon = Icons.Rounded.Campaign,
-                        title = stringResource(Res.string.notice_section_title),
-                        subtitle = stringResource(Res.string.notice_settings_subtitle),
+                        title = Str.notice_section_title,
+                        subtitle = Str.notice_settings_subtitle,
                         onClick = { onIntent(SettingsIntent.OnEmergencyNoticeClick) }
                     )
 
                     HorizontalDivider()
 
                     SettingsItem(
-                        icon = Icons.Rounded.Message,
-                        title = stringResource(Res.string.messages_auto_item),
-                        subtitle = stringResource(Res.string.messages_auto_subtitle),
+                        icon = Icons.AutoMirrored.Rounded.Message,
+                        title = Str.messages_auto_item,
+                        subtitle = Str.messages_auto_subtitle,
                         onClick = { onIntent(SettingsIntent.OnMessagesClick) }
                     )
 
@@ -356,8 +364,8 @@ fun SettingsContent(
 
                     SettingsItem(
                         icon = Icons.Rounded.LocalOffer,
-                        title = "پیامک تبلیغاتی",
-                        subtitle = "تخفیف و خبر تازه را با یک پیامک به مشتری‌ها برسانید",
+                        title = Str.promotional_sms,
+                        subtitle = Str.send_discounts_and_news_to,
                         onClick = onPromoCampaign
                     )
 
@@ -365,8 +373,8 @@ fun SettingsContent(
 
                     SettingsItem(
                         icon = Icons.Rounded.Sms,
-                        title = stringResource(Res.string.sms_report_title),
-                        subtitle = stringResource(Res.string.sms_report_settings_subtitle),
+                        title = Str.sms_report_title,
+                        subtitle = Str.sms_report_settings_subtitle,
                         onClick = { onIntent(SettingsIntent.OnSmsReportClick) }
                     )
 
@@ -374,29 +382,33 @@ fun SettingsContent(
 
                     SettingsItem(
                         icon = Icons.Rounded.Notifications,
-                        title = stringResource(Res.string.reminders_notifications_item),
-                        subtitle = stringResource(Res.string.reminders_notifications_subtitle),
+                        title = Str.reminders_notifications_item,
+                        subtitle = Str.reminders_notifications_subtitle,
                         onClick = { onIntent(SettingsIntent.OnNotificationsClick) }
                     )
                 }
             }
 
-            SettingsGroupLabel("ظاهر و اطلاعات")
+            SettingsGroupLabel(Str.appearance_info)
             SettingsCard {
                 Column {
                     SettingsItem(
                         icon = Icons.Rounded.Palette,
-                        title = stringResource(Res.string.theme_appearance),
-                        subtitle = stringResource(Res.string.theme_settings),
+                        title = Str.theme_appearance,
+                        subtitle = Str.theme_settings,
                         onClick = onShowThemeSheet
                     )
 
                     HorizontalDivider()
 
+                    LanguageSettingsItem()
+
+                    HorizontalDivider()
+
                     SettingsItem(
                         icon = Icons.Rounded.Info,
-                        title = stringResource(Res.string.about_us_label),
-                        subtitle = stringResource(Res.string.about_us_subtitle),
+                        title = Str.about_us_label,
+                        subtitle = Str.about_us_subtitle,
                         onClick = { onIntent(SettingsIntent.OnAboutClick) }
                     )
                 }
@@ -406,8 +418,8 @@ fun SettingsContent(
             // screen no longer shows).
             SettingsCard {
                 SettingsItem(
-                    icon = Icons.Rounded.Logout,
-                    title = stringResource(Res.string.logout_label),
+                    icon = Icons.AutoMirrored.Rounded.Logout,
+                    title = Str.logout_label,
                     subtitle = null,
                     onClick = onLogout,
                     tint = MaterialTheme.colorScheme.error,
@@ -435,14 +447,14 @@ fun SettingsContent(
                         modifier = Modifier.size(24.dp).alpha(0.7f)
                     )
                     Text(
-                        text = stringResource(Res.string.appName),
+                        text = Str.appName,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
-                    text = "${stringResource(Res.string.app_version)} ${uiState.appVersion}",
+                    text = "${Str.app_version} ${uiState.appVersion}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -547,7 +559,7 @@ private fun BusinessActionsCard(
         Column {
             SettingsItem(
                 icon = Icons.Rounded.Factory,
-                title = stringResource(Res.string.change_business),
+                title = Str.change_business,
                 subtitle = null,
                 onClick = { onIntent(SettingsIntent.OnChangeBusinessClick) },
                 tint = MaterialTheme.colorScheme.onSurface
@@ -557,7 +569,7 @@ private fun BusinessActionsCard(
 
             SettingsItem(
                 icon = Icons.Rounded.Edit,
-                title = stringResource(Res.string.edit_business_title),
+                title = Str.edit_business_title,
                 subtitle = null,
                 onClick = {
                     business?.let { onIntent(SettingsIntent.OnEditBusinessClick(it.id)) }
@@ -569,7 +581,7 @@ private fun BusinessActionsCard(
 
             SettingsItem(
                 icon = Icons.Rounded.Delete,
-                title = stringResource(Res.string.delete_business),
+                title = Str.delete_business,
                 subtitle = null,
                 onClick = onShowDeleteDialog,
                 tint = MaterialTheme.colorScheme.error,
@@ -676,7 +688,7 @@ private fun AdvancedSettingsPromoCard(onClick: () -> Unit) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = stringResource(Res.string.advanced_settings_title),
+                            text = Str.advanced_settings_title,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -691,13 +703,13 @@ private fun AdvancedSettingsPromoCard(onClick: () -> Unit) {
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = stringResource(Res.string.advanced_settings_promo),
+                        text = Str.advanced_settings_promo,
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.85f)
                     )
                 }
                 Icon(
-                    imageVector = Icons.Rounded.ChevronLeft,
+                    imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(22.dp)
@@ -749,7 +761,7 @@ private fun ProfileHeaderCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = userName?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: "؟",
+                            text = userName?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: Str.text_2,
                             style = MaterialTheme.typography.headlineMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Bold
@@ -760,7 +772,7 @@ private fun ProfileHeaderCard(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = userName ?: stringResource(Res.string.noobatyar_user),
+                            text = userName ?: Str.noobatyar_user,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White
@@ -828,7 +840,7 @@ private fun ProfileHeaderCard(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = stringResource(Res.string.active_business),
+                                    text = Str.active_business,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color.White.copy(alpha = 0.7f)
                                 )
@@ -875,9 +887,9 @@ private fun SubscriptionBadge(subscription: SubscriptionDto?) {
     val isValid = subscription?.isValid == true
     val isVip = subscription?.plan?.isVip == true
     val label = when {
-        isVip -> stringResource(Res.string.subscription_vip)
-        isValid -> stringResource(Res.string.subscription_active)
-        else -> stringResource(Res.string.subscription_none)
+        isVip -> Str.subscription_vip
+        isValid -> Str.subscription_active
+        else -> Str.subscription_none
     }
     val icon = if (isValid) Icons.Rounded.Star else Icons.Rounded.Info
 
@@ -929,6 +941,51 @@ private fun SettingsCard(content: @Composable () -> Unit) {
     }
 }
 
+/** Switches the UI language in place; see core/i18n/AppLocale. */
+@Composable
+private fun LanguageSettingsItem() {
+    var showPicker by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    SettingsItem(
+        icon = Icons.Rounded.Language,
+        title = Str.language,
+        subtitle = if (AppLocale.isEnglish) Str.language_name_en else Str.language_name_fa,
+        onClick = { showPicker = true }
+    )
+    if (showPicker) {
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text(Str.language_choose) },
+            text = {
+                Column {
+                    AppLanguage.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showPicker = false
+                                    scope.launch { AppLocale.change(option) }
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = AppLocale.language == option, onClick = null)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                if (option == AppLanguage.EN) Str.language_name_en else Str.language_name_fa,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPicker = false }) { Text(Str.cancel) }
+            }
+        )
+    }
+}
+
 @Composable
 private fun SettingsItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -976,7 +1033,7 @@ private fun SettingsItem(
         }
         if (!centerVertically) {
             Icon(
-                imageVector = Icons.Rounded.ChevronLeft,
+                imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = tint.copy(alpha = 0.5f)

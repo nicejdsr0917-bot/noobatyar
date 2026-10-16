@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.share
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
@@ -31,7 +32,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,7 +79,7 @@ import androidx.compose.runtime.collectAsState
  */
 internal fun remainingUntil(appointmentDate: Long): String {
     val diff = appointmentDate - DateTimeUtils.systemCurrentMilliseconds()
-    if (diff <= 0) return "زمان نوبت فرا رسیده"
+    if (diff <= 0) return Str.waiting_time_arrived
 
     val totalMinutes = diff / 60_000
     val days = totalMinutes / (60 * 24)
@@ -89,11 +89,11 @@ internal fun remainingUntil(appointmentDate: Long): String {
     fun fa(n: Long) = n.toString().toPersianDigits()
 
     return when {
-        days > 0 && hours > 0 -> "${fa(days)} روز و ${fa(hours)} ساعت"
-        days > 0 -> "${fa(days)} روز"
-        hours > 0 && minutes > 0 -> "${fa(hours)} ساعت و ${fa(minutes)} دقیقه"
-        hours > 0 -> "${fa(hours)} ساعت"
-        else -> "${fa(minutes)} دقیقه"
+        days > 0 && hours > 0 -> Str.days_and_hours(fa(days), fa(hours))
+        days > 0 -> Str.d(fa(days))
+        hours > 0 && minutes > 0 -> Str.hours_and_minutes(fa(hours), fa(minutes))
+        hours > 0 -> Str.h(fa(hours))
+        else -> Str.min(fa(minutes))
     }
 }
 
@@ -110,11 +110,11 @@ private fun reminderShareText(
     visitorName: String,
     appointmentDate: Long,
 ): String = buildString {
-    append("$visitorName عزیز، یادآوری نوبت شما")
-    business?.let { append(" در «${it.title}»") }
+    append(Str.dear_your_appointment_reminder(visitorName))
+    business?.let { append(Str.at(it.title)) }
     append(":\n")
-    append("${reminderDate(appointmentDate)} ساعت ${DateTimeUtils.formatTime(appointmentDate).toPersianDigits()}")
-    append("\n(${remainingUntil(appointmentDate)} دیگر)")
+    append(Str.at_2(reminderDate(appointmentDate), DateTimeUtils.formatTime(appointmentDate).toPersianDigits()))
+    append(Str.n_from_now(remainingUntil(appointmentDate)))
 }
 
 /**
@@ -176,13 +176,13 @@ fun ReminderCardDialog(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 AppButton(
-                    text = "انصراف",
+                    text = Str.cancel,
                     onClick = onDismiss,
                     isOutlined = true,
                     modifier = Modifier.weight(1f),
                 )
                 AppButton(
-                    text = "اشتراک‌گذاری تصویر",
+                    text = Str.share_image,
                     isLoading = exporting,
                     onClick = {
                         exporting = true
@@ -245,7 +245,7 @@ private fun ReminderPosterCard(
 
             NeonGlass(shape = RoundedCornerShape(20.dp), glowRadius = 8.dp, glowWidth = 2.dp) {
                 Text(
-                    text = "یادآوری نوبت",
+                    text = Str.appointment_reminder,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -283,7 +283,7 @@ private fun ReminderPosterCard(
                 ) {
                     ReminderFact(
                         icon = Icons.Rounded.CalendarMonth,
-                        label = "تاریخ",
+                        label = Str.date,
                         value = reminderDate(appointmentDate),
                         modifier = Modifier.weight(1f),
                     )
@@ -295,7 +295,7 @@ private fun ReminderPosterCard(
                     )
                     ReminderFact(
                         icon = Icons.Rounded.Schedule,
-                        label = "ساعت",
+                        label = Str.time,
                         value = DateTimeUtils.formatTime(appointmentDate).toPersianDigits(),
                         modifier = Modifier.weight(1f),
                     )
@@ -335,7 +335,7 @@ private fun ReminderPosterCard(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "تا نوبت شما باقی مانده",
+                        text = Str.until_your_appointment,
                         fontSize = 12.sp,
                         color = ShareVioletDark.copy(alpha = 0.75f),
                     )
@@ -367,10 +367,9 @@ private fun ReminderPosterCard(
                 Spacer(Modifier.height(8.dp))
             }
 
-            // AbsoluteAlignment, not Start: the card is RTL, where Start is
-            // the right-hand edge — this mark belongs on the physical left.
+            // The mark sits at the reading end: left in Persian, right in English.
             Box(modifier = Modifier.fillMaxWidth()) {
-                Box(Modifier.align(AbsoluteAlignment.CenterLeft)) {
+                Box(Modifier.align(Alignment.CenterEnd)) {
                     AppSignature(onDark = true)
                 }
             }

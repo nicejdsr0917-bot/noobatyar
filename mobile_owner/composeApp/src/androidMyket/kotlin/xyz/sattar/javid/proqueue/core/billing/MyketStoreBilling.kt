@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.billing
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.activity.ComponentActivity
 import ir.myket.billingclient.IabHelper
 import ir.myket.billingclient.util.Purchase
@@ -47,10 +48,10 @@ class MyketStoreBilling(private val activity: ComponentActivity) : AndroidStoreB
                                 result.response == IabHelper.BILLING_RESPONSE_RESULT_USER_CANCELED ->
                                 StorePurchaseResult.Cancelled
                             result.response == IabHelper.BILLING_RESPONSE_RESULT_BILLING_UNAVAILABLE ->
-                                StorePurchaseResult.Failed("برای خرید، اپلیکیشن مایکت باید روی گوشی نصب و به‌روز باشد.")
+                                StorePurchaseResult.Failed(Str.to_purchase_myket_app_must)
                             result.response == IabHelper.BILLING_RESPONSE_RESULT_ITEM_ALREADY_OWNED ->
-                                StorePurchaseResult.Failed("خرید قبلی شما هنوز در حال ثبت است؛ چند لحظه بعد دوباره برنامه را باز کنید.")
-                            else -> StorePurchaseResult.Failed("خرید در مایکت انجام نشد (${result.response}).")
+                                StorePurchaseResult.Failed(Str.your_previous_purchase_is_still)
+                            else -> StorePurchaseResult.Failed(Str.myket_purchase_didnt_go_through(result.response))
                         }
                     )
                 }, payload)

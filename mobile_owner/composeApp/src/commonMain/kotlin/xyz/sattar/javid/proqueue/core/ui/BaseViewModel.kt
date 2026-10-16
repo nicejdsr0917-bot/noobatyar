@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -15,9 +16,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.getString
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.unknown_error
 
 abstract class BaseViewModel<STATE, PARTIAL_STATE, EVENT, INTENT>(
     initialState: STATE
@@ -37,7 +35,7 @@ abstract class BaseViewModel<STATE, PARTIAL_STATE, EVENT, INTENT>(
                 .flatMapMerge { intent ->
                     handleIntent(intent)
                         .catch { error ->
-                            emit(createErrorState(error.message ?: getString(Res.string.unknown_error)))
+                            emit(createErrorState(error.message ?: Str.unknown_error))
                         }
                 }
                 .scan(uiState.value) { currentState, partialState ->

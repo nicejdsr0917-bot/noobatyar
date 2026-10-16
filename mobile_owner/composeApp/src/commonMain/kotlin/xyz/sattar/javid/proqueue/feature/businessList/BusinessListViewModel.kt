@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.businessList
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
@@ -42,10 +43,10 @@ class BusinessListViewModel(
         try {
             val success = deleteBusinessUseCase(businessId)
             if (!success) {
-                sendEvent(BusinessListEvent.ShowMessage("خطا در حذف کسب و کار"))
+                sendEvent(BusinessListEvent.ShowMessage(Str.couldnt_delete_business_2))
             }
         } catch (e: Exception) {
-            sendEvent(BusinessListEvent.ShowMessage("خطا در حذف کسب و کار"))
+            sendEvent(BusinessListEvent.ShowMessage(Str.couldnt_delete_business_2))
         } finally {
             emit(BusinessListState.PartialState.IsLoading(false))
         }
@@ -121,10 +122,10 @@ class BusinessListViewModel(
             try {
                 val success = fetchBusinessesUseCase(page = 1, pageSize = 20)
                 if (!success) {
-                    sendEvent(BusinessListEvent.ShowMessage("خطا در دریافت لیست کسب و کارها"))
+                    sendEvent(BusinessListEvent.ShowMessage(Str.couldnt_load_business_list))
                 }
             } catch (e: Exception) {
-                sendEvent(BusinessListEvent.ShowMessage("خطا در اتصال به سرور"))
+                sendEvent(BusinessListEvent.ShowMessage(Str.couldnt_connect_to_server))
             } finally {
                 emit(BusinessListState.PartialState.IsLoading(false))
             }
@@ -136,10 +137,10 @@ class BusinessListViewModel(
                 if (success) {
                     emit(BusinessListState.PartialState.PageIncremented(nextPage))
                 } else {
-                    sendEvent(BusinessListEvent.ShowMessage("خطا در دریافت ادامه لیست"))
+                    sendEvent(BusinessListEvent.ShowMessage(Str.couldnt_load_more))
                 }
             } catch (e: Exception) {
-                sendEvent(BusinessListEvent.ShowMessage("خطا در اتصال به سرور"))
+                sendEvent(BusinessListEvent.ShowMessage(Str.couldnt_connect_to_server))
             } finally {
                 emit(BusinessListState.PartialState.IsPaginating(false))
             }

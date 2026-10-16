@@ -1,4 +1,5 @@
 import { getBusinessByCode } from '@/lib/api';
+import { getServerT } from '@/lib/i18n/server';
 
 /**
  * Per-business web app manifest.
@@ -16,6 +17,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  const t = await getServerT();
   const { slug } = await params;
   const code = slug.replace(/^Noobatyar-/i, '');
 
@@ -37,11 +39,11 @@ export async function GET(
 
   return Response.json(
     {
-      name: title ? `${title} | نوبت‌یار` : 'نوبت‌یار | رزرو آنلاین نوبت',
-      short_name: title ?? 'نوبت‌یار',
+      name: title ? t('noobatyar2', title) : t('noobatyarOnlineBooking'),
+      short_name: title ?? t('noobatyar'),
       description: title
-        ? `رزرو آنلاین نوبت در ${title}`
-        : 'سیستم نوبت‌دهی آنلاین نوبت‌یار — از هر کجا، هر زمان نوبت بگیرید',
+        ? t('bookAppointmentOnlineAt', title)
+        : t('noobatyarOnlineBookingBookAnytime'),
       start_url: start,
       scope: start,
       display: 'standalone',

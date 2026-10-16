@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.domain.model.CustomerOrdering
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.flow.Flow
@@ -103,11 +104,11 @@ class LastVisitorsViewModel(
                     // reminder either failed loudly or succeeded completely
                     // silently, with nothing to tell them it actually went out.
                     emit(
-                        if (success) LastVisitorsState.PartialState.ShowMessage(UiMessage.success("پیام ارسال شد"))
-                        else LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در ثبت پیام"))
+                        if (success) LastVisitorsState.PartialState.ShowMessage(UiMessage.success(Str.message_sent))
+                        else LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_save_message))
                     )
                 } catch (e: Exception) {
-                    emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در ثبت پیام")))
+                    emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_save_message)))
                 }
             }
             LastVisitorsIntent.ClearMessage -> flow { emit(LastVisitorsState.PartialState.ClearMessage) }
@@ -363,10 +364,10 @@ class LastVisitorsViewModel(
                     )
                 )
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.warning("لطفاً ابتدا یک کسب‌وکار انتخاب کنید")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.warning(Str.select_business_error)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در بارگذاری نوبت‌ها")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_load_appointments)))
         } finally {
             emit(LastVisitorsState.PartialState.IsLoading(false))
         }
@@ -377,13 +378,13 @@ class LastVisitorsViewModel(
             val success = removeAppointmentUseCase(appointmentId)
             if (success) {
                 emit(LastVisitorsState.PartialState.ShowOptionsDialog(null))
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success("نوبت حذف شد")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success(Str.appointment_deleted)))
                 emitAll(loadAppointments())
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در حذف نوبت")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_delete_appointment)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در حذف نوبت")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_delete_appointment)))
         }
     }
 
@@ -391,13 +392,13 @@ class LastVisitorsViewModel(
         try {
             val success = markAppointmentCompletedUseCase(appointmentId)
             if (success) {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success("نوبت تکمیل شد")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success(Str.appointment_completed)))
                 emitAll(loadAppointments())
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در تکمیل نوبت")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_complete_appointment)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در تکمیل نوبت")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_complete_appointment)))
         }
     }
 
@@ -405,13 +406,13 @@ class LastVisitorsViewModel(
         try {
             val success = markAppointmentNoShowUseCase(appointmentId)
             if (success) {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success("عدم حضور ثبت شد")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success(Str.no_show_recorded)))
                 emitAll(loadAppointments())
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در ثبت عدم مراجعه")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_record_no_show)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در ثبت عدم مراجعه")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_record_no_show)))
         }
     }
 
@@ -419,14 +420,14 @@ class LastVisitorsViewModel(
         try {
             val success = appointmentRepository.updateAppointmentStatus(appointmentId, status)
             if (success) {
-                val confirmation = if (status == "CANCELLED") "درخواست رد شد" else "درخواست تأیید شد"
+                val confirmation = if (status == "CANCELLED") Str.request_rejected else Str.request_approved
                 emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success(confirmation)))
                 emitAll(loadAppointments())
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در تغییر وضعیت نوبت")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_change_appointment_status)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در تغییر وضعیت نوبت")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_change_appointment_status)))
         }
     }
 }

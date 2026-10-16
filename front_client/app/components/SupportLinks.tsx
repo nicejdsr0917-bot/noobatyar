@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * The same channels the owner app lists under "درباره ما", so a customer who
  * hits a dead end has the identical set of ways to reach us. Kept in one place
@@ -5,6 +7,7 @@
  */
 
 import Icon, { type IconName } from './Icon';
+import { t } from '@/lib/i18n';
 
 export interface SupportChannel {
   key: string;
@@ -21,11 +24,11 @@ export interface SupportChannel {
 }
 
 export const SUPPORT_CHANNELS: SupportChannel[] = [
-  { key: 'bale', label: 'بله', href: 'https://ble.ir/noobatyar', icon: 'forum', tint: '#e0f2fe', fg: '#0369a1' },
-  { key: 'eitaa', label: 'ایتا', href: 'https://eitaa.com/noobatyar', icon: 'send', tint: '#fef3c7', fg: '#b45309' },
-  { key: 'rubika', label: 'روبیکا', href: 'https://rubika.ir/noobatyar', icon: 'sms', tint: '#ede9fe', fg: '#6d28d9' },
-  { key: 'instagram', label: 'اینستاگرام', href: 'https://instagram.com/javiddev', icon: 'photoCamera', tint: '#fce7f3', fg: '#be185d' },
-  { key: 'website', label: 'سایت', href: 'https://noobatyar.ir', icon: 'language', tint: '#dcfce7', fg: '#15803d' },
+  { key: 'bale', get label() { return t('bale'); }, href: 'https://ble.ir/noobatyar', icon: 'forum', tint: '#e0f2fe', fg: '#0369a1' },
+  { key: 'eitaa', get label() { return t('eitaa'); }, href: 'https://eitaa.com/noobatyar', icon: 'send', tint: '#fef3c7', fg: '#b45309' },
+  { key: 'rubika', get label() { return t('rubika'); }, href: 'https://rubika.ir/noobatyar', icon: 'sms', tint: '#ede9fe', fg: '#6d28d9' },
+  { key: 'instagram', get label() { return t('instagram'); }, href: 'https://instagram.com/javiddev', icon: 'photoCamera', tint: '#fce7f3', fg: '#be185d' },
+  { key: 'website', get label() { return t('website'); }, href: 'https://noobatyar.ir', icon: 'language', tint: '#dcfce7', fg: '#15803d' },
 ];
 
 export default function SupportLinks() {

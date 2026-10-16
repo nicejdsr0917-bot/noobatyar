@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -51,7 +52,7 @@ fun ExtraPhonesField(
                     onValueChange = { updated ->
                         onExtraPhones(extraPhones.toMutableList().also { it[index] = updated })
                     },
-                    label = "شماره تماس دیگر",
+                    label = Str.another_phone_number,
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Rounded.Phone,
@@ -68,7 +69,7 @@ fun ExtraPhonesField(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.RemoveCircleOutline,
-                        contentDescription = "حذف شماره",
+                        contentDescription = Str.remove_number,
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
@@ -85,7 +86,7 @@ fun ExtraPhonesField(
                 modifier = Modifier.size(18.dp)
             )
             Text(
-                text = "افزودن شماره تماس دیگر",
+                text = Str.add_another_phone_number,
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier
             )

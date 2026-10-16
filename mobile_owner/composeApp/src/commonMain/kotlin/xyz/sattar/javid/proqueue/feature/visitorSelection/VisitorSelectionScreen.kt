@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.visitorSelection
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,21 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.archive
-import proqueue.composeapp.generated.resources.back
-import proqueue.composeapp.generated.resources.cancel
-import proqueue.composeapp.generated.resources.create_first_visitor
-import proqueue.composeapp.generated.resources.create_new_visitor
-import proqueue.composeapp.generated.resources.delete
-import proqueue.composeapp.generated.resources.edit
-import proqueue.composeapp.generated.resources.no_visitors_found
-import proqueue.composeapp.generated.resources.search_placeholder
-import proqueue.composeapp.generated.resources.visitor_delete_message
-import proqueue.composeapp.generated.resources.visitor_delete_title
-import proqueue.composeapp.generated.resources.visitor_selection_title
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -92,8 +79,8 @@ fun VisitorSelectionScreenContent(
     if (showDeleteDialog && visitorToDelete != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text(stringResource(Res.string.visitor_delete_title)) },
-            text = { Text(stringResource(Res.string.visitor_delete_message)) },
+            title = { Text(Str.visitor_delete_title) },
+            text = { Text(Str.visitor_delete_message) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -105,12 +92,12 @@ fun VisitorSelectionScreenContent(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(Res.string.archive))
+                    Text(Str.archive)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(stringResource(Res.string.cancel))
+                    Text(Str.cancel)
                 }
             }
         )
@@ -179,7 +166,7 @@ private fun VisitorSelectionPhoneContent(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.PersonAdd,
-                    contentDescription = stringResource(Res.string.create_new_visitor)
+                    contentDescription = Str.create_new_visitor
                 )
             }
         },
@@ -187,7 +174,7 @@ private fun VisitorSelectionPhoneContent(
             TopAppBar(
                 title = {
                     Text(
-                        stringResource(Res.string.visitor_selection_title),
+                        Str.visitor_selection_title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -196,7 +183,7 @@ private fun VisitorSelectionPhoneContent(
                     IconButton(onClick = { onIntent(VisitorSelectionIntent.BackPress) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(Res.string.back)
+                            contentDescription = Str.back
                         )
                     }
                 },
@@ -325,7 +312,7 @@ private fun VisitorSelectionWebContent(
             TopAppBar(
                 title = {
                     Text(
-                        stringResource(Res.string.visitor_selection_title),
+                        Str.visitor_selection_title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -334,7 +321,7 @@ private fun VisitorSelectionWebContent(
                     IconButton(onClick = { onIntent(VisitorSelectionIntent.BackPress) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(Res.string.back)
+                            contentDescription = Str.back
                         )
                     }
                 },
@@ -346,7 +333,7 @@ private fun VisitorSelectionWebContent(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.size(6.dp))
-                        Text(stringResource(Res.string.create_new_visitor))
+                        Text(Str.create_new_visitor)
                     }
                     Spacer(modifier = Modifier.size(8.dp))
                 },
@@ -457,7 +444,7 @@ private fun VisitorSearchField(
         value = query,
         onValueChange = { onIntent(VisitorSelectionIntent.SearchVisitors(it)) },
         modifier = modifier,
-        placeholder = { Text(stringResource(Res.string.search_placeholder)) },
+        placeholder = { Text(Str.search_placeholder) },
         leadingIcon = {
             Icon(
                 imageVector = Icons.Rounded.Search,
@@ -499,14 +486,14 @@ fun EmptyVisitorState(modifier: Modifier = Modifier) {
         }
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = stringResource(Res.string.no_visitors_found),
+            text = Str.no_visitors_found,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = stringResource(Res.string.create_first_visitor),
+            text = Str.create_first_visitor,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -588,7 +575,7 @@ fun VisitorItem(
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.edit)) },
+                        text = { Text(Str.edit) },
                         onClick = {
                             showMenu = false
                             onEdit()
@@ -604,7 +591,7 @@ fun VisitorItem(
                     DropdownMenuItem(
                         text = {
                             Text(
-                                stringResource(Res.string.delete),
+                                Str.delete,
                                 color = MaterialTheme.colorScheme.error
                             )
                         },

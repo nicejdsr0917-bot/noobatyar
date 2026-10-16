@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { t } from '@/lib/i18n';
 
 // Served at /manifest.webmanifest, and Next emits the <link rel="manifest">
 // tag for it automatically — layout.tsx must not also declare `manifest`, or
@@ -9,9 +10,9 @@ import type { MetadataRoute } from 'next';
 // fetching a 404 and the site was not installable.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'نوبت‌یار | رزرو آنلاین نوبت',
-    short_name: 'نوبت‌یار',
-    description: 'سیستم نوبت‌دهی آنلاین نوبت‌یار — از هر کجا، هر زمان نوبت بگیرید',
+    name: t('noobatyarOnlineBooking'),
+    short_name: t('noobatyar'),
+    description: t('noobatyarOnlineBookingBookAnytime'),
     start_url: '/',
     display: 'standalone',
     dir: 'rtl',

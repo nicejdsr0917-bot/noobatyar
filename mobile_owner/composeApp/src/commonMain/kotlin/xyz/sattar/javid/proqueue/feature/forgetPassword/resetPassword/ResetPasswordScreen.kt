@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.resetPassword
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
 import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
 import xyz.sattar.javid.proqueue.core.ui.components.NewPasswordIllustration
@@ -46,10 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.back
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
 import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
@@ -122,7 +120,7 @@ private fun ResetPasswordPhoneContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "تغییر رمز عبور",
+                        text = Str.change_password,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -133,7 +131,7 @@ private fun ResetPasswordPhoneContent(
                     IconButton(onClick = { onIntent(ResetPasswordIntent.NavigateToLogin) }) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(Res.string.back)
+                            contentDescription = Str.back
                         )
                     }
                 },
@@ -148,7 +146,7 @@ private fun ResetPasswordPhoneContent(
                     shadowElevation = 8.dp
                 ) {
                     AppButton(
-                        text = "تغییر رمز عبور",
+                        text = Str.change_password,
                         onClick = { onIntent(ResetPasswordIntent.Submit) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -199,7 +197,7 @@ private fun ColumnScope.ResetPasswordFormFields(
     }
 
     Text(
-        text = "رمز عبور جدید را وارد کنید",
+        text = Str.enter_your_new_password,
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold
     )
@@ -209,7 +207,7 @@ private fun ColumnScope.ResetPasswordFormFields(
     AppTextField(
         value = uiState.newPassword,
         onValueChange = { onIntent(ResetPasswordIntent.NewPasswordChanged(it)) },
-        label = "رمز عبور جدید",
+        label = Str.new_password,
         isError = uiState.newPasswordError != null,
         errorMessage = uiState.newPasswordError,
         enabled = !uiState.isLoading,
@@ -228,7 +226,7 @@ private fun ColumnScope.ResetPasswordFormFields(
     AppTextField(
         value = uiState.confirmPassword,
         onValueChange = { onIntent(ResetPasswordIntent.ConfirmPasswordChanged(it)) },
-        label = "تکرار رمز عبور",
+        label = Str.repeat_password,
         isError = uiState.confirmPasswordError != null,
         errorMessage = uiState.confirmPasswordError,
         enabled = !uiState.isLoading,
@@ -271,13 +269,13 @@ private fun ResetPasswordWebContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         AppButton(
-            text = "تغییر رمز عبور",
+            text = Str.change_password,
             onClick = { onIntent(ResetPasswordIntent.Submit) },
             isLoading = uiState.isLoading
         )
         TextButton(onClick = { onIntent(ResetPasswordIntent.NavigateToLogin) }) {
             Text(
-                text = "انصراف",
+                text = Str.cancel,
                 style = MaterialTheme.typography.bodyMedium
             )
         }

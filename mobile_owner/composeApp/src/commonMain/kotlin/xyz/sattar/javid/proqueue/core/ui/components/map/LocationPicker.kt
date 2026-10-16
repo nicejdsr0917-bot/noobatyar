@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components.map
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -104,11 +105,11 @@ fun BusinessLocationField(
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "موقعیت روی نقشه",
+            text = Str.location_on_map,
             style = MaterialTheme.typography.titleSmall,
         )
         Text(
-            text = "اختیاری؛ مشتری‌ها کسب‌وکار شما را روی نقشه می‌بینند و با نشان یا بلد مسیریابی می‌کنند.",
+            text = Str.optional_customers_see_your_business,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -142,12 +143,12 @@ fun BusinessLocationField(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "انتخاب موقعیت روی نقشه",
+                        text = Str.pick_location_on_map,
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Text(
-                        text = "پین را روی در کسب‌وکارتان بگذارید",
+                        text = Str.put_pin_on_your_businesss,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -169,7 +170,7 @@ fun BusinessLocationField(
                 TextButton(enabled = enabled, onClick = { showPicker = true }) {
                     Icon(Icons.Rounded.EditLocationAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("تغییر موقعیت", style = MaterialTheme.typography.labelLarge)
+                    Text(Str.change_location, style = MaterialTheme.typography.labelLarge)
                 }
                 TextButton(enabled = enabled, onClick = { onLocation(null) }) {
                     Icon(
@@ -180,7 +181,7 @@ fun BusinessLocationField(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "حذف از نقشه",
+                        Str.remove_from_map,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -316,10 +317,10 @@ fun LocationPickerDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Rounded.Close, contentDescription = "بستن")
+                            Icon(Icons.Rounded.Close, contentDescription = Str.close)
                         }
                         Text(
-                            text = "موقعیت کسب‌وکار روی نقشه",
+                            text = Str.business_location_on_map,
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.weight(1f),
                         )
@@ -359,7 +360,7 @@ fun LocationPickerDialog(
                             modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
                         ) { message ->
                             MapHint(
-                                text = message ?: "نقشه را بکشید تا نوک پین روی در کسب‌وکار قرار بگیرد",
+                                text = message ?: Str.drag_map_so_pins_tip,
                                 icon = if (message != null) Icons.Rounded.ErrorOutline else Icons.Rounded.TouchApp,
                                 isError = message != null,
                             )
@@ -369,17 +370,17 @@ fun LocationPickerDialog(
                             modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            MapControlButton(Icons.Rounded.Add, "بزرگ‌نمایی") { zoomBy(2.0) }
-                            MapControlButton(Icons.Rounded.Remove, "کوچک‌نمایی") { zoomBy(0.5) }
+                            MapControlButton(Icons.Rounded.Add, Str.zoom_in) { zoomBy(2.0) }
+                            MapControlButton(Icons.Rounded.Remove, Str.zoom_out) { zoomBy(0.5) }
                             if (requester.isAvailable) {
                                 Spacer(Modifier.height(4.dp))
-                                MapControlButton(Icons.Rounded.MyLocation, "موقعیت من", loading = locating) {
+                                MapControlButton(Icons.Rounded.MyLocation, Str.my_location, loading = locating) {
                                     if (locating) return@MapControlButton
                                     locating = true
                                     requester.request { point ->
                                         locating = false
                                         if (point == null) {
-                                            notice = "موقعیت فعلی پیدا نشد؛ دسترسی مکان را بررسی کنید یا روی نقشه انتخاب کنید"
+                                            notice = Str.couldnt_find_your_current_location
                                         } else {
                                             val (x, y) = point.toNormalized()
                                             scope.launch {
@@ -399,7 +400,7 @@ fun LocationPickerDialog(
 
                     Box(Modifier.fillMaxWidth().padding(16.dp)) {
                         AppButton(
-                            text = "ثبت این موقعیت",
+                            text = Str.save_this_location,
                             enabled = !moving,
                             onClick = {
                                 val picked = geoPointFromNormalized(state.centroidX, state.centroidY)

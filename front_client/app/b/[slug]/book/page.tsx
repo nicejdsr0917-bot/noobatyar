@@ -20,6 +20,7 @@ import { CategoryGlyph } from '@/app/components/CategoryArt';
 import { toPersianDigits, validateFreeText } from '@/lib/validation';
 import { schedulePushPrompt } from '@/lib/push';
 import { useVisitorToken } from '@/lib/visitorToken';
+import { intlLocale, t } from '@/lib/i18n';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -102,7 +103,7 @@ export default function BookingPage({ params }: Props) {
           // A 404 is "we don't serve this business"; anything else (server
           // down, offline) is a genuine load failure worth retrying.
           if (isNotFound(err)) setUnavailable(true);
-          else setError('خطا در بارگذاری کسب‌وکار');
+          else setError(t('couldntLoadBusiness'));
         })
         .finally(() => setLoading(false));
     });
@@ -176,9 +177,9 @@ export default function BookingPage({ params }: Props) {
     );
     if (match) {
       setSelectedSlot(match);
-      showToast('زمان انتخابی شما بازیابی شد');
+      showToast(t('yourSelectedTimeWasRestored'));
     } else {
-      showToast('زمان انتخابی شما دیگر در دسترس نیست، لطفاً زمان دیگری انتخاب کنید');
+      showToast(t('yourSelectedTimeIsNo'));
     }
     setPendingSlot(null);
     localStorage.removeItem('booking_intent');
@@ -225,7 +226,7 @@ export default function BookingPage({ params }: Props) {
       schedulePushPrompt();
 
       if (requires_payment) {
-        showToast('نوبت با موفقیت قفل شد. در حال انتقال به صفحهٔ پرداخت…');
+        showToast(t('appointmentHeldRedirectingToPayment'));
         setTimeout(() => router.push(`/b/${slug}/checkout/${appointmentId}`), 1200);
       } else {
         // Basic plan / no deposit — the booking is complete, no payment step,
@@ -236,7 +237,7 @@ export default function BookingPage({ params }: Props) {
       if (err instanceof UnauthorizedError) {
         // Token expired between page load and booking — keep the selection
         // rather than dropping the user on the login page empty-handed.
-        showToast('نشست شما منقضی شده است. لطفاً دوباره وارد شوید');
+        showToast(t('yourSessionHasExpiredPlease'));
         setTimeout(saveIntentAndLogin, 1200);
         return;
       }
@@ -250,7 +251,7 @@ export default function BookingPage({ params }: Props) {
       // حاضر نوبت نمی‌پذیرد» — is the server telling the customer something in
       // Persian. Pass it through verbatim; only fall back to a generic string
       // when there genuinely is no message.
-      showToast(err instanceof Error && err.message ? err.message : 'خطا در ثبت نوبت');
+      showToast(err instanceof Error && err.message ? err.message : t('couldntBookAppointment'));
     } finally {
       setBooking(false);
     }
@@ -265,7 +266,7 @@ export default function BookingPage({ params }: Props) {
   if (loading) {
     return (
       <div className="page-content">
-        <Toolbar title="انتخاب زمان نوبت" />
+        <Toolbar title={t('chooseAppointmentTime')} />
         {/* business header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 24px', borderBottom: '1px solid var(--color-border)' }}>
           <div className="skeleton" style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0 }} />
@@ -292,11 +293,10 @@ export default function BookingPage({ params }: Props) {
   if (error || !business) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <p style={{ color: 'var(--color-muted)', fontSize: 14 }}>{error || 'خطا در بارگذاری'}</p>
+        <p style={{ color: 'var(--color-muted)', fontSize: 14 }}>{error || t('couldntLoad')}</p>
         <button className="btn-primary" style={{ marginTop: 20, width: 'auto', padding: '0 24px' }}
           onClick={() => router.back()}>
-          بازگشت
-        </button>
+          {t('back')}</button>
       </div>
     );
   }
@@ -315,27 +315,25 @@ export default function BookingPage({ params }: Props) {
   if (!bookingEnabled) {
     return (
       <div className="page-content" style={{ background: 'var(--color-bg)' }}>
-        <Toolbar title="رزرو نوبت" />
+        <Toolbar title={t('bookAppointment2')} />
         <div style={{ padding: 40, textAlign: 'center' }}>
           <span className="empty-state-icon" style={{ margin: '0 auto 16px', width: 60, height: 60, color: 'var(--color-error)' }}>
             <Icon name="block" size={28} />
           </span>
           <h2 style={{ fontSize: 16, color: 'var(--color-text)', fontWeight: 700, marginBottom: 8 }}>
-            ثبت نوبت غیرفعال است
-          </h2>
+            {t('bookingIsDisabled')}</h2>
           {/* The owner's own words on why, under the generic "it's off" heading. */}
           <BusinessNotice business={business} style={{ padding: '16px 0 0' }} />
           <button className="btn-primary" style={{ marginTop: 32, width: 'auto', padding: '0 32px' }}
             onClick={() => router.back()}>
-            بازگشت
-          </button>
+            {t('back')}</button>
         </div>
       </div>
     );
   }
 
 
-  const selectedDayMonth = new Intl.DateTimeFormat('fa-IR', { day: 'numeric', month: 'long' }).format(selectedDay);
+  const selectedDayMonth = new Intl.DateTimeFormat(intlLocale(), { day: 'numeric', month: 'long' }).format(selectedDay);
   const availableCount = slots.filter((s) => s.status === 'AVAILABLE').length;
 
   // The owner's menu, plus anything the client typed themselves — a custom
@@ -356,7 +354,7 @@ export default function BookingPage({ params }: Props) {
   // must never disagree about whether what is typed can be added.
   const customServiceError = validateFreeText(customService, {
     max: SERVICE_MAX,
-    label: 'نام خدمت',
+    label: t('serviceName'),
   });
 
   const addCustomService = () => {
@@ -379,8 +377,8 @@ export default function BookingPage({ params }: Props) {
     >
 
       <Toolbar
-        title="انتخاب زمان نوبت"
-        actions={[{ icon: 'calendar', label: 'نوبت‌های من', onClick: () => router.push('/appointments') }]}
+        title={t('chooseAppointmentTime')}
+        actions={[{ icon: 'calendar', label: t('myAppointments'), onClick: () => router.push('/appointments') }]}
       />
 
       <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--color-border)' }}>
@@ -417,11 +415,11 @@ export default function BookingPage({ params }: Props) {
         <div className="date-row" style={{ padding: 0 }}>
           {days.map((day, idx) => {
             const weekday = idx === 0
-              ? 'امروز'
+              ? t('today')
               : idx === 1
-                ? 'فردا'
-                : new Intl.DateTimeFormat('fa-IR', { weekday: 'long' }).format(day).replace('‌', ' ');
-            const dayNum = new Intl.DateTimeFormat('fa-IR', { day: 'numeric' }).format(day);
+                ? t('tomorrow')
+                : new Intl.DateTimeFormat(intlLocale(), { weekday: 'long' }).format(day).replace('‌', ' ');
+            const dayNum = new Intl.DateTimeFormat(intlLocale(), { day: 'numeric' }).format(day);
             const isSelected = toDateString(day) === toDateString(selectedDay);
             const isClosed = closedWeekdaysJs.has(day.getDay());
             return (
@@ -446,14 +444,13 @@ export default function BookingPage({ params }: Props) {
       {/* ── Time Slots ── */}
       <div className="section">
         <div className="section-title" style={{ textAlign: 'right', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>ساعات خالی — {selectedDayMonth}</span>
+          <span>{t('freeTimes')}{selectedDayMonth}</span>
           {!slotsLoading && availableCount > 0 && (
             <span style={{
               background: 'var(--color-primary-tint)', color: 'var(--color-primary)',
               fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999,
             }}>
-              {toPersianNumerals(String(availableCount))} نوبت آزاد
-            </span>
+              {toPersianNumerals(String(availableCount))} {t('slotsOpen')}</span>
           )}
         </div>
 
@@ -473,13 +470,13 @@ export default function BookingPage({ params }: Props) {
                 and only one of those is a reason to try another day. */}
             {dayClosed ? (
               <>
-                <h3>این روز تعطیل است</h3>
-                <p>روز دیگری را از نوار بالا انتخاب کنید</p>
+                <h3>{t('thisDayIsClosed')}</h3>
+                <p>{t('pickAnotherDayFromBar')}</p>
               </>
             ) : (
               <>
-                <h3>ساعت خالی در این روز وجود ندارد</h3>
-                <p>روز دیگری را از نوار بالا انتخاب کنید</p>
+                <h3>{t('noFreeTimesOnThis')}</h3>
+                <p>{t('pickAnotherDayFromBar')}</p>
               </>
             )}
           </div>
@@ -507,12 +504,10 @@ export default function BookingPage({ params }: Props) {
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginTop: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-muted)' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-border)' }} />
-            رزرو شده
-          </div>
+            {t('booked')}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-muted)' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary)' }} />
-            انتخاب شما
-          </div>
+            {t('yourChoice')}</div>
         </div>
       </div>
 
@@ -527,8 +522,7 @@ export default function BookingPage({ params }: Props) {
           <label
             style={{ display: 'block', textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}
           >
-            چه خدمتی می‌خواهید؟ (اختیاری)
-          </label>
+            {t('whichServiceDoYouWant')}</label>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
             {chipServices.map((name) => {
@@ -550,7 +544,7 @@ export default function BookingPage({ params }: Props) {
                     fontWeight: isSelected ? 700 : 500,
                   }}
                 >
-                  {isSelected && <Icon name="check" size={14} style={{ display: 'inline-block', verticalAlign: '-2px', marginLeft: 4 }} />}
+                  {isSelected && <Icon name="check" size={14} style={{ display: 'inline-block', verticalAlign: '-2px', marginInlineEnd: 4 }} />}
                   {name}
                 </button>
               );
@@ -571,7 +565,7 @@ export default function BookingPage({ params }: Props) {
                   cursor: customService.trim() && !customServiceError ? 'pointer' : 'default',
                   opacity: customService.trim() && !customServiceError ? 1 : 0.5,
                 }}
-                aria-label="افزودن خدمت"
+                aria-label={t('addService')}
               >
                 <Icon name="add" size={22} />
               </button>
@@ -579,7 +573,7 @@ export default function BookingPage({ params }: Props) {
                 <TextField
                   value={customService}
                   onChange={setCustomService}
-                  validate={(v) => validateFreeText(v, { max: SERVICE_MAX, label: 'نام خدمت' })}
+                  validate={(v) => validateFreeText(v, { max: SERVICE_MAX, label: t('serviceName') })}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -587,7 +581,7 @@ export default function BookingPage({ params }: Props) {
                     }
                   }}
                   maxLength={SERVICE_MAX}
-                  placeholder="خدمت دیگری می‌خواهید؟ بنویسید"
+                  placeholder={t('wantAnotherServiceTypeIt')}
                 />
               </div>
             </div>
@@ -599,15 +593,15 @@ export default function BookingPage({ params }: Props) {
       {selectedSlot && (
         <div className="section" style={{ paddingTop: 0 }}>
           <TextField
-            label="توضیحات سرویس (اختیاری)"
+            label={t('serviceNotesOptional')}
             value={description}
             onChange={setDescription}
-            validate={(v) => validateFreeText(v, { max: DESCRIPTION_MAX, label: 'توضیحات' })}
+            validate={(v) => validateFreeText(v, { max: DESCRIPTION_MAX, label: t('notes') })}
             type="textarea"
             rows={3}
             maxLength={DESCRIPTION_MAX}
-            placeholder="نوع خدمت مورد نظر خود را توضیح دهید"
-            hint={`${toPersianDigits(description.trim().length)} از ${toPersianDigits(DESCRIPTION_MAX)} کاراکتر`}
+            placeholder={t('describeServiceYouWant')}
+            hint={t('ofCharacters', toPersianDigits(description.trim().length), toPersianDigits(DESCRIPTION_MAX))}
           />
         </div>
       )}
@@ -623,12 +617,11 @@ export default function BookingPage({ params }: Props) {
             onClick={handleBook}
             disabled={!selectedSlot || booking}
           >
-            {booking ? 'در حال ثبت...' : selectedSlot ? `تأیید ساعت ${toPersianNumerals(selectedSlot.time)}` : 'یک ساعت انتخاب کنید'}
+            {booking ? t('booking') : selectedSlot ? t('confirm', toPersianNumerals(selectedSlot.time)) : t('chooseTime')}
           </button>
           <button className="btn-secondary" onClick={() => router.push('/appointments')}>
             <Icon name="calendar" size={18} />
-            نوبت‌های من
-          </button>
+            {t('myAppointments')}</button>
         </div>
       </div>
 

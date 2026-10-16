@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.messages
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -45,7 +46,7 @@ class MessagesViewModel(
     private fun load(): Flow<MessagesState.PartialState> = flow {
         val business = BusinessStateHolder.selectedBusiness.value
         if (business == null) {
-            emit(MessagesState.PartialState.ShowMessage(UiMessage.warning("کسب‌وکار انتخاب نشده")))
+            emit(MessagesState.PartialState.ShowMessage(UiMessage.warning(Str.no_business_selected)))
             return@flow
         }
         emit(MessagesState.PartialState.IsLoading(true))
@@ -106,7 +107,7 @@ class MessagesViewModel(
      */
     private fun setDelivery(delivery: String): Flow<MessagesState.PartialState> = flow {
         if (delivery == ReminderDelivery.PANEL.value && !uiState.value.canUsePanelDelivery) {
-            emit(MessagesState.PartialState.ShowMessage(UiMessage.warning("ارسال خودکار یادآوری در پلن فعلی شما نیست.")))
+            emit(MessagesState.PartialState.ShowMessage(UiMessage.warning(Str.automatic_reminders_arent_included_in)))
             return@flow
         }
         emit(MessagesState.PartialState.SetDelivery(delivery))
@@ -115,7 +116,7 @@ class MessagesViewModel(
     private fun save(): Flow<MessagesState.PartialState> = flow {
         val business = BusinessStateHolder.selectedBusiness.value
         if (business == null) {
-            emit(MessagesState.PartialState.ShowMessage(UiMessage.warning("کسب‌وکار انتخاب نشده")))
+            emit(MessagesState.PartialState.ShowMessage(UiMessage.warning(Str.no_business_selected)))
             return@flow
         }
         val state = uiState.value
@@ -150,7 +151,7 @@ class MessagesViewModel(
                     emit(MessagesState.PartialState.SetPanelAllowed(false))
                 }
                 // 403 is the plan saying no, not something breaking.
-                val text = e.message ?: "خطا در ذخیره تنظیمات"
+                val text = e.message ?: Str.couldnt_save_settings
                 emit(
                     MessagesState.PartialState.ShowMessage(
                         if (e.code == 403) UiMessage.warning(text) else UiMessage.error(text)
@@ -159,7 +160,7 @@ class MessagesViewModel(
                 emit(MessagesState.PartialState.IsSaving(false))
                 return@flow
             } catch (e: Exception) {
-                emit(MessagesState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در ذخیره تنظیمات")))
+                emit(MessagesState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_save_settings)))
                 emit(MessagesState.PartialState.IsSaving(false))
                 return@flow
             }
@@ -168,8 +169,8 @@ class MessagesViewModel(
         emit(
             MessagesState.PartialState.ShowMessage(
                 UiMessage.success(
-                    if (state.isPanel) "ذخیره شد — یادآوری‌ها خودکار از پنل ارسال می‌شوند"
-                    else "تنظیمات ذخیره شد"
+                    if (state.isPanel) Str.saved_reminders_are_sent_automatically
+                    else Str.settings_saved
                 )
             )
         )
@@ -210,7 +211,7 @@ class MessagesViewModel(
         val business = BusinessStateHolder.selectedBusiness.value
         return generateReminderMessageUseCase.generatePreview(
             template = template,
-            businessTitle = business?.title ?: "کسب‌وکار شما",
+            businessTitle = business?.title ?: Str.your_business,
             businessAddress = business?.address ?: "--",
             serviceDuration = business?.defaultServiceDuration,
             reminderMinutes = minutes
@@ -221,10 +222,10 @@ class MessagesViewModel(
         ReminderTemplates.all.associate { it.key to render(it.text, minutes) }
 
     private fun defaultTemplates(): List<String> = listOf(
-        "با سلام {visitor} عزیز 🌹؛ یادآوری نوبت شما در {business} برای ساعت {time}. مدت زمان خدمت به شما حدود {duration} است. لطفاً تا {minutes} دقیقه دیگر در محل حضور داشته باشید.",
-        "سلام {visitor} جان! 👋 منتظر دیدار شما در {business} هستیم. نوبت شما: {time}. زمان خدمت به شما حدود: {duration} دقیقه. ممنون می‌شیم {minutes} دقیقه دیگه تشریف بیارید.",
-        "{visitor} گرامی؛ نوبت {business} شما ساعت {time} آغاز می‌شود (مدت خدمت به شما حدود: {duration} دقیقه). لطفا جهت پذیرش، {minutes} دقیقه دیگر مراجعه فرمایید.",
-        "درود بر شما {visitor} عزیز؛ زمان نوبت شما در {business}: ساعت {time}. این سرویس حدود {duration} زمان می‌برد. لطفا {minutes} دقیقه دیگر حضور بهم رسانید. 🕒",
-        "نوبت دهی {business}: {visitor} عزیز، نوبت شما ساعت {time} است. مدت کار حدود: {duration} . لطفا {minutes} دقیقه دیگر تشریف بیاورید. 📍"
+        "با سلام {visitor} عزیز 🌹؛ یادآوری نوبت شما در {business} برای ساعت {time}. مدت زمان خدمت به شما حدود {duration} است. لطفاً تا {minutes} دقیقه دیگر در محل حضور داشته باشید.", // i18n-keep: customer SMS template
+        "سلام {visitor} جان! 👋 منتظر دیدار شما در {business} هستیم. نوبت شما: {time}. زمان خدمت به شما حدود: {duration} دقیقه. ممنون می‌شیم {minutes} دقیقه دیگه تشریف بیارید.", // i18n-keep: customer SMS template
+        "{visitor} گرامی؛ نوبت {business} شما ساعت {time} آغاز می‌شود (مدت خدمت به شما حدود: {duration} دقیقه). لطفا جهت پذیرش، {minutes} دقیقه دیگر مراجعه فرمایید.", // i18n-keep: customer SMS template
+        "درود بر شما {visitor} عزیز؛ زمان نوبت شما در {business}: ساعت {time}. این سرویس حدود {duration} زمان می‌برد. لطفا {minutes} دقیقه دیگر حضور بهم رسانید. 🕒", // i18n-keep: customer SMS template
+        "نوبت دهی {business}: {visitor} عزیز، نوبت شما ساعت {time} است. مدت کار حدود: {duration} . لطفا {minutes} دقیقه دیگر تشریف بیاورید. 📍" // i18n-keep: customer SMS template
     )
 }

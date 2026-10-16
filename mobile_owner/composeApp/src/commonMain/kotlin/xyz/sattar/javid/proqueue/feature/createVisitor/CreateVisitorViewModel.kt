@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createVisitor
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
@@ -72,10 +73,10 @@ class CreateVisitorViewModel(
             if (visitor != null) {
                 emit(CreateVisitorState.PartialState.VisitorLoaded(visitor))
             } else {
-                emit(CreateVisitorState.PartialState.ShowMessage("مراجع یافت نشد"))
+                emit(CreateVisitorState.PartialState.ShowMessage(Str.client_not_found))
             }
         } catch (e: Exception) {
-            emit(CreateVisitorState.PartialState.ShowMessage(e.message ?: "خطا در بارگذاری مراجع"))
+            emit(CreateVisitorState.PartialState.ShowMessage(e.message ?: Str.couldnt_load_client))
         }
     }
 
@@ -100,7 +101,7 @@ class CreateVisitorViewModel(
         if (visitorId != -1L) {
             sendEvent(CreateVisitorEvent.VisitorCreated(visitorId))
         } else {
-            emit(CreateVisitorState.PartialState.ShowMessage("خطا در ذخیره مراجع"))
+            emit(CreateVisitorState.PartialState.ShowMessage(Str.couldnt_save_client))
         }
     }
 
@@ -123,7 +124,7 @@ class CreateVisitorViewModel(
             emit(CreateVisitorState.PartialState.IsLoading(false))
             sendEvent(CreateVisitorEvent.VisitorUpdated(visitorId))
         } else {
-            emit(CreateVisitorState.PartialState.ShowMessage("خطا در بروزرسانی مراجع"))
+            emit(CreateVisitorState.PartialState.ShowMessage(Str.couldnt_update_client))
         }
     }
 }

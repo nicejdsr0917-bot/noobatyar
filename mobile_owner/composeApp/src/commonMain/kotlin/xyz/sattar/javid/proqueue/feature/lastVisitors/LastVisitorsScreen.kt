@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -31,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
@@ -209,7 +209,7 @@ fun LastVisitorsScreenContent(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Add,
-                        contentDescription = stringResource(Res.string.create_appointment)
+                        contentDescription = Str.create_appointment
                     )
                 }
             }
@@ -251,9 +251,9 @@ fun LastVisitorsScreenContent(
                                 else -> uiState.totalCount
                             },
                             countLabel = when {
-                                isReport -> "مشتری"
-                                isQueue -> "در صف"
-                                else -> "نوبت"
+                                isReport -> Str.customer
+                                isQueue -> Str.in_queue_2
+                                else -> Str.appointments_2
                             },
                             filterActive = uiState.filter.status != null ||
                                 uiState.filter.ordering != AppointmentFilter().ordering,
@@ -311,15 +311,15 @@ fun LastVisitorsScreenContent(
                         }
 
                         isQueue && waiting.isEmpty() -> ScrollableEmptyState(
-                            title = stringResource(Res.string.empty_appointments_title),
-                            subtitle = stringResource(Res.string.empty_appointments_subtitle)
+                            title = Str.empty_appointments_title,
+                            subtitle = Str.empty_appointments_subtitle
                         )
 
                         appointments.isEmpty() -> ScrollableEmptyState(
-                            title = "در این بازه نوبتی نیست",
+                            title = Str.no_appointments_in_this_range,
                             // Kept to one short line: the + button floats
                             // over this area and a long subtitle ran under it.
-                            subtitle = "بازه‌ی دیگری را انتخاب کنید"
+                            subtitle = Str.pick_different_range
                         )
 
                         isQueue -> QueueList(
@@ -472,19 +472,19 @@ fun FilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "فیلتر نوبت‌ها",
+                    text = Str.filter_appointments,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 TextButton(onClick = onClearFilter) {
-                    Text("پاکسازی")
+                    Text(Str.clear)
                 }
             }
 
             // Status Filter
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "وضعیت نوبت",
+                    text = Str.appointment_status,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -505,7 +505,7 @@ fun FilterBottomSheet(
             // Ordering Filter
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "مرتب‌سازی",
+                    text = Str.sort,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -515,10 +515,10 @@ fun FilterBottomSheet(
                 ) {
                     AppointmentOrdering.entries.forEach { ordering ->
                         val label = when (ordering) {
-                            AppointmentOrdering.DATE_ASC -> stringResource(Res.string.sort_date_nearest_first)
-                            AppointmentOrdering.DATE_DESC -> stringResource(Res.string.sort_date_farthest_first)
-                            AppointmentOrdering.CREATED_AT_ASC -> stringResource(Res.string.sort_created_oldest_first)
-                            AppointmentOrdering.CREATED_AT_DESC -> stringResource(Res.string.sort_created_newest_first)
+                            AppointmentOrdering.DATE_ASC -> Str.sort_date_nearest_first
+                            AppointmentOrdering.DATE_DESC -> Str.sort_date_farthest_first
+                            AppointmentOrdering.CREATED_AT_ASC -> Str.sort_created_oldest_first
+                            AppointmentOrdering.CREATED_AT_DESC -> Str.sort_created_newest_first
                         }
                         FilterChip(
                             selected = selectedOrdering == ordering,
@@ -530,7 +530,7 @@ fun FilterBottomSheet(
             }
 
             AppButton(
-                text = "اعمال فیلتر",
+                text = Str.apply_filter,
                 onClick = {
                     onFilterChanged(
                         filter.copy(
@@ -593,9 +593,9 @@ private fun VisitorsTabBar(
 ) {
     SectionTabs(
         labels = listOf(
-            stringResource(Res.string.visitors_tab),
-            stringResource(Res.string.queue_tab),
-            stringResource(Res.string.range_report_tab),
+            Str.visitors_tab,
+            Str.queue_tab,
+            Str.range_report_tab,
         ),
         selectedIndex = selectedIndex,
         onSelected = onSelected,
@@ -689,11 +689,11 @@ fun AppointmentCard(
                 ) {
                     MetaItem(
                         icon = Icons.Rounded.Schedule,
-                        text = "$endTimeOnly ${stringResource(Res.string.to_label)} $startTimeOnly",
+                        text = "$endTimeOnly ${Str.to_label} $startTimeOnly",
                         emphasized = true
                     )
                     MetaItem(icon = Icons.Rounded.CalendarToday, text = dateText)
-                    MetaItem(icon = Icons.Rounded.Timer, text = "$durationMinutes دقیقه")
+                    MetaItem(icon = Icons.Rounded.Timer, text = Str.min(durationMinutes))
                 }
             }
 
@@ -742,12 +742,12 @@ fun AppointmentCard(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = stringResource(Res.string.deposit_paid_label) + " — " + stringResource(
+                                text = Str.deposit_paid_label + " — " + (
                                     if (appointment.depositPaymentMethod == "GATEWAY")
-                                        Res.string.deposit_method_gateway
-                                    else Res.string.deposit_method_card
+                                        Str.deposit_method_gateway
+                                    else Str.deposit_method_card
                                 ) + (appointment.paymentReference?.takeIf { it.isNotBlank() }
-                                    ?.let { " · ${stringResource(Res.string.tracking_number_label)}: $it" } ?: ""),
+                                    ?.let { " · ${Str.tracking_number_label}: $it" } ?: ""),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 // Two lines, not an ellipsis: the tracking
@@ -804,52 +804,52 @@ fun StatusBadge(status: String, overdue: Boolean) {
     // LOCKED and IN_PROGRESS fell through to the raw English status text.
     val (text, bgColor, contentColor) = when {
         status == "WAITING" && overdue -> Triple(
-            stringResource(Res.string.overdue_time),
+            Str.overdue_time,
             if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE),
             if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828)
         )
         status == "LOCKED" -> Triple(
-            "در حال پرداخت",
+            Str.paying,
             if (isDark) Color(0xFF37474F).copy(alpha = 0.5f) else Color(0xFFECEFF1),
             if (isDark) Color(0xFFB0BEC5) else Color(0xFF455A64)
         )
         status == "PENDING_VERIFICATION" -> Triple(
-            "💳 در انتظار تأیید فیش",
+            Str.receipt_awaiting_approval,
             if (isDark) Color(0xFF4A148C).copy(alpha = 0.4f) else Color(0xFFEDE7F6),
             if (isDark) Color(0xFFCE93D8) else Color(0xFF6A1B9A)
         )
         status == "PENDING_APPROVAL" -> Triple(
-            "در انتظار تایید",
+            Str.awaiting_approval,
             if (isDark) Color(0xFFE65100).copy(alpha = 0.4f) else Color(0xFFFFF3E0),
             if (isDark) Color(0xFFFFCC80) else Color(0xFFE65100)
         )
         status == "CONFIRMED" -> Triple(
-            "تأیید شده",
+            Str.approved,
             if (isDark) Color(0xFF0D47A1).copy(alpha = 0.4f) else Color(0xFFE3F2FD),
             if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0)
         )
         status == "WAITING" -> Triple(
-            stringResource(Res.string.status_waiting),
+            Str.status_waiting,
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.4f else 0.7f),
             MaterialTheme.colorScheme.onPrimaryContainer
         )
         status == "IN_PROGRESS" -> Triple(
-            "در حال سرویس",
+            Str.in_service,
             if (isDark) Color(0xFF006064).copy(alpha = 0.45f) else Color(0xFFE0F7FA),
             if (isDark) Color(0xFF80DEEA) else Color(0xFF00838F)
         )
         status == "COMPLETED" -> Triple(
-            stringResource(Res.string.status_completed),
+            Str.status_completed,
             if (isDark) Color(0xFF1B5E20).copy(alpha = 0.4f) else Color(0xFFE8F5E9),
             if (isDark) Color(0xFFA5D6A7) else Color(0xFF2E7D32)
         )
         status == "NO_SHOW" -> Triple(
-            stringResource(Res.string.status_no_show),
+            Str.status_no_show,
             if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE),
             if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828)
         )
         status == "CANCELLED" -> Triple(
-            "لغو شده",
+            Str.status_cancelled,
             if (isDark) Color(0xFF424242).copy(alpha = 0.5f) else Color(0xFFF5F5F5),
             if (isDark) Color(0xFFBDBDBD) else Color(0xFF616161)
         )

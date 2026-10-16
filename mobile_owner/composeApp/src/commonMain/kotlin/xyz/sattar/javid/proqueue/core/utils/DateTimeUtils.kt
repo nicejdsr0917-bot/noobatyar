@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.core.utils
 
+import xyz.sattar.javid.proqueue.core.i18n.AppLocale
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -51,22 +53,36 @@ object DateTimeUtils {
         return jalali.year * 12 + (jalali.month - 1)
     }
 
-    /** Persian name of the month a [jalaliMonthIndex] refers to. */
-    fun jalaliMonthName(monthIndex: Int): String = when ((monthIndex % 12) + 1) {
-        1 -> "فروردین"
-        2 -> "اردیبهشت"
-        3 -> "خرداد"
-        4 -> "تیر"
-        5 -> "مرداد"
-        6 -> "شهریور"
-        7 -> "مهر"
-        8 -> "آبان"
-        9 -> "آذر"
-        10 -> "دی"
-        11 -> "بهمن"
-        12 -> "اسفند"
-        else -> ""
-    }
+    /**
+     * Name of the month a [jalaliMonthIndex] refers to: the Jalali month in the
+     * Persian UI, the Gregorian one in the English UI (see [gregorianToJalali]).
+     * Calendar data, not translations — the two lists are different months.
+     */
+    fun jalaliMonthName(monthIndex: Int): String =
+        (if (AppLocale.isEnglish) GREGORIAN_MONTHS else JALALI_MONTHS).getOrElse(monthIndex % 12) { "" }
+
+    private val JALALI_MONTHS = listOf(
+        "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", // i18n-keep: Jalali calendar
+        "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند", // i18n-keep: Jalali calendar
+    )
+    private val GREGORIAN_MONTHS = listOf(
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    )
+
+    /** Years offered by date pickers, in the calendar the UI shows. */
+    fun yearPickerRange(): IntRange = if (AppLocale.isEnglish) 1920..2120 else 1300..1499
+
+    /**
+     * Column (0..6) of [millis] in a month grid. Persian weeks start on
+     * Saturday, English ones on Sunday; [weekdayInitials] is in the same order.
+     */
+    fun weekGridColumn(millis: Long): Int =
+        (getWeekday(millis) + if (AppLocale.isEnglish) 1 else 2) % 7
+
+    fun weekdayInitials(): List<String> =
+        if (AppLocale.isEnglish) listOf(Str.su, Str.mo, Str.tu, Str.we, Str.th, Str.fr, Str.sa)
+        else listOf(Str.sa, Str.su, Str.mo, Str.tu, Str.we, Str.th, Str.fr)
 
     /**
      * How many days back and forward cover a whole Jalali month either side of
@@ -199,21 +215,21 @@ object DateTimeUtils {
     fun calculateWaitingTime(appointmentDate: Long): String {
         val now = systemCurrentMilliseconds()
         val diff = appointmentDate - now
-        if (diff <= 0) return "زمان نوبت فرا رسیده"
+        if (diff <= 0) return Str.waiting_time_arrived
 
         val duration = diff.milliseconds
         val hours = duration.inWholeHours
         val minutes = duration.inWholeMinutes % 60
 
         if (hours == 0L && minutes == 0L) {
-            return "کمتر از یک دقیقه تا نوبت"
+            return Str.waiting_time_less_than_minute
         }
 
-        val hoursPart = if (hours > 0) "$hours ساعت" else ""
-        val minutesPart = if (minutes > 0) "$minutes دقیقه" else ""
-        val separator = if (hours > 0 && minutes > 0) " و " else ""
+        val hoursPart = if (hours > 0) Str.h(hours) else ""
+        val minutesPart = if (minutes > 0) Str.min(minutes) else ""
+        val separator = if (hours > 0 && minutes > 0) Str.and_label else ""
         
-        return "$hoursPart$separator$minutesPart زمان انتظار"
+        return Str.wait(hoursPart, separator, minutesPart)
     }
 
     fun calculateWaitingOrOverdueText(
@@ -223,7 +239,7 @@ object DateTimeUtils {
     ): String {
         val endTime = appointmentDate + serviceDurationMinutes * 60 * 1000L
         val overdue = systemCurrentMilliseconds() > endTime && status == "WAITING"
-        return if (overdue) "زمان رد شده" else calculateWaitingTime(appointmentDate)
+        return if (overdue) Str.overdue_time else calculateWaitingTime(appointmentDate)
     }
 
     fun formatDate(timestamp: Long): String {
@@ -281,13 +297,13 @@ object DateTimeUtils {
     fun shortWeekdayFromIsoDate(isoDate: String): String =
         try {
             when (LocalDate.parse(isoDate).dayOfWeek.isoDayNumber) {
-                1 -> "د"
-                2 -> "س"
-                3 -> "چ"
-                4 -> "پ"
-                5 -> "ج"
-                6 -> "ش"
-                7 -> "ی"
+                1 -> Str.mo
+                2 -> Str.tu
+                3 -> Str.we
+                4 -> Str.th
+                5 -> Str.fr
+                6 -> Str.sa
+                7 -> Str.su
                 else -> ""
             }
         } catch (e: Exception) {
@@ -314,13 +330,13 @@ object DateTimeUtils {
         val instant = Instant.fromEpochMilliseconds(millis)
         val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
         return when (localDateTime.dayOfWeek.isoDayNumber) {
-            1 -> "دوشنبه"
-            2 -> "سه‌شنبه"
-            3 -> "چهارشنبه"
-            4 -> "پنج‌شنبه"
-            5 -> "جمعه"
-            6 -> "شنبه"
-            7 -> "یکشنبه"
+            1 -> Str.monday
+            2 -> Str.tuesday
+            3 -> Str.wednesday
+            4 -> Str.thursday
+            5 -> Str.friday
+            6 -> Str.saturday
+            7 -> Str.sunday
             else -> ""
         }
     }
@@ -358,7 +374,19 @@ object DateTimeUtils {
         return "$hour:$minute"
     }
 
+    /**
+     * Start of day for a date in the calendar the UI shows: Jalali in the
+     * Persian UI, Gregorian (passed through, day clamped to the month's length)
+     * in the English one. Every month grid and date picker builds on this and
+     * [gregorianToJalali], so switching them switches the whole app's calendar.
+     */
     fun jalaliToGregorian(jy: Int, jm: Int, jd: Int): Long {
+        if (AppLocale.isEnglish) {
+            val first = LocalDate(jy, jm, 1)
+            val length = first.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).day
+            return LocalDate(jy, jm, jd.coerceIn(1, length))
+                .atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+        }
         var jy = jy - 979
         var j_days = (jy * 365) + (jy / 33) * 8 + ((jy % 33) + 3) / 4
         for (i in 0 until jm - 1) {
@@ -419,7 +447,9 @@ object DateTimeUtils {
         return localDateTime.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds()
     }
 
+    /** Gregorian → the calendar the UI shows; see [jalaliToGregorian]. */
     private fun gregorianToJalali(gy: Int, gm: Int, gd: Int): PersianDate {
+        if (AppLocale.isEnglish) return PersianDate(gy, gm, gd)
         val g_d_m = intArrayOf(0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334)
         var gy2 = if (gm > 2) gy + 1 else gy
         var dayOfMonths =

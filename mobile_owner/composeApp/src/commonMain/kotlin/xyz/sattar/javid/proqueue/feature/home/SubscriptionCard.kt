@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,7 +31,7 @@ fun SubscriptionCard(subscription: SubscriptionDto?) {
     val isValid = subscription?.isValid ?: false
     val plan = subscription?.plan
     val planName = plan?.name ?: ""
-    val isTrial = planName.contains("آزمایشی")
+    val isTrial = planName.contains("آزمایشی") // i18n-keep: server plan name
 
     // رنگ‌بندی متناسب با نام پلن
     val (gradientColors, icon, badgeText) = when {
@@ -40,32 +41,32 @@ fun SubscriptionCard(subscription: SubscriptionDto?) {
                 MaterialTheme.colorScheme.surfaceVariant
             ),
             Icons.Rounded.Info,
-            "بدون اشتراک"
+            Str.subscription_none
         )
-        planName.contains("پرو پلاس") -> Triple(
+        planName.contains("پرو پلاس") -> Triple( // i18n-keep: server plan name
             listOf(Color(0xFF4A148C), Color(0xFF7B1FA2)),
             Icons.Rounded.WorkspacePremium,
-            "💎 پرو پلاس"
+            Str.pro_plus_2
         )
-        planName.contains("پرو") -> Triple(
+        planName.contains("پرو") -> Triple( // i18n-keep: server plan name
             listOf(Color(0xFF1A237E), Color(0xFF283593)),
             Icons.Rounded.AutoAwesome,
-            "🚀 پرو"
+            Str.pro_2
         )
-        planName.contains("اکو") -> Triple(
+        planName.contains("اکو") -> Triple( // i18n-keep: server plan name
             listOf(Color(0xFF1B5E20), Color(0xFF2E7D32)),
             Icons.Rounded.Spa,
-            "🌿 اکو"
+            Str.eco_2
         )
-        planName.contains("پایه") -> Triple(
+        planName.contains("پایه") -> Triple( // i18n-keep: server plan name
             listOf(Color(0xFF0D47A1), Color(0xFF1565C0)),
             Icons.Rounded.FlashOn,
-            "⚡ پایه"
+            Str.basic_2
         )
         isTrial -> Triple(
             listOf(Color(0xFF37474F), Color(0xFF546E7A)),
             Icons.Rounded.Stars,
-            "🌱 آزمایشی"
+            Str.trial
         )
         else -> Triple(
             listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary),
@@ -141,7 +142,7 @@ fun SubscriptionCard(subscription: SubscriptionDto?) {
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    text = "$daysRemaining روز",
+                                    text = Str.d(daysRemaining),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold
@@ -157,12 +158,12 @@ fun SubscriptionCard(subscription: SubscriptionDto?) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         SubscriptionInfoItem(
-                            label = "شروع",
+                            label = Str.start,
                             value = formatIsoDate(subscription?.startedAt),
                             textColor = Color.White
                         )
                         SubscriptionInfoItem(
-                            label = "پایان",
+                            label = Str.end,
                             value = formatIsoDate(subscription?.endsAt),
                             textColor = if (isExpiringSoon) Color(0xFFFFCC80) else Color.White
                         )
@@ -188,7 +189,7 @@ fun SubscriptionCard(subscription: SubscriptionDto?) {
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = "اشتراک شما به زودی منقضی می‌شود",
+                                    text = Str.your_subscription_expires_soon,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color(0xFFFFCC80)
                                 )
@@ -235,14 +236,14 @@ fun SubscriptionCard(subscription: SubscriptionDto?) {
                 Spacer(Modifier.width(14.dp))
                 Column {
                     Text(
-                        text = "فاقد اشتراک فعال",
+                        text = Str.no_active_subscription,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "برای استفاده از امکانات نوبت‌یار اشتراک تهیه کنید.",
+                        text = Str.get_subscription_to_use_noobatyars,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 18.sp

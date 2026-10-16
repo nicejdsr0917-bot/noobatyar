@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.domain.model
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+
+
 /** One customer's activity inside the reported window. */
 data class RangeCustomer(
     val visitorId: Long,
@@ -14,11 +17,13 @@ data class RangeCustomer(
  * ([apiValue] is its `ordering` parameter) because the list is paged — sorting
  * the rows in hand would only order the current page.
  */
-enum class CustomerOrdering(val apiValue: String, val label: String) {
+enum class CustomerOrdering(val apiValue: String, private val labelRef: () -> String) {
     /** Most appointments first — the regulars. */
-    VISITS("visits", "بیشترین نوبت"),
+    VISITS("visits", Str::most_appointments),
     /** Latest appointment first — who was in most recently. */
-    RECENT("recent", "آخرین مراجعه"),
+    RECENT("recent", Str::last_visit),;
+
+    val label: String get() = labelRef()
 }
 
 /**

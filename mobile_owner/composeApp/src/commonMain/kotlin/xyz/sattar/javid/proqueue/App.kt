@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
@@ -21,14 +22,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.koinInject
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.notification_permission_prompt_allow
-import proqueue.composeapp.generated.resources.notification_permission_prompt_later
-import proqueue.composeapp.generated.resources.notification_permission_prompt_message
-import proqueue.composeapp.generated.resources.notification_permission_prompt_title
 import xyz.sattar.javid.proqueue.core.billing.CheckoutConfirmHost
 import xyz.sattar.javid.proqueue.core.network.GlobalError
 import xyz.sattar.javid.proqueue.core.network.GlobalErrorManager
@@ -96,7 +91,7 @@ fun App() {
                     // the user was just silently dropped back on the login screen.
                     scope.launch {
                         globalSnackbarHostState.showToasty(
-                            UiMessage.warning("نشست شما منقضی شده است. لطفاً دوباره وارد شوید.")
+                            UiMessage.warning(Str.your_session_has_expired_please)
                         )
                     }
                     onAuthComplete = false
@@ -268,19 +263,19 @@ private fun NotificationPermissionPrompt(
     if (showPrompt) {
         AlertDialog(
             onDismissRequest = { showPrompt = false },
-            title = { Text(stringResource(Res.string.notification_permission_prompt_title)) },
-            text = { Text(stringResource(Res.string.notification_permission_prompt_message)) },
+            title = { Text(Str.notification_permission_prompt_title) },
+            text = { Text(Str.notification_permission_prompt_message) },
             confirmButton = {
                 TextButton(
                     onClick = { launcher.launch() },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text(stringResource(Res.string.notification_permission_prompt_allow))
+                    Text(Str.notification_permission_prompt_allow)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showPrompt = false }) {
-                    Text(stringResource(Res.string.notification_permission_prompt_later))
+                    Text(Str.notification_permission_prompt_later)
                 }
             }
         )

@@ -1,6 +1,7 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -79,7 +80,7 @@ fun AppTextField(
             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                 Icon(
                     imageVector = if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                    contentDescription = if (passwordVisible) "پنهان کردن رمز عبور" else "نمایش رمز عبور",
+                    contentDescription = if (passwordVisible) Str.hide_password else Str.show_password,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

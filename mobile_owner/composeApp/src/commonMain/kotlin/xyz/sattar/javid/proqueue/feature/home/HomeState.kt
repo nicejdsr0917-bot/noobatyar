@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.runtime.Immutable
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
@@ -86,7 +87,7 @@ data class QueueItem(
 ){
     val overdue = DateTimeUtils.systemCurrentMilliseconds() > estimatedEndTime && appointment.status == "WAITING"
     val waitingText =
-        if (overdue) "زمان رد شده"
+        if (overdue) Str.overdue_time
         else DateTimeUtils.calculateWaitingTime(estimatedStartTime)
 }
 

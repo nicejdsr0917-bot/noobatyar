@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.network
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import io.ktor.client.HttpClient
 import io.ktor.client.call.*
 import io.ktor.client.plugins.api.*
@@ -155,9 +156,9 @@ val AuthInterceptor = createClientPlugin("AuthInterceptor") {
         if (call.response.status == HttpStatusCode.TooManyRequests) {
             val message = try {
                 call.response.body<NetworkResponse<Unit>>().message
-                    ?: "تعداد درخواست‌های شما بیش از حد مجاز است."
+                    ?: Str.youve_sent_too_many_requests
             } catch (e: Exception) {
-                "تعداد درخواست‌های شما بیش از حد مجاز است."
+                Str.youve_sent_too_many_requests
             }
             GlobalErrorManager.emitError(GlobalError.RateLimit(message))
         }

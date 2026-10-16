@@ -1,5 +1,8 @@
+'use client';
+
 import Icon from '@/app/components/Icon';
 import type { Business } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 /**
  * Stand-in for a phone number or address the server withheld because the
@@ -11,11 +14,11 @@ import type { Business } from '@/lib/api';
  */
 
 const PLACEHOLDER = {
-  phone: '۰۲۱ ۱۲۳۴ ۵۶۷۸',
-  address: 'تهران، خیابان ولیعصر، کوچه‌ی نمونه، پلاک ۱۲',
+  get phone() { return t('t02112345678'); },
+  get address() { return t('no12SampleAlleyValiasr'); },
 } as const;
 
-const UNAVAILABLE = 'اطلاعات تماس این کسب‌وکار فعلاً در دسترس نیست';
+const unavailable = () => t('thisBusinesssContactDetailsArent');
 
 /**
  * Whether `field` is missing because of the subscription policy. A null
@@ -41,7 +44,7 @@ export function isWithheld(biz: Business, field: 'phone' | 'address' | 'location
  */
 export function LockedMap() {
   return (
-    <div className="biz-map locked-map" role="img" aria-label={UNAVAILABLE} title={UNAVAILABLE}>
+    <div className="biz-map locked-map" role="img" aria-label={unavailable()} title={unavailable()}>
       <svg className="locked-map-art" viewBox="0 0 400 190" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <rect width="400" height="190" fill="#f2efe9" />
         <path d="M-10 150 C 80 120, 140 175, 230 140 S 360 110, 420 135" stroke="#aad3df" strokeWidth="16" fill="none" />
@@ -59,15 +62,14 @@ export function LockedMap() {
       </svg>
       <span className="locked-map-badge">
         <Icon name="lock" size={15} />
-        موقعیت روی نقشه
-      </span>
+        {t('locationOnMap2')}</span>
     </div>
   );
 }
 
 export default function LockedContact({ kind }: { kind: keyof typeof PLACEHOLDER }) {
   return (
-    <span className="contact-locked" role="img" aria-label={UNAVAILABLE} title={UNAVAILABLE}>
+    <span className="contact-locked" role="img" aria-label={unavailable()} title={unavailable()}>
       <span className="contact-locked-text" aria-hidden="true">
         {PLACEHOLDER[kind]}
       </span>

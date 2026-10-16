@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.addons
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -106,7 +107,7 @@ private fun AddonsPhoneContent(
         snackbarHost = { ToastyHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("بسته‌های افزودنی", style = MaterialTheme.typography.titleLarge) },
+                title = { Text(Str.add_on_packs, style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -127,7 +128,7 @@ private fun AddonsPhoneContent(
             } else if (uiState.packs.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        "در حال حاضر بسته‌ای موجود نیست",
+                        Str.no_packs_available_right_now,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -144,7 +145,7 @@ private fun AddonsPhoneContent(
                 ) {
                     item {
                         Text(
-                            "بدون تغییر پلن، اعتبار پیامک یا نوبت اضافه کنید.",
+                            Str.add_sms_or_appointment_credit,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 4.dp)
@@ -152,7 +153,7 @@ private fun AddonsPhoneContent(
                     }
 
                     if (smsPacks.isNotEmpty()) {
-                        item { SectionHeader("بسته‌های پیامک") }
+                        item { SectionHeader(Str.sms_packs) }
                         items(smsPacks, key = { it.id }) { pack ->
                             AddOnPackCard(
                                 pack = pack,
@@ -164,7 +165,7 @@ private fun AddonsPhoneContent(
                     }
 
                     if (appointmentPacks.isNotEmpty()) {
-                        item { SectionHeader("بسته‌های نوبت") }
+                        item { SectionHeader(Str.appointment_packs) }
                         items(appointmentPacks, key = { it.id }) { pack ->
                             AddOnPackCard(
                                 pack = pack,
@@ -216,7 +217,7 @@ private fun AddonsWebContent(
         snackbarHost = { ToastyHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("بسته‌های افزودنی", style = MaterialTheme.typography.titleLarge) },
+                title = { Text(Str.add_on_packs, style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -243,7 +244,7 @@ private fun AddonsWebContent(
             } else if (uiState.packs.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        "در حال حاضر بسته‌ای موجود نیست",
+                        Str.no_packs_available_right_now,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -262,7 +263,7 @@ private fun AddonsWebContent(
                 ) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
-                            "بدون تغییر پلن، اعتبار پیامک یا نوبت اضافه کنید.",
+                            Str.add_sms_or_appointment_credit,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 4.dp)
@@ -270,7 +271,7 @@ private fun AddonsWebContent(
                     }
 
                     if (smsPacks.isNotEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) { SectionHeader("بسته‌های پیامک") }
+                        item(span = { GridItemSpan(maxLineSpan) }) { SectionHeader(Str.sms_packs) }
                         gridItems(smsPacks, key = { it.id }) { pack ->
                             AddOnPackCard(
                                 pack = pack,
@@ -282,7 +283,7 @@ private fun AddonsWebContent(
                     }
 
                     if (appointmentPacks.isNotEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) { SectionHeader("بسته‌های نوبت") }
+                        item(span = { GridItemSpan(maxLineSpan) }) { SectionHeader(Str.appointment_packs) }
                         gridItems(appointmentPacks, key = { it.id }) { pack ->
                             AddOnPackCard(
                                 pack = pack,
@@ -331,9 +332,9 @@ private fun AddOnPackCard(
         else -> Icons.Rounded.Bolt
     }
     val subtitle = when (pack.kind) {
-        "sms_pack" -> "${pack.smsAmount} پیامک — بدون انقضا"
-        "appointment_pack" -> "${pack.appointmentAmount} نوبت — بدون انقضا"
-        else -> "فعال به مدت ${pack.durationDays} روز"
+        "sms_pack" -> Str.sms_never_expires(pack.smsAmount)
+        "appointment_pack" -> Str.appointments_never_expire(pack.appointmentAmount)
+        else -> Str.active_for_days(pack.durationDays)
     }
 
     Card(

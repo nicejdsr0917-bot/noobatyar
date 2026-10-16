@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.billing
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,8 +27,8 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteD
 /**
  * The "this is what you will pay" step before the Zibal gateway or the store
  * opens. Prices in the app are what Noobatyar keeps; VAT and the gateway's or
- * Myket's cut are added on top (backend accounting/pricing.py), so the buyer
- * sees and accepts the full amount first.
+ * the store's cut are added on top (backend accounting/pricing.py), so the
+ * buyer sees and accepts the full amount first.
  *
  * [PurchaseUseCase][xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase]
  * suspends on [confirm]; [CheckoutConfirmHost], mounted once in App, shows
@@ -72,29 +73,39 @@ private fun CheckoutConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val feeLabel = if (quote.channel == "myket") "سهم مایکت و کارمزد بانکی" else "کارمزد درگاه پرداخت"
+    // Myket's review only accepts "item price + VAT" on the invoice — naming
+    // Myket's cut is not allowed — so on that channel the cut is shown as part
+    // of the price. Same total either way: the backend derives Myket's VAT
+    // from the store price (accounting/pricing.py), so total − VAT is exactly
+    // the pre-VAT price the store lists.
+    val isMyket = quote.channel == "myket"
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("جزئیات پرداخت") },
+        title = { Text(Str.payment_details) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (quote.title.isNotBlank()) {
                     Text(quote.title, style = MaterialTheme.typography.titleSmall)
                 }
-                PriceRow("قیمت", quote.base)
-                PriceRow("مالیات بر ارزش افزوده (۱۰٪)", quote.vat)
-                PriceRow(feeLabel, quote.fee)
+                if (isMyket) {
+                    PriceRow(Str.price, quote.total - quote.vat)
+                    PriceRow(Str.vat_10, quote.vat)
+                } else {
+                    PriceRow(Str.price, quote.base)
+                    PriceRow(Str.vat_10, quote.vat)
+                    PriceRow(Str.payment_gateway_fee, quote.fee)
+                }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                PriceRow("مبلغ قابل پرداخت", quote.total, bold = true)
+                PriceRow(Str.amount_due, quote.total, bold = true)
             }
         },
         confirmButton = {
             Button(onClick = onConfirm) {
-                Text(if (quote.channel == "myket") "پرداخت در مایکت" else "رفتن به درگاه پرداخت")
+                Text(if (isMyket) Str.pay_in_myket else Str.go_to_payment_gateway)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("انصراف") }
+            TextButton(onClick = onDismiss) { Text(Str.cancel) }
         },
     )
 }
@@ -104,7 +115,7 @@ private fun PriceRow(label: String, amount: Long, bold: Boolean = false) {
     val weight = if (bold) FontWeight.Bold else FontWeight.Normal
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = weight)
-        Text("${amount.groupThousands()} تومان".toPersianDigits(), style = MaterialTheme.typography.bodyMedium, fontWeight = weight)
+        Text(Str.toman(amount.groupThousands()).toPersianDigits(), style = MaterialTheme.typography.bodyMedium, fontWeight = weight)
     }
 }
 

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.calendar
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -70,10 +71,10 @@ class CalendarViewModel(
                 val appointments = getAppointmentsForDateUseCase(business.id, date)
                 emit(PartialState.LoadAppointments(appointments))
             } else {
-                emit(PartialState.ShowError("کسب‌وکاری انتخاب نشده است"))
+                emit(PartialState.ShowError(Str.no_business_selected_2))
             }
         } catch (e: Exception) {
-            emit(PartialState.ShowError(e.message ?: "خطا در بارگذاری نوبت‌ها"))
+            emit(PartialState.ShowError(e.message ?: Str.couldnt_load_appointments))
         }
     }
 }

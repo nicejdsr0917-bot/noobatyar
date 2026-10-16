@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.register
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
 import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
 import xyz.sattar.javid.proqueue.core.ui.components.NewAccountIllustration
@@ -45,11 +46,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.back
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
 import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
@@ -118,7 +116,7 @@ private fun RegisterPhoneContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "ثبت‌ نام",
+                        text = Str.sign_up,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -126,7 +124,7 @@ private fun RegisterPhoneContent(
                     IconButton(onClick = { onIntent(RegisterIntent.BackPress) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.back)
+                            contentDescription = Str.back
                         )
                     }
                 },
@@ -144,7 +142,7 @@ private fun RegisterPhoneContent(
                     shadowElevation = 8.dp
                 ) {
                     AppButton(
-                        text = "ثبت نام",
+                        text = Str.sign_up_2,
                         onClick = { onIntent(RegisterIntent.Submit) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -195,14 +193,14 @@ private fun ColumnScope.RegisterFormFields(
     }
 
     Text(
-        text = "ایجاد حساب کاربری",
+        text = Str.create_account,
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onBackground
     )
 
     Text(
-        text = "اطلاعات خود را وارد کنید",
+        text = Str.enter_your_details,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -212,7 +210,7 @@ private fun ColumnScope.RegisterFormFields(
     AppTextField(
         value = uiState.name,
         onValueChange = { onIntent(RegisterIntent.NameChanged(it)) },
-        label = "نام",
+        label = Str.name,
         isError = uiState.nameError != null,
         errorMessage = uiState.nameError,
         enabled = !uiState.isLoading,
@@ -231,7 +229,7 @@ private fun ColumnScope.RegisterFormFields(
     AppTextField(
         value = uiState.phone,
         onValueChange = { onIntent(RegisterIntent.PhoneChanged(it)) },
-        label = "شماره موبایل",
+        label = Str.mobile_number,
         isError = uiState.phoneError != null,
         errorMessage = uiState.phoneError,
         enabled = !uiState.isLoading,
@@ -250,7 +248,7 @@ private fun ColumnScope.RegisterFormFields(
     AppTextField(
         value = uiState.password,
         onValueChange = { onIntent(RegisterIntent.PasswordChanged(it)) },
-        label = "رمز عبور",
+        label = Str.password,
         isError = uiState.passwordError != null,
         errorMessage = uiState.passwordError,
         enabled = !uiState.isLoading,
@@ -302,13 +300,13 @@ private fun RegisterWebContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         AppButton(
-            text = "ثبت نام",
+            text = Str.sign_up_2,
             onClick = { onIntent(RegisterIntent.Submit) },
             isLoading = uiState.isLoading
         )
         TextButton(onClick = { onIntent(RegisterIntent.BackPress) }) {
             Text(
-                text = "بازگشت",
+                text = Str.back,
                 style = MaterialTheme.typography.bodyMedium
             )
         }

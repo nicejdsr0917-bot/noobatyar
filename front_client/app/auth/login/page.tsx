@@ -16,27 +16,28 @@ import {
 import Toolbar from '@/app/components/Toolbar';
 import TextField from '@/app/components/TextField';
 import Icon, { type IconName } from '@/app/components/Icon';
+import { t } from '@/lib/i18n';
 
 type Step = 'PHONE' | 'OTP' | 'NAME';
 
 const STEP_META: Record<Step, { title: string; icon: IconName; heading: string; sub: string }> = {
   PHONE: {
-    title: 'ورود / ثبت‌نام',
+    get title() { return t('signInSignUp'); },
     icon: 'smartphone',
-    heading: 'شماره موبایل خود را وارد کنید',
-    sub: 'کد تأیید به این شماره پیامک می‌شود',
+    get heading() { return t('enterYourMobileNumber'); },
+    get sub() { return t('wellTextVerificationCodeTo'); },
   },
   OTP: {
-    title: 'کد تأیید',
+    get title() { return t('verificationCode'); },
     icon: 'lock',
-    heading: 'کد تأیید ارسال شد',
+    get heading() { return t('verificationCodeSent'); },
     sub: '',
   },
   NAME: {
-    title: 'تکمیل پروفایل',
+    get title() { return t('completeYourProfile'); },
     icon: 'person',
-    heading: 'خوش آمدید!',
-    sub: 'برای تکمیل ثبت‌نام، نام خود را وارد کنید',
+    get heading() { return t('welcome'); },
+    get sub() { return t('enterYourNameToFinish'); },
   },
 };
 
@@ -59,8 +60,8 @@ function LoginForm() {
 
   useEffect(() => {
     if (countdown <= 0) return;
-    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
   }, [countdown]);
 
   const saveToken = (token: string) => localStorage.setItem('visitor_token', token);
@@ -79,7 +80,7 @@ function LoginForm() {
       setSubmitAttempted(false);
       setCountdown(120);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'خطا در ارسال کد');
+      setError(err instanceof Error ? err.message : t('couldntSendCode'));
     } finally {
       setLoading(false);
     }
@@ -109,7 +110,7 @@ function LoginForm() {
         setSubmitAttempted(false);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'کد وارد شده اشتباه است');
+      setError(err instanceof Error ? err.message : t('codeYouEnteredIsIncorrect'));
     } finally {
       setLoading(false);
     }
@@ -127,7 +128,7 @@ function LoginForm() {
       saveToken(result.token);
       router.push(redirect);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'خطا در ثبت‌نام');
+      setError(err instanceof Error ? err.message : t('couldntSignUp'));
     } finally {
       setLoading(false);
     }
@@ -191,7 +192,7 @@ function LoginForm() {
           </h2>
           <p style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.7 }}>
             {step === 'OTP'
-              ? `کد ${toPersianDigits(OTP_LENGTH)} رقمی ارسال‌شده به ${toPersianDigits(normalizePhone(phone))} را وارد کنید`
+              ? t('enterDigitCodeSentTo', toPersianDigits(OTP_LENGTH), toPersianDigits(normalizePhone(phone)))
               : meta.sub}
           </p>
         </div>
@@ -211,7 +212,7 @@ function LoginForm() {
             dir="ltr"
             autoComplete="tel"
             placeholder="09123456789"
-            hint="شمارهٔ ۱۱ رقمی، با ۰۹ شروع می‌شود"
+            hint={t('t11DigitsStartingWith09')}
             required
           />
         )}
@@ -229,7 +230,7 @@ function LoginForm() {
                   type="tel"
                   inputMode="numeric"
                   autoComplete={i === 0 ? 'one-time-code' : 'off'}
-                  aria-label={`رقم ${toPersianDigits(i + 1)} از کد تأیید`}
+                  aria-label={t('digitOfVerificationCode', toPersianDigits(i + 1))}
                   value={digit}
                   onChange={(e) => handleCodeInput(i, e.target.value)}
                   onKeyDown={(e) => handleCodeKeyDown(i, e)}
@@ -256,8 +257,7 @@ function LoginForm() {
             <div style={{ textAlign: 'center', marginBottom: 16 }}>
               {countdown > 0 ? (
                 <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>
-                  ارسال مجدد تا {toPersianDigits(countdown)} ثانیه دیگر
-                </span>
+                  {t('resendIn')}{toPersianDigits(countdown)} {t('seconds')}</span>
               ) : (
                 <button
                   type="button"
@@ -280,8 +280,7 @@ function LoginForm() {
                   }}
                 >
                   <Icon name="refresh" size={15} />
-                  ارسال مجدد کد
-                </button>
+                  {t('resendCode')}</button>
               )}
             </div>
           </>
@@ -297,8 +296,8 @@ function LoginForm() {
             onKeyDown={(e) => e.key === 'Enter' && handleRegister()}
             icon="person"
             maxLength={NAME_MAX_LENGTH}
-            placeholder="نام و نام خانوادگی"
-            hint="همین نام برای کسب‌وکار نمایش داده می‌شود"
+            placeholder={t('fullName')}
+            hint={t('thisNameIsShownTo')}
             autoFocus
             required
           />
@@ -327,22 +326,20 @@ function LoginForm() {
         )}
 
         <p style={{ fontSize: 11, color: 'var(--color-faint)', textAlign: 'center', marginTop: 24, lineHeight: 1.8 }}>
-          با ادامه، قوانین و حریم خصوصی نوبت‌یار را می‌پذیرید.
-        </p>
+          {t('byContinuingYouAcceptNoobatyars')}</p>
       </div>
 
       <div className="btn-group">
         <button className="btn-primary" onClick={submit} disabled={loading}>
           {loading ? (
             <>
-              <span className="btn-spinner" /> لطفاً صبر کنید…
-            </>
+              <span className="btn-spinner" /> {t('pleaseWait')}</>
           ) : step === 'PHONE' ? (
-            'دریافت کد تأیید'
+            t('getVerificationCode')
           ) : step === 'OTP' ? (
-            'تأیید و ورود'
+            t('confirmAndSignIn')
           ) : (
-            'ثبت‌نام و ورود'
+            t('signUpAndSignIn')
           )}
         </button>
       </div>

@@ -23,6 +23,7 @@ import Toolbar from '@/app/components/Toolbar';
 import TextField from '@/app/components/TextField';
 import ReceiptUpload from '@/app/components/ReceiptUpload';
 import Icon from '@/app/components/Icon';
+import { intlLocale, t } from '@/lib/i18n';
 
 export default function CheckoutPage({ params }: { params: Promise<{ slug: string; id: string }> }) {
   const router = useRouter();
@@ -91,7 +92,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      showToast('امکان کپی وجود ندارد');
+      showToast(t('copyingIsntAvailable'));
     }
   };
 
@@ -119,7 +120,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
           setAppointment(apt);
         }
       })
-      .catch(() => setError('نوبت یافت نشد یا دسترسی ندارید'))
+      .catch(() => setError(t('appointmentNotFoundOrYou')))
       .finally(() => setLoading(false));
   }, [id, slug, router]);
 
@@ -137,7 +138,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
       const { payment_url } = await startOnlineDeposit(id, token);
       window.location.href = payment_url;
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'خطا در اتصال به درگاه پرداخت');
+      showToast(err instanceof Error ? err.message : t('couldntConnectToPaymentGateway'));
       setRedirecting(false);
     }
   };
@@ -188,7 +189,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
 
     // Card and online transfers must carry proof; paying in person carries none.
     if (method !== 'CASH' && !file && !paymentRef.trim()) {
-      showToast('شماره پیگیری را وارد کنید یا تصویر فیش را بارگذاری نمایید');
+      showToast(t('enterTrackingNumberOrUpload'));
       return;
     }
     if (method !== 'CASH' && refError) {
@@ -221,7 +222,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
       // and `replace` keeps the settled checkout out of the back stack.
       router.replace(`/booking-success?id=${id}&kind=${method === 'CASH' ? 'pending' : 'paid'}`);
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'خطا در ثبت پرداخت');
+      showToast(err instanceof Error ? err.message : t('couldntRecordPayment'));
       setSubmitting(false);
     }
   };
@@ -229,7 +230,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   if (loading) {
     return (
       <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
-        <Toolbar title="پرداخت و نهایی‌سازی" backIcon="close" onBack={handleCancel} />
+        <Toolbar title={t('paymentAndConfirmation')} backIcon="close" onBack={handleCancel} />
         <div style={{ padding: 24 }}>
           <div className="skeleton" style={{ height: 52, borderRadius: 14, marginBottom: 16 }} />
           <div className="skeleton" style={{ height: 180, borderRadius: 16, marginBottom: 16 }} />
@@ -242,7 +243,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   if (error || !appointment) {
     return (
       <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
-        <Toolbar title="پرداخت و نهایی‌سازی" backIcon="close" onBack={handleCancel} />
+        <Toolbar title={t('paymentAndConfirmation')} backIcon="close" onBack={handleCancel} />
         <div style={{ padding: 24 }}>
           <div className="empty-state">
             <span className="empty-state-icon" style={{ color: 'var(--color-error)' }}>
@@ -250,8 +251,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
             </span>
             <h3>{error}</h3>
             <button className="btn-primary" style={{ marginTop: 18, height: 48 }} onClick={handleCancel}>
-              بازگشت
-            </button>
+              {t('back')}</button>
           </div>
         </div>
       </div>
@@ -260,7 +260,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
 
   return (
     <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
-      <Toolbar title="پرداخت و نهایی‌سازی" backIcon="close" onBack={handleCancel} />
+      <Toolbar title={t('paymentAndConfirmation')} backIcon="close" onBack={handleCancel} />
 
       <div style={{ padding: '24px' }}>
         {/* ── Method tabs ── (only the methods this business actually offers) */}
@@ -277,7 +277,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
             {availableMethods.map((m) => {
               const isActive = method === m;
               const label =
-                m === 'ONLINE' ? 'درگاه آنلاین' : m === 'CARD' ? 'کارت به کارت' : 'پرداخت در محل';
+                m === 'ONLINE' ? t('onlineGateway') : m === 'CARD' ? t('cardTransfer') : t('payOnSite');
               const icon = m === 'ONLINE' ? 'payments' : m === 'CARD' ? 'creditCard' : 'storefront';
               return (
                 <button
@@ -326,9 +326,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
           >
             <Icon name="info" size={18} color="var(--color-primary)" style={{ marginTop: 2 }} />
             <span>
-              پرداخت بیعانه برای این کسب‌وکار <b>اختیاری</b> است. می‌توانید بیعانه را پرداخت کنید یا
-              گزینهٔ «پرداخت در محل» را انتخاب نمایید.
-            </span>
+              {t('depositForThisBusinessIs')}<b>{t('optional')}</b> {t('youCanPayDepositOr')}</span>
           </div>
         )}
 
@@ -356,8 +354,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                 }}
               >
                 <Icon name="creditCard" size={17} color="var(--color-primary)" />
-                انتقال به شماره کارت زیر
-              </h2>
+                {t('transferToCardNumberBelow')}</h2>
 
               {/* Grouped 4-by-4 so it can be read off the screen and typed into
                   a banking app without losing your place. */}
@@ -373,7 +370,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                     />
                   )}
                   <span className="card-number" dir="ltr">
-                    {cardDigits ? formatCardNumber(cardDigits) : 'شماره کارت ثبت نشده'}
+                    {cardDigits ? formatCardNumber(cardDigits) : t('noCardNumberOnFile')}
                   </span>
                 </div>
                 <button
@@ -383,14 +380,14 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                   style={{ color: copied ? 'var(--color-success-text)' : 'var(--color-primary)' }}
                 >
                   <Icon name={copied ? 'check' : 'copy'} size={15} />
-                  {copied ? 'کپی شد' : 'کپی'}
+                  {copied ? t('copied') : t('copy')}
                 </button>
               </div>
 
               {cardLooksWrong && (
                 <p className="field-error" style={{ marginTop: 2, marginBottom: 10 }}>
                   <Icon name="warning" size={14} />
-                  <span>شماره کارت ثبت‌شده معتبر به نظر نمی‌رسد — قبل از واریز با کسب‌وکار هماهنگ کنید.</span>
+                  <span>{t('cardNumberOnFileDoesnt')}</span>
                 </p>
               )}
 
@@ -402,31 +399,29 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                   marginBottom: 14,
                 }}
               >
-                به نام: {biz?.card_owner_name || 'صاحب کسب‌وکار'}
+                {t('name')}{biz?.card_owner_name || t('businessOwner')}
               </div>
 
               {biz?.deposit_amount ? (
                 <div style={{ textAlign: 'right', fontSize: 15, fontWeight: 700, color: 'var(--color-text)' }}>
-                  مبلغ بیعانه: {biz.deposit_amount.toLocaleString('fa-IR')} تومان
-                  {depositMode === 'OPTIONAL' && (
-                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-muted)' }}> (اختیاری)</span>
+                  {t('depositAmount')}{biz.deposit_amount.toLocaleString(intlLocale())} {t('toman')}{depositMode === 'OPTIONAL' && (
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-muted)' }}> {t('optional2')}</span>
                   )}
                 </div>
               ) : (
                 <div style={{ textAlign: 'right', fontSize: 12.5, color: 'var(--color-muted)' }}>
-                  مبلغ را با کسب‌وکار هماهنگ کنید.
-                </div>
+                  {t('agreeOnAmountWithBusiness')}</div>
               )}
             </div>
 
             {/* ── Proof of payment ── */}
             <div className="section-head" style={{ marginBottom: 10 }}>
               <Icon name="receipt" size={17} color="var(--color-primary)" />
-              <h2>رسید پرداخت</h2>
+              <h2>{t('paymentReceipt')}</h2>
             </div>
 
             <TextField
-              label="شماره پیگیری"
+              label={t('trackingNumber')}
               value={paymentRef}
               onChange={setPaymentRef}
               transform={(raw) => digitsOnly(raw).slice(0, REF_MAX_LENGTH)}
@@ -436,11 +431,11 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
               inputMode="numeric"
               icon="payments"
               dir="ltr"
-              placeholder="۱۲۳۴۵۶۷۸"
+              placeholder={t('t12345678')}
               hint={
                 file
-                  ? 'فیش بارگذاری شد؛ وارد کردن شماره پیگیری اختیاری است.'
-                  : 'شماره پیگیری تراکنش، یا در ادامه تصویر فیش را بارگذاری کنید.'
+                  ? t('receiptUploadedTrackingNumberIs')
+                  : t('transactionTrackingNumberOrUpload')
               }
               required={refRequired}
             />
@@ -459,7 +454,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                 <span className="empty-state-icon" style={{ margin: '0 auto 14px' }}>
                   <Icon name="payments" size={26} />
                 </span>
-                <p style={{ marginBottom: 20 }}>برای پرداخت بیعانه به درگاه بانکی منتقل می‌شوید.</p>
+                <p style={{ marginBottom: 20 }}>{t('youllBeSentToBank')}</p>
                 <button
                   className="btn-primary"
                   onClick={handleGatewayRedirect}
@@ -468,21 +463,18 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                 >
                   {redirecting ? (
                     <>
-                      <span className="btn-spinner" /> در حال انتقال…
-                    </>
+                      <span className="btn-spinner" /> {t('redirecting2')}</>
                   ) : (
-                    'پرداخت با درگاه بانکی'
+                    t('payWithBankGateway')
                   )}
                 </button>
                 <p style={{ marginTop: 16, fontSize: 12, color: 'var(--color-faint)' }}>
-                  پس از پرداخت موفق، نوبت شما بلافاصله قطعی می‌شود.
-                </p>
+                  {t('afterSuccessfulPaymentYourAppointment')}</p>
               </>
             ) : biz?.payment_link ? (
               <>
                 <p style={{ marginBottom: 16 }}>
-                  برای پرداخت آنلاین مبلغ بیعانه، لطفاً از طریق لینک زیر اقدام کنید:
-                </p>
+                  {t('toPayDepositOnlinePlease')}</p>
                 <a
                   href={biz.payment_link.startsWith('http') ? biz.payment_link : `https://${biz.payment_link}`}
                   target="_blank"
@@ -497,12 +489,10 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                     fontSize: 15,
                   }}
                 >
-                  انتقال به درگاه پرداخت
-                  <Icon name="chevronLeft" size={17} />
+                  {t('goToPaymentGateway')}<Icon name="chevronLeft" size={17} />
                 </a>
                 <p style={{ margin: '24px 0 8px', fontSize: 12, color: 'var(--color-faint)' }}>
-                  پس از پرداخت، شماره پیگیری را در همین صفحه وارد کنید.
-                </p>
+                  {t('afterPayingEnterTrackingNumber')}</p>
 
                 <div style={{ textAlign: 'right' }}>
                   <TextField
@@ -515,13 +505,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                     inputMode="numeric"
                     icon="payments"
                     dir="ltr"
-                    placeholder="شماره پیگیری درگاه پرداخت"
+                    placeholder={t('paymentGatewayTrackingNumber')}
                     required={refRequired}
                   />
                 </div>
               </>
             ) : (
-              'اتصال به درگاه پرداخت در حال حاضر غیرفعال است.'
+              t('connectingToPaymentGatewayIs')
             )}
           </div>
         )}
@@ -532,10 +522,8 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
               <Icon name="storefront" size={26} />
             </span>
             <p style={{ color: 'var(--color-muted)', fontSize: 13.5, lineHeight: 1.9 }}>
-              شما پرداخت در محل را انتخاب کرده‌اید.
-              <br />
-              نوبت شما برای تأیید به کسب‌وکار ارسال می‌شود.
-            </p>
+              {t('youChoseToPayOn')}<br />
+              {t('yourAppointmentIsSentTo')}</p>
           </div>
         )}
       </div>
@@ -551,12 +539,11 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
           <button className="btn-primary" onClick={handleSubmit} disabled={submitting}>
             {submitting ? (
               <>
-                <span className="btn-spinner" /> در حال ثبت…
-              </>
+                <span className="btn-spinner" /> {t('submitting')}</>
             ) : method === 'CASH' ? (
-              'ثبت نوبت (پرداخت در محل)'
+              t('bookAppointmentPayOnSite')
             ) : (
-              'ثبت نهایی نوبت'
+              t('confirmAppointment')
             )}
           </button>
           {method === 'CARD' && biz?.deposit_amount ? (
@@ -568,8 +555,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                 marginTop: 8,
               }}
             >
-              مبلغ {biz.deposit_amount.toLocaleString('fa-IR')} تومان
-            </p>
+              {t('amount')}{biz.deposit_amount.toLocaleString(intlLocale())} {t('toman')}</p>
           ) : null}
         </div>
       )}

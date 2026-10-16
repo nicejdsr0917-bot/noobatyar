@@ -1,3 +1,5 @@
+
+import { localizeDigits, t } from '@/lib/i18n';
 /**
  * Field validators + input normalizers shared by every form in the client app.
  *
@@ -8,7 +10,7 @@
  *     validator normalizes before testing, so a phone typed as ۰۹۱۲… passes,
  *     and the value handed to the API is always ASCII.
  *
- *  2. **Validators return `null` when valid**, or a Persian error string. That
+ *  2. **Validators return `null` when valid**, or an error string in the UI language. That
  *     lets call sites write `const err = validatePhone(v)` and treat the result
  *     as both the boolean and the message.
  */
@@ -25,9 +27,9 @@ export function toLatinDigits(input: string): string {
   });
 }
 
-/** ASCII digits → Persian, for display only. */
+/** Digits for display in the UI language: Persian in fa, Latin in en. */
 export function toPersianDigits(input: string | number): string {
-  return String(input).replace(/[0-9]/g, (d) => PERSIAN_DIGITS[Number(d)]);
+  return localizeDigits(input);
 }
 
 /** Keep only digits (after folding Persian/Arabic ones). */
@@ -50,9 +52,9 @@ export function normalizePhone(input: string): string {
 
 export function validatePhone(input: string): string | null {
   const d = normalizePhone(input);
-  if (!d) return 'شماره موبایل را وارد کنید';
-  if (!d.startsWith('09')) return 'شماره موبایل باید با ۰۹ شروع شود';
-  if (d.length !== 11) return 'شماره موبایل باید ۱۱ رقم باشد';
+  if (!d) return t('enterYourMobileNumber2');
+  if (!d.startsWith('09')) return t('mobileNumberMustStartWith');
+  if (d.length !== 11) return t('mobileNumberMustBe11');
   return null;
 }
 
@@ -62,12 +64,12 @@ export const NAME_MAX_LENGTH = 50;
 
 export function validateName(input: string): string | null {
   const v = input.trim();
-  if (!v) return 'نام را وارد کنید';
-  if (v.length < 3) return 'نام باید حداقل ۳ حرف باشد';
-  if (v.length > NAME_MAX_LENGTH) return `نام نباید بیشتر از ${toPersianDigits(NAME_MAX_LENGTH)} حرف باشد`;
+  if (!v) return t('enterYourName');
+  if (v.length < 3) return t('nameMustBeAtLeast');
+  if (v.length > NAME_MAX_LENGTH) return t('nameCantBeLongerThan', toPersianDigits(NAME_MAX_LENGTH));
   // Persian/Arabic letters, Latin letters, spaces, ZWNJ and hyphens. Digits and
   // punctuation are rejected: this feeds the name the business sees on a booking.
-  if (!/^[؀-ۿ‌ a-zA-Z\-']+$/.test(v)) return 'نام فقط می‌تواند شامل حروف باشد';
+  if (!/^[؀-ۿ‌ a-zA-Z\-']+$/.test(v)) return t('nameCanOnlyContainLetters');
   return null;
 }
 
@@ -114,11 +116,11 @@ export const REF_MAX_LENGTH = 30;
  */
 export function validatePaymentRef(input: string, { required }: { required: boolean }): string | null {
   const raw = input.trim();
-  if (!raw) return required ? 'شماره پیگیری را وارد کنید' : null;
+  if (!raw) return required ? t('enterTrackingNumber') : null;
   const d = digitsOnly(raw);
-  if (d.length !== raw.replace(/\s/g, '').length) return 'شماره پیگیری فقط شامل رقم است';
-  if (d.length < REF_MIN_LENGTH) return `شماره پیگیری باید حداقل ${toPersianDigits(REF_MIN_LENGTH)} رقم باشد`;
-  if (d.length > REF_MAX_LENGTH) return `شماره پیگیری نباید بیشتر از ${toPersianDigits(REF_MAX_LENGTH)} رقم باشد`;
+  if (d.length !== raw.replace(/\s/g, '').length) return t('trackingNumberCanOnlyContain');
+  if (d.length < REF_MIN_LENGTH) return t('trackingNumberMustBeAt', toPersianDigits(REF_MIN_LENGTH));
+  if (d.length > REF_MAX_LENGTH) return t('trackingNumberCantBeLonger', toPersianDigits(REF_MAX_LENGTH));
   return null;
 }
 
@@ -128,7 +130,7 @@ export const OTP_LENGTH = 6;
 
 export function validateOtp(code: string): string | null {
   const d = digitsOnly(code);
-  if (d.length !== OTP_LENGTH) return `کد ${toPersianDigits(OTP_LENGTH)} رقمی را کامل وارد کنید`;
+  if (d.length !== OTP_LENGTH) return t('enterFullDigitCode', toPersianDigits(OTP_LENGTH));
   return null;
 }
 
@@ -139,7 +141,7 @@ export function validateFreeText(
   { max, label, required = false }: { max: number; label: string; required?: boolean },
 ): string | null {
   const v = input.trim();
-  if (!v) return required ? `${label} را وارد کنید` : null;
-  if (v.length > max) return `${label} نباید بیشتر از ${toPersianDigits(max)} کاراکتر باشد`;
+  if (!v) return required ? t('enter', label) : null;
+  if (v.length > max) return t('cantBeLongerThanCharacters', label, toPersianDigits(max));
   return null;
 }

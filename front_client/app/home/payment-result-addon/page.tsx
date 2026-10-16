@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PANEL_URL, buildAppReturnLink, isWebPanelReturn, tryReturnToApp } from '@/lib/appReturn';
+import { t } from '@/lib/i18n';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
@@ -41,13 +42,13 @@ function PaymentResultAddonContent() {
 
   useEffect(() => {
     if (!trackId) {
-      setResult({ success: false, message: 'شناسه پرداخت یافت نشد.' });
+      setResult({ success: false, message: t('paymentIdNotFound') });
       setLoading(false);
       return;
     }
 
     if (success === '0') {
-      setResult({ success: false, message: 'پرداخت توسط شما لغو شد یا ناموفق بود.' });
+      setResult({ success: false, message: t('paymentWasCancelledOrFailed') });
       setLoading(false);
       return;
     }
@@ -59,20 +60,20 @@ function PaymentResultAddonContent() {
           { method: 'GET' }
         );
         const text = await res.text();
-        const isSuccess = text.includes('موفق') && !text.includes('ناموفق');
+        const isSuccess = text.includes(t('successful')) && !text.includes(t('failed'));
 
         // Extract pack name from response if possible
         const packMatch = text.match(/«([^»]+)»/);
-        const packName = packMatch ? packMatch[1] : 'بسته افزودنی';
+        const packName = packMatch ? packMatch[1] : t('addOnPack');
 
         setResult({
           success: isSuccess,
           message: isSuccess
-            ? `بسته‌ی «${packName}» با موفقیت فعال شد!`
-            : 'پردازش پرداخت ناموفق بود. لطفاً با پشتیبانی تماس بگیرید.',
+            ? t('packIsNowActive', packName)
+            : t('processingPaymentFailedPleaseContact'),
         });
       } catch {
-        setResult({ success: false, message: 'خطا در ارتباط با سرور.' });
+        setResult({ success: false, message: t('couldntReachServer') });
       } finally {
         setLoading(false);
       }
@@ -87,7 +88,7 @@ function PaymentResultAddonContent() {
         {loading ? (
           <>
             <div style={styles.spinner} />
-            <p style={styles.loadingText}>در حال بررسی پرداخت...</p>
+            <p style={styles.loadingText}>{t('checkingPayment')}</p>
           </>
         ) : (
           <>
@@ -95,12 +96,12 @@ function PaymentResultAddonContent() {
               {result?.success ? '✓' : '✗'}
             </div>
             <h1 style={{ ...styles.title, color: result?.success ? '#22c55e' : '#ef4444' }}>
-              {result?.success ? 'پرداخت موفق' : 'پرداخت ناموفق'}
+              {result?.success ? t('paymentSuccessful') : t('paymentFailed')}
             </h1>
             <p style={styles.message}>{result?.message}</p>
-            {result?.success && <p style={styles.sub}>بسته افزودنی فعال شد</p>}
+            {result?.success && <p style={styles.sub}>{t('addOnPackActivated')}</p>}
             <a href={appLink} style={styles.button}>
-              {toPanel ? 'بازگشت به پنل' : 'بازگشت به اپلیکیشن'}
+              {toPanel ? t('backToPanel') : t('backToApp')}
             </a>
           </>
         )}

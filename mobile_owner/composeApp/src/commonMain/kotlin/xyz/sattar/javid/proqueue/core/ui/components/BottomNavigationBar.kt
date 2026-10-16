@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -37,7 +38,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
-import org.jetbrains.compose.resources.stringResource
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import xyz.sattar.javid.proqueue.core.navigation.TabRefreshRequests
 import androidx.compose.runtime.mutableStateOf
@@ -355,7 +355,7 @@ private fun StandardNavigationItem(
                 Crossfade(targetState = isSelected, animationSpec = tween(200)) { selected ->
                     Icon(
                         imageVector = if (selected) tab.iconSelected else tab.iconUnSelected,
-                        contentDescription = stringResource(tab.title),
+                        contentDescription = (tab.title),
                         tint = contentColor,
                         modifier = Modifier.size(24.dp)
                     )
@@ -369,7 +369,7 @@ private fun StandardNavigationItem(
             exit = fadeOut(tween(120)) + shrinkVertically()
         ) {
             Text(
-                text = stringResource(tab.title),
+                text = (tab.title),
                 style = MaterialTheme.typography.labelSmall,
                 color = contentColor,
                 fontWeight = FontWeight.Bold,
@@ -460,7 +460,7 @@ private fun HomeNavigationItem(
                 .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
-            val description = stringResource(tab.title)
+            val description = (tab.title)
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()

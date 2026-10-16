@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createAppointment
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -31,25 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.appointment_create_action
-import proqueue.composeapp.generated.resources.back
-import proqueue.composeapp.generated.resources.cancel
-import proqueue.composeapp.generated.resources.confirm
-import proqueue.composeapp.generated.resources.conflict_dialog_message_prefix
-import proqueue.composeapp.generated.resources.conflict_dialog_message_suffix
-import proqueue.composeapp.generated.resources.conflict_dialog_title
-import proqueue.composeapp.generated.resources.create_appointment_title
-import proqueue.composeapp.generated.resources.delete
-import proqueue.composeapp.generated.resources.delete_appointment
-import proqueue.composeapp.generated.resources.edit_appointment
-import proqueue.composeapp.generated.resources.no
-import proqueue.composeapp.generated.resources.service_catalog_title
-import proqueue.composeapp.generated.resources.service_duration_error
-import proqueue.composeapp.generated.resources.yes_force_create
 import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
 import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
@@ -187,7 +171,7 @@ fun CreateAppointmentScreenContent(
     // call sites (bottomBar button on phone, inline action card on web,
     // and the conflict dialog) can never drift apart on validation or on
     // which fields get sent.
-    val serviceDurationErrorMsg = stringResource(Res.string.service_duration_error)
+    val serviceDurationErrorMsg = Str.service_duration_error
     val onSubmit: (Boolean) -> Unit = submit@{ force ->
         val visitorId = selectedVisitorId ?: return@submit
         val duration = serviceDuration.trim().toIntOrNull()
@@ -332,7 +316,7 @@ private fun CreateAppointmentPhoneContent(
                             durationMinutes = serviceDuration.trim().toIntOrNull()
                         )
                         AppButton(
-                            text = if (uiState.editingAppointmentId != null) stringResource(Res.string.edit_appointment) else stringResource(Res.string.appointment_create_action),
+                            text = if (uiState.editingAppointmentId != null) Str.edit_appointment else Str.appointment_create_action,
                             onClick = onSubmit,
                             isLoading = uiState.isLoading
                         )
@@ -561,7 +545,7 @@ private fun CreateAppointmentWebContent(
                         // window would leave it floating below an empty page.
                         if (!uiState.isLoading && !uiState.appointmentCreated) {
                             SubmitActionCard(
-                                text = if (uiState.editingAppointmentId != null) stringResource(Res.string.edit_appointment) else stringResource(Res.string.appointment_create_action),
+                                text = if (uiState.editingAppointmentId != null) Str.edit_appointment else Str.appointment_create_action,
                                 isLoading = uiState.isLoading,
                                 onClick = onSubmit,
                                 summary = {
@@ -590,7 +574,7 @@ private fun CreateAppointmentTopBar(
     TopAppBar(
         title = {
             Text(
-                text = if (uiState.editingAppointmentId != null) stringResource(Res.string.edit_appointment) else stringResource(Res.string.create_appointment_title),
+                text = if (uiState.editingAppointmentId != null) Str.edit_appointment else Str.create_appointment_title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -599,7 +583,7 @@ private fun CreateAppointmentTopBar(
             IconButton(onClick = onBackPress) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = stringResource(Res.string.back)
+                    contentDescription = Str.back
                 )
             }
         },
@@ -608,7 +592,7 @@ private fun CreateAppointmentTopBar(
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         imageVector = Icons.Rounded.Delete,
-                        contentDescription = stringResource(Res.string.delete),
+                        contentDescription = Str.delete,
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
@@ -693,12 +677,12 @@ private fun AppointmentHeroCard(
                     Spacer(modifier = Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "مراجع",
+                            text = Str.client,
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White.copy(alpha = 0.75f)
                         )
                         Text(
-                            text = if (selectedVisitorId != null) visitorName ?: "--" else "انتخاب مراجع",
+                            text = if (selectedVisitorId != null) visitorName ?: "--" else Str.visitor_selection_title,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White,
@@ -744,7 +728,7 @@ private fun AppointmentHeroCard(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "زمان نوبت",
+                                text = Str.appointment_time,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.White.copy(alpha = 0.75f)
                             )
@@ -787,13 +771,13 @@ private fun AppointmentHeroCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "در این روز ${dailyCount.toString().toPersianDigits()} نوبت ثبت شده",
+                            text = Str.appointments_booked_on_this_day(dailyCount.toString().toPersianDigits()),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.9f),
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "مشاهده",
+                            text = Str.view,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -833,7 +817,7 @@ private fun FormSection(
             if (optional) {
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "(اختیاری)",
+                    text = Str.optional,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -858,13 +842,13 @@ private fun ServicesSection(
     onRemove: (String) -> Unit
 ) {
     FormSection(
-        title = stringResource(Res.string.service_catalog_title),
+        title = Str.service_catalog_title,
         action = if (selectedServices.isEmpty()) null else {
             {
                 TextButton(onClick = onOpenCatalog) {
                     Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("افزودن")
+                    Text(Str.add)
                 }
             }
         }
@@ -903,13 +887,13 @@ private fun ServicesSection(
                     Spacer(modifier = Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "انتخاب خدمات از فهرست",
+                            text = Str.choose_services_from_list,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "خدماتی که در این نوبت انجام می‌شود",
+                            text = Str.services_done_in_this_appointment,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -954,13 +938,13 @@ private fun DurationSection(
     }
 
     FormSection(
-        title = "مدت نوبت",
+        title = Str.appointment_length,
         action = {
             TextButton(onClick = { custom = true }, enabled = enabled) {
                 Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "مدت دلخواه",
+                    text = Str.custom_length,
                     fontWeight = if (custom) FontWeight.Bold else FontWeight.Normal
                 )
             }
@@ -994,7 +978,7 @@ private fun DurationSection(
                 keyboardType = KeyboardType.Number,
                 onValueChange = onValueChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = "مدت به دقیقه",
+                placeholder = Str.length_in_minutes,
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Rounded.Timer,
@@ -1048,7 +1032,7 @@ private fun NotesSection(
     onValueChange: (String) -> Unit,
     enabled: Boolean
 ) {
-    FormSection(title = "توضیحات", optional = true) {
+    FormSection(title = Str.notes, optional = true) {
         AppTextField(
             value = value,
             onValueChange = onValueChange,
@@ -1056,7 +1040,7 @@ private fun NotesSection(
             maxLine = 3,
             maxLength = 200,
             showCounter = value.isNotEmpty(),
-            placeholder = "مثلاً درخواست خاص مراجع",
+            placeholder = Str.e_g_clients_special_request,
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Rounded.Edit,
@@ -1098,7 +1082,7 @@ private fun BookingSummaryLine(
                 append(appointmentDateLabel(selectedDate))
                 append(" · ")
                 append(selectedTime.toPersianDigits())
-                if (end != null) append(" تا ").append(end.toPersianDigits())
+                if (end != null) append(Str.to).append(end.toPersianDigits())
             },
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
@@ -1126,7 +1110,7 @@ private fun appointmentDateLabel(millis: Long): String {
 
 /** Whole hours read as hours ("۱ ساعت"), anything else in minutes. */
 private fun durationLabel(minutes: Int): String =
-    (if (minutes >= 60 && minutes % 60 == 0) "${minutes / 60} ساعت" else "$minutes دقیقه").toPersianDigits()
+    (if (minutes >= 60 && minutes % 60 == 0) Str.h(minutes / 60) else Str.min(minutes)).toPersianDigits()
 
 /** "HH:mm" plus [minutes], wrapping past midnight; null if [start] won't parse. */
 private fun endTime(start: String, minutes: Int): String? {
@@ -1223,19 +1207,19 @@ private fun CreateAppointmentOverlays(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = onDismissDeleteDialog,
-            title = { Text(stringResource(Res.string.delete_appointment)) },
-            text = { Text("آیا از حذف این نوبت اطمینان دارید؟") },
+            title = { Text(Str.delete_appointment) },
+            text = { Text(Str.are_you_sure_you_want) },
             confirmButton = {
                 TextButton(
                     onClick = onConfirmDelete,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(Res.string.delete))
+                    Text(Str.delete)
                 }
             },
             dismissButton = {
                 TextButton(onClick = onDismissDeleteDialog) {
-                    Text(stringResource(Res.string.cancel))
+                    Text(Str.cancel)
                 }
             }
         )
@@ -1243,11 +1227,11 @@ private fun CreateAppointmentOverlays(
 
     // Conflict Dialog
     if (uiState.showConflictDialog) {
-        val prefix = stringResource(Res.string.conflict_dialog_message_prefix)
-        val suffix = stringResource(Res.string.conflict_dialog_message_suffix)
+        val prefix = Str.conflict_dialog_message_prefix
+        val suffix = Str.conflict_dialog_message_suffix
         AlertDialog(
             onDismissRequest = { onIntent(CreateAppointmentIntent.DismissConflictDialog) },
-            title = { Text(stringResource(Res.string.conflict_dialog_title)) },
+            title = { Text(Str.conflict_dialog_title) },
             text = {
                 Text(
                     text = buildAnnotatedString {
@@ -1266,12 +1250,12 @@ private fun CreateAppointmentOverlays(
             },
             confirmButton = {
                 TextButton(onClick = onForceCreate) {
-                    Text(stringResource(Res.string.yes_force_create))
+                    Text(Str.yes_force_create)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { onIntent(CreateAppointmentIntent.DismissConflictDialog) }) {
-                    Text(stringResource(Res.string.no))
+                    Text(Str.no)
                 }
             }
         )
@@ -1288,13 +1272,13 @@ private fun CreateAppointmentOverlays(
                     tint = MaterialTheme.colorScheme.error
                 )
             },
-            title = { Text("امکان ثبت نوبت نیست") },
+            title = { Text(Str.cant_book_appointment) },
             text = {
                 Column {
                     Text(uiState.quotaDialogMessage ?: "")
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        "برای رزرو نوبت بیشتر، از صفحه‌ی خانه پلن خود را ارتقا دهید یا منتظر شروع ماه بعد بمانید.",
+                        Str.to_book_more_appointments_upgrade,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1302,7 +1286,7 @@ private fun CreateAppointmentOverlays(
             },
             confirmButton = {
                 TextButton(onClick = { onIntent(CreateAppointmentIntent.DismissQuotaDialog) }) {
-                    Text("متوجه شدم")
+                    Text(Str.got_it)
                 }
             }
         )

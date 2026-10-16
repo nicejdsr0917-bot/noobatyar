@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,14 +19,14 @@ data class WeekdayOption(val isoWeekday: Int, val label: String)
 
 /** Mon=0..Sun=6 (Kotlin's/Python's convention — matches the backend's
  *  date.weekday() 1:1), ordered Saturday-first the way the week reads here. */
-val WEEKDAY_OPTIONS = listOf(
-    WeekdayOption(5, "شنبه"),
-    WeekdayOption(6, "یکشنبه"),
-    WeekdayOption(0, "دوشنبه"),
-    WeekdayOption(1, "سه‌شنبه"),
-    WeekdayOption(2, "چهارشنبه"),
-    WeekdayOption(3, "پنجشنبه"),
-    WeekdayOption(4, "جمعه"),
+val WEEKDAY_OPTIONS get() = listOf(
+    WeekdayOption(5, Str.saturday),
+    WeekdayOption(6, Str.sunday),
+    WeekdayOption(0, Str.monday),
+    WeekdayOption(1, Str.tuesday),
+    WeekdayOption(2, Str.wednesday),
+    WeekdayOption(3, Str.thursday_2),
+    WeekdayOption(4, Str.friday),
 )
 
 /**
@@ -45,12 +46,12 @@ fun ClosedWeekdaysField(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            "روزهای هفته",
+            Str.days_of_week,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            "روزهایی که کسب‌وکار شما تعطیل است و نوبت‌دهی در آن‌ها انجام نمی‌شود را انتخاب کنید.",
+            Str.choose_days_your_business_is,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -66,7 +67,7 @@ fun ClosedWeekdaysField(
                 checked = closedWeekdays.isEmpty(),
                 onCheckedChange = { checked -> if (checked) onClosedWeekdays(emptySet()) }
             )
-            Text("تعطیلی ندارم؛ هر روز هفته نوبت‌دهی فعال است", style = MaterialTheme.typography.bodyMedium)
+            Text(Str.no_closed_days_booking_is, style = MaterialTheme.typography.bodyMedium)
         }
 
         HorizontalDivider()

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.domain.usecase.user
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.billing.CheckoutConfirmation
 import xyz.sattar.javid.proqueue.core.billing.OwnedPurchase
 import xyz.sattar.javid.proqueue.core.billing.StoreBilling
@@ -34,7 +35,7 @@ class PurchaseUseCase(
 ) {
     suspend fun plan(planId: Int): PurchaseOutcome {
         val billing = StoreBillingProvider.billing
-        if (billing != null && planId == TRIAL_PLAN_ID) return PurchaseOutcome.Failed("سرویس آزمایشی قابل خرید و با تمدید نیست")
+        if (billing != null && planId == TRIAL_PLAN_ID) return PurchaseOutcome.Failed(Str.trial_plan_cant_be_purchased)
         confirmTotal(billing, KIND_PLAN, planId)?.let { return it }
         if (billing == null) return createPaymentUseCase(planId).toRedirect { it.paymentUrl }
         return viaStore(billing, KIND_PLAN, planId)
@@ -93,11 +94,11 @@ class PurchaseUseCase(
             billing.storeKey,
             StoreVerifyRequestDto(purchase.payload, purchase.sku, purchase.token, purchase.orderId)
         )) {
-            is ApiResponse.Success -> PurchaseOutcome.Completed(r.data.message.ifBlank { "خرید با موفقیت فعال شد" })
+            is ApiResponse.Success -> PurchaseOutcome.Completed(r.data.message.ifBlank { Str.purchase_activated_successfully })
             // Paid in the store but not activated yet: the purchase stays owned
             // in the store, so recoverPending() retries it on the next start.
             is ApiResponse.Error -> PurchaseOutcome.Failed(
-                r.message + "\nپرداخت شما محفوظ است و با باز کردن دوباره‌ی برنامه ثبت می‌شود."
+                r.message + Str.nyour_payment_is_safe_and
             )
         }
 

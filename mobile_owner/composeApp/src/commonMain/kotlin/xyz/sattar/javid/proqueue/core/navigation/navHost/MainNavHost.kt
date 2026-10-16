@@ -217,11 +217,10 @@ fun MainNavHost(
     // phone-width bottom bar, so it is not reused here — same tabs/icons,
     // a plain rail container.
     //
-    // RTL: the whole app is forced LayoutDirection.Rtl (Theme.kt), so a Row's
-    // "start" edge is the right-hand edge of the screen. Placing the rail as
-    // the Row's first child therefore lands it on the right without any
-    // manual mirroring — Compose resolves Row order against the ambient
-    // LayoutDirection automatically.
+    // Direction: Theme.kt sets LayoutDirection from the UI language (RTL for
+    // Persian, LTR for English), so the Row's first child lands on the
+    // reading-start edge — the rail sits on the right in Persian and on the
+    // left in English without any manual mirroring.
     Row(modifier = Modifier.fillMaxSize()) {
         // On every screen, not just the three tabs: a desktop has the room,
         // and an owner deep in, say, the SMS report can still jump anywhere

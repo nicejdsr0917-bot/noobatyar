@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.promo
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -101,7 +102,7 @@ class PromoCampaignViewModel(
 
     private fun load(): Flow<PromoCampaignState.Partial> = flow {
         val id = businessId() ?: run {
-            emit(PromoCampaignState.Partial.Toast(UiMessage.warning("کسب‌وکار انتخاب نشده")))
+            emit(PromoCampaignState.Partial.Toast(UiMessage.warning(Str.no_business_selected)))
             return@flow
         }
         when (val r = promoSms.overview(id)) {
@@ -136,14 +137,14 @@ class PromoCampaignViewModel(
         val id = businessId() ?: return@flow
         val state = uiState.value
         if (state.message.isBlank()) {
-            emit(PromoCampaignState.Partial.Toast(UiMessage.warning("متن پیامک را بنویسید.")))
+            emit(PromoCampaignState.Partial.Toast(UiMessage.warning(Str.write_sms_text)))
             return@flow
         }
         emit(PromoCampaignState.Partial.Previewing(true))
         when (val r = promoSms.preview(id, state.audience, state.message)) {
             is ApiResponse.Success -> {
                 if (r.data.recipientCount == 0) {
-                    emit(PromoCampaignState.Partial.Toast(UiMessage.warning("در این گروه مشتری‌ای با شماره‌ی معتبر نیست.")))
+                    emit(PromoCampaignState.Partial.Toast(UiMessage.warning(Str.no_customer_in_this_group)))
                 } else {
                     emit(PromoCampaignState.Partial.Confirm(r.data))
                 }
@@ -162,7 +163,7 @@ class PromoCampaignViewModel(
                 emit(PromoCampaignState.Partial.Confirm(null))
                 emit(
                     PromoCampaignState.Partial.Toast(
-                        UiMessage.success("کمپین ثبت شد و ارسال برای ${r.data.recipientCount} نفر آغاز شد.")
+                        UiMessage.success(Str.campaign_created_and_sending_to(r.data.recipientCount))
                     )
                 )
                 emitAll(load())

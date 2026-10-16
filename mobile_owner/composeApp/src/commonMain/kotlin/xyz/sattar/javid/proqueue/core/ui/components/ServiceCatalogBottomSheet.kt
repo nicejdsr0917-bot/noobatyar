@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,14 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.service_catalog_add_new
-import proqueue.composeapp.generated.resources.service_catalog_add_placeholder
-import proqueue.composeapp.generated.resources.service_catalog_done
-import proqueue.composeapp.generated.resources.service_catalog_empty
-import proqueue.composeapp.generated.resources.service_catalog_sheet_hint
-import proqueue.composeapp.generated.resources.service_catalog_sheet_title
 
 /**
  * Chip picker for "which services did this client actually receive?",
@@ -80,13 +73,13 @@ fun ServiceCatalogBottomSheet(
                 .padding(bottom = 24.dp)
         ) {
             Text(
-                text = stringResource(Res.string.service_catalog_sheet_title),
+                text = Str.service_catalog_sheet_title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(Res.string.service_catalog_sheet_hint),
+                text = Str.service_catalog_sheet_hint,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -107,7 +100,7 @@ fun ServiceCatalogBottomSheet(
                     }
                 } else if (catalog.isEmpty()) {
                     Text(
-                        text = stringResource(Res.string.service_catalog_empty),
+                        text = Str.service_catalog_empty,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 16.dp)
@@ -135,7 +128,7 @@ fun ServiceCatalogBottomSheet(
                     value = newItemText,
                     onValueChange = { newItemText = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text(stringResource(Res.string.service_catalog_add_placeholder)) },
+                    placeholder = { Text(Str.service_catalog_add_placeholder) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -153,7 +146,7 @@ fun ServiceCatalogBottomSheet(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Add,
-                        contentDescription = stringResource(Res.string.service_catalog_add_new),
+                        contentDescription = Str.service_catalog_add_new,
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -162,7 +155,7 @@ fun ServiceCatalogBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             AppButton(
-                text = stringResource(Res.string.service_catalog_done),
+                text = Str.service_catalog_done,
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth()
             )

@@ -2,6 +2,7 @@
 
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { t } from '@/lib/i18n';
 
 // Registration is now handled in the unified OTP login flow.
 // This page simply redirects to login.
@@ -16,8 +17,7 @@ function RegisterRedirect() {
 
   return (
     <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-muted)', fontSize: 14 }}>
-      در حال انتقال...
-    </div>
+      {t('redirecting')}</div>
   );
 }
 

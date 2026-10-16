@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.login
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
@@ -24,7 +25,7 @@ class LoginViewModel(
             }
             is LoginIntent.ForgetPassword -> flow {
                 if (intent.phone.isEmpty()) {
-                    emit(ValidationError(phoneError = "برای بازیابی رمز عبور، شماره موبایل را وارد کنید", passwordError = null))
+                    emit(ValidationError(phoneError = Str.to_reset_your_password_enter, passwordError = null))
                 } else {
                     sendEvent(LoginEvent.NavigateToForgetPassword(intent.phone))
                 }
@@ -38,8 +39,8 @@ class LoginViewModel(
 
         if (phone.isEmpty() || password.isEmpty()) {
             emit(ValidationError(
-                phoneError = if (phone.isEmpty()) "شماره تلفن را وارد کنید" else null,
-                passwordError = if (password.isEmpty()) "رمز عبور را وارد کنید" else null
+                phoneError = if (phone.isEmpty()) Str.enter_your_phone_number else null,
+                passwordError = if (password.isEmpty()) Str.enter_your_password else null
             ))
             return@flow
         }

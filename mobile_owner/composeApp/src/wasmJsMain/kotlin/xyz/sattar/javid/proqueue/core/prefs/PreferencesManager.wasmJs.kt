@@ -4,6 +4,7 @@ import kotlinx.browser.localStorage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
+import xyz.sattar.javid.proqueue.core.i18n.AppLanguage
 import xyz.sattar.javid.proqueue.core.state.AppThemeMode
 import xyz.sattar.javid.proqueue.domain.model.business.DEFAULT_REMINDER_MINUTES
 
@@ -27,6 +28,7 @@ actual object PreferencesManager {
     private const val KEY_NOTIFICATION_REMINDER_MINUTES = "notification_reminder_minutes"
     private const val KEY_MESSAGE_TEMPLATE_PREFIX = "message_template_" // suffix: businessId
     private const val KEY_ONBOARDING_SEEN = "onboarding_seen"
+    private const val KEY_LANGUAGE = "app_language"
 
     // These property initializers run at first access to this object, which
     // for _themeMode is during app startup (App() reads it to theme the very
@@ -127,5 +129,11 @@ actual object PreferencesManager {
         } catch (e: Throwable) {
             // No-op: nothing to clear if storage was never writable.
         }
+    }
+
+    actual fun getLanguage(): AppLanguage = AppLanguage.fromCode(safeGet(KEY_LANGUAGE))
+
+    actual suspend fun setLanguage(language: AppLanguage) {
+        safeSet(KEY_LANGUAGE, language.code)
     }
 }
