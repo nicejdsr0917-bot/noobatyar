@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -46,7 +47,6 @@ import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.rememberCaptureController
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
-import xyz.sattar.javid.proqueue.core.utils.encodePng
 import xyz.sattar.javid.proqueue.core.utils.shareImage
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.domain.model.business.Business
@@ -147,7 +147,7 @@ fun ReminderCardDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         // Straight to fully expanded, and scrollable inside: the card is a
-        // 4:5 image and the two buttons sit under it, which is taller than
+        // 14 × 21 cm portrait image and the two buttons sit under it, which is taller than
         // the half-height a sheet opens at by default — the owner would have
         // had to drag the sheet up before they could reach "share".
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -160,7 +160,7 @@ fun ReminderCardDialog(
                 .padding(bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ExportableCard(controller = capture, designHeightDp = POSTER_HEIGHT_DP) {
+            ExportableCard(controller = capture, designHeightDp = CARD_HEIGHT_DP) {
                 ReminderPosterCard(
                     business = business,
                     visitorName = visitorName,
@@ -188,7 +188,7 @@ fun ReminderCardDialog(
                         exporting = true
                         scope.launch {
                             shareImage(
-                                bytes = encodePng(capture.capture()),
+                                bytes = encodeCardPng(capture.capture()),
                                 fileName = "noobatyar-reminder-$appointmentDate.png",
                                 caption = reminderShareText(business, visitorName, appointmentDate),
                             )
@@ -220,26 +220,10 @@ private fun ReminderPosterCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 18.dp),
+                .padding(horizontal = CARD_SIDE_PADDING, vertical = CARD_EDGE_PADDING),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (business != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    BusinessAvatar(business, size = 34, ring = true)
-                    Spacer(Modifier.width(9.dp))
-                    Text(
-                        text = business.title,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
+            if (business != null) CardHeader(business, compact = true)
 
             Spacer(Modifier.weight(1f))
 
@@ -249,11 +233,11 @@ private fun ReminderPosterCard(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
 
             // The customer's own name, at the top of the card and larger than
             // anything else on it: this is sent to one person, and a reminder
@@ -262,13 +246,13 @@ private fun ReminderPosterCard(
             Text(
                 text = visitorName,
                 fontSize = 20.sp,
-                lineHeight = 26.sp,
+                lineHeight = 25.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
             )
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
 
             NeonGlass(
                 modifier = Modifier.fillMaxWidth(),
@@ -278,7 +262,7 @@ private fun ReminderPosterCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ReminderFact(
@@ -304,13 +288,17 @@ private fun ReminderPosterCard(
 
             if (!services.isNullOrBlank()) {
                 Spacer(Modifier.height(8.dp))
+                // One line: the services are a reminder of what was booked,
+                // not a menu, and the height is the address's to use.
                 Text(
                     text = services.split(",").joinToString(" • ") { it.trim() },
                     fontSize = 12.sp,
                     lineHeight = 20.sp,
                     color = Color.White.copy(alpha = 0.85f),
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 
@@ -324,7 +312,7 @@ private fun ReminderPosterCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color.White, RoundedCornerShape(22.dp))
-                        .padding(vertical = 11.dp),
+                        .padding(vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
@@ -342,13 +330,14 @@ private fun ReminderPosterCard(
                 }
             }
 
+            Spacer(Modifier.height(12.dp))
             Spacer(Modifier.weight(1f))
 
             // The address gets the card's full width — squeezed beside the
             // signature it broke after "طبقه" and left "سوم" alone on a line,
             // which is the kind of detail that makes a generated image look
             // generated. The mark then sits on its own line below it, in the
-            // corner the eye reaches last.
+            // centre of the card's foot, under it.
             if (business?.address?.isNotBlank() == true) {
                 Text(
                     text = business.address,
@@ -364,15 +353,10 @@ private fun ReminderPosterCard(
                     maxLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
             }
 
-            // The mark sits at the reading end: left in Persian, right in English.
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Box(Modifier.align(Alignment.CenterEnd)) {
-                    AppSignature(onDark = true)
-                }
-            }
+            CardFooter()
         }
     }
 }
@@ -398,7 +382,7 @@ private fun ReminderFact(
             Spacer(Modifier.width(4.dp))
             Text(text = label, fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
         }
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             text = value,
             fontSize = 14.sp,

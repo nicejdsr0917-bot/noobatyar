@@ -82,6 +82,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -110,7 +111,6 @@ import xyz.sattar.javid.proqueue.core.ui.utils.CardNumberVisualTransformation
 import xyz.sattar.javid.proqueue.core.ui.rememberCaptureController
 import xyz.sattar.javid.proqueue.core.utils.AppConfig
 import xyz.sattar.javid.proqueue.core.utils.detectIranianBank
-import xyz.sattar.javid.proqueue.core.utils.encodePng
 import xyz.sattar.javid.proqueue.core.utils.shareImage
 import xyz.sattar.javid.proqueue.core.utils.shareText
 import xyz.sattar.javid.proqueue.domain.model.business.Business
@@ -123,11 +123,12 @@ import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessViewModel
  * Three ways to send the same link, because the owner is in three different
  * situations — and, crucially, **each one shares in its own medium**:
  *
- *  - *QR poster* → a 1080×1350 PNG, the square-ish format an Instagram feed
- *    post wants. Something to print for the counter or post as content.
+ *  - *QR poster* → a PNG to print for the counter or post as content.
  *  - *Link* → plain text, for a chat.
- *  - *Story* → a 1080×1920 PNG, exactly Instagram/WhatsApp story size,
- *    which is where these businesses' customers actually are.
+ *  - *Story* → a PNG of the booking guide, for a story or a channel.
+ *
+ * Every image is a 14 × 21 cm portrait sheet at 300 dpi (see ShareCardKit),
+ * since owners print these for a table stand.
  *
  * A text share of a link is useless to an owner whose whole audience is on
  * Instagram: you cannot post a sentence there. So the two visual options
@@ -224,14 +225,14 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                         when (current) {
                             ShareMode.QR -> ExportableCard(
                                 controller = posterCapture,
-                                designHeightDp = POSTER_HEIGHT_DP,
+                                designHeightDp = CARD_HEIGHT_DP,
                             ) { QrPosterCard(b, link) }
 
                             ShareMode.LINK -> LinkShareCard(b, link)
 
                             ShareMode.PROFILE -> ExportableCard(
                                 controller = storyCapture,
-                                designHeightDp = STORY_HEIGHT_DP,
+                                designHeightDp = CARD_HEIGHT_DP,
                             ) { ProfileStoryCard(b, link) }
 
                             ShareMode.CARD ->
@@ -240,7 +241,7 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                                 } else {
                                     ExportableCard(
                                         controller = cardCapture,
-                                        designHeightDp = POSTER_HEIGHT_DP,
+                                        designHeightDp = CARD_HEIGHT_DP,
                                     ) { CardNumberPosterCard(b) }
                                 }
                         }
@@ -278,7 +279,7 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                                 exporting = true
                                 scope.launch {
                                     shareImage(
-                                        bytes = encodePng(cardCapture.capture()),
+                                        bytes = encodeCardPng(cardCapture.capture()),
                                         fileName = "noobatyar-card-${b.uniqueCode}.png",
                                         caption = cardShareMessage(b),
                                     )
@@ -293,7 +294,7 @@ fun ShareBusinessScreen(onNavigateBack: () -> Unit) {
                                         if (mode == ShareMode.QR) posterCapture else storyCapture
                                     val bitmap = controller.capture()
                                     shareImage(
-                                        bytes = encodePng(bitmap),
+                                        bytes = encodeCardPng(bitmap),
                                         fileName = if (mode == ShareMode.QR) {
                                             "noobatyar-qr-${b.uniqueCode}.png"
                                         } else {
@@ -462,76 +463,66 @@ private fun QrPosterCard(business: Business, link: String) {
     ) {
         CardBackdrop(Modifier.fillMaxSize())
 
+        // One centre line for everything — logo, name, code, caption, link,
+        // signature. This is printed and stood on a counter, where a block
+        // that sits a few millimetres off the others is the first thing seen.
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 26.dp, end = 26.dp, top = 24.dp, bottom = 62.dp),
+                .padding(horizontal = CARD_SIDE_PADDING, vertical = CARD_EDGE_PADDING),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+            CardHeader(business)
+
+            // The QR and its caption take whatever height the header and
+            // footer leave, centred in it. The code is as large as fits, up to
+            // 176dp (about 72 mm printed — readable from arm's length across a
+            // counter); a business name that wraps to two lines shrinks it a
+            // little instead of pushing the footer off the bottom of the sheet.
+            BoxWithConstraints(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center,
             ) {
-                BusinessAvatar(business, size = 44, ring = true)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = business.title,
-                    fontSize = 17.sp,
-                    lineHeight = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 2,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            // The QR sits on its own white panel: scanners read a code by
-            // contrast, and a coloured or textured quiet zone around it is the
-            // usual reason a code that looks fine fails to scan.
-            NeonHalo(shape = RoundedCornerShape(26.dp)) {
-                Surface(shape = RoundedCornerShape(26.dp), color = Color.White) {
-                    Box(Modifier.padding(16.dp)) {
-                        BookingQrCode(link, size = 148)
+                val qrSize = (maxHeight - QR_POSTER_RESERVED).coerceIn(120.dp, 176.dp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // The QR sits on its own white panel: scanners read a code
+                    // by contrast, and a coloured or textured quiet zone around
+                    // it is the usual reason a code that looks fine fails to scan.
+                    NeonHalo(shape = RoundedCornerShape(26.dp)) {
+                        Surface(shape = RoundedCornerShape(26.dp), color = Color.White) {
+                            Box(Modifier.padding(16.dp)) {
+                                BookingQrCode(link, size = qrSize)
+                            }
+                        }
                     }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Text(
+                        text = Str.scan_to_book_appointment,
+                        fontSize = 19.sp,
+                        lineHeight = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
-
-            Text(
-                text = Str.scan_to_book_appointment,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center,
-            )
-
-            Spacer(Modifier.weight(1f))
-
-            NeonGlass(
-                shape = RoundedCornerShape(12.dp),
-                glowRadius = 8.dp,
-                glowWidth = 2.dp,
-            ) {
-                LtrText(
-                    text = link.shortForDisplay(),
-                    fontSize = 12.sp,
-                    weight = FontWeight.SemiBold,
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                )
-            }
-
+            CardFooter(link)
         }
-
-        CardSignatureCorner(padding = 22.dp)
     }
 }
 
+/** Height around the code inside the poster's middle band: the white panel's
+ *  padding (2 × 16), the caption's gap and line (16 + 26), and a 16dp floor of
+ *  breathing room above and below the group (2 × 16). */
+private val QR_POSTER_RESERVED = 32.dp + 16.dp + 26.dp + 32.dp
+
 @Composable
-private fun BookingQrCode(link: String, size: Int) {
+private fun BookingQrCode(link: String, size: Dp) {
     val painter = rememberQrCodePainter(link) {
         // Medium, not Auto: Auto resolves to L, and these codes are meant to
         // be scanned off a printed card or someone else's phone screen at an
@@ -556,7 +547,7 @@ private fun BookingQrCode(link: String, size: Int) {
     Image(
         painter = painter,
         contentDescription = Str.booking_qr_code,
-        modifier = Modifier.size(size.dp),
+        modifier = Modifier.size(size),
     )
 }
 
@@ -633,24 +624,27 @@ private fun ProfileStoryCard(business: Business, link: String) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 26.dp, end = 26.dp, top = 28.dp, bottom = 70.dp),
+                .padding(horizontal = CARD_SIDE_PADDING, vertical = CARD_EDGE_PADDING),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.weight(0.6f))
+            Spacer(Modifier.weight(0.5f))
 
-            BusinessAvatar(business, size = 104, ring = true)
+            BusinessAvatar(business, size = 72, ring = true)
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
 
             Text(
                 text = business.title,
-                fontSize = 23.sp,
-                lineHeight = 30.sp,
+                fontSize = 21.sp,
+                lineHeight = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(Modifier.height(16.dp))
             Spacer(Modifier.weight(0.5f))
 
             // The whole point of this card: how a customer books, step by
@@ -662,14 +656,15 @@ private fun ProfileStoryCard(business: Business, link: String) {
                     color = Color.White,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Column(Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
+                    Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
                         Text(
                             text = Str.how_do_i_book,
-                            fontSize = 18.sp,
+                            fontSize = 17.sp,
+                            lineHeight = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = ShareVioletDeep,
                         )
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(8.dp))
                         GuideStep(1, Str.tap_link_in_bio_to)
                         GuideStep(2, Str.sign_in_with_your_mobile)
                         GuideStep(3, Str.pick_free_day_and_time)
@@ -678,10 +673,11 @@ private fun ProfileStoryCard(business: Business, link: String) {
                 }
             }
 
+            Spacer(Modifier.height(18.dp))
             Spacer(Modifier.weight(0.6f))
-        }
 
-        CardSignatureCorner(padding = 22.dp)
+            CardFooter()
+        }
     }
 }
 
@@ -690,12 +686,14 @@ private fun GuideStep(number: Int, text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.Top,
     ) {
+        // 24dp disc against a 22sp line: it sits on the step's first line,
+        // not centred on the whole (possibly two-line) step.
         Box(
             modifier = Modifier
-                .size(26.dp)
+                .size(24.dp)
                 .clip(CircleShape)
                 .background(ShareViolet),
             contentAlignment = Alignment.Center,
@@ -710,8 +708,8 @@ private fun GuideStep(number: Int, text: String) {
         Spacer(Modifier.width(10.dp))
         Text(
             text = text,
-            fontSize = 14.sp,
-            lineHeight = 23.sp,
+            fontSize = 13.5.sp,
+            lineHeight = 22.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFF2E2B45),
             modifier = Modifier.weight(1f),
@@ -797,36 +795,13 @@ private fun CardNumberPosterCard(business: Business) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 26.dp, end = 26.dp, top = 24.dp, bottom = 62.dp),
+                .padding(horizontal = CARD_SIDE_PADDING, vertical = CARD_EDGE_PADDING),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Deliberately the QR poster's header, measure for measure — same
-            // 44dp logo, same gap, same 17sp title on the same baseline. The
-            // two cards are flipped between in one tap strip, and a header
-            // that shifts between them reads as the page jumping.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BusinessAvatar(business, size = 44, ring = true)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = Str.card_number_for_transfer,
-                        fontSize = 11.sp,
-                        color = Color.White.copy(alpha = 0.75f),
-                        maxLines = 1,
-                    )
-                    Text(
-                        text = business.title,
-                        fontSize = 17.sp,
-                        lineHeight = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 2,
-                    )
-                }
-            }
+            // The QR poster's header, measure for measure: the two cards are
+            // flipped between in one tap strip, and a header that shifts
+            // between them reads as the page jumping.
+            CardHeader(business, label = Str.card_number_for_transfer)
 
             Spacer(Modifier.weight(1f))
 
@@ -928,10 +903,11 @@ private fun CardNumberPosterCard(business: Business) {
                 }
             }
 
+            Spacer(Modifier.height(16.dp))
             Spacer(Modifier.weight(1f))
-        }
 
-        CardSignatureCorner(padding = 22.dp)
+            CardFooter()
+        }
     }
 }
 

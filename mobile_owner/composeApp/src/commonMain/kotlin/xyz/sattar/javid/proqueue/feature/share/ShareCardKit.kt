@@ -40,6 +40,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -54,6 +55,9 @@ import proqueue.composeapp.generated.resources.main_icon
 import xyz.sattar.javid.proqueue.core.ui.Capturable
 import xyz.sattar.javid.proqueue.core.ui.CaptureController
 import xyz.sattar.javid.proqueue.core.utils.AppConfig
+import xyz.sattar.javid.proqueue.core.utils.encodePng
+import xyz.sattar.javid.proqueue.core.utils.withPngDpi
+import androidx.compose.ui.graphics.ImageBitmap
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 
 /**
@@ -68,15 +72,31 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
 
 // ── Card geometry ────────────────────────────────────────────────────────────
 //
-// The cards are laid out in a fixed design space (360dp wide) under a pinned
-// density of 3, so a card exports at exactly 1080px wide on *every* device —
-// not at whatever the handset's own density happens to give. Instagram wants
-// 1080; a 2.0-density phone would otherwise export a soft 720px image, and a
-// 3.5-density one would waste bytes at 1260.
+// Every exported card is a 14 × 21 cm portrait sheet at 300 dpi — 1654 × 2480
+// px, a 2:3 ratio — because owners print them for the counter, on a
+// plexiglass table stand of that size. The same file still posts fine to
+// Instagram or a chat; the reverse (a 1080px social image blown up to print
+// size) comes out soft.
+//
+// Cards are laid out in a fixed design space 360dp wide under a pinned
+// density, so the export is exactly that pixel size on *every* device rather
+// than whatever the handset's own density happens to give.
+internal const val CARD_PRINT_DPI = 300
+internal const val CARD_EXPORT_WIDTH_PX = 1654   // 140 mm at 300 dpi
+internal const val CARD_EXPORT_HEIGHT_PX = 2480  // 210 mm at 300 dpi
 internal const val CARD_DESIGN_WIDTH_DP = 360f
-internal const val CARD_EXPORT_DENSITY = 3f
-internal const val POSTER_HEIGHT_DP = 450f   // 4:5  → 1080×1350
-internal const val STORY_HEIGHT_DP = 640f    // 9:16 → 1080×1920
+internal const val CARD_EXPORT_DENSITY = CARD_EXPORT_WIDTH_PX / CARD_DESIGN_WIDTH_DP
+internal const val CARD_HEIGHT_DP = CARD_EXPORT_HEIGHT_PX / CARD_EXPORT_DENSITY // ≈ 539.8
+
+// Margins every card keeps clear: ~10.1 mm at the sides and ~9.3 mm top and
+// bottom once printed — well inside a print shop's trim and a stand's frame.
+internal val CARD_SIDE_PADDING = 26.dp
+internal val CARD_EDGE_PADDING = 24.dp
+
+/** PNG of a captured card, tagged 300 dpi so print software opens it at
+ *  14 × 21 cm instead of guessing 72 dpi (which reads as a 58 cm poster). */
+internal fun encodeCardPng(image: ImageBitmap): ByteArray =
+    encodePng(image).withPngDpi(CARD_PRINT_DPI)
 
 // Brand violets, fixed rather than theme roles: a shared card has to look the
 // same to the customer who receives it regardless of the owner's light/dark
@@ -261,23 +281,20 @@ internal fun BusinessAvatar(
 }
 
 /**
- * Noobatyar's mark at the foot of a shared card.
+ * Noobatyar's mark at the foot of a shared card: the app icon and name on one
+ * line, the domain centred under them.
  *
  * A signature, not a watermark: an app icon blown up behind the content at 10%
  * alpha doesn't read as branding, it reads as a rendering artefact sitting
- * behind the business's own logo. Small, legible, and clearly a credit line is
- * both quieter *and* more recognisable. The card belongs to the business; this
- * only says what made it.
+ * behind the business's own logo. The card belongs to the business; this only
+ * says what made it.
  */
 @Composable
-internal fun AppSignature(onDark: Boolean) {
+internal fun AppSignature(onDark: Boolean, modifier: Modifier = Modifier) {
     val tone = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-    // Right-to-left like everything else on the card: the mark sits at the
-    // start of the name, where a Persian reader meets it first. Only the
-    // domain under it is LTR (it's Latin), via LtrText.
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.alpha(if (onDark) 0.8f else 0.6f),
+        modifier = modifier.alpha(if (onDark) 0.85f else 0.6f),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(
@@ -289,14 +306,14 @@ internal fun AppSignature(onDark: Boolean) {
             Text(
                 text = Str.about_us_app_name,
                 fontSize = 12.sp,
+                lineHeight = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = tone,
                 maxLines = 1,
             )
         }
-        Spacer(Modifier.height(1.dp))
-        // The name alone is a brand nobody can look up. The domain under
-        // it is the whole point of signing a card that will be reposted,
+        // The name alone is a brand nobody can look up. The domain under it
+        // is the whole point of signing a card that will be reposted,
         // screenshotted and forwarded away from any link.
         LtrText(
             text = "noobatyar.ir",
@@ -308,29 +325,77 @@ internal fun AppSignature(onDark: Boolean) {
 }
 
 /**
- * The signature, parked in the card's bottom-left corner.
- *
- * Centred under the content it was competing with the card's own message for
- * the reader's last line; in the corner it behaves like a maker's mark --
- * present, findable, and out of the way. Bottom-*left* specifically, and
- * absolutely rather than by layout direction: every one of these cards is
- * RTL, so the bottom-left is the corner the eye arrives at last.
- *
- * Overlaid on the card rather than placed in its column, so it costs the
- * content no vertical space -- leave room for it with the column's bottom
- * padding.
+ * The head every card starts with: the business's logo, an optional small
+ * label, and its name, stacked on the card's centre line. Shared so the cards
+ * an owner flips between keep their header in exactly the same place.
+ * [compact] is for a card whose subject is someone else (the reminder, which
+ * leads with the customer's name) and needs the height for its own content.
  */
 @Composable
-internal fun BoxScope.CardSignatureCorner(
-    onDark: Boolean = true,
-    padding: Dp = 20.dp,
-) {
-    Box(
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .padding(padding)
+internal fun CardHeader(business: Business, label: String? = null, compact: Boolean = false) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AppSignature(onDark = onDark)
+        BusinessAvatar(business, size = if (compact) 44 else 56, ring = true)
+        Spacer(Modifier.height(if (compact) 8.dp else 10.dp))
+        if (label != null) {
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                color = Color.White.copy(alpha = 0.75f),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(2.dp))
+        }
+        Text(
+            text = business.title,
+            fontSize = if (compact) 17.sp else 20.sp,
+            lineHeight = if (compact) 23.sp else 26.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/**
+ * The foot every card ends on: the booking link (when the card has one) and
+ * the signature under it, both on the card's centre line.
+ *
+ * Part of the card's column, not overlaid on it. The signature used to be
+ * pinned to a corner over the content, and with a long link it ran into the
+ * link chip — on a printed stand that collision is permanent.
+ */
+@Composable
+internal fun CardFooter(link: String? = null) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (link != null) {
+            NeonGlass(
+                shape = RoundedCornerShape(12.dp),
+                glowRadius = 8.dp,
+                glowWidth = 2.dp,
+            ) {
+                LtrText(
+                    text = link.shortForDisplay(),
+                    fontSize = 12.sp,
+                    weight = FontWeight.SemiBold,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+        }
+        AppSignature(onDark = true)
     }
 }
 
