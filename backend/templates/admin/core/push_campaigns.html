@@ -637,7 +637,7 @@
           <div class="cp-report-meta">
             {{ l.sent_at_display }} ·
             {% if l.sent_by %}{{ l.sent_by.name|default:l.sent_by.phone }}{% elif l.source == 'auto' %}زمان‌بند{% else %}—{% endif %}
-            {% if l.source != 'test' %}{% if l.filters.mode == 'expired' %} · تمام‌شده در {{ l.days_before }} روز گذشته (تمدید نکرده){% else %} · تا {{ l.days_before }} روز مانده{% endif %}{% endif %}
+            {% if l.source != 'test' %}{% if l.filters.mode == 'selection' %} · انتخاب‌شده از فهرست اشتراک‌ها{% elif l.filters.mode == 'expired' %} · تمام‌شده در {{ l.days_before }} روز گذشته (تمدید نکرده){% else %} · تا {{ l.days_before }} روز مانده{% endif %}{% endif %}
             {% if l.filters.plans %} · پلن: {{ l.filters.plans|join:"، " }}{% endif %}
           </div>
           <div class="cp-report-figs">

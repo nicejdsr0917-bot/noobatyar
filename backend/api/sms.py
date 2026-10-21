@@ -54,6 +54,12 @@ SMS_FOOTER = 'نوبت‌یار'
 SMS_OPT_OUT = 'لغو11'
 SEND_WINDOW_START_HOUR = 8
 SEND_WINDOW_END_HOUR = 22
+# What a staff send attempted outside the window is told, before anything is
+# sent or logged.
+SEND_WINDOW_CLOSED = (
+    f'ارسال پیامک فقط بین ساعت {SEND_WINDOW_START_HOUR} تا {SEND_WINDOW_END_HOUR} '
+    'به وقت تهران ممکن است؛ چیزی ارسال نشد.'
+)
 
 
 def _strip_link_like(text: str) -> str:

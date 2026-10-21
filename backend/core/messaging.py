@@ -264,19 +264,74 @@ def send_expiry_sms(message: str, days_before: int, actor=None, *,
     staff-triggered renewal notice is a platform cost, not something billed
     to the owner's own SMS quota (see this module's docstring).
     """
-    from accounting.models import Plan, render_reminder_text
-    from api.sms import send_sms, signed
+    from accounting.models import Plan
     from core.models import ExpirySmsLog
 
     subs = expiry_sms_audience(
         days_before, plan_ids=plan_ids, skip_reminded=skip_reminded, mode=mode,
     )
-    flag = 'expired_reminder_sent' if mode == 'expired' else 'reminder_sent'
+    matched, sent, failed, recipients = _send_renewal_sms(subs, message, mode_of=lambda sub: mode)
+
+    plan_names = list(Plan.objects.filter(id__in=plan_ids).values_list('name', flat=True)) if plan_ids else []
+    return ExpirySmsLog.objects.create(
+        source=ExpirySmsLog.SOURCE_MANUAL,
+        message=message, days_before=days_before,
+        filters={'plans': plan_names, 'skip_reminded': skip_reminded, 'mode': mode},
+        matched_count=matched, sent_count=sent, failed_count=failed,
+        recipients=recipients, sent_by=actor,
+    )
+
+
+def send_sms_to_subscriptions(subs, message: str, actor=None):
+    """
+    Sends ``message`` to the owners of hand-picked subscriptions — the
+    "ارسال پیامک" action on the subscription list — and records one
+    :class:`core.models.ExpirySmsLog` row, so these sends show up in the same
+    report as the campaign-page ones.
+
+    One SMS per owner: when several of one owner's subscriptions are picked,
+    the one ending last speaks for them. Each subscription is filled and
+    flagged by its own state — already ended reads ``{days}`` as days since
+    the end and sets ``expired_reminder_sent``, still running reads days left
+    and sets ``reminder_sent`` — so the campaign page's "skip already
+    reminded" sees these sends too.
+    """
+    from django.utils import timezone
+
+    from core.models import ExpirySmsLog
+
+    by_user = {}
+    for sub in subs:
+        current = by_user.get(sub.user_id)
+        if current is None or sub.ends_at > current.ends_at:
+            by_user[sub.user_id] = sub
+    picked = sorted(by_user.values(), key=lambda sub: sub.ends_at, reverse=True)
+
+    now = timezone.now()
+    matched, sent, failed, recipients = _send_renewal_sms(
+        picked, message, mode_of=lambda sub: 'expired' if sub.ends_at <= now else 'expiring',
+    )
+    return ExpirySmsLog.objects.create(
+        source=ExpirySmsLog.SOURCE_MANUAL,
+        message=message, days_before=0,
+        filters={'mode': 'selection', 'plans': sorted({sub.plan.name for sub in picked})},
+        matched_count=matched, sent_count=sent, failed_count=failed,
+        recipients=recipients, sent_by=actor,
+    )
+
+
+def _send_renewal_sms(subs, message, *, mode_of):
+    """The send loop behind both renewal-SMS entry points: fill the template
+    per owner, send, flag the subscription on success, and collect the
+    per-recipient report. ``mode_of(sub)`` is 'expired' or 'expiring'."""
+    from accounting.models import render_reminder_text
+    from api.sms import send_sms, signed
 
     matched = sent = failed = 0
     recipients = []
     for sub in subs:
         matched += 1
+        mode = mode_of(sub)
         name = sub.user.name or ''
         phone = getattr(sub.user, 'phone', None)
         if not phone:
@@ -293,21 +348,14 @@ def send_expiry_sms(message: str, days_before: int, actor=None, *,
         if ok:
             sent += 1
             recipients.append({'name': name, 'phone': phone, 'status': 'SENT'})
+            flag = 'expired_reminder_sent' if mode == 'expired' else 'reminder_sent'
             setattr(sub, flag, True)
             sub.save(update_fields=[flag])
         else:
             failed += 1
             logger.warning('Expiry SMS to %s failed: %s', phone, err)
             recipients.append({'name': name, 'phone': phone, 'status': 'FAILED', 'error': err or ''})
-
-    plan_names = list(Plan.objects.filter(id__in=plan_ids).values_list('name', flat=True)) if plan_ids else []
-    return ExpirySmsLog.objects.create(
-        source=ExpirySmsLog.SOURCE_MANUAL,
-        message=message, days_before=days_before,
-        filters={'plans': plan_names, 'skip_reminded': skip_reminded, 'mode': mode},
-        matched_count=matched, sent_count=sent, failed_count=failed,
-        recipients=recipients, sent_by=actor,
-    )
+    return matched, sent, failed, recipients
 
 
 def send_expiry_sms_test(message: str, days_before: int, actor):

@@ -23,6 +23,8 @@ from django.urls import path, reverse
 from django.utils.http import urlencode
 from unfold.sites import UnfoldAdminSite
 
+from api.sms import SEND_WINDOW_CLOSED, within_send_window
+
 # core.dashboard is imported inside the views, never here. This module is
 # imported while the app registry is still populating (AdminConfig resolves
 # `default_site` during autodiscover), and core.dashboard pulls in models from
@@ -966,6 +968,11 @@ class NobatyarAdminSite(UnfoldAdminSite):
         if days_before <= 0:
             messages.error(request, 'تعداد روز باید عددی مثبت باشد.')
             return HttpResponseRedirect(self._campaigns_url('sms'))
+        if not within_send_window():
+            # The line would take every message and deliver none of them; say
+            # so now instead of logging a whole audience as failed.
+            messages.error(request, SEND_WINDOW_CLOSED)
+            return HttpResponseRedirect(self._campaigns_url('sms'))
 
         log = send_expiry_sms(
             message, days_before, actor=request.user,
@@ -998,6 +1005,8 @@ class NobatyarAdminSite(UnfoldAdminSite):
         days_before, _, _ = self._expiry_audience_params(request.POST)
         if not message:
             messages.error(request, 'متن پیامک نمی‌تواند خالی باشد.')
+        elif not within_send_window():
+            messages.error(request, SEND_WINDOW_CLOSED)
         else:
             log = send_expiry_sms_test(message, max(days_before, 1), actor=request.user)
             if log.sent_count:

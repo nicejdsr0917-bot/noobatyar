@@ -24,12 +24,15 @@ from uuid import uuid4
 from django.contrib import admin, messages
 from unfold.admin import ModelAdmin
 from django.core.exceptions import PermissionDenied
+from django.db.models import Exists, OuterRef, Subquery
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
+
+from api import jalali
 
 from . import reports
 from .models import (
@@ -71,17 +74,158 @@ class PlanAdmin(ModelAdmin):
     feature_count.short_description = 'قابلیت‌های فعال'
 
 
+def _later_subscriptions():
+    """Subscriptions of the same owner that end after the outer row — the
+    same "renewed" test the expired-mode renewal SMS uses
+    (core.messaging.expiry_sms_audience). Cancelled ones don't count."""
+    return Subscription.objects.filter(
+        user_id=OuterRef('user_id'), ends_at__gt=OuterRef('ends_at'),
+    ).exclude(status='cancelled')
+
+
+class RenewalStateFilter(admin.SimpleListFilter):
+    """Every purchase, trial and manual grant is its own row, so one owner
+    shows up once per subscription they ever had — a renewed owner's old
+    trial still reads «منقضی». This filter tells history from the present."""
+
+    title = 'وضعیت تمدید'
+    parameter_name = 'renewal'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('current', 'فقط اشتراک فعلی هر کاربر'),
+            ('lapsed', 'تمام‌شده و تمدیدنشده'),
+            ('superseded', 'سابقه (تمدید یا جایگزین‌شده)'),
+        ]
+
+    def queryset(self, request, queryset):
+        later = Exists(_later_subscriptions())
+        if self.value() == 'current':
+            return queryset.exclude(later).exclude(status='cancelled')
+        if self.value() == 'lapsed':
+            return (
+                queryset.exclude(later)
+                .filter(status__in=('active', 'expired'), ends_at__lte=timezone.now())
+            )
+        if self.value() == 'superseded':
+            return queryset.filter(later)
+        return queryset
+
+
 @admin.register(Subscription)
 class SubscriptionAdmin(ModelAdmin):
-    list_display = ['user', 'plan', 'status', 'started_at', 'ends_at', 'is_valid_display', 'reminder_sent']
-    list_filter = ['status', 'plan']
+    list_display = [
+        'user', 'user_phone', 'plan', 'status', 'started_at', 'ends_at',
+        'is_valid_display', 'owner_state', 'reminder_sent',
+    ]
+    list_filter = [RenewalStateFilter, 'status', 'plan']
     search_fields = ['user__phone', 'user__name']
     autocomplete_fields = ['user', 'plan']
     readonly_fields = ['started_at']
+    actions = ['send_sms_action']
+
+    def get_queryset(self, request):
+        latest_later = _later_subscriptions().order_by('-ends_at')
+        return super().get_queryset(request).select_related('user', 'plan').annotate(
+            next_plan_name=Subquery(latest_later.values('plan__name')[:1]),
+            next_ends_at=Subquery(latest_later.values('ends_at')[:1]),
+        )
+
+    @admin.display(description='موبایل', ordering='user__phone')
+    def user_phone(self, obj):
+        return obj.user.phone
 
     @admin.display(boolean=True, description='معتبر')
     def is_valid_display(self, obj):
         return obj.is_valid()
+
+    @admin.display(description='وضعیت کاربر')
+    def owner_state(self, obj):
+        """Where this owner stands now, so an old row can't pass for the
+        current one."""
+        if obj.next_plan_name:
+            return format_html(
+                '<span style="color:var(--body-quiet-color)">سابقه — الان: «{}» تا {}</span>',
+                obj.next_plan_name, jalali.format_date(obj.next_ends_at),
+            )
+        if obj.status == 'cancelled':
+            return 'لغوشده'
+        if obj.ends_at > timezone.now():
+            return format_html('<span style="color:#15803d">اشتراک فعلی</span>')
+        return format_html('<span style="color:#b91c1c">تمام‌شده، تمدید نکرده</span>')
+
+    # ── "ارسال پیامک" action ──────────────────────────────────────────────
+
+    def has_send_expiry_sms_permission(self, request):
+        return request.user.has_perm('core.send_expiry_sms')
+
+    @admin.action(
+        description='ارسال پیامک به صاحبان اشتراک‌های انتخاب‌شده',
+        permissions=['send_expiry_sms'],
+    )
+    def send_sms_action(self, request, queryset):
+        """Pick owners straight off this list (e.g. «تمام‌شده و تمدیدنشده»),
+        write the text on a confirmation page, send. Logged with the
+        campaign page's renewal SMS, in its report tab."""
+        from api.sms import SEND_WINDOW_CLOSED, within_send_window
+        from core.messaging import send_sms_to_subscriptions
+
+        from .models import REMINDER_TOKENS
+
+        message = (request.POST.get('sms_message') or '').strip()
+        error = ''
+        if request.POST.get('apply'):
+            if not message:
+                error = 'متن پیامک نمی‌تواند خالی باشد.'
+            elif not within_send_window():
+                error = SEND_WINDOW_CLOSED
+            else:
+                log = send_sms_to_subscriptions(queryset.select_related('user', 'plan'), message, actor=request.user)
+                report_url = reverse('admin:core_campaigns', current_app=self.admin_site.name) + '?tab=reports'
+                self.message_user(
+                    request,
+                    format_html(
+                        'به {} صاحب اشتراک {} پیامک ارسال شد{}. <a href="{}">گزارش ارسال</a>',
+                        log.matched_count, log.sent_count,
+                        f' ({log.failed_count} ناموفق)' if log.failed_count else '',
+                        report_url,
+                    ),
+                    level=messages.WARNING if log.failed_count else messages.SUCCESS,
+                )
+                return None
+
+        # One row per owner, the subscription ending last speaks for them —
+        # the same pick send_sms_to_subscriptions makes.
+        by_user = {}
+        for sub in queryset.select_related('user', 'plan'):
+            if sub.user_id not in by_user or sub.ends_at > by_user[sub.user_id].ends_at:
+                by_user[sub.user_id] = sub
+        now = timezone.now()
+        recipients = [
+            {
+                'name': sub.user.name or '—',
+                'phone': sub.user.phone or '',
+                'plan': sub.plan.name,
+                'ends_at': jalali.format_date(sub.ends_at),
+                'ended': sub.ends_at <= now,
+            }
+            for sub in sorted(by_user.values(), key=lambda sub: sub.ends_at, reverse=True)
+        ]
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'ارسال پیامک به صاحبان اشتراک',
+            'opts': self.model._meta,
+            'recipients': recipients,
+            'missing_phone': sum(1 for r in recipients if not r['phone']),
+            'message': message,
+            'error': error,
+            'tokens': REMINDER_TOKENS,
+            'window_open': within_send_window(),
+            'window_closed_text': SEND_WINDOW_CLOSED,
+            'action_name': request.POST.get('action'),
+            'selected': request.POST.getlist(admin.helpers.ACTION_CHECKBOX_NAME),
+        }
+        return TemplateResponse(request, 'admin/accounting/subscription/send_sms.html', context)
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -281,6 +425,17 @@ class TransactionAdmin(ModelAdmin):
         if report['revenue']['feature_pack']:
             writer.writerow(['قابلیت موقت (بایگانی)', report['revenue']['feature_pack']])
         writer.writerow(['جمع کل', report['revenue']['total']])
+        writer.writerow([])
+
+        writer.writerow(['پرداخت‌کننده‌ها'])
+        writer.writerow(['زمان', 'نام', 'موبایل', 'نوع', 'خرید', 'مبلغ (تومان)', 'درگاه', 'کد پیگیری', 'حساب داخلی'])
+        for p in report['payments']:
+            writer.writerow([
+                p['when'], p['name'], p['phone'], p['kind'], p['item'], p['amount'],
+                p['channel_label'], p['track_id'], 'بله' if p['is_staff'] else '',
+            ])
+        if not report['payments']:
+            writer.writerow(['—'])
         writer.writerow([])
 
         writer.writerow(['فروش بر اساس پلن'])

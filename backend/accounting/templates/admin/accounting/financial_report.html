@@ -48,6 +48,10 @@
   .fr-empty { padding:16px; text-align:center; color:var(--body-quiet-color); border:1px dashed var(--border-color);
               border-radius:8px; }
   .fr-error { color:#8b1a1a; }
+  .fr-tag { display:inline-block; margin-inline-start:6px; padding:1px 6px; border-radius:4px;
+            font-size:11px; background:var(--darkened-bg); border:1px solid var(--border-color);
+            color:var(--body-quiet-color); }
+  .fr-track { font-size:11px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>
 {% endblock %}
 
@@ -112,9 +116,45 @@
         فقط پرداخت‌های <strong>موفق</strong> شمرده می‌شوند. بیعانه‌ی نوبت‌ها در این ارقام نیست —
         به بخش «گردش مالی بیعانه» در پایین صفحه نگاه کنید.
       </p>
+    </div>
 
+    <div class="fr-section">
+      <h3>پرداخت‌کننده‌ها ({{ report.payments|length }})</h3>
+      {% if report.payments %}
+        <table class="fr-table">
+          <thead>
+            <tr><th>زمان</th><th>نام</th><th>موبایل</th><th>خرید</th><th>مبلغ (تومان)</th><th>درگاه</th><th>کد پیگیری</th></tr>
+          </thead>
+          <tbody>
+            {% for p in report.payments %}
+              <tr>
+                <td>{{ p.when }}</td>
+                <td>
+                  <a href="{% url 'admin:api_user_change' p.user_id %}">{{ p.name|default:"—" }}</a>
+                  {% if p.is_staff %}<span class="fr-tag">حساب داخلی</span>{% endif %}
+                </td>
+                <td class="num">{{ p.phone }}</td>
+                <td>{{ p.kind }}: {{ p.item }}</td>
+                <td class="num">{{ p.amount }}</td>
+                <td>{{ p.channel_label }}</td>
+                <td class="num fr-track">{{ p.track_id }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="fr-note">
+          همه‌ی پرداخت‌های موفق این بازه، همان ردیف‌هایی که جمع‌های بالا از آن‌ها ساخته شده‌اند.
+          «حساب داخلی» یعنی کارمند یا حساب تست؛ خریدهای آن‌ها هم در جمع‌ها هست.
+        </p>
+      {% else %}
+        <div class="fr-empty">در این بازه هیچ پرداخت موفقی ثبت نشده است.</div>
+      {% endif %}
+    </div>
+
+    <div class="fr-section">
+      <h3>درآمد روزانه</h3>
       {% if report.revenue.series.rows %}
-        <table class="fr-table" style="margin-block-start:12px">
+        <table class="fr-table">
           <thead>
             <tr><th>روز</th><th>اشتراک</th><th>افزودنی</th><th>جمع</th></tr>
           </thead>
