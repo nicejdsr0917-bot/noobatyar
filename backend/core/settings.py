@@ -175,6 +175,7 @@ REST_FRAMEWORK = {
         # scope than the general 'anon' bucket is needed to keep it from
         # being a spam/DoS vector (see business/client_views.py's docstring).
         'content_report': os.getenv('THROTTLE_CONTENT_REPORT', '5/hour'),
+        'request_booking': os.getenv('THROTTLE_REQUEST_BOOKING', '10/hour'),
     },
 }
 

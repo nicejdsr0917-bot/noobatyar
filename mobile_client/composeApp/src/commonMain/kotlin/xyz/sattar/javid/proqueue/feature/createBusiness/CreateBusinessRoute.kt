@@ -1,0 +1,1382 @@
+package xyz.sattar.javid.proqueue.feature.createBusiness
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.Surface
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Factory
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ListItem
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.Flow
+import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.ui.tooling.preview.Preview
+import org.koin.compose.viewmodel.koinViewModel
+import proqueue.composeapp.generated.resources.Res
+import proqueue.composeapp.generated.resources.accept
+import proqueue.composeapp.generated.resources.address
+import proqueue.composeapp.generated.resources.business_name
+import proqueue.composeapp.generated.resources.cancel
+import proqueue.composeapp.generated.resources.confirm
+import proqueue.composeapp.generated.resources.create_business
+import proqueue.composeapp.generated.resources.default_time_service
+import proqueue.composeapp.generated.resources.example_work_end
+import proqueue.composeapp.generated.resources.example_work_start
+import proqueue.composeapp.generated.resources.phone
+import proqueue.composeapp.generated.resources.work_end_hour
+import proqueue.composeapp.generated.resources.work_start_hour
+import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
+import xyz.sattar.javid.proqueue.core.ui.components.AppButton
+import xyz.sattar.javid.proqueue.core.ui.components.AppTextField
+import xyz.sattar.javid.proqueue.core.ui.components.ImageCropperDialog
+import xyz.sattar.javid.proqueue.core.ui.components.ModerationBanner
+import xyz.sattar.javid.proqueue.core.ui.components.SelectedServiceChipsRow
+import xyz.sattar.javid.proqueue.core.ui.components.ServiceCatalogBottomSheet
+import xyz.sattar.javid.proqueue.core.ui.components.ServiceDurationBottomSheet
+import xyz.sattar.javid.proqueue.core.ui.components.formatServiceDuration
+import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
+import xyz.sattar.javid.proqueue.domain.model.business.CategoryGroup
+import xyz.sattar.javid.proqueue.domain.model.business.CategoryOption
+import xyz.sattar.javid.proqueue.domain.model.business.fallbackCategoryGroups
+import xyz.sattar.javid.proqueue.domain.model.business.ModerationStatus
+import xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery
+import androidx.compose.foundation.layout.Box
+import xyz.sattar.javid.proqueue.ui.theme.AppTheme
+import kotlin.String
+import com.preat.peekaboo.image.picker.SelectionMode
+import com.preat.peekaboo.image.picker.rememberImagePickerLauncher
+import com.preat.peekaboo.image.picker.toImageBitmap
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
+import androidx.compose.material.icons.filled.AddLocation
+import coil3.compose.AsyncImage
+import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
+
+
+@Composable
+fun CreateBusinessRoute(
+    viewModel: CreateBusinessViewModel = koinViewModel<CreateBusinessViewModel>(),
+    businessId: Long? = null,
+    onContinue: () -> Unit,
+    onNavigateBack: () -> Unit = {},
+    onNavigateToPayment: (String) -> Unit = {},
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    var title by remember { mutableStateOf("") }
+    // Holds the picked category as the server describes it, so a category
+    // added after this build shipped is still submitted with its real code
+    // instead of being coerced to OTHER by the enum.
+    var category by remember {
+        mutableStateOf(CategoryOption(BusinessCategory.OTHER.value, BusinessCategory.OTHER.persianName))
+    }
+    // Fetched once; falls back to this build's enum when the server is
+    // unreachable or too old to serve the endpoint.
+    var categoryGroups by remember { mutableStateOf(fallbackCategoryGroups()) }
+    LaunchedEffect(Unit) { categoryGroups = viewModel.loadCategoryGroups() }
+    var phone by remember { mutableStateOf("") }
+    // Additional contact numbers, alongside the primary `phone` above.
+    var extraPhones by remember { mutableStateOf(listOf<String>()) }
+    var address by remember { mutableStateOf("") }
+    var defaultProgress by remember { mutableStateOf("") }
+    var workStartHour by remember { mutableStateOf("9") }
+    var workEndHour by remember { mutableStateOf("21") }
+    var workStartMinute by remember { mutableStateOf("0") }
+    var workEndMinute by remember { mutableStateOf("0") }
+    // Moved here from "تنظیمات پیشرفته": this is basic scheduling info set
+    // once alongside work hours, not a paid/advanced capability.
+    var closedWeekdays by remember { mutableStateOf(setOf<Int>()) }
+    var allowAnonymousView by remember { mutableStateOf(false) }
+    var notifyOwnerBySms by remember { mutableStateOf(true) }
+    var bio by remember { mutableStateOf("") }
+    var services by remember { mutableStateOf<List<String>>(emptyList()) }
+    var allowClientAddService by remember { mutableStateOf(false) }
+    var logoBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var maxAppointmentsPerHour by remember { mutableStateOf("") }
+    var depositMode by remember { mutableStateOf(DepositMode.NONE.value) }
+    var depositAmount by remember { mutableStateOf("") }
+    // CASH ("پرداخت در محل") needs no card number or merchant id to work, so it
+    // is the one method every business can accept from the moment it's
+    // created. Starting from an empty set here sent accepted_payment_methods:
+    // [] on every create-business request, which overrode the backend's own
+    // default and left a brand-new business with zero working payment options.
+    var acceptedPaymentMethods by remember { mutableStateOf(setOf("CASH")) }
+    var cardNumber by remember { mutableStateOf("") }
+    var cardOwnerName by remember { mutableStateOf("") }
+    var merchantId by remember { mutableStateOf("") }
+    var paymentLink by remember { mutableStateOf("") }
+
+    var titleError by remember { mutableStateOf<String?>(null) }
+    var phoneError by remember { mutableStateOf<String?>(null) }
+    var defaultProgressError by remember { mutableStateOf<String?>(null) }
+    var addressError by remember { mutableStateOf<String?>(null) }
+    var workHoursError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(businessId) {
+        if (businessId != null && businessId != 0L) {
+            viewModel.sendIntent(CreateBusinessIntent.LoadBusiness(businessId))
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.sendIntent(CreateBusinessIntent.LoadEntitlements)
+    }
+
+    // The pickable chips are category-scoped, so they reload whenever the
+    // owner switches category — a salon must not be offered clinic services.
+    LaunchedEffect(category) {
+        viewModel.sendIntent(CreateBusinessIntent.LoadServiceCatalog(category.value))
+    }
+
+    LaunchedEffect(uiState.business) {
+        uiState.business?.let {
+            title = it.title
+            category = CategoryOption(it.category, it.categoryLabel)
+            phone = it.phone
+            extraPhones = it.extraPhones
+            address = it.address
+            defaultProgress = it.defaultServiceDuration.toString()
+            workStartHour = it.workStartHour.toString()
+            workEndHour = it.workEndHour.toString()
+            workStartMinute = it.workStartMinute.toString()
+            workEndMinute = it.workEndMinute.toString()
+            closedWeekdays = it.closedWeekdays.toSet()
+            allowAnonymousView = it.allowAnonymousView
+            notifyOwnerBySms = it.notifyOwnerBySms
+            maxAppointmentsPerHour = it.maxAppointmentsPerHour?.toString() ?: ""
+            depositMode = it.depositMode ?: DepositMode.NONE.value
+            depositAmount = it.depositAmount?.toString() ?: ""
+            acceptedPaymentMethods = it.acceptedPaymentMethods?.toSet() ?: setOf()
+            cardNumber = it.cardNumber
+            cardOwnerName = it.cardOwnerName
+            merchantId = it.merchantId
+            paymentLink = it.paymentLink
+            bio = it.bio
+            services = it.services
+            allowClientAddService = it.allowClientAddService
+            logoBytes = it.logoBytes
+        }
+    }
+
+    HandleEvents(
+        events = viewModel.events,
+        onContinue = onContinue,
+        onNavigateBack = onNavigateBack,
+        onOpenPaymentUrl = onNavigateToPayment
+    )
+
+    CreateBusinessScreen(
+        uiState = uiState,
+        onIntent = viewModel::sendIntent,
+        title = title,
+        category = category,
+        categoryGroups = categoryGroups,
+        phone = phone,
+        extraPhones = extraPhones,
+        onExtraPhones = { extraPhones = it },
+        address = address,
+        defaultProgress = defaultProgress,
+        workStartHour = workStartHour,
+        workEndHour = workEndHour,
+        workStartMinute = workStartMinute,
+        workEndMinute = workEndMinute,
+        onWorkStartMinute = { workStartMinute = it },
+        onWorkEndMinute = { workEndMinute = it },
+        closedWeekdays = closedWeekdays,
+        onClosedWeekdays = { closedWeekdays = it },
+        allowAnonymousView = allowAnonymousView,
+        notifyOwnerBySms = notifyOwnerBySms,
+        bio = bio,
+        logoBytes = logoBytes,
+        maxAppointmentsPerHour = maxAppointmentsPerHour,
+        depositMode = depositMode,
+        depositAmount = depositAmount,
+        acceptedPaymentMethods = acceptedPaymentMethods,
+        cardNumber = cardNumber,
+        cardOwnerName = cardOwnerName,
+        merchantId = merchantId,
+        paymentLink = paymentLink,
+        onMaxAppointmentsPerHour = { maxAppointmentsPerHour = it },
+        onDepositMode = { depositMode = it },
+        onDepositAmount = { depositAmount = it },
+        onAcceptedPaymentMethods = { acceptedPaymentMethods = it },
+        onCardNumber = { cardNumber = it },
+        onCardOwnerName = { cardOwnerName = it },
+        onMerchantId = { merchantId = it },
+        onPaymentLink = { paymentLink = it },
+        onUpgrade = { planId -> viewModel.sendIntent(CreateBusinessIntent.UpgradePlan(planId)) },
+        onTitle = {
+            title = it
+            titleError = null
+        },
+        onCategory = {
+            category = it
+        },
+        onPhone = {
+            phone = it
+            phoneError = null
+        },
+        onAddress = {
+            address = it
+            addressError = null
+        },
+        onDefaultProgress = {
+            defaultProgress = it
+            defaultProgressError = null
+        },
+        onWorkStartHour = {
+            workStartHour = it
+            workHoursError = null
+        },
+        onWorkEndHour = {
+            workEndHour = it
+            workHoursError = null
+        },
+        onAllowAnonymousView = { allowAnonymousView = it },
+        onNotifyOwnerBySms = { notifyOwnerBySms = it },
+        onBio = { bio = it },
+        services = services,
+        allowClientAddService = allowClientAddService,
+        onToggleService = { name ->
+            services = if (services.contains(name)) services - name else services + name
+        },
+        onAddService = { name ->
+            // Selected locally right away rather than waiting for the catalog
+            // round-trip: the owner just typed it, so it is obviously wanted on
+            // their own menu. The intent adds it to the shared category catalog
+            // so other businesses can pick it too.
+            if (!services.contains(name)) services = services + name
+            viewModel.sendIntent(CreateBusinessIntent.AddServiceCatalogItem(category.value, name))
+        },
+        onAllowClientAddService = { allowClientAddService = it },
+        onLogoBytes = { logoBytes = it },
+        titleError = titleError,
+        phoneError = phoneError,
+        addressError = addressError,
+        defaultProgressError = defaultProgressError,
+        workHoursError = workHoursError,
+        onTitleErrorUpdate = { titleError = it },
+        onPhoneErrorUpdate = { phoneError = it },
+        onAddressErrorUpdate = { addressError = it },
+        onDefaultProgressErrorUpdate = { defaultProgressError = it },
+        onWorkHoursErrorUpdate = { workHoursError = it }
+    )
+}
+
+@Composable
+fun CreateBusinessScreen(
+    modifier: Modifier = Modifier,
+    uiState: CreateBusinessState,
+    onIntent: (CreateBusinessIntent) -> Unit,
+    title: String,
+    category: CategoryOption,
+    categoryGroups: List<CategoryGroup>,
+    phone: String,
+    extraPhones: List<String>,
+    onExtraPhones: (List<String>) -> Unit,
+    address: String,
+    defaultProgress: String,
+    workStartHour: String,
+    workEndHour: String,
+    workStartMinute: String,
+    workEndMinute: String,
+    onWorkStartMinute: (String) -> Unit,
+    onWorkEndMinute: (String) -> Unit,
+    closedWeekdays: Set<Int>,
+    onClosedWeekdays: (Set<Int>) -> Unit,
+    onTitle: (String) -> Unit,
+    onCategory: (CategoryOption) -> Unit,
+    onPhone: (String) -> Unit,
+    onAddress: (String) -> Unit,
+    onDefaultProgress: (String) -> Unit,
+    onWorkStartHour: (String) -> Unit,
+    onWorkEndHour: (String) -> Unit,
+    allowAnonymousView: Boolean,
+    notifyOwnerBySms: Boolean,
+    onAllowAnonymousView: (Boolean) -> Unit,
+    onNotifyOwnerBySms: (Boolean) -> Unit,
+    bio: String,
+    logoBytes: ByteArray?,
+    onBio: (String) -> Unit,
+    services: List<String>,
+    allowClientAddService: Boolean,
+    onToggleService: (String) -> Unit,
+    onAddService: (String) -> Unit,
+    onAllowClientAddService: (Boolean) -> Unit,
+    onLogoBytes: (ByteArray?) -> Unit,
+    maxAppointmentsPerHour: String,
+    depositMode: String,
+    depositAmount: String,
+    acceptedPaymentMethods: Set<String>,
+    cardNumber: String,
+    cardOwnerName: String,
+    merchantId: String,
+    paymentLink: String,
+    onMaxAppointmentsPerHour: (String) -> Unit,
+    onDepositMode: (String) -> Unit,
+    onDepositAmount: (String) -> Unit,
+    onAcceptedPaymentMethods: (Set<String>) -> Unit,
+    onCardNumber: (String) -> Unit,
+    onCardOwnerName: (String) -> Unit,
+    onMerchantId: (String) -> Unit,
+    onPaymentLink: (String) -> Unit,
+    onUpgrade: (Int) -> Unit,
+    titleError: String? = null,
+    phoneError: String? = null,
+    addressError: String? = null,
+    defaultProgressError: String? = null,
+    workHoursError: String? = null,
+    onTitleErrorUpdate: (String?) -> Unit = {},
+    onPhoneErrorUpdate: (String?) -> Unit = {},
+    onAddressErrorUpdate: (String?) -> Unit = {},
+    onDefaultProgressErrorUpdate: (String?) -> Unit = {},
+    onWorkHoursErrorUpdate: (String?) -> Unit = {},
+) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showCategorySheet by remember { mutableStateOf(false) }
+    var showDurationSheet by remember { mutableStateOf(false) }
+    var currentStep by remember { mutableStateOf(0) }
+    // How far the owner has legitimately reached. Steps behind this are
+    // tappable in the header; steps ahead are not, since each one validates
+    // before it advances and jumping forward would skip that.
+    var furthestStep by remember { mutableStateOf(0) }
+    val formScrollState = rememberScrollState()
+
+    // A new step starts at its own top. Without this the next step opens
+    // already scrolled to wherever the previous one was left.
+    LaunchedEffect(currentStep) { formScrollState.scrollTo(0) }
+
+    /**
+     * Whether a step's own fields are good enough to move past it, marking
+     * the ones that are not.
+     *
+     * Per step rather than all-at-once on submit: with four steps, a single
+     * final check would report an error on step 1 while the owner is looking
+     * at step 4, with nothing on screen to connect the message to the field.
+     * The submit button still runs the whole set as a backstop.
+     */
+    fun validateStep(step: Int): Boolean = when (BusinessFormStep.at(step)) {
+        BusinessFormStep.IDENTITY -> {
+            val t = title.trim()
+            val invalid = t.length < 3 || t.length > 50
+            onTitleErrorUpdate(if (invalid) "نام باید بین ۳ تا ۵۰ کاراکتر باشد" else null)
+            !invalid
+        }
+
+        BusinessFormStep.SCHEDULE -> {
+            val d = defaultProgress.trim()
+            val durationInvalid = d.toIntOrNull() == null
+            onDefaultProgressErrorUpdate(
+                if (durationInvalid) "مدت زمان سرویس را انتخاب کنید" else null
+            )
+
+            val wsInt = workStartHour.trim().toIntOrNull()
+            val weInt = workEndHour.trim().toIntOrNull()
+            val wmInt = workStartMinute.trim().ifEmpty { "0" }.toIntOrNull()
+            val emInt = workEndMinute.trim().ifEmpty { "0" }.toIntOrNull()
+            val hoursInvalid = wsInt == null || weInt == null || wmInt == null || emInt == null ||
+                wsInt !in 0..23 || weInt !in 0..23 || wmInt !in 0..59 || emInt !in 0..59 ||
+                (wsInt * 60 + wmInt) >= (weInt * 60 + emInt)
+            onWorkHoursErrorUpdate(
+                if (hoursInvalid) "ساعت پایان کار باید بعد از ساعت شروع باشد" else null
+            )
+
+            !durationInvalid && !hoursInvalid
+        }
+
+        // Nothing here is required: a business with no service menu simply
+        // lets clients describe what they want, which is the old behaviour.
+        BusinessFormStep.SERVICES -> true
+
+        BusinessFormStep.CONTACT -> {
+            val p = phone.trim()
+            val a = address.trim()
+            val phoneInvalid = p.length < 7
+            val addressInvalid = a.isEmpty() || a.length > 300
+            onPhoneErrorUpdate(if (phoneInvalid) "شماره تلفن صحیح نیست" else null)
+            onAddressErrorUpdate(
+                when {
+                    a.isEmpty() -> "آدرس الزامی است"
+                    a.length > 300 -> "آدرس نباید بیشتر از ۳۰۰ کاراکتر باشد"
+                    else -> null
+                }
+            )
+            !phoneInvalid && !addressInvalid
+        }
+    }
+    var showServicesSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    // Save action parked behind the "this goes back for review" confirmation.
+    var pendingSubmit by remember { mutableStateOf<(() -> Unit)?>(null) }
+    
+    // Photo waiting to be cropped: the picker hands over the raw file, and the
+    // cropper turns it into the square logo that actually gets uploaded.
+    var pendingCrop by remember { mutableStateOf<ByteArray?>(null) }
+
+    val singleImagePicker = rememberImagePickerLauncher(
+        selectionMode = SelectionMode.Single,
+        scope = scope,
+        onResult = { byteArrays ->
+            val bytes = byteArrays.firstOrNull()
+            if (bytes != null) {
+                pendingCrop = bytes
+            }
+        }
+    )
+
+    pendingCrop?.let { raw ->
+        val cropBitmap = remember(raw) {
+            try {
+                raw.toImageBitmap()
+            } catch (e: Exception) {
+                null
+            }
+        }
+        if (cropBitmap != null) {
+            ImageCropperDialog(
+                source = raw,
+                bitmap = cropBitmap,
+                onDismiss = { pendingCrop = null },
+                onCropped = { cropped ->
+                    pendingCrop = null
+                    onLogoBytes(cropped)
+                }
+            )
+        } else {
+            // Undecodable file — fall back to uploading it untouched rather than
+            // leaving the user with a dialog that can never open.
+            LaunchedEffect(raw) {
+                onLogoBytes(raw)
+                pendingCrop = null
+            }
+        }
+    }
+
+    LaunchedEffect(uiState.message) {
+        val msg = uiState.message
+        if (msg != null) {
+            snackbarHostState.showSnackbar(msg)
+            onIntent(CreateBusinessIntent.ClearMessage)
+        }
+    }
+    Scaffold(
+        snackbarHost = {
+            ToastyHost(hostState = snackbarHostState)
+        },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        if (uiState.businessId == 0L) stringResource(Res.string.create_business) else "ویرایش کسب‌وکار",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        onIntent(CreateBusinessIntent.BackPress)
+                    }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = ""
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        },
+        bottomBar = {
+            if (!uiState.isLoading) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.background,
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 16.dp)
+                            .navigationBarsPadding(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (currentStep > 0) {
+                            OutlinedButton(
+                                onClick = { currentStep -= 1 },
+                                modifier = Modifier.weight(1f).height(52.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("قبلی", style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+
+                        if (currentStep < BusinessFormStep.count - 1) {
+                            AppButton(
+                                text = "بعدی",
+                                onClick = {
+                                    if (validateStep(currentStep)) {
+                                        currentStep += 1
+                                        furthestStep = maxOf(furthestStep, currentStep)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                isLoading = false
+                            )
+                        } else {
+                            AppButton(
+                                text = stringResource(Res.string.accept),
+                                onClick = {
+                            val t = title.trim()
+                            val p = phone.trim()
+                            val a = address.trim()
+                            val d = defaultProgress.trim()
+                            val ws = workStartHour.trim()
+                            val we = workEndHour.trim()
+                            val wm = workStartMinute.trim().ifEmpty { "0" }
+                            val em = workEndMinute.trim().ifEmpty { "0" }
+
+                            val titleInvalid = t.length < 3 || t.length > 50
+                            val phoneInvalid = p.length < 7
+                            // The duration now comes from a fixed list, so the
+                            // only way it can be wrong is not having been picked.
+                            val defaultInvalid = d.toIntOrNull() == null
+                            val wsInt = ws.toIntOrNull()
+                            val weInt = we.toIntOrNull()
+                            val wmInt = wm.toIntOrNull()
+                            val emInt = em.toIntOrNull()
+                            // Compared as minutes-since-midnight, not just the
+                            // hour — 19:00-19:30 (same hour, later minute) is a
+                            // real window and must not fail the wsInt >= weInt
+                            // check the way it would with hours alone.
+                            val hoursInvalid = wsInt == null || weInt == null ||
+                                wmInt == null || emInt == null ||
+                                wsInt < 0 || wsInt > 23 || weInt < 0 || weInt > 23 ||
+                                wmInt < 0 || wmInt > 59 || emInt < 0 || emInt > 59 ||
+                                (wsInt * 60 + wmInt) >= (weInt * 60 + emInt)
+                            val addressInvalid = a.isEmpty() || a.length > 300
+
+                            onTitleErrorUpdate(if (titleInvalid) "نام باید بین ۳ تا ۵۰ کاراکتر باشد" else null)
+                            onPhoneErrorUpdate(if (phoneInvalid) "شماره تلفن صحیح نیست" else null)
+                            onAddressErrorUpdate(if (a.isEmpty()) "آدرس الزامی است" else if (a.length > 300) "آدرس نباید بیشتر از ۳۰۰ کاراکتر باشد" else null)
+                            onDefaultProgressErrorUpdate(if (defaultInvalid) "مدت زمان سرویس را انتخاب کنید" else null)
+                            onWorkHoursErrorUpdate(if (hoursInvalid) "ساعات کاری معتبر نیستند" else null)
+
+                            if (!titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid) {
+                                val intent =
+                                    CreateBusinessIntent.CreateBusiness(
+                                        title = t,
+                                        category = category.value,
+                                        phone = p,
+                                        extraPhones = extraPhones,
+                                        address = a,
+                                        defaultProgress = d,
+                                        workStartHour = wsInt!!,
+                                        workEndHour = weInt!!,
+                                        workStartMinute = wmInt!!,
+                                        workEndMinute = emInt!!,
+                                        closedWeekdays = closedWeekdays.toList(),
+                                        allowAnonymousView = allowAnonymousView,
+                                        notifyOwnerBySms = notifyOwnerBySms,
+                                        bio = bio.trim(),
+                                        logoBytes = logoBytes,
+                                        maxAppointmentsPerHour = maxAppointmentsPerHour.toIntOrNull(),
+                                        depositMode = depositMode,
+                                        depositAmount = depositAmount.toIntOrNull() ?: 0,
+                                        acceptedPaymentMethods = acceptedPaymentMethods.joinToString(","),
+                                        cardNumber = cardNumber,
+                                        cardOwnerName = cardOwnerName,
+                                        merchantId = merchantId,
+                                        paymentLink = paymentLink,
+                                        // Owned by the dedicated emergency-notice
+                                        // screen (Settings); pass the loaded
+                                        // value straight through so editing the
+                                        // business never resets it.
+                                        noticeEnabled = uiState.business?.noticeEnabled ?: false,
+                                        noticeMessage = uiState.business?.noticeMessage ?: "",
+                                        // Owned by the reminder-messages screen;
+                                        // pass the loaded value straight through
+                                        // so editing the business never resets it.
+                                        reminderDelivery = uiState.business?.reminderDelivery
+                                            ?: ReminderDelivery.MANUAL.value,
+                                        services = services,
+                                        allowClientAddService = allowClientAddService
+                                    )
+
+                                // Editing title/bio/address/logo on an approved
+                                // business sends it back to the review queue and
+                                // drops it out of public listings, so say that
+                                // before the save — not after. Saving anything
+                                // else (hours, payment, switches) goes straight
+                                // through so we don't nag on every change.
+                                // Must track backend/business/models.py's MODERATED_FIELDS
+                                // exactly: title, bio, address, logo, notice_message. This
+                                // screen has no notice_message field yet, so it's absent
+                                // here — but if one is ever added to this or ANY screen
+                                // that saves a Business, it has to be added to this check
+                                // too, or an owner can silently de-list an approved
+                                // business (e.g. via the "temporarily closed" banner) with
+                                // no warning shown.
+                                val saved = uiState.business
+                                val moderatedFieldChanged = saved != null && (
+                                        t != saved.title ||
+                                                bio.trim() != saved.bio ||
+                                                a != saved.address ||
+                                                logoBytes != null
+                                        )
+                                if (saved?.moderationStatus == ModerationStatus.APPROVED &&
+                                    moderatedFieldChanged
+                                ) {
+                                    pendingSubmit = { onIntent(intent) }
+                                } else {
+                                    onIntent(intent)
+                                }
+                            }
+                        },
+                                modifier = Modifier.weight(1f),
+                                isLoading = uiState.isLoading
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    ) { paddingValues ->
+        if (uiState.isLoading) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                repeat(4) {
+                    xyz.sattar.javid.proqueue.core.ui.components.ListItemShimmer(height = 88.dp)
+                }
+            }
+        } else if (uiState.businessCreated && uiState.businessId != 0L) {
+            // Edit flow: nothing new to explain, leave straight away. A brand
+            // new business gets the "waiting for approval" notice below first.
+            onIntent(CreateBusinessIntent.BusinessCreated)
+        }
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues)
+                .verticalScroll(formScrollState)
+                .imePadding()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            // Top, not Center: each step holds a different amount of content, and
+            // centering made the stepper itself slide up and down the screen as
+            // the owner moved between steps.
+            verticalArrangement = Arrangement.Top
+        ) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Why the owner is here: a rejected/suspended business shows the
+            // reviewer's note right above the fields they need to fix.
+            uiState.business?.let { saved ->
+                ModerationBanner(business = saved)
+                if (saved.moderationStatus != null &&
+                    saved.moderationStatus != ModerationStatus.APPROVED
+                ) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
+            BusinessFormStepper(
+                currentStep = currentStep,
+                furthestStep = furthestStep,
+                onStepClick = { currentStep = it },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (currentStep == 0) {
+            // Avatar Section
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape)
+                    .clickable {
+                        singleImagePicker.launch()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                if (logoBytes != null) {
+                    val bitmap = remember(logoBytes) {
+                        try {
+                            logoBytes.toImageBitmap()
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = "Logo",
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            "عکس انتخاب شد",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else if (!uiState.business?.logoPath.isNullOrEmpty()) {
+                    val path = uiState.business!!.logoPath!!
+                    val url = if (path.startsWith("http")) path else "${xyz.sattar.javid.proqueue.core.utils.AppConfig.baseUrl}$path"
+                    AsyncImage(
+                        model = url,
+                        contentDescription = "Business Logo",
+                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.AddPhotoAlternate,
+                        contentDescription = "Add Logo",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val selectedCategoryText = category.label
+
+            Box(modifier = Modifier.fillMaxWidth().clickable {
+                if (!uiState.isLoading) showCategorySheet = true
+            }) {
+                AppTextField(
+                    value = selectedCategoryText,
+                    onValueChange = {},
+                    label = "دسته‌بندی",
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Category,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    enabled = false, // Disable to act just as a clickable button
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AppTextField(
+                value = title,
+                onValueChange = onTitle,
+                label = stringResource(Res.string.business_name),
+                maxLength = 50,
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Factory,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                isError = titleError != null,
+                errorMessage = titleError,
+                enabled = !uiState.isLoading,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AppTextField(
+                value = bio,
+                onValueChange = onBio,
+                label = "معرفی کسب‌وکار (Bio)",
+                // Must stay equal to BIO_MAX_LENGTH in backend/business/models.py:
+                // this is the only thing stopping the owner from typing a
+                // description the server will then reject on save, after they
+                // have written it. The counter exists for the same reason —
+                // silently refusing keystrokes at the cap, with no number in
+                // sight, reads as a broken keyboard.
+                maxLength = 1500,
+                maxLine = 10,
+                showCounter = true,
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Factory,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                enabled = !uiState.isLoading,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            }
+
+            if (currentStep == 1) {
+            // Duration is picked from a fixed 5-minute ladder rather than typed:
+            // free text let owners save slots the calendar can't lay out.
+            Box(modifier = Modifier.fillMaxWidth().clickable {
+                if (!uiState.isLoading) showDurationSheet = true
+            }) {
+                AppTextField(
+                    value = defaultProgress.toIntOrNull()?.let { formatServiceDuration(it) } ?: "",
+                    onValueChange = {},
+                    label = stringResource(Res.string.default_time_service),
+                    isError = defaultProgressError != null,
+                    errorMessage = defaultProgressError,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = false, // Disable to act just as a clickable button
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            WorkHoursField(
+                workStartHour = workStartHour,
+                workStartMinute = workStartMinute,
+                workEndHour = workEndHour,
+                workEndMinute = workEndMinute,
+                onWorkStart = { h, m -> onWorkStartHour(h); onWorkStartMinute(m) },
+                onWorkEnd = { h, m -> onWorkEndHour(h); onWorkEndMinute(m) },
+                isError = workHoursError != null,
+                errorMessage = workHoursError,
+                enabled = !uiState.isLoading,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ClosedWeekdaysField(
+                closedWeekdays = closedWeekdays,
+                onClosedWeekdays = onClosedWeekdays
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            }
+
+            if (currentStep == 2) {
+            // ── Service menu ──
+            // Defined once here, then reused everywhere a service has to be
+            // named: the owner's own booking screen, and the client's public
+            // booking page. A client who picks "رنگ مو" instead of typing a
+            // sentence is a slot the owner can actually plan — which is the
+            // whole reason this moved out of the free-text description.
+            Box(modifier = Modifier.fillMaxWidth().clickable {
+                if (!uiState.isLoading) showServicesSheet = true
+            }) {
+                AppTextField(
+                    value = if (services.isEmpty()) "" else "${services.size} خدمت انتخاب شده",
+                    onValueChange = {},
+                    label = "لیست خدمات",
+                    placeholder = "خدماتی که ارائه می‌دهید را انتخاب کنید",
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Category,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = false, // Disable to act just as a clickable button
+                )
+            }
+
+            if (services.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SelectedServiceChipsRow(
+                    selected = services,
+                    onRemove = onToggleService
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .clickable { onAllowClientAddService(!allowClientAddService) },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "مشتری بتواند خدمت خارج از لیست اضافه کند",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    androidx.compose.material3.Switch(
+                        checked = allowClientAddService,
+                        onCheckedChange = { onAllowClientAddService(it) }
+                    )
+                }
+                Text(
+                    text = "اگر خاموش باشد، مشتری هنگام رزرو فقط از همین لیست " +
+                            "انتخاب می‌کند و نمی‌تواند خدمت جدیدی بنویسد.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            }
+
+            if (currentStep == 3) {
+            AppTextField(
+                enabled = !uiState.isLoading,
+                maxLength = 11,
+                value = phone,
+                onValueChange = onPhone,
+                label = stringResource(Res.string.phone),
+                isError = phoneError != null,
+                errorMessage = phoneError,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Phone,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardType = KeyboardType.Phone
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            ExtraPhonesField(
+                extraPhones = extraPhones,
+                onExtraPhones = onExtraPhones,
+                enabled = !uiState.isLoading
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AppTextField(
+                enabled = !uiState.isLoading,
+                value = address,
+                onValueChange = onAddress,
+                label = stringResource(Res.string.address),
+                maxLength = 100,
+                isError = addressError != null,
+                errorMessage = addressError,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.AddLocation,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                maxLine = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clickable { onAllowAnonymousView(!allowAnonymousView) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "نمایش اطلاعات تماس به کاربران مهمان",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                androidx.compose.material3.Switch(
+                    checked = allowAnonymousView,
+                    onCheckedChange = { onAllowAnonymousView(it) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .clickable { onNotifyOwnerBySms(!notifyOwnerBySms) },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "اطلاع‌رسانی پیامکی نوبت جدید به خودم",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    androidx.compose.material3.Switch(
+                        checked = notifyOwnerBySms,
+                        onCheckedChange = { onNotifyOwnerBySms(it) }
+                    )
+                }
+                Text(
+                    text = "این پیامک از سهمیه‌ی پیامک شما کم می‌شود. اگر نوبت‌های " +
+                            "جدید را در همین اپ دنبال می‌کنید، خاموش کردنش هزینه‌ی هر " +
+                            "نوبت را یک پیامک کمتر می‌کند.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            }
+
+            // Emergency notice is configured on its own screen, reachable from
+            // Settings (feature/settings/EmergencyNoticeScreen.kt) — not shown
+            // here anymore. Its value is still loaded and saved above so
+            // editing the business from this screen doesn't drop it.
+
+            // Advanced settings (payment / capacity / reminders) now live on a
+            // separate screen, reachable from the profile. The values are still
+            // loaded and saved here so editing the business doesn't drop them.
+
+            // Spacer replaced by bottomBar button
+
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+
+    // Re-review warning: only reached when a moderated field of an approved
+    // business actually changed.
+    pendingSubmit?.let { submit ->
+        AlertDialog(
+            onDismissRequest = { pendingSubmit = null },
+            title = { Text("ارسال دوباره برای بررسی") },
+            text = {
+                Text(
+                    "با تغییر نام، معرفی، آدرس یا لوگو، کسب‌وکار شما دوباره به صف " +
+                            "بررسی ادمین می‌رود و تا زمان تأیید، برای مراجعین نمایش داده " +
+                            "نمی‌شود. نوبت‌های ثبت‌شده‌ی فعلی تغییری نمی‌کنند."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingSubmit = null
+                    submit()
+                }) {
+                    Text("ذخیره و ارسال برای بررسی")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingSubmit = null }) {
+                    Text(stringResource(Res.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Post-create expectation: the business is saved but not live yet.
+    if (uiState.businessCreated && uiState.businessId == 0L) {
+        AlertDialog(
+            onDismissRequest = { onIntent(CreateBusinessIntent.BusinessCreated) },
+            title = { Text("کسب‌وکار شما ثبت شد") },
+            text = {
+                Text(
+                    "کسب‌وکار شما پس از تأیید ادمین منتشر می‌شود. تا آن زمان می‌توانید " +
+                            "تنظیمات را کامل کنید، اما مراجعین آن را نمی‌بینند."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { onIntent(CreateBusinessIntent.BusinessCreated) }) {
+                    Text(stringResource(Res.string.confirm))
+                }
+            }
+        )
+    }
+
+    if (showServicesSheet) {
+        ServiceCatalogBottomSheet(
+            // The owner's own picks stay visible even if the shared catalog
+            // hasn't loaded (or no longer contains a name they added earlier),
+            // so opening the sheet can never silently drop their menu.
+            catalog = (uiState.serviceCatalog + services).distinct(),
+            selected = services,
+            isLoading = uiState.isServiceCatalogLoading,
+            onToggle = onToggleService,
+            onAddNew = onAddService,
+            onDismiss = { showServicesSheet = false }
+        )
+    }
+
+    if (showDurationSheet) {
+        ServiceDurationBottomSheet(
+            selectedMinutes = defaultProgress.toIntOrNull(),
+            onDurationSelected = { minutes ->
+                onDefaultProgress(minutes.toString())
+                onDefaultProgressErrorUpdate(null)
+                showDurationSheet = false
+            },
+            onDismiss = { showDurationSheet = false }
+        )
+    }
+
+    if (showCategorySheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+        var searchQuery by remember { mutableStateOf("") }
+
+        ModalBottomSheet(
+            onDismissRequest = { showCategorySheet = false },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+            ) {
+                Text(
+                    text = "انتخاب دسته‌بندی",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("جستجو...") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = "Search")
+                    },
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Grouped rather than one flat run: the list is ~35 entries
+                // long, and the section headers are what make it skimmable
+                // when the owner is browsing rather than searching. Groups
+                // with no match are dropped entirely, so a search never
+                // renders a header over an empty section.
+                val filteredGroups = categoryGroups
+                    .map { group ->
+                        group.copy(
+                            categories = group.categories.filter {
+                                it.label.contains(searchQuery, ignoreCase = true)
+                            }
+                        )
+                    }
+                    .filter { it.categories.isNotEmpty() }
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    filteredGroups.forEach { group ->
+                        item(key = "header-${group.key}") {
+                            Text(
+                                text = group.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                            )
+                        }
+                        items(group.categories, key = { it.value }) { option ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onCategory(option)
+                                        showCategorySheet = false
+                                    }
+                                    .padding(vertical = 16.dp)
+                            ) {
+                                Text(
+                                    text = option.label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(32.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HandleEvents(
+    events: Flow<CreateBusinessEvent>,
+    onContinue: () -> Unit,
+    onNavigateBack: () -> Unit,
+    onOpenPaymentUrl: (String) -> Unit = {}
+) {
+    val scope = rememberCoroutineScope()
+    events.collectWithLifecycleAware {
+        when (it) {
+            CreateBusinessEvent.NavigateToBusiness -> {
+                onContinue()
+            }
+
+            CreateBusinessEvent.BackPressed -> {
+                onNavigateBack()
+            }
+
+            is CreateBusinessEvent.OpenUrl -> {
+                onOpenPaymentUrl(it.url)
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewDashboardScreen() {
+    AppTheme {
+        CreateBusinessScreen(
+            uiState = CreateBusinessState(),
+            onIntent = {},
+            title = "",
+            category = CategoryOption(BusinessCategory.OTHER.value, BusinessCategory.OTHER.persianName),
+            categoryGroups = fallbackCategoryGroups(),
+            phone = "",
+            extraPhones = listOf(),
+            onExtraPhones = {},
+            address = "",
+            defaultProgress = "",
+            workStartHour = "9",
+            workEndHour = "21",
+            workStartMinute = "0",
+            workEndMinute = "0",
+            onWorkStartMinute = {},
+            onWorkEndMinute = {},
+            closedWeekdays = setOf(),
+            onClosedWeekdays = {},
+            onTitle = {},
+            onCategory = {},
+            onPhone = {},
+            onAddress = {},
+            onDefaultProgress = {},
+            onWorkStartHour = {},
+            onWorkEndHour = {},
+            allowAnonymousView = false,
+            notifyOwnerBySms = true,
+            onAllowAnonymousView = {},
+            onNotifyOwnerBySms = {},
+            bio = "",
+            logoBytes = null,
+            onBio = {},
+            services = emptyList(),
+            allowClientAddService = false,
+            onToggleService = {},
+            onAddService = {},
+            onAllowClientAddService = {},
+            onLogoBytes = {},
+            titleError = null,
+            phoneError = null,
+            addressError = null,
+            defaultProgressError = null,
+            workHoursError = null,
+            onTitleErrorUpdate = {},
+            onPhoneErrorUpdate = {},
+            onAddressErrorUpdate = {},
+            onDefaultProgressErrorUpdate = {},
+            onWorkHoursErrorUpdate = {},
+            maxAppointmentsPerHour = "String",
+            depositMode = DepositMode.NONE.value,
+            depositAmount = "String",
+            acceptedPaymentMethods = setOf(),
+            cardNumber = "",
+            cardOwnerName = "",
+            merchantId = "",
+            paymentLink = "",
+            onMaxAppointmentsPerHour = {},
+            onDepositMode = {},
+            onDepositAmount = {},
+            onAcceptedPaymentMethods = {},
+            onCardNumber = {},
+            onCardOwnerName = {},
+            onMerchantId = {},
+            onPaymentLink = {},
+            onUpgrade = {},
+        )
+    }
+}

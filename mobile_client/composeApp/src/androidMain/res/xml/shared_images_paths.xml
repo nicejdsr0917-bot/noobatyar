@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the one cache subdirectory the share screen writes its rendered
+     cards into. Deliberately not <cache-path path="." />: a FileProvider root
+     that covers the whole cache would let any app granted a single share URI
+     probe for other cached files (Ktor's HTTP cache, Coil's image cache). -->
+<paths>
+    <cache-path name="shared_images" path="shared_images/" />
+</paths>

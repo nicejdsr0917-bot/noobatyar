@@ -37,7 +37,7 @@ from django.views.decorators.http import require_POST
 
 from api.jalali import format_datetime
 from . import moderation
-from .models import BannedKeyword, Business, BusinessModerationLog, ContentReport
+from .models import BannedKeyword, Business, BusinessModerationLog, ContentReport, Insurance
 # services.apply_moderation_decision() = moderation.apply_decision() + the SMS
 # that tells the owner. Decisions made here are the ones an owner most needs to
 # hear about, so the admin goes through the wrapper rather than the bare helper.
@@ -149,14 +149,23 @@ class BusinessModerationLogInline(admin.TabularInline):
         return f"{obj.from_status or '—'} ← {obj.to_status}"
 
 
+@admin.register(Insurance)
+class InsuranceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'insurance_type', 'is_active', 'display_order')
+    list_filter = ('insurance_type', 'is_active')
+    search_fields = ('name', 'slug')
+    ordering = ('display_order', 'name')
+
+
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
     list_display = (
         'title', 'user', 'unique_code', 'category',
         'moderation_badge', 'lock_badge', 'created_at',
     )
-    list_filter = ('moderation_status', 'category', 'is_locked')
+    list_filter = ('moderation_status', 'category', 'is_claimed', 'is_locked')
     search_fields = ('title', 'unique_code', 'user__phone', 'bio')
+    filter_horizontal = ('insurances',)
     date_hierarchy = 'created_at'
     inlines = [BusinessModerationLogInline]
 

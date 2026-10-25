@@ -1,0 +1,85 @@
+package xyz.sattar.javid.proqueue.domain
+
+import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.core.network.PaginatedResponseDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.InsuranceDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogSummaryDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.RequestBookingResponseDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ServiceCatalogItemDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogSummaryDto
+import xyz.sattar.javid.proqueue.domain.model.business.Business
+import xyz.sattar.javid.proqueue.domain.model.business.CategoryGroup
+
+interface BusinessRepository {
+    suspend fun upsertBusiness(business: Business): Boolean
+    suspend fun loadAllBusiness(): List<Business>
+    fun loadAllBusinessFlow(): kotlinx.coroutines.flow.Flow<List<Business>>
+    suspend fun fetchAndCacheBusinesses(page: Int, pageSize: Int): Boolean
+    suspend fun getBusinessById(businessId: Long): Business?
+    suspend fun deleteBusiness(businessId: Long): Boolean
+    suspend fun createBusiness(business: Business): Business?
+    suspend fun updateBusiness(business: Business): Business?
+
+    // --- SMS report (server-side log, no local cache) ---
+    suspend fun getSmsLogs(
+        businessId: Long,
+        page: Int,
+        pageSize: Int,
+        status: String?,
+        search: String? = null,
+        dateFrom: String? = null,
+        dateTo: String? = null
+    ): ApiResponse<SmsLogPageDto>
+
+    suspend fun getSmsLogSummary(businessId: Long): ApiResponse<SmsLogSummaryDto>
+
+    // --- Push report (server-side log, no local cache) ---
+    suspend fun getPushLogs(
+        businessId: Long,
+        page: Int,
+        pageSize: Int,
+        status: String?,
+        search: String? = null,
+        dateFrom: String? = null,
+        dateTo: String? = null
+    ): ApiResponse<PushLogPageDto>
+
+    suspend fun getPushLogSummary(businessId: Long): ApiResponse<PushLogSummaryDto>
+
+    // --- Service catalog (shared across every business in a category) ---
+    /**
+     * The category vocabulary, from the server when reachable and from this
+     * build's own [BusinessCategory][xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory]
+     * enum otherwise. Never fails and never returns empty — the picker must
+     * always have something to show.
+     */
+    suspend fun getCategoryGroups(): List<CategoryGroup>
+
+    suspend fun getServiceCatalog(category: String): ApiResponse<List<ServiceCatalogItemDto>>
+    suspend fun addServiceCatalogItem(category: String, name: String): ApiResponse<ServiceCatalogItemDto>
+
+    // --- Client Consumer Discovery ---
+    suspend fun getClientBusinesses(
+        page: Int = 1,
+        pageSize: Int = 30,
+        search: String? = null,
+        category: String? = null,
+        insuranceSlug: String? = null,
+        lat: Double? = null,
+        lng: Double? = null,
+        radiusKm: Double? = null,
+        onlyClaimed: Boolean = false,
+        sort: String? = null
+    ): ApiResponse<PaginatedResponseDto<BusinessDto>>
+
+    suspend fun getClientBusinessDetail(
+        businessId: Long,
+        lat: Double? = null,
+        lng: Double? = null
+    ): ApiResponse<BusinessDto>
+    suspend fun getInsurances(): ApiResponse<List<InsuranceDto>>
+    suspend fun requestOnlineBooking(businessId: Long): ApiResponse<RequestBookingResponseDto>
+}

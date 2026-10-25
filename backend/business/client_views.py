@@ -3,15 +3,16 @@ from asgiref.sync import sync_to_async
 from rest_framework.permissions import AllowAny
 from rest_framework.throttling import AnonRateThrottle
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import F, Q
 import logging
+import math
 
 from api.phone import is_iran_phone, normalize_phone
 from visitor.auth import VisitorTokenAuthentication
 from visitor.models import Visitor
 
-from .models import Business, ContentReport
-from .serializers import PublicBusinessSerializer
+from .models import Business, ContentReport, Insurance
+from .serializers import PublicBusinessSerializer, InsuranceSerializer
 from api.responses import APIResponse
 
 logger = logging.getLogger(__name__)
@@ -54,57 +55,248 @@ class ContentReportRateThrottle(AnonRateThrottle):
             'ident': self.get_ident(request),
         }
 
+
+class RequestBookingRateThrottle(AnonRateThrottle):
+    """Per-IP throttle for the unclaimed-business online booking request endpoint."""
+    scope = 'request_booking'
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {
+            'scope': self.scope,
+            'ident': self.get_ident(request),
+        }
+
+def haversine_km(lat1, lon1, lat2, lon2):
+    """Calculate the great circle distance between two points on the earth in kilometers."""
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2.0) ** 2 +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+         math.sin(dlon / 2.0) ** 2)
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+    return R * c
+
+
 class ClientBusinessListView(APIView):
     permission_classes = [AllowAny]
 
     async def get(self, request):
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 10))
-        page_size = min(page_size, 100)
-        
+        try:
+            page = max(1, int(request.query_params.get('page', 1)))
+        except (ValueError, TypeError):
+            page = 1
+        try:
+            page_size = min(max(1, int(request.query_params.get('page_size', 10))), 100)
+        except (ValueError, TypeError):
+            page_size = 10
+
         search_query = request.query_params.get('search', '').strip()
         category_query = request.query_params.get('category', '').strip()
+        insurance_query = request.query_params.get('insurance', '').strip()
+        city_query = request.query_params.get('city', '').strip()
+        only_claimed_query = request.query_params.get('only_claimed', '').strip().lower()
+
+        lat_param = request.query_params.get('lat')
+        lng_param = request.query_params.get('lng')
+        radius_param = request.query_params.get('radius_km')
+        include_unlocated = request.query_params.get('include_unlocated', '').strip().lower() in ('true', '1')
+        sort = request.query_params.get('sort', 'recommended').strip().lower()
+
+        lat = None
+        lng = None
+        if lat_param is not None and lng_param is not None:
+            try:
+                lat = float(lat_param)
+                lng = float(lng_param)
+                if not (-90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0):
+                    lat = None
+                    lng = None
+            except (ValueError, TypeError):
+                lat = None
+                lng = None
+
+        radius_km = 50.0 if (lat is not None and lng is not None) else None
+        if radius_param:
+            try:
+                radius_km = float(radius_param)
+            except (ValueError, TypeError):
+                pass
 
         # Build Q objects for filtering. public_filter() carries both reasons a
         # business stays out of public browsing — locked (subscription
-        # downgrade) and not editorially approved — so this listing can never
-        # drift from the detail/slots endpoints by checking only one of them.
+        # downgrade) and not editorially approved.
         filters = Business.public_filter()
+
         if search_query:
-            filters &= (Q(title__icontains=search_query) | Q(unique_code__iexact=search_query) | Q(address__icontains=search_query))
+            filters &= (
+                Q(title__icontains=search_query) |
+                Q(unique_code__iexact=search_query) |
+                Q(address__icontains=search_query) |
+                Q(city__icontains=search_query) |
+                Q(neighborhood__icontains=search_query)
+            )
+
         if category_query:
-            filters &= Q(category=category_query)
+            group_map = {
+                key.upper(): [code for code, _ in pairs]
+                for key, _label, pairs in Business.CATEGORY_GROUPS
+            }
+            cat_upper = category_query.upper()
+            if cat_upper in group_map:
+                filters &= Q(category__in=group_map[cat_upper])
+            else:
+                filters &= Q(category=category_query)
 
-        businesses = [
-            b async for b in Business.objects.filter(filters).order_by('-created_at')
-        ]
+        if insurance_query:
+            if insurance_query.isdigit():
+                filters &= Q(insurances__id=int(insurance_query))
+            else:
+                filters &= Q(insurances__slug=insurance_query)
 
-        paginator = Paginator(businesses, page_size)
-        page_obj = paginator.get_page(page)
+        if city_query:
+            filters &= Q(city__icontains=city_query)
+
+        if only_claimed_query in ('true', '1'):
+            filters &= Q(is_claimed=True)
+
+        def _fetch_and_paginate():
+            qs = Business.objects.filter(filters).prefetch_related('insurances').distinct()
+
+            if lat is None or lng is None:
+                qs = qs.order_by('-is_claimed', '-created_at')
+                paginator = Paginator(qs, page_size)
+                page_obj = paginator.get_page(page)
+                page_items = list(page_obj.object_list)
+                for b in page_items:
+                    b.distance_km = None
+                return paginator.count, paginator.num_pages, page_obj.number, (
+                    page_obj.next_page_number() if page_obj.has_next() else None
+                ), (
+                    page_obj.previous_page_number() if page_obj.has_previous() else None
+                ), page_items
+
+            # Database-level bounding-box pre-filter on indexed latitude/longitude
+            # columns before loading rows into Python memory for exact Haversine ranking.
+            if radius_km is not None and radius_km > 0:
+                lat_delta = (radius_km / 110.5) * 1.05
+                cos_lat = max(math.cos(math.radians(lat)), 0.01)
+                lng_delta = (radius_km / (111.32 * cos_lat)) * 1.05
+                bbox_q = Q(
+                    latitude__gte=lat - lat_delta,
+                    latitude__lte=lat + lat_delta,
+                    longitude__gte=lng - lng_delta,
+                    longitude__lte=lng + lng_delta,
+                )
+                if include_unlocated:
+                    qs = qs.filter(bbox_q | Q(latitude__isnull=True) | Q(longitude__isnull=True))
+                else:
+                    qs = qs.filter(bbox_q)
+
+            items = list(qs)
+            filtered = []
+            for b in items:
+                if b.latitude is not None and b.longitude is not None:
+                    b.distance_km = haversine_km(lat, lng, b.latitude, b.longitude)
+                else:
+                    b.distance_km = None
+
+                if radius_km is not None and radius_km > 0:
+                    if b.distance_km is not None:
+                        if b.distance_km <= radius_km:
+                            filtered.append(b)
+                    else:
+                        if include_unlocated:
+                            filtered.append(b)
+                else:
+                    filtered.append(b)
+
+            if sort == 'distance':
+                filtered.sort(key=lambda b: (
+                    b.distance_km is None,
+                    b.distance_km if b.distance_km is not None else 999999,
+                    not b.is_claimed,
+                ))
+            else:
+                # Default: 'recommended'
+                filtered.sort(key=lambda b: (
+                    not b.is_claimed,
+                    b.distance_km is None,
+                    b.distance_km if b.distance_km is not None else 999999,
+                    -b.id,
+                ))
+
+            paginator = Paginator(filtered, page_size)
+            page_obj = paginator.get_page(page)
+            return paginator.count, paginator.num_pages, page_obj.number, (
+                page_obj.next_page_number() if page_obj.has_next() else None
+            ), (
+                page_obj.previous_page_number() if page_obj.has_previous() else None
+            ), list(page_obj.object_list)
+
+        count, total_pages, current_page, next_page, prev_page, page_items = await sync_to_async(_fetch_and_paginate)()
 
         serializer = PublicBusinessSerializer(
-            page_obj.object_list,
+            page_items,
             many=True,
             context={'request': request}
         )
 
-        # PublicBusinessSerializer.to_representation() checks the owner's
-        # subscription (can_book_appointment -> sync ORM queries) to decide
-        # whether to gray out booking, so accessing .data raises
-        # SynchronousOnlyOperation unless it's pushed off this async view's
-        # event loop thread.
         results = await sync_to_async(lambda: serializer.data)()
 
         return APIResponse.success(
             data={
-                'count': paginator.count,
-                'total_pages': paginator.num_pages,
-                'current_page': page_obj.number,
-                'next': page_obj.next_page_number() if page_obj.has_next() else None,
-                'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
+                'count': count,
+                'total_pages': total_pages,
+                'current_page': current_page,
+                'next': next_page,
+                'previous': prev_page,
                 'results': results
             },
             message="لیست کسب و کارها با موفقیت دریافت شد"
+        )
+
+
+class ClientInsuranceListView(APIView):
+    permission_classes = [AllowAny]
+
+    async def get(self, request):
+        def _get_insurances():
+            return list(Insurance.objects.filter(is_active=True).order_by('display_order', 'name'))
+
+        insurances = await sync_to_async(_get_insurances)()
+        serializer = InsuranceSerializer(insurances, many=True)
+        data = await sync_to_async(lambda: serializer.data)()
+        return APIResponse.success(
+            data=data,
+            message="لیست بیمه‌ها با موفقیت دریافت شد"
+        )
+
+
+class ClientRequestOnlineBookingView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [RequestBookingRateThrottle]
+
+    async def post(self, request, business_id):
+        try:
+            business = await Business.objects.aget(Business.public_filter(), id=business_id)
+        except Business.DoesNotExist:
+            return APIResponse.error(message="کسب و کار مورد نظر یافت نشد", code=404)
+
+        def _increment():
+            Business.objects.filter(id=business.id).update(
+                online_booking_requests_count=F('online_booking_requests_count') + 1
+            )
+            business.refresh_from_db(fields=['online_booking_requests_count'])
+            return business.online_booking_requests_count
+
+        count = await sync_to_async(_increment)()
+        return APIResponse.success(
+            data={
+                'id': business.id,
+                'online_booking_requests_count': count,
+            },
+            message="درخواست شما برای فعال‌سازی نوبت‌دهی آنلاین این مرکز ثبت شد"
         )
 
 
@@ -113,20 +305,38 @@ class ClientBusinessDetailView(APIView):
 
     async def get(self, request, business_id):
         try:
-            # public_filter() is a plain Q, so it composes with aget(). A
-            # non-approved business is reported as simply missing: telling an
-            # anonymous caller "this exists but was rejected" would leak the
-            # moderation decision to anyone holding a stale link.
-            business = await Business.objects.aget(Business.public_filter(), id=business_id)
-        except Business.DoesNotExist:
+            business = await sync_to_async(
+                lambda: Business.objects.filter(Business.public_filter(), id=business_id)
+                .prefetch_related('insurances')
+                .first()
+            )()
+            if not business:
+                return APIResponse.error(
+                    message="کسب و کار مورد نظر یافت نشد",
+                    code=404
+                )
+        except Exception:
             return APIResponse.error(
                 message="کسب و کار مورد نظر یافت نشد",
                 code=404
             )
 
+        lat_param = request.query_params.get('lat')
+        lng_param = request.query_params.get('lng')
+        if lat_param is not None and lng_param is not None:
+            try:
+                lat = float(lat_param)
+                lng = float(lng_param)
+                if business.latitude is not None and business.longitude is not None:
+                    business.distance_km = haversine_km(lat, lng, business.latitude, business.longitude)
+                else:
+                    business.distance_km = None
+            except (ValueError, TypeError):
+                business.distance_km = None
+        else:
+            business.distance_km = None
+
         serializer = PublicBusinessSerializer(business, context={'request': request})
-        # Same reason as ClientBusinessListView: to_representation() does a
-        # sync ORM lookup to check the owner's subscription.
         data = await sync_to_async(lambda: serializer.data)()
         return APIResponse.success(
             data=data,

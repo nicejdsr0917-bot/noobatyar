@@ -14,6 +14,33 @@ User = get_user_model()
 BIO_MAX_LENGTH = 1500
 
 
+class Insurance(models.Model):
+    """
+    Represents an insurance provider (basic or supplementary) accepted by businesses.
+    """
+    INSURANCE_TYPE_CHOICES = [
+        ('SUPPLEMENTARY', 'بیمه تکمیلی'),
+        ('BASIC', 'بیمه پایه'),
+    ]
+
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=50, unique=True, db_index=True)
+    insurance_type = models.CharField(
+        max_length=20,
+        choices=INSURANCE_TYPE_CHOICES,
+        default='SUPPLEMENTARY',
+    )
+    is_active = models.BooleanField(default=True)
+    display_order = models.PositiveSmallIntegerField(default=100)
+
+    class Meta:
+        db_table = 'insurance'
+        ordering = ['display_order', 'name']
+
+    def __str__(self):
+        return self.name
+
+
 class Business(models.Model):
     """
     Represents a business profile for appointment management.
@@ -188,6 +215,15 @@ class Business(models.Model):
         help_text="Additional contact numbers, normalized the same way as `phone`",
     )
     address = models.TextField()
+    latitude = models.FloatField(null=True, blank=True, db_index=True, help_text="Geographic latitude")
+    longitude = models.FloatField(null=True, blank=True, db_index=True, help_text="Geographic longitude")
+    province = models.CharField(max_length=100, blank=True, default='', db_index=True, help_text="استان")
+    city = models.CharField(max_length=100, blank=True, default='', db_index=True, help_text="شهر")
+    neighborhood = models.CharField(max_length=100, blank=True, default='', help_text="محله / منطقه")
+    is_claimed = models.BooleanField(default=True, db_index=True, help_text="True if registered/claimed by an owner on Noobatyar; False if imported directory listing.")
+    external_source = models.CharField(max_length=100, blank=True, default='', help_text="Source dataset identifier for imported listings")
+    online_booking_requests_count = models.PositiveIntegerField(default=0, help_text="Number of client requests to enable online booking for an unclaimed business")
+    insurances = models.ManyToManyField('Insurance', blank=True, related_name='businesses', help_text="Supported basic and supplementary insurances")
     # TextField, not CharField, because this cap has now moved twice (50 → 300
     # → 1500) and every move cost a migration for a value that is really a
     # product decision. The column is now unbounded and BIO_MAX_LENGTH is

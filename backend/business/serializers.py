@@ -1,14 +1,22 @@
+from concurrent.futures import ThreadPoolExecutor
+from django.core.exceptions import SynchronousOnlyOperation
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from api.phone import is_iran_phone, normalize_phone
 from visitor.models import PushLog, SmsLog
 
-from .models import BIO_MAX_LENGTH, Business, ServiceCatalogItem
+from .models import BIO_MAX_LENGTH, Business, Insurance, ServiceCatalogItem
 
 # Shown to clients when the owner still has booking_enabled=True but their plan
 # quota / subscription can no longer pay for a new appointment.
 BOOKING_BLOCKED_NOTICE = "پذیرش نوبت جدید برای این کسب‌وکار موقتاً غیرفعال است."
+
+
+class InsuranceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Insurance
+        fields = ['id', 'name', 'slug', 'insurance_type']
 
 # Caps on Business.services. The menu is a picker on a phone screen, not a
 # catalogue: past a few dozen chips it stops being usable for the client it
@@ -77,6 +85,9 @@ def apply_notice_rules(data, instance):
     Note that the two are independent in the other direction on purpose: an
     owner posting a notice does not close their calendar.
     """
+    if not getattr(instance, 'is_claimed', True):
+        data['booking_enabled'] = False
+
     if not getattr(instance, 'notice_enabled', False):
         data['notice_message'] = ''
         if 'notice_enabled' in data:
@@ -124,12 +135,24 @@ class BusinessSerializer(serializers.ModelSerializer):
     # field the app can trust without re-deriving that logic itself.
     is_publicly_visible = serializers.BooleanField(read_only=True)
 
+    insurances = InsuranceSerializer(many=True, read_only=True)
+    insurance_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Insurance.objects.filter(is_active=True),
+        source='insurances',
+        write_only=True,
+        required=False,
+    )
+
     class Meta:
         model = Business
         fields = [
             # Identity
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
             'address', 'logo', 'theme_color',
+            # Location & Discovery
+            'latitude', 'longitude', 'province', 'city', 'neighborhood',
+            'is_claimed', 'online_booking_requests_count', 'insurances', 'insurance_ids',
             # Schedule
             'default_service_duration', 'work_start_hour', 'work_end_hour',
             'work_start_minute', 'work_end_minute', 'closed_weekdays',
@@ -171,6 +194,7 @@ class BusinessSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'unique_code', 'created_at', 'updated_at', 'owner', 'is_locked',
+            'is_claimed', 'online_booking_requests_count',
             # Only business/moderation.py may move these. If they were writable
             # an owner could PATCH themselves to APPROVED and walk straight past
             # review — the whole point of the layer.
@@ -297,6 +321,13 @@ class BusinessSerializer(serializers.ModelSerializer):
                 
         return ret
 
+    def to_representation(self, instance):
+        try:
+            return super().to_representation(instance)
+        except SynchronousOnlyOperation:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(super().to_representation, instance).result()
+
     def validate(self, data):
         # Effective value after this write: partial updates (every PUT here is
         # partial=True) keep whatever the rest of the row already had, so a
@@ -420,6 +451,12 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(
         source='get_category_display', read_only=True,
     )
+    insurances = InsuranceSerializer(many=True, read_only=True)
+    distance_km = serializers.SerializerMethodField()
+
+    def get_distance_km(self, obj):
+        val = getattr(obj, 'distance_km', None)
+        return round(val, 2) if val is not None else None
 
     class Meta:
         model = Business
@@ -432,6 +469,15 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             'logo',
             'theme_color',
             'address',
+            'latitude',
+            'longitude',
+            'province',
+            'city',
+            'neighborhood',
+            'is_claimed',
+            'online_booking_requests_count',
+            'insurances',
+            'distance_km',
             'phone',
             'extra_phones',
             'work_start_hour',
@@ -463,20 +509,27 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
         # All fields are read-only for this serializer
         read_only_fields = fields
 
-    def to_representation(self, instance):
+    def _build_public_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')
 
         # If user is anonymous and the business doesn't allow anonymous viewing,
         # mask contact fields
-        if (not request or not request.user or request.user.is_anonymous) \
-                and not instance.allow_anonymous_view:
+        user = getattr(request, 'user', None) if request else None
+        if (not user or getattr(user, 'is_anonymous', True)) and not instance.allow_anonymous_view:
             data['phone'] = None
             data['extra_phones'] = []
             data['address'] = None
 
         # Emergency-notice gating + the subscription-driven booking block.
         return apply_notice_rules(data, instance)
+
+    def to_representation(self, instance):
+        try:
+            return self._build_public_representation(instance)
+        except SynchronousOnlyOperation:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(self._build_public_representation, instance).result()
 
 
 class ClientBusinessSerializer(serializers.ModelSerializer):
@@ -499,12 +552,20 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(
         source='get_category_display', read_only=True,
     )
+    insurances = InsuranceSerializer(many=True, read_only=True)
+    distance_km = serializers.SerializerMethodField()
+
+    def get_distance_km(self, obj):
+        val = getattr(obj, 'distance_km', None)
+        return round(val, 2) if val is not None else None
 
     class Meta:
         model = Business
         fields = [
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
-            'address', 'logo', 'theme_color',
+            'address', 'latitude', 'longitude', 'province', 'city', 'neighborhood',
+            'is_claimed', 'online_booking_requests_count', 'insurances', 'distance_km',
+            'logo', 'theme_color',
             'default_service_duration', 'work_start_hour', 'work_end_hour',
             'work_start_minute', 'work_end_minute',
             'allow_anonymous_view',
@@ -521,17 +582,24 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
         to a real gateway instead of the manual link-and-tracking-number flow."""
         return bool((obj.merchant_id or '').strip())
 
-    def to_representation(self, instance):
+    def _build_public_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')
 
         # If user is anonymous and the business doesn't allow anonymous viewing,
         # mask contact fields
-        if (not request or not request.user or request.user.is_anonymous) \
-                and not instance.allow_anonymous_view:
+        user = getattr(request, 'user', None) if request else None
+        if (not user or getattr(user, 'is_anonymous', True)) and not instance.allow_anonymous_view:
             data['phone'] = None
             data['extra_phones'] = []
             data['address'] = None
 
         # Emergency-notice gating + the subscription-driven booking block.
         return apply_notice_rules(data, instance)
+
+    def to_representation(self, instance):
+        try:
+            return self._build_public_representation(instance)
+        except SynchronousOnlyOperation:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(self._build_public_representation, instance).result()
