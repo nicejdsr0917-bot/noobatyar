@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/bale/', include('bale.urls')),
     # Client APIs
     path('api/client/business/', include('business.client_urls')),
+    path('api/client/businesses/', include('business.client_urls')),
     path('api/client/appointments/', include('appointment.client_urls')),
     path('api/client/auth/', include('visitor.client_auth_urls')),
     path('api/client/activity/', include('visitor.client_activity_urls')),
