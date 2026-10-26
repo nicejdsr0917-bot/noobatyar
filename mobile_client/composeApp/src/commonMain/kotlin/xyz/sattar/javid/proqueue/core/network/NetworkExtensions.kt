@@ -23,6 +23,37 @@ internal val serverConnectionFailedResource = Res.string.server_connection_faile
 @PublishedApi
 internal val sslErrorResource = Res.string.ssl_error
 
+/**
+ * Runs a request whose *sending* can throw. [toApiResponse] only sees a
+ * response that arrived; a refused connection, DNS failure or timeout is thrown
+ * by `httpClient.get/post` itself, before it — and, from a viewModelScope
+ * launch, that crashes the app. Wrap the whole call so those become an
+ * [ApiResponse.Error] with the same Persian messages instead.
+ */
+suspend fun <T> safeApiCall(block: suspend () -> ApiResponse<T>): ApiResponse<T> = try {
+    block()
+} catch (e: kotlinx.coroutines.CancellationException) {
+    throw e
+} catch (e: HttpRequestTimeoutException) {
+    ApiResponse.Error(message = getString(connectionTimeoutResource), code = 408)
+} catch (e: UnresolvedAddressException) {
+    ApiResponse.Error(message = getString(noInternetResource), code = 0)
+} catch (e: Exception) {
+    val chain = generateSequence<Throwable>(e) { it.cause }.joinToString(" ") { "${it::class.simpleName} ${it.message}" }
+    val resource = when {
+        chain.contains("UnknownHost", ignoreCase = true) ||
+            chain.contains("Unable to resolve host", ignoreCase = true) -> noInternetResource
+        chain.contains("Connect", ignoreCase = true) ||
+            chain.contains("refused", ignoreCase = true) ||
+            chain.contains("Socket", ignoreCase = true) -> serverConnectionFailedResource
+        chain.contains("timed out", ignoreCase = true) ||
+            chain.contains("Timeout", ignoreCase = true) -> connectionTimeoutResource
+        chain.contains("SSL", ignoreCase = true) -> sslErrorResource
+        else -> genericErrorResource
+    }
+    ApiResponse.Error(message = getString(resource), code = 0)
+}
+
 suspend inline fun <reified T> HttpResponse.toApiResponse(): ApiResponse<T> {
     val response = this
     return try {

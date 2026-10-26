@@ -216,5 +216,6 @@ val appModule: Module = module {
     viewModel { SendOTPViewModel(get(), get()) }
     viewModel { ResetPasswordViewModel(get()) }
     viewModel { LoginViewModel(get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.claimBusiness.ClaimBusinessViewModel(get()) }
     viewModel { UserViewModel(get(), get(), get(), get(), get()) }
 }

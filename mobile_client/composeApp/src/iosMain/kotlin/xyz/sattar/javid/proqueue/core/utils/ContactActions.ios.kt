@@ -36,6 +36,12 @@ actual fun openInstagram(username: String) {
     openUrl("https://instagram.com/$username")
 }
 
+actual fun openMap(latitude: Double, longitude: Double, label: String) {
+    // Label left out: a Persian name would need percent-encoding NSURL accepts,
+    // and the pin alone is what the user navigates to.
+    openUrl("http://maps.apple.com/?ll=$latitude,$longitude&q=$latitude,$longitude")
+}
+
 actual fun openTwitter(username: String) {
     openUrl("https://twitter.com/$username")
 }

@@ -1,104 +1,128 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
-import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
+import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.data.localDataSource.business.toDomain
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
+import xyz.sattar.javid.proqueue.domain.model.business.Business
+
+@Immutable
+data class ClientBusinessDetailState(
+    val isLoading: Boolean = true,
+    val business: Business? = null,
+    val errorMessage: String? = null,
+    val isSaved: Boolean = false,
+    val bookingRequestsCount: Int = 0,
+    val hasRequestedBooking: Boolean = false,
+    val isRequestingBooking: Boolean = false,
+    val isReporting: Boolean = false,
+)
+
+sealed interface DetailMessage {
+    data class Success(val text: String) : DetailMessage
+    data class Error(val text: String) : DetailMessage
+}
+
+/** Report reasons offered to clients — a subset of ContentReport.REASON_CHOICES. */
+val reportReasons = listOf(
+    "MISLEADING" to "اطلاعات نادرست یا قدیمی (آدرس، تلفن، بیمه)",
+    "IMPERSONATION" to "این مرکز متعلق به من است و بدون اجازه منتشر شده",
+    "INAPPROPRIATE" to "محتوای نامناسب",
+    "OTHER" to "سایر",
+)
 
 class ClientBusinessDetailViewModel(
     private val businessRepository: BusinessRepository
-) : BaseViewModel<ClientBusinessDetailState, ClientBusinessDetailPartialState, ClientBusinessDetailEvent, ClientBusinessDetailIntent>(
-    initialState = ClientBusinessDetailState()
-) {
+) : ViewModel() {
 
-    override fun handleIntent(intent: ClientBusinessDetailIntent): Flow<ClientBusinessDetailPartialState> {
-        return when (intent) {
-            is ClientBusinessDetailIntent.LoadBusiness -> flow {
-                emit(ClientBusinessDetailPartialState.Loading(true))
-                try {
-                    when (val res = businessRepository.getClientBusinessDetail(intent.businessId)) {
-                        is ApiResponse.Success -> {
-                            val business = res.data.toDomain()
-                            emit(ClientBusinessDetailPartialState.BusinessLoaded(business))
-                        }
-                        is ApiResponse.Error -> {
-                            val cached = businessRepository.getBusinessById(intent.businessId)
-                            if (cached != null) {
-                                emit(ClientBusinessDetailPartialState.BusinessLoaded(cached))
-                            } else {
-                                emit(ClientBusinessDetailPartialState.Error(res.message))
-                            }
-                        }
+    private val _state = MutableStateFlow(ClientBusinessDetailState())
+    val state: StateFlow<ClientBusinessDetailState> = _state.asStateFlow()
+
+    private val _messages = Channel<DetailMessage>(Channel.BUFFERED)
+    val messages = _messages.receiveAsFlow()
+
+    private var businessId: Long = 0
+
+    fun load(id: Long) {
+        businessId = id
+        viewModelScope.launch {
+            PreferencesManager.savedBusinessIds.collect { ids -> _state.update { it.copy(isSaved = id in ids) } }
+        }
+        reload()
+    }
+
+    fun reload() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            when (val res = businessRepository.getClientBusinessDetail(businessId)) {
+                is ApiResponse.Success -> {
+                    val business = res.data.toDomain()
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            business = business,
+                            bookingRequestsCount = business.onlineBookingRequestsCount,
+                        )
                     }
-                } catch (e: Exception) {
-                    val cached = businessRepository.getBusinessById(intent.businessId)
-                    if (cached != null) {
-                        emit(ClientBusinessDetailPartialState.BusinessLoaded(cached))
-                    } else {
-                        emit(ClientBusinessDetailPartialState.Error(e.message ?: "خطا در دریافت اطلاعات مرکز"))
-                    }
-                } finally {
-                    emit(ClientBusinessDetailPartialState.Loading(false))
                 }
+                is ApiResponse.Error -> _state.update { it.copy(isLoading = false, errorMessage = res.message) }
             }
-            is ClientBusinessDetailIntent.RequestBooking -> flow {
-                emit(ClientBusinessDetailPartialState.RequestingBooking(true))
-                try {
-                    when (val res = businessRepository.requestOnlineBooking(intent.businessId)) {
-                        is ApiResponse.Success -> {
-                            emit(ClientBusinessDetailPartialState.BookingRequested(res.data.onlineBookingRequestsCount))
-                            val msg = "درخواست شما با موفقیت ثبت شد. به زودی به مدیر مرکز اطلاع داده می‌شود."
-                            emit(ClientBusinessDetailPartialState.Toast(msg))
-                            sendEvent(ClientBusinessDetailEvent.ShowToast(msg))
-                        }
-                        is ApiResponse.Error -> {
-                            emit(ClientBusinessDetailPartialState.Error(res.message))
-                            sendEvent(ClientBusinessDetailEvent.ShowToast(res.message))
-                        }
+        }
+    }
+
+    fun toggleSaved() {
+        viewModelScope.launch { PreferencesManager.toggleSavedBusiness(businessId) }
+    }
+
+    fun requestOnlineBooking() {
+        if (_state.value.isRequestingBooking || _state.value.hasRequestedBooking) return
+        viewModelScope.launch {
+            _state.update { it.copy(isRequestingBooking = true) }
+            when (val res = businessRepository.requestOnlineBooking(businessId)) {
+                is ApiResponse.Success -> {
+                    _state.update {
+                        it.copy(
+                            isRequestingBooking = false,
+                            hasRequestedBooking = true,
+                            bookingRequestsCount = res.data.onlineBookingRequestsCount,
+                        )
                     }
-                } catch (e: Exception) {
-                    val msg = e.message ?: "خطا در ثبت درخواست نوبت آنلاین"
-                    emit(ClientBusinessDetailPartialState.Error(msg))
-                    sendEvent(ClientBusinessDetailEvent.ShowToast(msg))
-                } finally {
-                    emit(ClientBusinessDetailPartialState.RequestingBooking(false))
+                    _messages.send(
+                        DetailMessage.Success(
+                            if (res.data.alreadyRequested) "درخواست شما قبلاً ثبت شده بود"
+                            else "درخواست شما ثبت شد؛ به مرکز اطلاع می‌دهیم"
+                        )
+                    )
+                }
+                is ApiResponse.Error -> {
+                    _state.update { it.copy(isRequestingBooking = false) }
+                    _messages.send(DetailMessage.Error(res.message))
                 }
             }
         }
     }
 
-    override fun createErrorState(message: String): ClientBusinessDetailPartialState = ClientBusinessDetailPartialState.Error(message)
-
-    override fun reduceState(
-        currentState: ClientBusinessDetailState,
-        partialState: ClientBusinessDetailPartialState
-    ): ClientBusinessDetailState {
-        return when (partialState) {
-            is ClientBusinessDetailPartialState.Loading -> currentState.copy(isLoading = partialState.isLoading)
-            is ClientBusinessDetailPartialState.BusinessLoaded -> currentState.copy(
-                business = partialState.business,
-                bookingRequestsCount = partialState.business.onlineBookingRequestsCount,
-                isLoading = false,
-                errorMessage = null
-            )
-            is ClientBusinessDetailPartialState.RequestingBooking -> currentState.copy(
-                isRequestingBooking = partialState.isRequesting
-            )
-            is ClientBusinessDetailPartialState.BookingRequested -> currentState.copy(
-                bookingRequestsCount = partialState.newCount,
-                hasRequestedBooking = true,
-                isRequestingBooking = false
-            )
-            is ClientBusinessDetailPartialState.Error -> currentState.copy(
-                errorMessage = partialState.message,
-                isLoading = false,
-                isRequestingBooking = false
-            )
-            is ClientBusinessDetailPartialState.Toast -> currentState.copy(
-                successToast = partialState.message
-            )
+    fun report(reason: String, detail: String, onDone: () -> Unit) {
+        viewModelScope.launch {
+            _state.update { it.copy(isReporting = true) }
+            when (val res = businessRepository.reportBusiness(businessId, reason, detail)) {
+                is ApiResponse.Success -> {
+                    _messages.send(DetailMessage.Success("گزارش شما ثبت شد؛ تیم نوبت‌یار بررسی می‌کند"))
+                    onDone()
+                }
+                is ApiResponse.Error -> _messages.send(DetailMessage.Error(res.message))
+            }
+            _state.update { it.copy(isReporting = false) }
         }
     }
 }

@@ -4,10 +4,15 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
 
-private fun launchUri(uri: String) {
+private fun launchUri(uri: String): Boolean {
     val context = xyz.sattar.javid.proqueue.ProQueueApp.appContext
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    context.startActivity(intent)
+    return try {
+        context.startActivity(intent)
+        true
+    } catch (e: android.content.ActivityNotFoundException) {
+        false
+    }
 }
 
 actual fun openSms(phone: String, message: String?) {
@@ -44,5 +49,14 @@ actual fun openInstagram(username: String) {
 
 actual fun openTwitter(username: String) {
     launchUri("https://twitter.com/$username")
+}
+
+actual fun openMap(latitude: Double, longitude: Double, label: String) {
+    // geo: is handled by every Iranian navigation app (Neshan, Balad) as well
+    // as Google Maps; the web fallback covers a phone with none installed.
+    val geo = "geo:$latitude,$longitude?q=$latitude,$longitude(${Uri.encode(label)})"
+    if (!launchUri(geo)) {
+        launchUri("https://www.google.com/maps/search/?api=1&query=$latitude,$longitude")
+    }
 }
 

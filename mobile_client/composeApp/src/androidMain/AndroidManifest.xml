@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- "Near me" search only; requested at runtime, never in the background. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <application
         android:name=".ProQueueApp"
@@ -14,8 +15,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="true"
-        android:networkSecurityConfig="@xml/network_security_config"
+        android:networkSecurityConfig="${networkSecurityConfig}"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:exported="true"
@@ -24,34 +24,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <intent-filter android:label="Payment Result">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="noobatyar" android:host="payment" android:path="/result" />
-            </intent-filter>
-            <!-- Promotional campaign deep links (backend core/campaigns.py).
-                 Hosts are enumerated rather than declaring a bare
-                 scheme-only filter: a catch-all would also swallow
-                 noobatyar://payment/result above, and the accepted set is
-                 already a closed vocabulary on the Kotlin side
-                 (NotificationNavigationManager.parseDeepLink). -->
-            <intent-filter android:label="Notification Link">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="noobatyar" android:host="home" />
-                <data android:scheme="noobatyar" android:host="visitors" />
-                <data android:scheme="noobatyar" android:host="customers" />
-                <data android:scheme="noobatyar" android:host="notifications" />
-                <data android:scheme="noobatyar" android:host="sms-report" />
-                <data android:scheme="noobatyar" android:host="smsreport" />
-                <data android:scheme="noobatyar" android:host="addons" />
-                <data android:scheme="noobatyar" android:host="add-ons" />
-                <data android:scheme="noobatyar" android:host="subscription" />
-                <data android:scheme="noobatyar" android:host="plans" />
-                <data android:scheme="noobatyar" android:host="settings" />
             </intent-filter>
         </activity>
         
@@ -72,26 +44,6 @@
                 android:resource="@xml/shared_images_paths" />
         </provider>
 
-        <receiver android:name=".core.notifications.ReminderReceiver" />
-
-        <!-- FCM. exported=false: only the Play Services process binds to it,
-             and an exported messaging service would let any app on the device
-             hand the owner a fake notification. -->
-        <service
-            android:name=".core.push.PushMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-        <!-- Used for the tray notification FCM renders itself when the app is
-             in the background; onMessageReceived does not run in that case. -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/main_icon" />
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="appointment_reminders" />
     </application>
 
 </manifest>

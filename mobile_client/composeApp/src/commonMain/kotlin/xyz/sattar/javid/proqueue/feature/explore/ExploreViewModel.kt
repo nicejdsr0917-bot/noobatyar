@@ -1,175 +1,238 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import xyz.sattar.javid.proqueue.core.location.LocationResult
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
-import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
+import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.data.localDataSource.business.toDomain
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
+import xyz.sattar.javid.proqueue.feature.discovery.CategoryGroup
 
+private const val PAGE_SIZE = 20
+private const val FEATURED_SIZE = 10
+private const val SEARCH_DEBOUNCE_MS = 350L
+
+/**
+ * Not built on BaseViewModel on purpose: that base merges every intent's flow
+ * concurrently (flatMapMerge), so a slow response for "دندان" could land after
+ * the one for "دندانپزشک" and overwrite it. Here every filter change cancels the
+ * in-flight search ([searchJob]) so only the latest query can reach the screen.
+ */
 class ExploreViewModel(
     private val businessRepository: BusinessRepository
-) : BaseViewModel<ExploreState, ExplorePartialState, ExploreEvent, ExploreIntent>(
-    initialState = ExploreState()
-) {
+) : ViewModel() {
 
-    private var searchDebounceJob: Job? = null
+    private val _state = MutableStateFlow(ExploreState())
+    val state: StateFlow<ExploreState> = _state.asStateFlow()
+
+    private var searchJob: Job? = null
+    private var loadMoreJob: Job? = null
 
     init {
-        sendIntent(ExploreIntent.LoadInitialData)
+        viewModelScope.launch {
+            PreferencesManager.savedBusinessIds.collect { ids -> _state.update { it.copy(savedIds = ids) } }
+        }
+        viewModelScope.launch {
+            PreferencesManager.recentSearches.collect { r -> _state.update { it.copy(recentSearches = r) } }
+        }
+        viewModelScope.launch {
+            when (val res = businessRepository.getInsurances()) {
+                is ApiResponse.Success -> _state.update { s -> s.copy(insurances = res.data.map { it.toDomain() }) }
+                is ApiResponse.Error -> Unit
+            }
+        }
+        search()
     }
 
-    override fun handleIntent(intent: ExploreIntent): Flow<ExplorePartialState> {
-        return when (intent) {
-            ExploreIntent.LoadInitialData -> flow {
-                emit(ExplorePartialState.Loading(true))
-                loadInsurancesInternal()
-                fetchBusinesses(currentState = uiState.value, isRefresh = false)
-            }
-            ExploreIntent.Refresh -> flow {
-                emit(ExplorePartialState.Refreshing(true))
-                loadInsurancesInternal()
-                fetchBusinesses(currentState = uiState.value, isRefresh = true)
-            }
-            is ExploreIntent.SelectLocation -> flow {
-                emit(ExplorePartialState.LocationChanged(intent.preset))
-                val newState = uiState.value.copy(selectedLocation = intent.preset)
-                fetchBusinesses(currentState = newState, isRefresh = false)
-            }
-            is ExploreIntent.SelectCategory -> flow {
-                emit(ExplorePartialState.CategoryChanged(intent.categoryKey))
-                val newState = uiState.value.copy(selectedCategory = intent.categoryKey)
-                fetchBusinesses(currentState = newState, isRefresh = false)
-            }
-            is ExploreIntent.SelectInsurance -> flow {
-                emit(ExplorePartialState.InsuranceChanged(intent.insuranceSlug))
-                val newState = uiState.value.copy(selectedInsuranceSlug = intent.insuranceSlug)
-                fetchBusinesses(currentState = newState, isRefresh = false)
-            }
-            is ExploreIntent.UpdateSearchQuery -> channelFlow {
-                send(ExplorePartialState.SearchQueryChanged(intent.query))
-                searchDebounceJob?.cancel()
-                searchDebounceJob = launch {
-                    if (intent.query.isNotBlank()) {
-                        delay(300)
-                    }
-                    val newState = uiState.value.copy(searchQuery = intent.query)
-                    flow {
-                        fetchBusinesses(currentState = newState, isRefresh = false)
-                    }.collect { send(it) }
+    // ── Location ─────────────────────────────────────────────────────────────
+
+    fun onLocating() = _state.update { it.copy(locationStatus = LocationStatus.Locating) }
+
+    fun onLocationResult(result: LocationResult) {
+        when (result) {
+            is LocationResult.Success -> {
+                _state.update {
+                    it.copy(
+                        area = SearchArea.NearMe(result.latitude, result.longitude),
+                        locationStatus = LocationStatus.Granted,
+                        sort = SortMode.DISTANCE,
+                    )
                 }
+                search()
             }
-            is ExploreIntent.ToggleOnlyClaimed -> flow {
-                emit(ExplorePartialState.OnlyClaimedChanged(intent.onlyClaimed))
-                val newState = uiState.value.copy(onlyClaimed = intent.onlyClaimed)
-                fetchBusinesses(currentState = newState, isRefresh = false)
-            }
-            ExploreIntent.ClearFilters -> flow {
-                searchDebounceJob?.cancel()
-                emit(ExplorePartialState.FiltersCleared)
-                val newState = uiState.value.copy(
-                    searchQuery = "",
-                    selectedCategory = null,
-                    selectedInsuranceSlug = null,
-                    onlyClaimed = false
+            LocationResult.PermissionDenied -> _state.update { it.copy(locationStatus = LocationStatus.Denied) }
+            LocationResult.Disabled -> _state.update { it.copy(locationStatus = LocationStatus.Disabled) }
+            LocationResult.Unavailable -> _state.update { it.copy(locationStatus = LocationStatus.Unavailable) }
+        }
+    }
+
+    fun selectArea(area: SearchArea) {
+        _state.update {
+            it.copy(
+                area = area,
+                sort = if (area is SearchArea.Anywhere) SortMode.RECOMMENDED else it.sort,
+            )
+        }
+        search()
+    }
+
+    fun selectRadius(km: Double) {
+        _state.update { it.copy(radiusKm = km) }
+        search()
+    }
+
+    // ── Filters ──────────────────────────────────────────────────────────────
+
+    fun updateQuery(query: String) {
+        _state.update { it.copy(query = query) }
+        search(debounce = true)
+    }
+
+    /** A deliberate search (keyboard "search", a suggestion tap): runs at once and is remembered. */
+    fun submitSearch(query: String) {
+        _state.update { it.copy(query = query) }
+        search()
+        rememberQuery()
+    }
+
+    /** Remembers the current query once the user acts on its results. */
+    fun rememberQuery() {
+        val q = _state.value.query.trim()
+        if (q.length >= 2) viewModelScope.launch { PreferencesManager.addRecentSearch(q) }
+    }
+
+    fun clearRecentSearches() {
+        viewModelScope.launch { PreferencesManager.clearRecentSearches() }
+    }
+
+    fun selectCategory(group: CategoryGroup) {
+        if (group == _state.value.category) return
+        _state.update { it.copy(category = group) }
+        search()
+    }
+
+    fun selectInsurance(slug: String?) {
+        _state.update { it.copy(insuranceSlug = slug) }
+        search()
+    }
+
+    fun toggleOnlyOnline() {
+        _state.update { it.copy(onlyOnline = !it.onlyOnline) }
+        search()
+    }
+
+    fun selectSort(sort: SortMode) {
+        if (sort == _state.value.sort) return
+        _state.update { it.copy(sort = sort) }
+        search()
+    }
+
+    fun clearFilters() {
+        _state.update {
+            it.copy(query = "", category = CategoryGroup.ALL, insuranceSlug = null, onlyOnline = false)
+        }
+        search()
+    }
+
+    fun refresh() = search(isRefresh = true)
+
+    fun toggleSaved(id: Long) {
+        viewModelScope.launch { PreferencesManager.toggleSavedBusiness(id) }
+    }
+
+    // ── Loading ──────────────────────────────────────────────────────────────
+
+    private fun search(debounce: Boolean = false, isRefresh: Boolean = false) {
+        searchJob?.cancel()
+        loadMoreJob?.cancel()
+        searchJob = viewModelScope.launch {
+            if (debounce) delay(SEARCH_DEBOUNCE_MS)
+            _state.update {
+                it.copy(
+                    isLoading = !isRefresh,
+                    isRefreshing = isRefresh,
+                    isLoadingMore = false,
+                    errorMessage = null,
                 )
-                fetchBusinesses(currentState = newState, isRefresh = false)
             }
-            is ExploreIntent.BusinessClicked -> flow {
-                sendEvent(ExploreEvent.NavigateToDetail(intent.businessId))
-            }
-        }
-    }
+            val s = _state.value
 
-    private suspend fun kotlinx.coroutines.flow.FlowCollector<ExplorePartialState>.loadInsurancesInternal() {
-        when (val res = businessRepository.getInsurances()) {
-            is ApiResponse.Success -> {
-                val list = res.data.map { it.toDomain() }
-                if (list.isNotEmpty()) {
-                    emit(ExplorePartialState.InsurancesLoaded(list))
+            // Featured strip: claimed + bookable businesses for the same area and
+            // category, independent of the text query so it doesn't vanish while typing.
+            val featuredDeferred = async {
+                if (s.onlyOnline) null else fetch(s, page = 1, pageSize = FEATURED_SIZE, onlyClaimed = true, ignoreQuery = true)
+            }
+            val results = fetch(s, page = 1, pageSize = PAGE_SIZE, onlyClaimed = s.onlyOnline)
+            val featured = featuredDeferred.await()
+
+            _state.update { current ->
+                when (results) {
+                    is ApiResponse.Success -> current.copy(
+                        results = results.data.results.map { it.toDomain() },
+                        totalCount = results.data.count,
+                        nextPage = results.data.next,
+                        featured = (featured as? ApiResponse.Success)?.data?.results
+                            ?.map { it.toDomain() }
+                            ?.filter { it.isClaimed && it.bookingEnabled }
+                            .orEmpty(),
+                        isLoading = false,
+                        isRefreshing = false,
+                    )
+                    is ApiResponse.Error -> current.copy(
+                        errorMessage = results.message,
+                        isLoading = false,
+                        isRefreshing = false,
+                    )
                 }
             }
-            is ApiResponse.Error -> Unit
         }
     }
 
-    private suspend fun kotlinx.coroutines.flow.FlowCollector<ExplorePartialState>.fetchBusinesses(
-        currentState: ExploreState,
-        isRefresh: Boolean
-    ) {
-        if (!isRefresh) {
-            emit(ExplorePartialState.Loading(true))
-        }
-        try {
-            val response = businessRepository.getClientBusinesses(
-                page = 1,
-                pageSize = 50,
-                search = currentState.searchQuery.takeIf { it.isNotBlank() },
-                category = currentState.selectedCategory,
-                insuranceSlug = currentState.selectedInsuranceSlug,
-                lat = currentState.selectedLocation.lat,
-                lng = currentState.selectedLocation.lng,
-                radiusKm = currentState.selectedLocation.radiusKm,
-                onlyClaimed = currentState.onlyClaimed,
-                sort = "recommended"
-            )
-
-            when (response) {
-                is ApiResponse.Success -> {
-                    val allBusinesses = response.data.results.map { it.toDomain() }
-                    val vip = allBusinesses.filter { it.isClaimed }
-                    emit(ExplorePartialState.BusinessesLoaded(allBusinesses, vip))
-                    emit(ExplorePartialState.Error(null))
+    fun loadMore() {
+        val s = _state.value
+        val page = s.nextPage ?: return
+        if (s.isLoading || s.isLoadingMore || loadMoreJob?.isActive == true) return
+        loadMoreJob = viewModelScope.launch {
+            _state.update { it.copy(isLoadingMore = true) }
+            when (val res = fetch(s, page = page, pageSize = PAGE_SIZE, onlyClaimed = s.onlyOnline)) {
+                is ApiResponse.Success -> _state.update { current ->
+                    val seen = current.results.mapTo(HashSet()) { it.id }
+                    current.copy(
+                        results = current.results + res.data.results.map { it.toDomain() }.filter { it.id !in seen },
+                        nextPage = res.data.next,
+                        isLoadingMore = false,
+                    )
                 }
-                is ApiResponse.Error -> {
-                    emit(ExplorePartialState.Error(response.message))
-                }
+                is ApiResponse.Error -> _state.update { it.copy(isLoadingMore = false) }
             }
-        } catch (e: Exception) {
-            emit(ExplorePartialState.Error(e.message ?: "خطا در برقراری ارتباط با سرور"))
-        } finally {
-            emit(ExplorePartialState.Loading(false))
-            emit(ExplorePartialState.Refreshing(false))
         }
     }
 
-    override fun createErrorState(message: String): ExplorePartialState = ExplorePartialState.Error(message)
-
-    override fun reduceState(
-        currentState: ExploreState,
-        partialState: ExplorePartialState
-    ): ExploreState {
-        return when (partialState) {
-            is ExplorePartialState.Loading -> currentState.copy(isLoading = partialState.isLoading)
-            is ExplorePartialState.Refreshing -> currentState.copy(isRefreshing = partialState.isRefreshing)
-            is ExplorePartialState.BusinessesLoaded -> currentState.copy(
-                businesses = partialState.businesses,
-                vipBusinesses = partialState.vipBusinesses,
-                isLoading = false,
-                isRefreshing = false
-            )
-            is ExplorePartialState.InsurancesLoaded -> currentState.copy(insurances = partialState.insurances)
-            is ExplorePartialState.LocationChanged -> currentState.copy(selectedLocation = partialState.location)
-            is ExplorePartialState.CategoryChanged -> currentState.copy(selectedCategory = partialState.category)
-            is ExplorePartialState.InsuranceChanged -> currentState.copy(selectedInsuranceSlug = partialState.insuranceSlug)
-            is ExplorePartialState.SearchQueryChanged -> currentState.copy(searchQuery = partialState.query)
-            is ExplorePartialState.OnlyClaimedChanged -> currentState.copy(onlyClaimed = partialState.onlyClaimed)
-            ExplorePartialState.FiltersCleared -> currentState.copy(
-                searchQuery = "",
-                selectedCategory = null,
-                selectedInsuranceSlug = null,
-                onlyClaimed = false
-            )
-            is ExplorePartialState.Error -> currentState.copy(
-                errorMessage = partialState.message,
-                isLoading = false,
-                isRefreshing = false
-            )
-        }
-    }
+    private suspend fun fetch(
+        s: ExploreState,
+        page: Int,
+        pageSize: Int,
+        onlyClaimed: Boolean,
+        ignoreQuery: Boolean = false,
+    ) = businessRepository.getClientBusinesses(
+        page = page,
+        pageSize = pageSize,
+        search = if (ignoreQuery) null else s.query.trim().takeIf { it.isNotEmpty() },
+        category = s.category.key,
+        insuranceSlug = s.insuranceSlug,
+        lat = s.area.latitude,
+        lng = s.area.longitude,
+        radiusKm = if (s.hasLocation) s.radiusKm else null,
+        onlyClaimed = onlyClaimed,
+        sort = s.sort.apiValue,
+    )
 }

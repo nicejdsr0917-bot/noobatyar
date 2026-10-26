@@ -37,7 +37,10 @@ from django.views.decorators.http import require_POST
 
 from api.jalali import format_datetime
 from . import moderation
-from .models import BannedKeyword, Business, BusinessModerationLog, ContentReport, Insurance
+from .claims import ClaimError, apply_claim
+from .models import (
+    BannedKeyword, Business, BusinessClaimRequest, BusinessModerationLog, ContentReport, Insurance,
+)
 # services.apply_moderation_decision() = moderation.apply_decision() + the SMS
 # that tells the owner. Decisions made here are the ones an owner most needs to
 # hear about, so the admin goes through the wrapper rather than the bare helper.
@@ -721,3 +724,38 @@ class ContentReportAdmin(admin.ModelAdmin):
     @admin.action(description='علامت‌گذاری به‌عنوان «رد شد»')
     def mark_dismissed(self, request, queryset):
         return self._set_status(request, queryset, ContentReport.STATUS_DISMISSED, 'رد شد', True)
+
+
+@admin.register(BusinessClaimRequest)
+class BusinessClaimRequestAdmin(admin.ModelAdmin):
+    """Manual claim queue: listings whose number can't receive an OTP land here.
+
+    Approving runs the same transfer as a successful OTP claim
+    (business.claims.apply_claim), so quota and "already claimed" rules hold.
+    """
+
+    list_display = ('created_at', 'business', 'user', 'method', 'status', 'note')
+    list_filter = ('status', 'method')
+    search_fields = ('business__title', 'business__phone', 'user__phone', 'note')
+    raw_id_fields = ('business', 'user')
+    readonly_fields = ('created_at', 'resolved_at')
+    actions = ['approve_claims', 'reject_claims']
+
+    @admin.action(description='تأیید و انتقال مالکیت')
+    def approve_claims(self, request, queryset):
+        done = 0
+        for claim in queryset.filter(status=BusinessClaimRequest.STATUS_PENDING):
+            try:
+                apply_claim(claim, resolution_note=f'تأیید دستی توسط {request.user}')
+                done += 1
+            except ClaimError as exc:
+                self.message_user(request, f"{claim.business}: {exc}", level=messages.ERROR)
+        if done:
+            self.message_user(request, f"{done} درخواست تأیید شد", level=messages.SUCCESS)
+
+    @admin.action(description='رد درخواست')
+    def reject_claims(self, request, queryset):
+        n = queryset.filter(status=BusinessClaimRequest.STATUS_PENDING).update(
+            status=BusinessClaimRequest.STATUS_REJECTED, resolved_at=timezone.now(),
+        )
+        self.message_user(request, f"{n} درخواست رد شد", level=messages.SUCCESS)

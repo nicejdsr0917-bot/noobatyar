@@ -4,8 +4,15 @@ Bulk directory importer for unclaimed business listings from external sources
 (e.g., Medical Council directory, syndicate datasets).
 
 Supports JSON, JSONL, and CSV streaming with phone normalization, category
-mapping, insurance matching, deduplication on (title, phone, city), and
-batch database creation.
+mapping, insurance matching, deduplication, and batch database creation.
+
+Deduplication key: (title, phone, city) when the row has a phone, otherwise
+(title, city, address) — without a phone two different clinics with the same
+name in one city must not collapse into one.
+
+A row with no usable phone is stored with phone='' (the client hides the call
+button); it is never given a placeholder number, which would send callers to a
+stranger.
 
 Usage:
     python manage.py import_directory --file <path> --source <name> [--batch-size 1000]
@@ -19,10 +26,76 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 
-from api.phone import normalize_phone
+from api.phone import is_iran_phone, normalize_phone
 from business.models import Business, Insurance
 
 User = get_user_model()
+
+
+def _iter_json(f, chunk_size=1 << 20):
+    """Yield the elements of a top-level JSON array (or a single object)
+    without loading the whole file: reads fixed-size chunks and peels complete
+    values off the front with raw_decode, so memory stays bounded by the
+    largest single record rather than the file size."""
+    decoder = json.JSONDecoder()
+    buf = f.read(chunk_size).lstrip('﻿').lstrip()
+    if not buf:
+        return
+    if buf[0] == '{':
+        rest = buf + f.read()
+        yield decoder.raw_decode(rest)[0]
+        return
+    if buf[0] != '[':
+        raise ValueError("JSON file must contain an array or an object.")
+    buf = buf[1:]
+    eof = False
+    while True:
+        buf = buf.lstrip().lstrip(',').lstrip()
+        if buf.startswith(']'):
+            return
+        if not buf and eof:
+            raise ValueError("Unexpected end of JSON array.")
+        try:
+            obj, end = decoder.raw_decode(buf)
+        except json.JSONDecodeError:
+            if eof:
+                raise
+            more = f.read(chunk_size)
+            if not more:
+                eof = True
+            buf += more
+            continue
+        yield obj
+        buf = buf[end:]
+        if len(buf) < chunk_size and not eof:
+            more = f.read(chunk_size)
+            if not more:
+                eof = True
+            buf += more
+
+
+def _safe_int(value, default, lo, hi):
+    try:
+        n = int(float(value))
+    except (ValueError, TypeError):
+        return default
+    return n if lo <= n <= hi else default
+
+
+def _safe_coord(value, lo, hi):
+    if value is None or not str(value).strip():
+        return None
+    try:
+        v = float(value)
+    except (ValueError, TypeError):
+        return None
+    return v if lo <= v <= hi else None
+
+
+def _dedup_key(title, phone, city, address):
+    if phone:
+        return ('p', title, phone, city)
+    return ('a', title, city, address)
 
 
 def read_data_stream(file_path):
@@ -30,14 +103,7 @@ def read_data_stream(file_path):
     ext = os.path.splitext(file_path)[1].lower()
     if ext == '.json':
         with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                for item in data:
-                    yield item
-            elif isinstance(data, dict):
-                yield data
-            else:
-                raise ValueError("JSON file must contain an array or an object.")
+            yield from _iter_json(f)
     elif ext == '.jsonl':
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -45,7 +111,7 @@ def read_data_stream(file_path):
                 if line:
                     yield json.loads(line)
     elif ext == '.csv':
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8-sig', newline='') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 yield row
@@ -105,9 +171,10 @@ class Command(BaseCommand):
         label_map = {label.strip(): code for code, label in Business.CATEGORY_CHOICES}
 
         # 4. Pre-load existing (title, phone, city) for deduplication
-        existing_businesses = set(
-            Business.objects.values_list('title', 'phone', 'city')
-        )
+        existing_businesses = {
+            _dedup_key(t, p, c, a)
+            for t, p, c, a in Business.objects.values_list('title', 'phone', 'city', 'address').iterator()
+        }
         existing_codes = set(
             Business.objects.values_list('unique_code', flat=True)
         )
@@ -140,7 +207,6 @@ class Command(BaseCommand):
                 ThroughModel.objects.bulk_create(through_records)
 
             for b in batch_items:
-                existing_businesses.add((b.title, b.phone, b.city))
                 existing_codes.add(b.unique_code)
 
             imported_count += len(batch_items)
@@ -160,6 +226,8 @@ class Command(BaseCommand):
 
             raw_phone = str(row.get('phone') or '').strip()
             norm_phone = normalize_phone(raw_phone) if raw_phone else ''
+            if norm_phone and not is_iran_phone(norm_phone):
+                norm_phone = ''
 
             city = str(row.get('city') or '').strip()
             province = str(row.get('province') or '').strip()
@@ -169,7 +237,7 @@ class Command(BaseCommand):
                 address = f"{city} {neighborhood}".strip() or "آدرس ثبت نشده"
 
             # Deduplication by (title, phone, city)
-            dedup_key = (title, norm_phone, city)
+            dedup_key = _dedup_key(title, norm_phone, city, address)
             if dedup_key in existing_businesses:
                 skipped_count += 1
                 continue
@@ -185,19 +253,12 @@ class Command(BaseCommand):
             else:
                 cat = 'OTHER'
 
-            # Coordinates
-            lat = None
-            lng = None
-            if row.get('latitude') is not None and str(row.get('latitude')).strip():
-                try:
-                    lat = float(row.get('latitude'))
-                except (ValueError, TypeError):
-                    pass
-            if row.get('longitude') is not None and str(row.get('longitude')).strip():
-                try:
-                    lng = float(row.get('longitude'))
-                except (ValueError, TypeError):
-                    pass
+            # Coordinates (out-of-range values, e.g. swapped lat/lng, are dropped
+            # rather than placing the listing on the wrong continent).
+            lat = _safe_coord(row.get('latitude'), -90.0, 90.0)
+            lng = _safe_coord(row.get('longitude'), -180.0, 180.0)
+            if lat is None or lng is None:
+                lat = lng = None
 
             # Services
             raw_services = row.get('services') or []
@@ -238,7 +299,7 @@ class Command(BaseCommand):
                 title=title,
                 category=cat,
                 unique_code=code,
-                phone=norm_phone or '02100000000',
+                phone=norm_phone,
                 address=address,
                 province=province,
                 city=city,
@@ -252,9 +313,9 @@ class Command(BaseCommand):
                 first_approved_at=now,
                 is_locked=False,
                 booking_enabled=False,
-                default_service_duration=int(row.get('default_service_duration') or 30),
-                work_start_hour=int(row.get('work_start_hour') or 9),
-                work_end_hour=int(row.get('work_end_hour') or 18),
+                default_service_duration=_safe_int(row.get('default_service_duration'), 30, 5, 480),
+                work_start_hour=_safe_int(row.get('work_start_hour'), 9, 0, 23),
+                work_end_hour=_safe_int(row.get('work_end_hour'), 18, 1, 24),
                 services=services,
             )
 

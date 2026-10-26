@@ -1,481 +1,172 @@
 package xyz.sattar.javid.proqueue.core.navigation.navHost
-import xyz.sattar.javid.proqueue.feature.explore.ExploreScreen
-import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailScreen
 
-import xyz.sattar.javid.proqueue.feature.calendar.CalendarScreen
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
-import xyz.sattar.javid.proqueue.core.ui.LocalHazeState
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.dialog
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import xyz.sattar.javid.proqueue.core.navigation.AppScreens
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
-import xyz.sattar.javid.proqueue.core.navigation.NavigationEvent
-import xyz.sattar.javid.proqueue.core.navigation.DeepLinkTarget
-import xyz.sattar.javid.proqueue.core.navigation.NotificationNavigationManager
-import xyz.sattar.javid.proqueue.core.navigation.PaymentNavigationManager
-import xyz.sattar.javid.proqueue.core.navigation.PendingVisitorsFilter
-import xyz.sattar.javid.proqueue.core.ui.components.BottomNavigationBar
-import xyz.sattar.javid.proqueue.feature.createAppointment.CreateAppointmentScreen
-import xyz.sattar.javid.proqueue.feature.createVisitor.CreateVisitorRoute
-import xyz.sattar.javid.proqueue.feature.home.HomeScreen
-import xyz.sattar.javid.proqueue.feature.home.VisitorsNavArgs
-import xyz.sattar.javid.proqueue.feature.lastVisitors.LastVisitorsScreen
-import xyz.sattar.javid.proqueue.feature.messages.MessagesScreen
-import xyz.sattar.javid.proqueue.feature.notifications.NotificationsScreen
-import xyz.sattar.javid.proqueue.feature.profile.PaymentResultScreen
-import xyz.sattar.javid.proqueue.feature.settings.EmergencyNoticeScreen
-import xyz.sattar.javid.proqueue.feature.settings.SettingsScreen
-import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportScreen
-import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsScreen
-import xyz.sattar.javid.proqueue.feature.visitorSelection.VisitorSelectionScreen
 import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
-import xyz.sattar.javid.proqueue.feature.share.ShareBusinessScreen
-import xyz.sattar.javid.proqueue.core.payment.PaymentWebViewScreen
-import xyz.sattar.javid.proqueue.feature.addons.AddonsScreen
-import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessRoute
-import xyz.sattar.javid.proqueue.feature.createBusiness.AdvancedSettingsRoute
+import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailScreen
+import xyz.sattar.javid.proqueue.feature.discovery.Brand
+import xyz.sattar.javid.proqueue.feature.explore.ExploreScreen
+import xyz.sattar.javid.proqueue.feature.more.MoreScreen
+import xyz.sattar.javid.proqueue.feature.saved.SavedScreen
+import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 
+private val tabs = listOf(MainTab.Explore, MainTab.Saved, MainTab.More)
+
+/** Height the floating bar occupies, so tab screens can pad their last item clear of it. */
+private val BottomBarClearance = 96.dp
 
 @Composable
-fun MainNavHost(
-    onChangeBusiness: () -> Unit = {},
-    onNavigateToLogin: () -> Unit = {}
-) {
+fun MainNavHost() {
     val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val destination = backStackEntry?.destination
 
-    val notificationEvent by NotificationNavigationManager.navigationEvent.collectAsState()
-    val paymentEvent by PaymentNavigationManager.paymentEvent.collectAsState()
-
-    // Shared blur source/target state for the glass top & bottom bars.
-    val hazeState = remember { HazeState() }
-
-    // GlobalError (Unauthorized / RateLimit) is now shown from a single
-    // always-mounted host in App.kt, which survives the navigation swap that
-    // Unauthorized triggers — this screen-local host used to only catch
-    // RateLimit, and would unmount before Unauthorized's toast could show.
-
-    LaunchedEffect(notificationEvent) {
-        when (val event = notificationEvent) {
-            is NavigationEvent.ToVisitorDetails -> {
-                navController.navigate(AppScreens.VisitorDetails(event.visitorId, event.openMessageDialog))
-                NotificationNavigationManager.consumeEvent()
-            }
-            is NavigationEvent.ToDeepLink -> {
-                // HOME is already the start destination, so there is nothing to
-                // push for it — tapping such a campaign just opens the app,
-                // which is exactly what `noobatyar://home` means.
-                val screen = when (event.target) {
-                    DeepLinkTarget.HOME -> null
-                    DeepLinkTarget.VISITORS -> AppScreens.Visitors
-                    DeepLinkTarget.NOTIFICATIONS -> AppScreens.Notifications
-                    DeepLinkTarget.SMS_REPORT -> AppScreens.SmsReport
-                    DeepLinkTarget.ADD_ONS -> AppScreens.AddOns
-                    DeepLinkTarget.SETTINGS -> AppScreens.Settings
-                }
-                screen?.let { navController.navigate(it) }
-                NotificationNavigationManager.consumeEvent()
-            }
-            null -> Unit
-        }
+    val selectedTab = tabs.firstOrNull { tab ->
+        destination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true
     }
+    val openDetail: (Long) -> Unit = { navController.navigate(AppScreens.ClientBusinessDetail(it)) }
 
-    LaunchedEffect(paymentEvent) {
-        paymentEvent?.let { event ->
-            navController.navigate(
-                AppScreens.PaymentResult(
-                    success = if (event.success) 1 else 0,
-                    ref = event.ref,
-                    amount = event.amount,
-                    txn = event.txn
-                )
-            )
-            PaymentNavigationManager.consumeEvent()
-        }
-    }
-
-    val tabs = listOf(
-        MainTab.Home,
-        MainTab.Settings
-    )
-
-    // Determine if the bottom bar should be shown
-    val shouldShowBottomBar = tabs.any { tab ->
-        currentDestination?.hierarchy?.any {
-            it.route == tab.route::class.qualifiedName
-        } == true
-    }
-
-    val selectedTab = tabs.find { tab ->
-        currentDestination?.hierarchy?.any {
-            it.route == tab.route::class.qualifiedName
-        } == true
-    } ?: MainTab.Home
-
-    CompositionLocalProvider(LocalHazeState provides hazeState) {
-    Scaffold(
-        bottomBar = {
-            AnimatedVisibility(
-                visible = shouldShowBottomBar,
-                enter = slideInVertically(
-                    initialOffsetY = { it }
-                ),
-                exit = slideOutVertically(
-                    targetOffsetY = { it }
-                )
-            ) {
-                BottomNavigationBar(
-                    tabs = tabs,
-                    selectedTab = selectedTab,
-                    onTabSelected = { tab ->
-                        if (selectedTab != tab) {
-                            navController.navigate(tab.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    }
-                )
-            }
-        }
-    ) { paddingValues ->
-        // Note: we intentionally do NOT pad the content by the bottom bar height.
-        // The bottom bar floats (with a gradient scrim), so screens scroll under
-        // it with no solid gap. Tab screens add BottomBarSpacer / FabClearance
-        // so the last items and FABs clear the bar.
+    // Surface (not a bare background) so LocalContentColor follows the theme:
+    // without it every Text that doesn't pick a colour renders black, which is
+    // invisible in dark mode.
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
-            startDestination = AppScreens.Home,
-            modifier = Modifier
-                .fillMaxSize()
-                .hazeSource(hazeState)
+            startDestination = AppScreens.Explore,
+            modifier = Modifier.fillMaxSize()
         ) {
-            composable<AppScreens.Home> {
-                ExploreScreen(
-                    onNavigateToDetail = { businessId ->
-                        navController.navigate(AppScreens.ClientBusinessDetail(businessId))
-                    }
+            composable<AppScreens.Explore> {
+                ExploreScreen(onNavigateToDetail = openDetail, bottomPadding = BottomBarClearance)
+            }
+            composable<AppScreens.Saved> {
+                SavedScreen(onNavigateToDetail = openDetail, bottomPadding = BottomBarClearance)
+            }
+            composable<AppScreens.More> {
+                MoreScreen(
+                    onOpenAbout = { navController.navigate(AppScreens.AboutUs) },
+                    bottomPadding = BottomBarClearance
                 )
             }
-
-            composable<AppScreens.ClientBusinessDetail> { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.ClientBusinessDetail>()
+            composable<AppScreens.ClientBusinessDetail> { entry ->
                 ClientBusinessDetailScreen(
-                    businessId = args.businessId,
+                    businessId = entry.toRoute<AppScreens.ClientBusinessDetail>().businessId,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
-
-            composable<AppScreens.Visitors> {
-                val pending = remember { PendingVisitorsFilter.consume() }
-                LastVisitorsScreen(
-                    initialStatus = pending?.status,
-                    initialTab = pending?.tab,
-                    initialDateFrom = pending?.dateFrom,
-                    initialDateTo = pending?.dateTo,
-                    onNavigateToCreateAppointment = {
-                        navController.navigate(AppScreens.VisitorSelection(returnResult = false))
-                    },
-                    onNavigateToEditAppointment = { appointmentId ->
-                        navController.navigate(AppScreens.CreateAppointment(appointmentId = appointmentId))
-                    },
-                    onNavigateToVisitorDetails = { visitorId ->
-                        navController.navigate(AppScreens.VisitorDetails(visitorId))
-                    },
-                    onNavigateToLogin = onNavigateToLogin,
-                    onChangeBusiness = onChangeBusiness
-                )
-            }
-
-            composable<AppScreens.VisitorSelection> { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.VisitorSelection>()
-                val createdVisitorId = backStackEntry.savedStateHandle.get<Long>("createdVisitorId")
-                LaunchedEffect(createdVisitorId) {
-                    if (createdVisitorId != null) {
-                         if (args.returnResult) {
-                            navController.previousBackStackEntry?.savedStateHandle?.set("selectedVisitorId", createdVisitorId)
-                            navController.popBackStack()
-                        } else {
-                            navController.navigate(AppScreens.CreateAppointment(visitorId = createdVisitorId))
-                        }
-                        backStackEntry.savedStateHandle.remove<Long>("createdVisitorId")
-                    }
-                }
-
-                VisitorSelectionScreen(
-                    onNavigateToCreateAppointment = { visitorId ->
-                        if (args.returnResult) {
-                            navController.previousBackStackEntry?.savedStateHandle?.set("selectedVisitorId", visitorId)
-                            navController.popBackStack()
-                        } else {
-                            navController.navigate(AppScreens.CreateAppointment(visitorId = visitorId))
-                        }
-                    },
-                    onNavigateToEditVisitor = { visitorId ->
-                        navController.navigate(AppScreens.EditVisitor(visitorId))
-                    },
-                    onNavigateToCreateVisitor = {
-                        navController.navigate(AppScreens.CreateVisitor)
-                    },
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-
-            composable<AppScreens.Settings> {
-                SettingsScreen(
-                    onNavigateToAbout = {
-                        navController.navigate(AppScreens.AboutUs)
-                    },
-                    onChangeBusiness = onChangeBusiness,
-                    onNavigateToEditBusiness = { businessId ->
-                        navController.navigate(AppScreens.CreateBusiness(businessId = businessId))
-                    },
-                    onNavigateToAdvancedSettings = { businessId ->
-                        navController.navigate(AppScreens.AdvancedSettings(businessId = businessId))
-                    },
-                    onNavigateToNotifications = {
-                        navController.navigate(AppScreens.Notifications)
-                    },
-                    onNavigateToMessages = {
-                        navController.navigate(AppScreens.Messages)
-                    },
-                    onNavigateToSmsReport = {
-                        navController.navigate(AppScreens.SmsReport)
-                    },
-                    onNavigateToEmergencyNotice = {
-                        navController.navigate(AppScreens.EmergencyNotice)
-                    },
-                    onNavigateToLogin = onNavigateToLogin
-                )
-            }
-
-            composable<AppScreens.CreateBusiness> { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.CreateBusiness>()
-                CreateBusinessRoute(
-                    businessId = args.businessId,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    },
-                    onContinue = {
-                        navController.popBackStack()
-                    },
-                    onNavigateToPayment = { url ->
-                        navController.navigate(AppScreens.PaymentWebView(url))
-                    }
-                )
-            }
-
-            composable<AppScreens.AdvancedSettings> { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.AdvancedSettings>()
-                AdvancedSettingsRoute(
-                    businessId = args.businessId,
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable<AppScreens.Notifications> {
-                NotificationsScreen(
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    },
-                    onNavigateToPayment = { url ->
-                        navController.navigate(AppScreens.PaymentWebView(url))
-                    }
-                )
-            }
-
-            composable<AppScreens.Messages> {
-                MessagesScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToAddons = { navController.navigate(AppScreens.AddOns) }
-                )
-            }
-
-            composable<AppScreens.SmsReport> {
-                SmsReportScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable<AppScreens.EmergencyNotice> {
-                EmergencyNoticeScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable<AppScreens.VisitorDetails> { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.VisitorDetails>()
-                VisitorDetailsScreen(
-                    visitorId = args.visitorId,
-                    openMessageDialog = args.openMessageDialog,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    },
-                    onNavigateToCreateAppointment = { visitorId ->
-                        navController.navigate(AppScreens.CreateAppointment(visitorId))
-                    }
-                )
-            }
-
-            composable<AppScreens.CreateVisitor> {
-                CreateVisitorRoute(
-                    onContinue = { visitorId ->
-                         navController.previousBackStackEntry?.savedStateHandle?.set("createdVisitorId", visitorId)
-                         navController.popBackStack()
-                    },
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-
-            composable<AppScreens.EditVisitor> { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.EditVisitor>()
-                CreateVisitorRoute(
-                    visitorId = args.visitorId,
-                    onContinue = { visitorId ->
-                        navController.popBackStack()
-                    },
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-
-            composable<AppScreens.Calendar> { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.Calendar>()
-                CalendarScreen(
-                    isPicker = args.isPicker,
-                    excludeAppointmentId = args.excludeAppointmentId,
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToCreateAppointment = { date, time ->
-                        navController.navigate(AppScreens.CreateAppointment(date = date, time = time))
-                    },
-                    onNavigateToAppointmentDetails = { appointmentId ->
-                        navController.navigate(AppScreens.CreateAppointment(appointmentId = appointmentId))
-                    },
-                    onSlotSelected = { date, time ->
-                        navController.previousBackStackEntry?.savedStateHandle?.set("selectedDate", date)
-                        navController.previousBackStackEntry?.savedStateHandle?.set("selectedTime", time)
-                        navController.popBackStack()
-                    }
-                )
-            }
-
-            composable<AppScreens.CreateAppointment> { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.CreateAppointment>()
-                val selectedDate = backStackEntry.savedStateHandle.get<Long>("selectedDate")
-                val selectedTime = backStackEntry.savedStateHandle.get<String>("selectedTime")
-                val selectedVisitorId = backStackEntry.savedStateHandle.get<Long>("selectedVisitorId")
-
-                CreateAppointmentScreen(
-                    visitorId = selectedVisitorId ?: args.visitorId,
-                    appointmentId = args.appointmentId,
-                    initialDate = selectedDate ?: args.date,
-                    initialTime = selectedTime ?: args.time,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    },
-                    onNavigateToCalendar = {
-                        navController.navigate(
-                            AppScreens.Calendar(isPicker = true, excludeAppointmentId = args.appointmentId)
-                        )
-                    },
-                    onNavigateToVisitorSelection = {
-                        navController.navigate(AppScreens.VisitorSelection(returnResult = true))
-                    },
-                    onAppointmentCreated = {
-                        navController.navigate(AppScreens.Home) {
-                            popUpTo(AppScreens.Home) {
-                                inclusive = true
-                            }
-                        }
-                    },
-                )
-            }
-
-            composable<AppScreens.ShareBusiness> {
-                ShareBusinessScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
             composable<AppScreens.AboutUs> {
-                AboutUsScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable<AppScreens.AddOns> {
-                AddonsScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToPayment = { url ->
-                        navController.navigate(AppScreens.PaymentWebView(url))
-                    }
-                )
-            }
-
-            composable<AppScreens.PaymentWebView> { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.PaymentWebView>()
-                PaymentWebViewScreen(
-                    url = args.url,
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            // No `deepLinks` here on purpose — the noobatyar://payment/result
-            // deep link is parsed once in MainActivity and routed through
-            // PaymentNavigationManager (see the LaunchedEffect above). Letting
-            // Navigation-Compose auto-handle the Activity intent itself would
-            // re-trigger this dialog every time a fresh NavHostController sets
-            // its graph, e.g. after a business switch recreates MainNavHost.
-            dialog<AppScreens.PaymentResult>(
-                dialogProperties = DialogProperties(
-                    dismissOnBackPress = false,
-                    dismissOnClickOutside = false,
-                    usePlatformDefaultWidth = false
-                )
-            ) { backStackEntry ->
-                val args = backStackEntry.toRoute<AppScreens.PaymentResult>()
-                PaymentResultScreen(
-                    success = args.success == 1,
-                    ref = args.ref,
-                    amount = args.amount,
-                    onDone = {
-                        navController.navigate(AppScreens.Home) {
-                            popUpTo(AppScreens.Home) { inclusive = true }
-                        }
-                    }
-                )
+                AboutUsScreen(onNavigateBack = { navController.popBackStack() })
             }
         }
+
+        AnimatedVisibility(
+            visible = selectedTab != null,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            FloatingTabBar(
+                selected = selectedTab ?: MainTab.Explore,
+                onSelect = { tab ->
+                    if (tab != selectedTab) {
+                        navController.navigate(tab.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                }
+            )
+        }
     }
+    }
+}
+
+@Composable
+private fun FloatingTabBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
+    val isDark = LocalIsDarkTheme.current
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = if (isDark) Color(0xFF1F1B2E) else Color.White,
+        shadowElevation = 12.dp,
+        modifier = Modifier
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp, vertical = 12.dp)
+            .fillMaxWidth()
+            .height(64.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            tabs.forEach { tab ->
+                val isSelected = tab == selected
+                val bg by animateColorAsState(if (isSelected) Brand.Violet500.copy(alpha = 0.14f) else Color.Transparent)
+                val fg by animateColorAsState(
+                    if (isSelected) Brand.Violet500 else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val spacing by animateDpAsState(if (isSelected) 6.dp else 0.dp)
+                Surface(
+                    onClick = { onSelect(tab) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = bg,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            if (isSelected) tab.iconSelected else tab.iconUnSelected,
+                            contentDescription = tab.title,
+                            tint = fg,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(spacing))
+                        AnimatedVisibility(visible = isSelected) {
+                            Text(tab.title, color = fg, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
     }
 }

@@ -57,6 +57,9 @@ sealed class AppScreens {
     data class AdvancedSettings(val businessId: Long) : AppScreens()
     @Serializable
     object BusinessList : AppScreens()
+    /** Take over an imported directory listing instead of creating a duplicate. */
+    @Serializable
+    object ClaimBusiness : AppScreens()
     @Serializable
     data class VisitorSelection(val returnResult: Boolean = false) : AppScreens()
     @Serializable

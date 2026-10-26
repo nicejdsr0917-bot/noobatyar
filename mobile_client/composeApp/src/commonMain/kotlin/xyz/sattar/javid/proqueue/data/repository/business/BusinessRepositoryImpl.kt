@@ -254,4 +254,7 @@ class BusinessRepositoryImpl(
 
     override suspend fun requestOnlineBooking(businessId: Long): ApiResponse<RequestBookingResponseDto> =
         businessApiService.requestOnlineBooking(businessId)
+
+    override suspend fun reportBusiness(businessId: Long, reason: String, detail: String): ApiResponse<Unit> =
+        businessApiService.reportBusiness(businessId, reason, detail)
 }

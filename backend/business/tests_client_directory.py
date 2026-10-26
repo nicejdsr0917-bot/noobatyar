@@ -468,8 +468,14 @@ class ClientDiscoveryEndpointTests(TestCase):
         self.assertEqual(res1.data['data']['online_booking_requests_count'], 1)
         self.assertIn('ثبت شد', res1.data['message'])
 
-        # Second request increments
-        res2 = self.client.post(url)
+        # A repeat from the same device does not inflate the public counter
+        res_dup = self.client.post(url)
+        self.assertEqual(res_dup.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_dup.data['data']['online_booking_requests_count'], 1)
+        self.assertTrue(res_dup.data['data']['already_requested'])
+
+        # A different device does count
+        res2 = self.client.post(url, HTTP_X_DEVICE_ID='device-b')
         self.assertEqual(res2.status_code, status.HTTP_200_OK)
         self.assertEqual(res2.data['data']['online_booking_requests_count'], 2)
 

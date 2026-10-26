@@ -7,99 +7,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 
-import android.content.Intent
-import xyz.sattar.javid.proqueue.core.navigation.NotificationNavigationManager
-import xyz.sattar.javid.proqueue.core.navigation.NavigationEvent
-import xyz.sattar.javid.proqueue.core.navigation.PaymentNavigationManager
-import xyz.sattar.javid.proqueue.core.navigation.PaymentResultEvent
-import xyz.sattar.javid.proqueue.core.navigation.parseDeepLink
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-
-        handleNotificationIntent(intent)
-        handlePaymentDeepLink(intent)
-        handleCampaignDeepLink(intent)
-
         setContent {
             App()
         }
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleNotificationIntent(intent)
-        handlePaymentDeepLink(intent)
-        handleCampaignDeepLink(intent)
-    }
-
-    private fun handleNotificationIntent(intent: Intent?) {
-        if (intent?.getBooleanExtra("from_notification", false) == true) {
-            val businessId = intent.getLongExtra("businessId", -1)
-            val visitorId = intent.getLongExtra("visitorId", -1)
-            val openMessageDialog = intent.getBooleanExtra("openMessageDialog", false)
-
-            if (visitorId != -1L) {
-                NotificationNavigationManager.navigate(
-                    NavigationEvent.ToVisitorDetails(
-                        visitorId = visitorId,
-                        openMessageDialog = openMessageDialog
-                    )
-                )
-            }
-        }
-    }
-
-    /**
-     * Parses the `noobatyar://payment/result?...` deep link ourselves instead
-     * of leaning on Navigation-Compose's built-in `navDeepLink` handling of
-     * this Activity's intent. That built-in mechanism re-checks the *same*
-     * Intent every time a NavHostController's graph is (re)set — which
-     * happens on every business switch, since switching businesses tears
-     * down and recreates MainNavHost — so a payment result that already
-     * happened was silently replaying as a dialog. We handle it once here
-     * and clear `intent.data`, so no later NavHost recreation can see it
-     * again.
-     */
-    private fun handlePaymentDeepLink(intent: Intent?) {
-        val uri = intent?.data ?: return
-        if (uri.scheme == "noobatyar" && uri.host == "payment" && uri.path == "/result") {
-            PaymentNavigationManager.navigate(
-                PaymentResultEvent(
-                    success = uri.getQueryParameter("success") == "1",
-                    ref = uri.getQueryParameter("ref"),
-                    amount = uri.getQueryParameter("amount"),
-                    txn = uri.getQueryParameter("txn")
-                )
-            )
-            intent.data = null
-        }
-    }
-
-    /**
-     * Routes a promotional campaign's `noobatyar://<screen>` deep link (sent
-     * from the admin panel — backend `core/campaigns.py`).
-     *
-     * Clears `intent.data` for the same reason [handlePaymentDeepLink] does:
-     * MainNavHost is torn down and recreated on every business switch, and an
-     * Intent left holding a deep link would re-navigate each time.
-     *
-     * A host this build has no route for is ignored rather than guessed at —
-     * the panel can be edited by people who are not shipping the app, so it
-     * can legitimately name a screen a given installed version predates.
-     */
-    private fun handleCampaignDeepLink(intent: Intent?) {
-        val uri = intent?.data ?: return
-        if (uri.scheme != "noobatyar") return
-        // payment/result is handled above and must not fall through to here.
-        if (uri.host == "payment") return
-
-        parseDeepLink(uri.host)?.let { target ->
-            NotificationNavigationManager.navigate(NavigationEvent.ToDeepLink(target))
-        }
-        intent.data = null
     }
 }
 

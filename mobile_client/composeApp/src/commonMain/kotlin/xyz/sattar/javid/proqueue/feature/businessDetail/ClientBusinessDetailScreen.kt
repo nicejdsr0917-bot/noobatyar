@@ -1,785 +1,738 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Directions
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.HealthAndSafety
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LocationOn
-import androidx.compose.material.icons.rounded.Map
-import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.NearMe
 import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Spa
+import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import org.koin.compose.viewmodel.koinViewModel
-import xyz.sattar.javid.proqueue.core.ui.components.BottomBarDefaults
+import xyz.sattar.javid.proqueue.core.ui.components.ShimmerBox
+import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
-import xyz.sattar.javid.proqueue.core.utils.AppConfig
+import xyz.sattar.javid.proqueue.core.utils.openMap
 import xyz.sattar.javid.proqueue.core.utils.openPhoneDial
+import xyz.sattar.javid.proqueue.core.utils.openUrl
+import xyz.sattar.javid.proqueue.core.utils.shareText
 import xyz.sattar.javid.proqueue.domain.model.business.Business
-import xyz.sattar.javid.proqueue.ui.theme.PrimaryPurple
-import xyz.sattar.javid.proqueue.ui.theme.PrimaryPurpleDark
+import xyz.sattar.javid.proqueue.feature.discovery.BackIcon
+import xyz.sattar.javid.proqueue.feature.discovery.Brand
+import xyz.sattar.javid.proqueue.feature.discovery.BusinessAvatar
+import xyz.sattar.javid.proqueue.feature.discovery.CategoryGroup
+import xyz.sattar.javid.proqueue.feature.discovery.CircleIconButton
+import xyz.sattar.javid.proqueue.feature.discovery.OWNER_LANDING_URL
+import xyz.sattar.javid.proqueue.feature.discovery.Pill
+import xyz.sattar.javid.proqueue.feature.discovery.SaveToggle
+import xyz.sattar.javid.proqueue.feature.discovery.VerifiedBadge
+import xyz.sattar.javid.proqueue.feature.discovery.areaLine
+import xyz.sattar.javid.proqueue.feature.discovery.bookingUrl
+import xyz.sattar.javid.proqueue.feature.discovery.canBookOnline
+import xyz.sattar.javid.proqueue.feature.discovery.formatDistance
+import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
+import xyz.sattar.javid.proqueue.feature.discovery.IRANIAN_WEEK_ORDER
+import xyz.sattar.javid.proqueue.feature.discovery.OpenStatusLabel
+import xyz.sattar.javid.proqueue.feature.discovery.WEEKDAY_NAMES
+import xyz.sattar.javid.proqueue.feature.discovery.openStatus
+import xyz.sattar.javid.proqueue.feature.discovery.tehranNow
 
-private val AmberAccent = Color(0xFFFBBF24)
-private val GradientStart = Color(0xFF8B5CF6)
-private val GradientEnd = Color(0xFF4C1D95)
-
-private fun resolveLogoUrl(logoPath: String): String =
-    if (logoPath.startsWith("http")) logoPath else "${AppConfig.baseUrl}$logoPath"
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ClientBusinessDetailScreen(
     businessId: Long,
     onNavigateBack: () -> Unit,
-    viewModel: ClientBusinessDetailViewModel = koinViewModel()
+    viewModel: ClientBusinessDetailViewModel = koinViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
-    val uriHandler = LocalUriHandler.current
-    val snackbarHostState = remember { SnackbarHostState() }
+    val state by viewModel.state.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+    var showReport by remember { mutableStateOf(false) }
 
-    LaunchedEffect(businessId) {
-        viewModel.sendIntent(ClientBusinessDetailIntent.LoadBusiness(businessId))
-    }
-
+    LaunchedEffect(businessId) { viewModel.load(businessId) }
     LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is ClientBusinessDetailEvent.ShowToast -> {
-                    snackbarHostState.showToasty(UiMessage.success(event.message))
-                }
+        viewModel.messages.collect { msg ->
+            when (msg) {
+                is DetailMessage.Success -> snackbar.showToasty(UiMessage.success(msg.text))
+                is DetailMessage.Error -> snackbar.showToasty(UiMessage.error(msg.text))
             }
         }
     }
 
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = state.business?.title ?: "مشخصات مرکز",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                contentDescription = "بازگشت"
-                            )
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        val business = state.business
+        when {
+            business != null -> DetailContent(
+                business = business,
+                state = state,
+                onBack = onNavigateBack,
+                onToggleSave = viewModel::toggleSaved,
+                onRequestBooking = viewModel::requestOnlineBooking,
+                onReport = { showReport = true },
+            )
+            state.isLoading -> DetailShimmer(onBack = onNavigateBack)
+            else -> DetailError(state.errorMessage, onRetry = viewModel::reload, onBack = onNavigateBack)
+        }
+        ToastyHost(hostState = snackbar)
+    }
+
+    if (showReport) {
+        ReportDialog(
+            isSubmitting = state.isReporting,
+            onDismiss = { showReport = false },
+            onSubmit = { reason, detail -> viewModel.report(reason, detail) { showReport = false } }
+        )
+    }
+}
+
+@Composable
+private fun DetailContent(
+    business: Business,
+    state: ClientBusinessDetailState,
+    onBack: () -> Unit,
+    onToggleSave: () -> Unit,
+    onRequestBooking: () -> Unit,
+    onReport: () -> Unit,
+) {
+    val group = CategoryGroup.of(business.category)
+    val heroBrush = if (business.isClaimed) Brand.HeroGradient
+    else Brush.linearGradient(listOf(group.tint.copy(alpha = 0.95f), group.tint.copy(alpha = 0.65f)))
+    val booking = bookingUrl(business)
+
+    Box(Modifier.fillMaxSize()) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+        // ── Hero ──
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                .background(heroBrush)
+        ) {
+            Column(
+                Modifier
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 8.dp, bottom = 56.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircleIconButton(BackIcon, "بازگشت", onBack)
+                    Spacer(Modifier.weight(1f))
+                    CircleIconButton(Icons.Rounded.Share, "اشتراک‌گذاری", {
+                        val link = booking ?: OWNER_LANDING_URL
+                        shareText("${business.title}\n${business.categoryLabel}\n$link")
+                    })
+                    Spacer(Modifier.width(8.dp))
+                    Surface(shape = CircleShape, color = Color.White.copy(alpha = 0.18f), modifier = Modifier.size(40.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            SaveToggle(state.isSaved, onToggleSave, onDark = true)
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
+                    }
+                }
+            }
+        }
+
+        // ── Identity card, overlapping the hero ──
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 4.dp,
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .offset(y = (-44).dp)
+                .fillMaxWidth()
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BusinessAvatar(business, size = 72.dp, corner = 20.dp)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                business.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (business.isClaimed) {
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Rounded.Verified, contentDescription = "ثبت‌شده در نوبت‌یار", tint = Brand.Violet500, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Text(business.categoryLabel, color = group.tint, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        val area = business.areaLine()
+                        if (area.isNotBlank()) {
+                            Text(area, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        }
+                        business.openStatus()?.let {
+                            Spacer(Modifier.height(6.dp))
+                            OpenStatusLabel(it)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (business.canBookOnline) VerifiedBadge()
+                    business.distanceKm?.let { Pill(formatDistance(it), Icons.Rounded.NearMe) }
+                    if (business.insurances.isNotEmpty()) {
+                        Pill(
+                            "${business.insurances.size.toPersianDigits()} بیمه",
+                            Icons.Rounded.HealthAndSafety,
+                            container = Brand.Emerald.copy(alpha = 0.12f),
+                            content = Brand.Emerald
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    QuickAction(
+                        icon = Icons.Rounded.Call,
+                        label = "تماس",
+                        enabled = business.phone.isNotBlank(),
+                        modifier = Modifier.weight(1f),
+                        onClick = { openPhoneDial(business.phone) }
                     )
+                    val lat = business.latitude
+                    val lng = business.longitude
+                    QuickAction(
+                        icon = Icons.Rounded.Directions,
+                        label = "مسیریابی",
+                        enabled = lat != null && lng != null,
+                        modifier = Modifier.weight(1f),
+                        onClick = { if (lat != null && lng != null) openMap(lat, lng, business.title) }
+                    )
+                    QuickAction(
+                        icon = Icons.Rounded.Share,
+                        label = "ارسال",
+                        enabled = true,
+                        modifier = Modifier.weight(1f),
+                        onClick = { shareText("${business.title}\n${booking ?: OWNER_LANDING_URL}") }
+                    )
+                }
+            }
+        }
+
+        Column(
+            Modifier
+                .offset(y = (-28).dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // ── Booking ──
+            when {
+                // Bookable: the sticky bottom bar carries the booking action.
+                business.canBookOnline && booking != null -> Unit
+                business.isClaimed -> InfoCard(
+                    icon = Icons.Rounded.Info,
+                    title = "نوبت‌دهی آنلاین موقتاً غیرفعال است",
+                    body = "برای هماهنگی نوبت با مرکز تماس بگیرید."
                 )
-            },
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            bottomBar = {
-                // If official claimed business, show sticky booking CTA
-                val business = state.business
-                if (business != null && business.isClaimed) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shadowElevation = 8.dp,
-                        color = MaterialTheme.colorScheme.surface
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
+                else -> RequestOnlineCard(
+                    count = state.bookingRequestsCount,
+                    requested = state.hasRequestedBooking,
+                    loading = state.isRequestingBooking,
+                    onRequest = onRequestBooking
+                )
+            }
+
+            if (business.noticeEnabled && business.noticeMessage.isNotBlank() &&
+                business.noticeMessage != BOOKING_BLOCKED_NOTICE
+            ) {
+                InfoCard(
+                    icon = Icons.Rounded.Campaign,
+                    title = "اطلاعیه مرکز",
+                    body = business.noticeMessage,
+                    accent = Brand.Amber
+                )
+            }
+
+            // ── Info sections ──
+            Section(icon = Icons.Rounded.LocationOn, title = "آدرس و تماس") {
+                Text(
+                    business.address.ifBlank { "آدرس ثبت نشده" },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                val phones = (listOf(business.phone) + business.extraPhones).filter { it.isNotBlank() }
+                if (phones.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    phones.forEach { phone ->
+                        Surface(
+                            onClick = { openPhoneDial(phone) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
                         ) {
-                            Button(
-                                onClick = {
-                                    val code = business.uniqueCode?.takeIf { it.isNotBlank() } ?: business.id.toString()
-                                    val bookingUrl = "${AppConfig.bookingBaseUrl}/b/Noobatyar-$code"
-                                    uriHandler.openUri(bookingUrl)
-                                },
-                                enabled = business.bookingEnabled,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = PrimaryPurple
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = if (business.bookingEnabled) "⚡ رزرو آنلاین نوبت در نوبت‌یار"
-                                        else "پذیرش نوبت آنلاین موقتاً غیرفعال است",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.Call, contentDescription = null, tint = Brand.Violet500, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text(phone.toPersianDigits(), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                             }
                         }
                     }
                 }
             }
-        ) { paddingValues ->
-            if (state.isLoading && state.business == null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = PrimaryPurple)
+
+            if (business.isClaimed) {
+                Section(icon = Icons.Rounded.Schedule, title = "ساعات کاری") {
+                    WeeklyHours(business)
                 }
-            } else if (state.business == null) {
-                Box(
-                    modifier = Modifier
+            }
+
+            if (business.services.isNotEmpty()) {
+                Section(icon = Icons.Rounded.Spa, title = "خدمات") {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        business.services.forEach {
+                            Pill(it, container = group.tint.copy(alpha = 0.1f), content = group.tint)
+                        }
+                    }
+                }
+            }
+
+            if (business.insurances.isNotEmpty()) {
+                Section(icon = Icons.Rounded.HealthAndSafety, title = "بیمه‌های طرف قرارداد") {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        business.insurances.forEach {
+                            Pill(it.name, container = Brand.Emerald.copy(alpha = 0.12f), content = Brand.Emerald)
+                        }
+                    }
+                    if (!business.isClaimed) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "این فهرست از منابع عمومی است؛ پیش از مراجعه پذیرش بیمه را با مرکز چک کنید.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            if (business.bio.isNotBlank()) {
+                Section(icon = Icons.Rounded.Info, title = "درباره") {
+                    Text(business.bio, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            if (!business.isClaimed) {
+                OwnerClaimCard()
+                Text(
+                    "اطلاعات این مرکز از منابع عمومی گردآوری شده و ممکن است به‌روز نباشد.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            TextButton(
+                onClick = onReport,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Icon(Icons.Rounded.Flag, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.width(6.dp))
+                Text("گزارش اطلاعات نادرست", color = MaterialTheme.colorScheme.error)
+            }
+            // Clears the sticky action bar.
+            Spacer(Modifier.height(96.dp))
+            Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
+        }
+    }
+    StickyActionBar(business, booking)
+    }
+}
+
+/**
+ * The one thing a visitor came to do, always under the thumb: book when the
+ * business takes online bookings, otherwise call — with directions beside it.
+ */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(business: Business, booking: String?) {
+    val canBook = business.canBookOnline && booking != null
+    val canCall = business.phone.isNotBlank()
+    if (!canBook && !canCall) return
+    val lat = business.latitude
+    val lng = business.longitude
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 16.dp,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+    ) {
+        Row(
+            Modifier
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                onClick = { if (canBook) openUrl(booking) else openPhoneDial(business.phone) },
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Transparent,
+                modifier = Modifier.weight(1f).height(54.dp)
+            ) {
+                Row(
+                    Modifier
                         .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
+                        .background(if (canBook) Brand.FeaturedGradient else Brand.HeroGradient),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(if (canBook) Icons.Rounded.Bolt else Icons.Rounded.Call, contentDescription = null, tint = Color.White)
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        text = state.errorMessage ?: "مرکز مورد نظر یافت نشد",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        if (canBook) "رزرو آنلاین نوبت" else "تماس با مرکز",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
                     )
                 }
-            } else {
-                val business = state.business!!
-                val scrollState = rememberScrollState()
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .verticalScroll(scrollState)
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+            }
+            if (lat != null && lng != null) {
+                Spacer(Modifier.width(10.dp))
+                Surface(
+                    onClick = { openMap(lat, lng, business.title) },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Brand.Violet500.copy(alpha = 0.12f),
+                    modifier = Modifier.size(54.dp)
                 ) {
-                    // Header Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        ),
-                        border = if (business.isClaimed) {
-                            BorderStroke(1.5.dp, Brush.horizontalGradient(listOf(GradientStart, GradientEnd)))
-                        } else {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        },
-                        shape = RoundedCornerShape(20.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (business.logoPath.isNotEmpty()) {
-                                    AsyncImage(
-                                        model = resolveLogoUrl(business.logoPath),
-                                        contentDescription = business.title,
-                                        modifier = Modifier
-                                            .size(68.dp)
-                                            .clip(RoundedCornerShape(18.dp)),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                    Spacer(modifier = Modifier.width(14.dp))
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(68.dp)
-                                            .background(
-                                                if (business.isClaimed) Brush.linearGradient(listOf(GradientStart, GradientEnd))
-                                                else Brush.linearGradient(listOf(Color(0xFF6B7280), Color(0xFF4B5563))),
-                                                RoundedCornerShape(18.dp)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = business.title.take(1),
-                                            style = MaterialTheme.typography.headlineSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(14.dp))
-                                }
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = business.title,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = business.categoryLabel.ifEmpty { "مرکز تخصصی" },
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        if (business.isClaimed) {
-                                            Surface(
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = Color(0xFF10B981).copy(alpha = 0.12f),
-                                                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.3f))
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Rounded.Verified,
-                                                        contentDescription = null,
-                                                        tint = Color(0xFF10B981),
-                                                        modifier = Modifier.size(14.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                    Text(
-                                                        text = "عضو رسمی نوبت‌یار",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color(0xFF047857)
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            Surface(
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = MaterialTheme.colorScheme.surfaceVariant
-                                            ) {
-                                                Text(
-                                                    text = "بانک اطلاعات عمومی",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                                )
-                                            }
-                                        }
-
-                                        if (business.distanceKm != null) {
-                                            Text(
-                                                text = "📍 ${formatDistance(business.distanceKm)} تا شما",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = PrimaryPurple,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Directions, contentDescription = "مسیریابی", tint = Brand.Violet500)
                     }
-
-                    // Emergency Notice Banner (if enabled)
-                    if (business.noticeEnabled && business.noticeMessage.isNotBlank()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = AmberAccent.copy(alpha = 0.15f)
-                            ),
-                            border = BorderStroke(1.dp, AmberAccent),
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(text = "⚠️", fontSize = 18.sp)
-                                Text(
-                                    text = business.noticeMessage,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
-
-                    // Supported Insurances Section
-                    if (business.insurances.isNotEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Shield,
-                                        contentDescription = null,
-                                        tint = PrimaryPurple,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Text(
-                                        text = "بیمه‌های طرف قرارداد",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(10.dp))
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    business.insurances.forEach { ins ->
-                                        Surface(
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = PrimaryPurple.copy(alpha = 0.1f),
-                                            border = BorderStroke(1.dp, PrimaryPurple.copy(alpha = 0.25f))
-                                        ) {
-                                            Text(
-                                                text = "🛡️ ${ins.name}",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = PrimaryPurpleDark,
-                                                fontWeight = FontWeight.Medium,
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Contact & Actions Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(
-                                text = "اطلاعات تماس و آدرس",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Address
-                            Row(verticalAlignment = Alignment.Top) {
-                                Icon(
-                                    imageVector = Icons.Rounded.LocationOn,
-                                    contentDescription = null,
-                                    tint = PrimaryPurple,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    val fullAddress = buildString {
-                                        if (business.province.isNotEmpty() || business.city.isNotEmpty()) {
-                                            append(listOf(business.province, business.city).filter { it.isNotEmpty() }.joinToString(" - "))
-                                            if (business.neighborhood.isNotEmpty()) {
-                                                append(" (محله ${business.neighborhood})")
-                                            }
-                                            if (business.address.isNotEmpty()) {
-                                                append("\n")
-                                            }
-                                        }
-                                        if (business.address.isNotEmpty()) {
-                                            append(business.address)
-                                        }
-                                    }.trim()
-                                    Text(
-                                        text = fullAddress.ifEmpty {
-                                            if (!business.allowAnonymousView) "آدرس پس از رزرو نوبت نمایش داده می‌شود"
-                                            else "آدرس ثبت نشده است"
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                            }
-
-                            if (business.phone.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Call,
-                                        contentDescription = null,
-                                        tint = PrimaryPurple,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    val allPhones = listOf(business.phone) + business.extraPhones
-                                    Text(
-                                        text = "شماره تماس: ${allPhones.joinToString(" ، ")}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Action Buttons: Call & Navigate
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        if (business.phone.isNotEmpty()) {
-                                            openPhoneDial(business.phone)
-                                        }
-                                    },
-                                    enabled = business.phone.isNotEmpty(),
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Call,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(text = "تماس تلفنی", style = MaterialTheme.typography.labelMedium)
-                                }
-
-                                if (business.latitude != null && business.longitude != null) {
-                                    OutlinedButton(
-                                        onClick = {
-                                            val mapUrl = "https://maps.google.com/?q=${business.latitude},${business.longitude}"
-                                            uriHandler.openUri(mapUrl)
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(12.dp),
-                                        border = BorderStroke(1.dp, PrimaryPurple)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Map,
-                                            contentDescription = null,
-                                            tint = PrimaryPurple,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "مسیریابی نقشه",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = PrimaryPurple
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Working Hours & Services Card
-                    if (business.workStartHour > 0 || business.services.isNotEmpty() || business.bio.isNotEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                if (business.workStartHour > 0 && business.workEndHour > 0) {
-                                    val startMin = business.workStartMinute.toString().padStart(2, '0')
-                                    val endMin = business.workEndMinute.toString().padStart(2, '0')
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Schedule,
-                                            contentDescription = null,
-                                            tint = PrimaryPurple,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "ساعت کاری: ${business.workStartHour}:$startMin الی ${business.workEndHour}:$endMin",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                }
-
-                                if (business.services.isNotEmpty()) {
-                                    Text(
-                                        text = "خدمات قابل ارائه:",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    FlowRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        business.services.forEach { service ->
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = MaterialTheme.colorScheme.surfaceVariant
-                                            ) {
-                                                Text(
-                                                    text = service,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                }
-
-                                if (business.bio.isNotEmpty()) {
-                                    Text(
-                                        text = "درباره مرکز:",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = business.bio,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // MODE B: Unclaimed Directory Listing Sections
-                    if (!business.isClaimed) {
-                        // Box 1: For Clients (Request Online Booking)
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                            ),
-                            border = BorderStroke(1.dp, PrimaryPurple.copy(alpha = 0.25f)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.NotificationsActive,
-                                        contentDescription = null,
-                                        tint = PrimaryPurple,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                    Text(
-                                        text = "نوبت‌دهی آنلاین در این مرکز فعال نیست",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "با ثبت درخواست شما، سیستم هوشمند نوبت‌یار به مدیریت این مرکز اطلاع می‌دهد تا رزرو آنلاین را برای مراجعین فعال نماید.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                if (state.hasRequestedBooking) {
-                                    Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = Color(0xFF10B981).copy(alpha = 0.15f),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Check,
-                                                contentDescription = null,
-                                                tint = Color(0xFF047857),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "✓ درخواست شما با موفقیت ثبت شد (${state.bookingRequestsCount} نفر درخواست داده‌اند)",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF047857)
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Button(
-                                        onClick = {
-                                            viewModel.sendIntent(ClientBusinessDetailIntent.RequestBooking(business.id))
-                                        },
-                                        enabled = !state.isRequestingBooking,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        if (state.isRequestingBooking) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                color = Color.White,
-                                                strokeWidth = 2.dp
-                                            )
-                                        } else {
-                                            Text(
-                                                text = "🔔 درخواست فعال‌سازی نوبت‌دهی آنلاین (${state.bookingRequestsCount} نفر تاکنون)",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Box 2: For Business Owners (Viral Acquisition Hook)
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            border = BorderStroke(1.5.dp, Brush.horizontalGradient(listOf(AmberAccent, GradientStart))),
-                            shape = RoundedCornerShape(20.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(18.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(text = "👑", fontSize = 24.sp)
-                                    Text(
-                                        text = "صاحب این مطب یا سالن زیبایی هستید؟",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Black,
-                                        color = PrimaryPurpleDark
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "با نصب اپلیکیشن مدیران نوبت‌یار، مدیریت این صفحه را رایگان تحویل بگیرید، تیک رسمی و جایگاه ویژه در صدر نتایج اطراف دریافت کنید و نوبت‌دهی آنلاین و پیامک یادآوری خودکار را فعال نمایید.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    lineHeight = 22.sp
-                                )
-                                Spacer(modifier = Modifier.height(14.dp))
-                                Button(
-                                    onClick = {
-                                        // Open Bazaar or Noobatyar owner landing
-                                        uriHandler.openUri("https://cafebazaar.ir/app/xyz.sattar.javid.proqueue")
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = PrimaryPurpleDark
-                                    ),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text(
-                                        text = "دریافت اپلیکیشن مدیران نوبت‌یار (Owner)",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(40.dp))
                 }
             }
         }
     }
 }
 
-private fun formatDistance(km: Double): String {
-    return if (km < 1.0) {
-        val meters = (km * 1000).toInt()
-        "$meters متر"
-    } else {
-        val rounded = (km * 10).toInt() / 10.0
-        "$rounded کیلومتر"
+/** Saturday-first week with today highlighted and days off in red. */
+@Composable
+private fun WeeklyHours(business: Business) {
+    val today = remember { tehranNow().dayOfWeek.ordinal }
+    val hours = "${hm(business.workStartHour, business.workStartMinute)} – ${hm(business.workEndHour, business.workEndMinute)}"
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        IRANIAN_WEEK_ORDER.forEach { day ->
+            val isToday = day == today
+            val closed = day in business.closedWeekdays
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isToday) Brand.Violet500.copy(alpha = 0.1f) else Color.Transparent)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    WEEKDAY_NAMES[day] + if (isToday) " (امروز)" else "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    if (closed) "تعطیل" else hours,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                    color = if (closed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
     }
+}
+
+/**
+ * Text the backend (business/serializers.py BOOKING_BLOCKED_NOTICE) puts into
+ * notice_message when the owner's plan can't take bookings. The booking card
+ * above already says that, so it is not repeated as a "notice from the centre".
+ */
+private const val BOOKING_BLOCKED_NOTICE = "پذیرش نوبت جدید برای این کسب‌وکار موقتاً غیرفعال است."
+
+
+private fun hm(h: Int, m: Int) =
+    "${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}".toPersianDigits()
+
+@Composable
+private fun QuickAction(
+    icon: ImageVector,
+    label: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(16.dp),
+        color = if (enabled) Brand.Violet500.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = modifier
+    ) {
+        Column(
+            Modifier.padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            val tint = if (enabled) Brand.Violet500 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            Icon(icon, contentDescription = null, tint = tint)
+            Spacer(Modifier.height(4.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = tint)
+        }
+    }
+}
+
+@Composable
+private fun RequestOnlineCard(count: Int, requested: Boolean, loading: Boolean, onRequest: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Brand.Violet500.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text("این مرکز هنوز نوبت آنلاین ندارد", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "اگر دوست دارید از اینجا نوبت بگیرید، درخواست بدهید؛ به مرکز اطلاع می‌دهیم که مراجعانش منتظر نوبت‌دهی آنلاین هستند.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = onRequest,
+                    enabled = !requested && !loading,
+                    colors = ButtonDefaults.buttonColors(containerColor = Brand.Violet500)
+                ) {
+                    if (loading) {
+                        CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(if (requested) "درخواست ثبت شد ✓" else "درخواست نوبت آنلاین")
+                }
+                Spacer(Modifier.width(12.dp))
+                if (count > 0) {
+                    Text(
+                        "${count.toPersianDigits()} نفر درخواست داده‌اند",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Brand.Violet500
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OwnerClaimCard() {
+    Surface(
+        onClick = { openUrl(OWNER_LANDING_URL) },
+        shape = RoundedCornerShape(20.dp),
+        color = Color.Transparent,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            Modifier.background(Brand.HeroGradient).padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Rounded.Storefront, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("صاحب این مرکز هستید؟", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    "با اپ «نوبت‌یار کسب‌وکار» مالکیت این صفحه را ثبت کنید و نوبت آنلاین بگیرید.",
+                    color = Color.White.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoCard(icon: ImageVector, title: String, body: String, accent: Color = Brand.Violet500) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = accent.copy(alpha = 0.1f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(Modifier.padding(16.dp)) {
+            Icon(icon, contentDescription = null, tint = accent)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Section(icon: ImageVector, title: String, content: @Composable () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = Brand.Violet500, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(10.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun DetailShimmer(onBack: () -> Unit) {
+    Column {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+                .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                .background(Brand.HeroGradient)
+        ) {
+            Box(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(16.dp)) {
+                CircleIconButton(BackIcon, "بازگشت", onBack)
+            }
+        }
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ShimmerBox(Modifier.fillMaxWidth().height(150.dp), RoundedCornerShape(24.dp))
+            ShimmerBox(Modifier.fillMaxWidth().height(72.dp), RoundedCornerShape(20.dp))
+            ShimmerBox(Modifier.fillMaxWidth().height(110.dp), RoundedCornerShape(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun DetailError(message: String?, onRetry: () -> Unit, onBack: () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(16.dp)) {
+            CircleIconButton(BackIcon, "بازگشت", onBack, onDark = false)
+        }
+        Column(
+            Modifier.fillMaxSize().padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(Icons.Rounded.CloudOff, contentDescription = null, tint = Brand.Violet500, modifier = Modifier.size(56.dp))
+            Spacer(Modifier.height(12.dp))
+            Text("اطلاعات مرکز دریافت نشد", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (!message.isNullOrBlank()) {
+                Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Brand.Violet500)) { Text("تلاش دوباره") }
+        }
+    }
+}
+
+@Composable
+private fun ReportDialog(
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (reason: String, detail: String) -> Unit,
+) {
+    var reason by remember { mutableStateOf(reportReasons.first().first) }
+    var detail by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("گزارش این مرکز") },
+        text = {
+            Column {
+                reportReasons.forEach { (code, label) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .selectable(selected = reason == code, role = Role.RadioButton, onClick = { reason = code })
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = reason == code, onClick = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = detail,
+                    onValueChange = { if (it.length <= 500) detail = it },
+                    label = { Text("توضیح (اختیاری)") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSubmit(reason, detail.trim()) }, enabled = !isSubmitting) {
+                Text(if (isSubmitting) "در حال ارسال…" else "ارسال گزارش")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
+    )
 }

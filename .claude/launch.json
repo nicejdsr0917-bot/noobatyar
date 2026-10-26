@@ -18,6 +18,12 @@
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "set DEBUG=True&& set PYTHONIOENCODING=utf-8&& backend\\.venv\\Scripts\\python.exe backend\\manage.py runserver 8010"],
       "port": 8010
+    },
+    {
+      "name": "backend_win",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set DEBUG=True&& set PYTHONUTF8=1&& backend\\.venv\\Scripts\\python.exe backend\\manage.py runserver 0.0.0.0:8002"],
+      "port": 8002
     }
   ]
 }

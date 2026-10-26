@@ -25,5 +25,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>برای نمایش نزدیک‌ترین پزشک‌ها و سالن‌ها به شما، موقعیت تقریبی‌تان فقط هنگام جستجو استفاده می‌شود.</string>
 </dict>
 </plist>

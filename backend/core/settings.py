@@ -176,6 +176,9 @@ REST_FRAMEWORK = {
         # being a spam/DoS vector (see business/client_views.py's docstring).
         'content_report': os.getenv('THROTTLE_CONTENT_REPORT', '5/hour'),
         'request_booking': os.getenv('THROTTLE_REQUEST_BOOKING', '10/hour'),
+        # Claiming an imported listing (business/claim_views.py) — each start
+        # can send an SMS to the listing's number.
+        'claim': os.getenv('THROTTLE_CLAIM', '10/hour'),
     },
 }
 

@@ -21,6 +21,10 @@ actual object PreferencesManager {
     private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
     private const val KEY_NOTIFICATION_REMINDER_MINUTES = "notification_reminder_minutes"
     private const val KEY_MESSAGE_TEMPLATE_PREFIX = "message_template_" // suffix: businessId
+    private const val KEY_SAVED_BUSINESSES = "saved_business_ids"
+    private const val KEY_DEVICE_ID = "device_id"
+    private const val KEY_RECENT_SEARCHES = "recent_searches"
+    private const val KEY_WELCOME_SEEN = "welcome_seen"
 
     private val _themeMode = MutableStateFlow(
         AppThemeMode.values()[prefs.getInt(KEY_THEME_MODE, 0).coerceIn(0, 2)]
@@ -89,5 +93,49 @@ actual object PreferencesManager {
 
     actual fun getNotificationReminderMinutes(): Int {
         return prefs.getInt(KEY_NOTIFICATION_REMINDER_MINUTES, DEFAULT_REMINDER_MINUTES)
+    }
+
+    private val _savedBusinessIds = MutableStateFlow(
+        prefs.getStringSet(KEY_SAVED_BUSINESSES, emptySet()).orEmpty()
+            .mapNotNull { it.toLongOrNull() }.toSet()
+    )
+    actual val savedBusinessIds: Flow<Set<Long>> = _savedBusinessIds
+
+    actual suspend fun toggleSavedBusiness(id: Long) {
+        val current = _savedBusinessIds.value
+        val updated = if (id in current) current - id else current + id
+        prefs.edit(commit = true) { putStringSet(KEY_SAVED_BUSINESSES, updated.map { it.toString() }.toSet()) }
+        _savedBusinessIds.value = updated
+    }
+
+    actual fun deviceId(): String {
+        prefs.getString(KEY_DEVICE_ID, null)?.let { return it }
+        val id = generateDeviceId()
+        prefs.edit(commit = true) { putString(KEY_DEVICE_ID, id) }
+        return id
+    }
+
+    // Newline-joined: a StringSet would lose the most-recent-first order.
+    private val _recentSearches = MutableStateFlow(
+        prefs.getString(KEY_RECENT_SEARCHES, null).orEmpty().split('\n').filter { it.isNotBlank() }
+    )
+    actual val recentSearches: Flow<List<String>> = _recentSearches
+
+    actual suspend fun addRecentSearch(query: String) {
+        if (query.isBlank()) return
+        val updated = _recentSearches.value.withRecent(query)
+        prefs.edit(commit = true) { putString(KEY_RECENT_SEARCHES, updated.joinToString("\n")) }
+        _recentSearches.value = updated
+    }
+
+    actual suspend fun clearRecentSearches() {
+        prefs.edit(commit = true) { remove(KEY_RECENT_SEARCHES) }
+        _recentSearches.value = emptyList()
+    }
+
+    actual fun hasSeenWelcome(): Boolean = prefs.getBoolean(KEY_WELCOME_SEEN, false)
+
+    actual suspend fun setWelcomeSeen() {
+        prefs.edit(commit = true) { putBoolean(KEY_WELCOME_SEEN, true) }
     }
 }

@@ -135,6 +135,8 @@ android {
         // the buildkonfig{} block instead.
         buildConfigField("String", "BASE_URL", "\"https://api.noobatyar.ir\"")
         buildConfigField("String", "BOOKING_BASE_URL", "\"https://app.noobatyar.ir\"")
+        // HTTPS-only for anything shipped; the local flavor overrides this.
+        manifestPlaceholders["networkSecurityConfig"] = "@xml/network_security_config"
     }
 
     // "prod" talks to the real server and is what release builds/CI use by
@@ -169,6 +171,7 @@ android {
             // 10.0.2.2).
             buildConfigField("String", "BASE_URL", "\"http://127.0.0.1:8000\"")
             buildConfigField("String", "BOOKING_BASE_URL", "\"http://127.0.0.1:3000\"")
+            manifestPlaceholders["networkSecurityConfig"] = "@xml/network_security_config_local"
         }
     }
     packaging {

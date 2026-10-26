@@ -10,6 +10,36 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## Unreleased — mobile_client (اپ مشتری)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- اپ مشتری نوبت‌یار: جستجوی نزدیک‌ترین پزشک، دندان‌پزشک، سالن زیبایی و مشاور با موقعیت واقعی گوشی.
+- فیلتر بیمه تکمیلی، دسته‌بندی‌ها، مرتب‌سازی بر اساس فاصله و نشان کردن مراکز.
+- مراکز دارای نوبت آنلاین با نشان ویژه و بخش «منتخب نوبت‌یار» نمایش داده می‌شوند.
+- صاحبان کسب‌وکار می‌توانند مالکیت مرکزی را که از قبل در فهرست است ثبت کنند.
+<!-- fa:end -->
+
+### backend
+- Claim flow for imported listings: `GET business/claimable/`, `POST business/<id>/claim/` (OTP to the listing's mobile, else manual review), `POST business/<id>/claim/verify/`; `BusinessClaimRequest` model + admin approve/reject actions (`business/claims.py`).
+- `request-booking` is now one vote per device (`OnlineBookingRequest`, keyed on a hash of `X-Device-Id`/IP); response carries `already_requested`.
+- Geo search radius capped at 100 km.
+- `import_directory`: no placeholder phone for rows without one, invalid phones dropped, dedup falls back to (title, city, address) when there is no phone, out-of-range coordinates and bad ints ignored, JSON arrays streamed instead of `json.load`.
+
+### mobile_client
+- Owner-only screens removed; new tabs: Explore / Saved / More.
+- Real one-shot GPS (`core/location`): Android `LocationManager` (works without Play Services), iOS CoreLocation; city picker and radius as fallback.
+- Redesigned explore and business detail screens; pagination; report-listing dialog; share and map hand-off.
+- Release builds are HTTPS-only; cleartext only in the `local` flavor. Alarm/notification permissions dropped.
+- Network failures no longer crash the app: discovery calls go through `safeApiCall` and show an error state.
+- UI: first-launch welcome screen (asks for location in context), time-of-day greeting, pinned search bar on scroll, recent + popular searches, open-now status (Tehran time) on cards and detail, inline «رزرو» on bookable cards, weekly hours table, sticky book/call bar on detail, dark-mode content colours.
+
+### mobile_owner
+- «مرکزم از قبل ثبت شده؟» on the business list opens the claim flow.
+
+### front_client
+- `/privacy` page (needed for the store listing's location permission).
+
 ## v1.9.1 — 2026-09-19
 
 <!-- fa:start -->

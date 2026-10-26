@@ -1,537 +1,506 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.HealthAndSafety
+import androidx.compose.material.icons.rounded.LocationOff
 import androidx.compose.material.icons.rounded.LocationOn
-import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import xyz.sattar.javid.proqueue.feature.discovery.bookingUrl
+import xyz.sattar.javid.proqueue.feature.discovery.tehranNow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import org.koin.compose.viewmodel.koinViewModel
-import xyz.sattar.javid.proqueue.core.ui.components.BottomBarSpacer
+import xyz.sattar.javid.proqueue.core.location.LocationResult
+import xyz.sattar.javid.proqueue.core.location.rememberLocationRequester
 import xyz.sattar.javid.proqueue.core.ui.components.PullToRefreshBox
-import xyz.sattar.javid.proqueue.core.utils.AppConfig
-import xyz.sattar.javid.proqueue.domain.model.business.Business
+import xyz.sattar.javid.proqueue.core.ui.components.ShimmerBox
+import xyz.sattar.javid.proqueue.core.utils.openUrl
 import xyz.sattar.javid.proqueue.domain.model.business.Insurance
-import xyz.sattar.javid.proqueue.ui.theme.PrimaryPurple
-import xyz.sattar.javid.proqueue.ui.theme.PrimaryPurpleDark
+import xyz.sattar.javid.proqueue.feature.discovery.Brand
+import xyz.sattar.javid.proqueue.feature.discovery.BusinessListCard
+import xyz.sattar.javid.proqueue.feature.discovery.CategoryGroup
+import xyz.sattar.javid.proqueue.feature.discovery.FeaturedBusinessCard
+import xyz.sattar.javid.proqueue.feature.discovery.OWNER_LANDING_URL
+import xyz.sattar.javid.proqueue.feature.discovery.OwnerInviteBanner
+import xyz.sattar.javid.proqueue.feature.discovery.SectionHeader
+import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 
-private val AmberAccent = Color(0xFFFBBF24)
-private val GradientStart = Color(0xFF8B5CF6)
-private val GradientEnd = Color(0xFF4C1D95)
+/** Where in the result list the "register your business" banner is slotted. */
+private const val OWNER_BANNER_INDEX = 4
 
-private fun resolveLogoUrl(logoPath: String): String =
-    if (logoPath.startsWith("http")) logoPath else "${AppConfig.baseUrl}$logoPath"
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ExploreScreen(
+    onNavigateToDetail: (Long) -> Unit,
+    bottomPadding: androidx.compose.ui.unit.Dp,
     viewModel: ExploreViewModel = koinViewModel(),
-    onNavigateToDetail: (businessId: Long) -> Unit = {}
 ) {
-    val state by viewModel.uiState.collectAsState()
-    val focusManager = LocalFocusManager.current
+    val state by viewModel.state.collectAsState()
+    val focus = LocalFocusManager.current
     var showLocationSheet by remember { mutableStateOf(false) }
+    var showInsuranceSheet by remember { mutableStateOf(false) }
+    var searchFocused by remember { mutableStateOf(false) }
+    val openDetail: (Long) -> Unit = { id ->
+        viewModel.rememberQuery()
+        onNavigateToDetail(id)
+    }
+    val submit: (String) -> Unit = { q ->
+        viewModel.submitSearch(q)
+        focus.clearFocus()
+    }
 
+    val locator = rememberLocationRequester { result ->
+        viewModel.onLocationResult(result)
+        if (result is LocationResult.Success) showLocationSheet = false
+    }
+    val locate = {
+        viewModel.onLocating()
+        locator.request()
+    }
+
+    // Already-permitted users get "near me" straight away; everyone else sees the
+    // prompt card first instead of a cold permission dialog on launch.
+    var autoLocated by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is ExploreEvent.NavigateToDetail -> onNavigateToDetail(event.businessId)
-                is ExploreEvent.ShowToast -> Unit
+        if (!autoLocated && locator.isPermissionGranted()) {
+            autoLocated = true
+            locate()
+        }
+    }
+
+    val listState = rememberLazyListState()
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            last >= listState.layoutInfo.totalItemsCount - 4
+        }
+    }
+    LaunchedEffect(shouldLoadMore, state.nextPage) {
+        if (shouldLoadMore) viewModel.loadMore()
+    }
+
+    val heroScrolledAway by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+
+    Box(Modifier.fillMaxSize()) {
+    PullToRefreshBox(
+        isRefreshing = state.isRefreshing,
+        onRefresh = viewModel::refresh,
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+    ) {
+        LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(bottom = bottomPadding + 24.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item(key = "hero") {
+                Hero(
+                    state = state,
+                    onQueryChange = viewModel::updateQuery,
+                    onLocationClick = { showLocationSheet = true },
+                    onSubmit = submit,
+                    onFocusChange = { searchFocused = it },
+                )
+            }
+
+            if (searchFocused && state.query.isBlank()) {
+                item(key = "suggestions") {
+                    SearchSuggestions(
+                        recent = state.recentSearches,
+                        onPick = submit,
+                        onClearRecent = viewModel::clearRecentSearches,
+                    )
+                }
+            }
+
+            if (!state.hasLocation) {
+                item(key = "location-prompt") {
+                    LocationPrompt(
+                        status = state.locationStatus,
+                        onLocate = locate,
+                        onPickCity = { showLocationSheet = true },
+                        onOpenSettings = locator::openSettings,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            item(key = "categories") {
+                CategoryRow(selected = state.category, onSelect = viewModel::selectCategory)
+            }
+
+            item(key = "filters") {
+                FilterRow(
+                    state = state,
+                    onInsuranceClick = { showInsuranceSheet = true },
+                    onToggleOnline = viewModel::toggleOnlyOnline,
+                    onSort = viewModel::selectSort,
+                )
+            }
+
+            if (state.featured.isNotEmpty() && state.query.isBlank() && !state.onlyOnline) {
+                item(key = "featured-header") {
+                    SectionHeader(
+                        title = "منتخب نوبت‌یار",
+                        subtitle = "رزرو آنی، بدون تماس و انتظار",
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 10.dp)
+                    )
+                }
+                item(key = "featured") {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(state.featured, key = { it.id }) { b ->
+                            FeaturedBusinessCard(b, onClick = { openDetail(b.id) })
+                        }
+                    }
+                }
+            }
+
+            item(key = "results-header") {
+                SectionHeader(
+                    title = resultsTitle(state),
+                    subtitle = if (!state.isLoading && state.errorMessage == null)
+                        "${state.totalCount.toPersianDigits()} مرکز پیدا شد" else null,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 10.dp),
+                    action = if (state.hasActiveFilters) {
+                        { TextButton(onClick = viewModel::clearFilters) { Text("حذف فیلترها") } }
+                    } else null
+                )
+            }
+
+            when {
+                state.isLoading -> items(5, key = { "shimmer-$it" }) { CardShimmer() }
+
+                state.errorMessage != null && state.results.isEmpty() -> item(key = "error") {
+                    MessageBlock(
+                        icon = Icons.Rounded.CloudOff,
+                        title = "ارتباط برقرار نشد",
+                        subtitle = state.errorMessage ?: "",
+                        actionLabel = "تلاش دوباره",
+                        onAction = viewModel::refresh
+                    )
+                }
+
+                state.results.isEmpty() -> item(key = "empty") {
+                    MessageBlock(
+                        icon = Icons.Rounded.SearchOff,
+                        title = "مرکزی پیدا نشد",
+                        subtitle = if (state.hasLocation && state.radiusKm < radiusOptionsKm.last())
+                            "محدوده جستجو را بزرگ‌تر کنید یا فیلترها را تغییر دهید."
+                        else "عبارت دیگری را امتحان کنید یا فیلترها را بردارید.",
+                        actionLabel = if (state.hasLocation && state.radiusKm < radiusOptionsKm.last())
+                            "جستجو تا ${radiusOptionsKm.last().toInt().toPersianDigits()} کیلومتر" else "حذف فیلترها",
+                        onAction = {
+                            if (state.hasLocation && state.radiusKm < radiusOptionsKm.last()) {
+                                viewModel.selectRadius(radiusOptionsKm.last())
+                            } else viewModel.clearFilters()
+                        }
+                    )
+                    OwnerInviteBanner(
+                        onClick = { openUrl(OWNER_LANDING_URL) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+
+                else -> {
+                    itemsIndexed(state.results, key = { _, b -> b.id }) { index, business ->
+                        Column(
+                            modifier = Modifier
+                                .animateItem()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        ) {
+                            BusinessListCard(
+                                business = business,
+                                saved = business.id in state.savedIds,
+                                onToggleSave = { viewModel.toggleSaved(business.id) },
+                                onClick = { openDetail(business.id) },
+                                onBook = bookingUrl(business)?.let { url -> { openUrl(url) } }
+                            )
+                            if (index == OWNER_BANNER_INDEX ||
+                                (index == state.results.lastIndex && state.results.size <= OWNER_BANNER_INDEX)
+                            ) {
+                                Spacer(Modifier.height(12.dp))
+                                OwnerInviteBanner(onClick = { openUrl(OWNER_LANDING_URL) })
+                            }
+                        }
+                    }
+                    if (state.isLoadingMore) {
+                        item(key = "more") {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
-            onRefresh = { viewModel.sendIntent(ExploreIntent.Refresh) },
-            modifier = Modifier.fillMaxSize()
+    PinnedSearchBar(
+        visible = heroScrolledAway,
+        query = state.query,
+        onQueryChange = viewModel::updateQuery,
+        onSubmit = submit,
+    )
+    }
+
+    if (showLocationSheet) {
+        LocationSheet(
+            state = state,
+            onDismiss = { showLocationSheet = false },
+            onUseMyLocation = locate,
+            onSelectArea = {
+                viewModel.selectArea(it)
+                showLocationSheet = false
+            },
+            onSelectRadius = viewModel::selectRadius,
+        )
+    }
+
+    if (showInsuranceSheet) {
+        InsuranceSheet(
+            insurances = state.insurances,
+            selectedSlug = state.insuranceSlug,
+            onDismiss = { showInsuranceSheet = false },
+            onSelect = {
+                viewModel.selectInsurance(it)
+                showInsuranceSheet = false
+            }
+        )
+    }
+}
+
+private fun resultsTitle(state: ExploreState): String {
+    val what = if (state.category == CategoryGroup.ALL) "مراکز" else state.category.label
+    return when (val area = state.area) {
+        is SearchArea.NearMe -> "$what نزدیک شما"
+        is SearchArea.City -> "$what در ${area.label}"
+        SearchArea.Anywhere -> if (state.query.isNotBlank()) "نتایج جستجو" else "همه $what"
+    }
+}
+
+// ── Hero ─────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun Hero(
+    state: ExploreState,
+    onQueryChange: (String) -> Unit,
+    onLocationClick: () -> Unit,
+    onSubmit: (String) -> Unit,
+    onFocusChange: (Boolean) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+            .background(Brand.HeroGradient)
+    ) {
+        // Soft decorative glows.
+        Box(
+            Modifier
+                .padding(start = 220.dp, top = 10.dp)
+                .size(180.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.06f))
+        )
+        Box(
+            Modifier
+                .padding(top = 120.dp)
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFEC4899).copy(alpha = 0.12f))
+        )
+
+        Column(
+            modifier = Modifier
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 22.dp)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    // Header Brand & Title
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "نوبت‌یار",
-                                    style = MaterialTheme.typography.headlineMedium.copy(
-                                        fontWeight = FontWeight.Black,
-                                        brush = Brush.horizontalGradient(listOf(GradientStart, GradientEnd))
-                                    )
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(AmberAccent, CircleShape)
-                                )
-                            }
-                            Text(
-                                text = "جستجو و رزرو نوبت پزشکان، دندان‌پزشکان و سالن‌های زیبایی",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                // 1. Location Selector Bar
-                item {
-                    LocationSelectorBar(
-                        selectedLocation = state.selectedLocation,
-                        onClick = { showLocationSheet = true }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        greeting(),
+                        color = Color.White.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.bodyMedium
                     )
-                }
-
-                // 2. Supplementary Insurance Filter Bar («بیمه تکمیلی من»)
-                item {
-                    InsuranceFilterSection(
-                        insurances = state.insurances,
-                        selectedSlug = state.selectedInsuranceSlug,
-                        onSelectInsurance = { slug ->
-                            viewModel.sendIntent(ExploreIntent.SelectInsurance(slug))
-                        }
+                    Text(
+                        "امروز دنبال چه می‌گردی؟",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black
                     )
-                }
-
-                // 3. Search Bar
-                item {
-                    OutlinedTextField(
-                        value = state.searchQuery,
-                        onValueChange = { viewModel.sendIntent(ExploreIntent.UpdateSearchQuery(it)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = {
-                            Text(
-                                text = "جستجوی پزشک، سالن، نام متخصص یا تخصص...",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Rounded.Search,
-                                contentDescription = "جستجو",
-                                tint = PrimaryPurple
-                            )
-                        },
-                        trailingIcon = {
-                            if (state.searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.sendIntent(ExploreIntent.UpdateSearchQuery("")) }) {
-                                    Icon(Icons.Rounded.Close, contentDescription = "پاک کردن")
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PrimaryPurple,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
-                        ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
-                    )
-                }
-
-                // 4. Category Quick Filter Chips
-                item {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 2.dp)
-                    ) {
-                        items(defaultCategoryFilters) { cat ->
-                            val isSelected = state.selectedCategory == cat.key
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { viewModel.sendIntent(ExploreIntent.SelectCategory(cat.key)) },
-                                label = {
-                                    Text(
-                                        text = cat.label,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                },
-                                shape = RoundedCornerShape(20.dp),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryPurple.copy(alpha = 0.15f),
-                                    selectedLabelColor = PrimaryPurple,
-                                    selectedLeadingIconColor = PrimaryPurple
-                                ),
-                                border = if (isSelected) {
-                                    BorderStroke(1.5.dp, PrimaryPurple)
-                                } else {
-                                    BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // 5. Toggle «فقط دارای نوبت آنلاین نوبت‌یار ⚡»
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable {
-                                viewModel.sendIntent(ExploreIntent.ToggleOnlyClaimed(!state.onlyClaimed))
-                            },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (state.onlyClaimed) {
-                                PrimaryPurple.copy(alpha = 0.1f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                            }
-                        ),
-                        border = BorderStroke(
-                            1.dp,
-                            if (state.onlyClaimed) PrimaryPurple.copy(alpha = 0.4f)
-                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "⚡ فقط مراکز دارای نوبت آنلاین نوبت‌یار",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (state.onlyClaimed) PrimaryPurple else MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                                Text(
-                                    text = "امکان مشاهده تقویم کاری، انتخاب ساعت و رزرو آنی بدون معطلی",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = state.onlyClaimed,
-                                onCheckedChange = { viewModel.sendIntent(ExploreIntent.ToggleOnlyClaimed(it)) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = PrimaryPurple
-                                )
-                            )
-                        }
-                    }
-                }
-
-                // Loading State
-                if (state.isLoading && state.businesses.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(color = PrimaryPurple)
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "در حال جستجوی مراکز اطراف شما...",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // VIP Featured Section («✨ مراکز منتخب نوبت‌یار — رزرو آنی»)
-                if (state.vipBusinesses.isNotEmpty()) {
-                    item {
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "✨ مراکز منتخب نوبت‌یار — رزرو آنی",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = PrimaryPurpleDark
-                                    )
-                                }
-                                Text(
-                                    text = "${state.vipBusinesses.size} مرکز",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                contentPadding = PaddingValues(horizontal = 2.dp)
-                            ) {
-                                items(state.vipBusinesses, key = { it.id }) { business ->
-                                    VipBusinessCard(
-                                        business = business,
-                                        selectedInsuranceSlug = state.selectedInsuranceSlug,
-                                        onClick = { viewModel.sendIntent(ExploreIntent.BusinessClicked(business.id)) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // All Nearby Centres List Header
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "📍 نزدیک‌ترین مراکز به شما",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (state.businesses.isNotEmpty()) {
-                            Text(
-                                text = "${state.businesses.size} مرکز یافت شد",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                // Empty State
-                if (!state.isLoading && state.businesses.isEmpty()) {
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 24.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                            ),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(text = "🔍", fontSize = 36.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "مرکزی با این مشخصات یافت نشد",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "لطفاً فیلترهای جستجو، نام یا موقعیت مکانی را تغییر دهید.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    textAlign = TextAlign.Center,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(14.dp))
-                                OutlinedButton(
-                                    onClick = {
-                                        viewModel.sendIntent(ExploreIntent.ClearFilters)
-                                    },
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryPurple)
-                                ) {
-                                    Text("حذف همه فیلترها")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // All Centres Cards List
-                items(state.businesses, key = { it.id }) { business ->
-                    ClientBusinessRowCard(
-                        business = business,
-                        selectedInsuranceSlug = state.selectedInsuranceSlug,
-                        onClick = { viewModel.sendIntent(ExploreIntent.BusinessClicked(business.id)) }
-                    )
-                }
-
-                item {
-                    BottomBarSpacer()
                 }
             }
-        }
+            Spacer(Modifier.height(16.dp))
 
-        // Location Bottom Sheet Picker
-        if (showLocationSheet) {
-            ModalBottomSheet(
-                onDismissRequest = { showLocationSheet = false },
-                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            Surface(
+                onClick = onLocationClick,
+                shape = RoundedCornerShape(50),
+                color = Color.White.copy(alpha = 0.16f),
             ) {
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
-                    ) {
-                        Text(
-                            text = "📍 انتخاب محدوده و موقعیت مکانی",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "نزدیک‌ترین پزشکان و سالن‌های زیبایی بر اساس موقعیت انتخابی مرتب می‌شوند.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val area = state.area
+                    val (icon, label) = when {
+                        state.locationStatus == LocationStatus.Locating -> Icons.Rounded.MyLocation to "در حال یافتن موقعیت…"
+                        area is SearchArea.NearMe -> Icons.Rounded.MyLocation to
+                            "نزدیک من · تا ${state.radiusKm.toInt().toPersianDigits()} کیلومتر"
+                        area is SearchArea.City -> Icons.Rounded.LocationOn to area.label
+                        else -> Icons.Rounded.Public to "همه شهرها"
+                    }
+                    Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(label, color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(2.dp))
+                    Icon(Icons.Rounded.ExpandMore, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+            }
 
-                        defaultLocationPresets.forEach { preset ->
-                            val isSelected = state.selectedLocation == preset
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        viewModel.sendIntent(ExploreIntent.SelectLocation(preset))
-                                        showLocationSheet = false
-                                    },
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isSelected) {
-                                        PrimaryPurple.copy(alpha = 0.12f)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                                    }
-                                ),
-                                border = if (isSelected) BorderStroke(1.5.dp, PrimaryPurple) else null
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.LocationOn,
-                                            contentDescription = null,
-                                            tint = if (isSelected) PrimaryPurple else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Text(
-                                            text = preset.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isSelected) PrimaryPurple else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Check,
-                                            contentDescription = "انتخاب شده",
-                                            tint = PrimaryPurple,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(14.dp))
+            SearchField(
+                query = state.query,
+                onQueryChange = onQueryChange,
+                onSubmit = onSubmit,
+                onFocusChange = onFocusChange,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSubmit: (String) -> Unit,
+    onFocusChange: (Boolean) -> Unit = {},
+    elevation: androidx.compose.ui.unit.Dp = 6.dp,
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = elevation,
+        modifier = Modifier.fillMaxWidth().height(54.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Rounded.Search, contentDescription = null, tint = Brand.Violet500)
+            Spacer(Modifier.width(10.dp))
+            Box(modifier = Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(
+                        "نام پزشک، سالن، تخصص یا محله…",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(Brand.Violet500),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { onSubmit(query) }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { onFocusChange(it.isFocused) }
+                )
+            }
+            AnimatedVisibility(visible = query.isNotEmpty()) {
+                Surface(
+                    onClick = { onQueryChange("") },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Close, contentDescription = "پاک کردن", modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -539,73 +508,112 @@ fun ExploreScreen(
     }
 }
 
+// ── Location prompt ──────────────────────────────────────────────────────────
+
 @Composable
-private fun LocationSelectorBar(
-    selectedLocation: LocationPreset,
-    onClick: () -> Unit
+private fun LocationPrompt(
+    status: LocationStatus,
+    onLocate: () -> Unit,
+    onPickCity: () -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = Modifier
+    val (title, body) = when (status) {
+        LocationStatus.Denied -> "دسترسی به موقعیت رد شد" to
+            "بدون موقعیت هم می‌توانید شهرتان را انتخاب کنید، یا دسترسی را از تنظیمات فعال کنید."
+        LocationStatus.Disabled -> "موقعیت‌یاب گوشی خاموش است" to
+            "برای دیدن نزدیک‌ترین مراکز، GPS را روشن کنید."
+        LocationStatus.Unavailable -> "موقعیت شما پیدا نشد" to
+            "کمی بعد دوباره امتحان کنید یا شهرتان را انتخاب کنید."
+        else -> "نزدیک‌ترین‌ها را ببینید" to
+            "با اجازه دسترسی به موقعیت، مراکز اطرافتان به ترتیب فاصله نمایش داده می‌شوند."
+    }
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Brand.Violet500.copy(alpha = 0.08f),
+        modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = PrimaryPurple.copy(alpha = 0.08f)
-        ),
-        border = BorderStroke(1.dp, PrimaryPurple.copy(alpha = 0.25f))
+            .border(1.dp, Brand.Violet500.copy(alpha = 0.25f), RoundedCornerShape(20.dp))
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(PrimaryPurple.copy(alpha = 0.15f), CircleShape),
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(Brand.Violet500.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.LocationOn,
-                        contentDescription = "موقعیت",
-                        tint = PrimaryPurple,
-                        modifier = Modifier.size(18.dp)
+                        if (status == LocationStatus.Idle || status == LocationStatus.Locating) Icons.Rounded.MyLocation
+                        else Icons.Rounded.LocationOff,
+                        contentDescription = null,
+                        tint = Brand.Violet500
                     )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "موقعیت جستجو:",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = selectedLocation.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                when (status) {
+                    LocationStatus.Denied, LocationStatus.Disabled -> Button(
+                        onClick = onOpenSettings,
+                        colors = ButtonDefaults.buttonColors(containerColor = Brand.Violet500)
+                    ) { Text("باز کردن تنظیمات") }
+                    else -> Button(
+                        onClick = onLocate,
+                        enabled = status != LocationStatus.Locating,
+                        colors = ButtonDefaults.buttonColors(containerColor = Brand.Violet500)
+                    ) {
+                        if (status == LocationStatus.Locating) {
+                            CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Text("استفاده از موقعیت من")
+                    }
+                }
+                OutlinedButton(onClick = onPickCity) { Text("انتخاب شهر") }
+            }
+        }
+    }
+}
+
+// ── Categories & filters ─────────────────────────────────────────────────────
+
+@Composable
+private fun CategoryRow(selected: CategoryGroup, onSelect: (CategoryGroup) -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        items(CategoryGroup.entries) { group ->
+            val isSelected = group == selected
+            val bg by animateColorAsState(if (isSelected) group.tint else group.tint.copy(alpha = 0.12f))
+            val fg by animateColorAsState(if (isSelected) Color.White else group.tint)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(72.dp)
+            ) {
+                Surface(
+                    onClick = { onSelect(group) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = bg,
+                    modifier = Modifier.size(60.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(group.icon, contentDescription = group.label, tint = fg, modifier = Modifier.size(28.dp))
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "تغییر",
+                    group.label,
                     style = MaterialTheme.typography.labelMedium,
-                    color = PrimaryPurple,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Icon(
-                    imageVector = Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = "تغییر موقعیت",
-                    tint = PrimaryPurple,
-                    modifier = Modifier.size(20.dp)
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -613,499 +621,276 @@ private fun LocationSelectorBar(
 }
 
 @Composable
-private fun InsuranceFilterSection(
+private fun FilterRow(
+    state: ExploreState,
+    onInsuranceClick: () -> Unit,
+    onToggleOnline: () -> Unit,
+    onSort: (SortMode) -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            FilterChipX(
+                label = state.selectedInsurance?.name ?: "بیمه تکمیلی",
+                icon = Icons.Rounded.HealthAndSafety,
+                selected = state.insuranceSlug != null,
+                trailing = Icons.Rounded.ExpandMore,
+                onClick = onInsuranceClick
+            )
+        }
+        item {
+            FilterChipX(
+                label = "فقط نوبت آنلاین",
+                icon = Icons.Rounded.Bolt,
+                selected = state.onlyOnline,
+                onClick = onToggleOnline
+            )
+        }
+        if (state.hasLocation) {
+            items(SortMode.entries) { mode ->
+                FilterChipX(
+                    label = mode.label,
+                    icon = if (mode == SortMode.DISTANCE) Icons.Rounded.MyLocation else Icons.Rounded.Tune,
+                    selected = state.sort == mode,
+                    onClick = { onSort(mode) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterChipX(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    trailing: ImageVector? = null,
+    onClick: () -> Unit,
+) {
+    val bg by animateColorAsState(if (selected) Brand.Violet500 else MaterialTheme.colorScheme.surface)
+    val fg by animateColorAsState(if (selected) Color.White else MaterialTheme.colorScheme.onSurface)
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = bg,
+        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = if (selected) Color.White else Brand.Violet500, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, color = fg, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            if (trailing != null) {
+                Spacer(Modifier.width(2.dp))
+                Icon(trailing, contentDescription = null, tint = fg, modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
+// ── States ───────────────────────────────────────────────────────────────────
+
+@Composable
+private fun CardShimmer() {
+    Row(
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(12.dp)
+    ) {
+        ShimmerBox(Modifier.size(64.dp), RoundedCornerShape(16.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            ShimmerBox(Modifier.fillMaxWidth(0.6f).height(16.dp))
+            Spacer(Modifier.height(8.dp))
+            ShimmerBox(Modifier.fillMaxWidth(0.35f).height(12.dp))
+            Spacer(Modifier.height(10.dp))
+            ShimmerBox(Modifier.fillMaxWidth(0.5f).height(20.dp), RoundedCornerShape(50))
+        }
+    }
+}
+
+@Composable
+private fun MessageBlock(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier.size(84.dp).clip(CircleShape).background(Brand.Violet500.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = Brand.Violet500, modifier = Modifier.size(40.dp))
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = onAction, colors = ButtonDefaults.buttonColors(containerColor = Brand.Violet500)) {
+            Text(actionLabel)
+        }
+    }
+}
+
+// ── Sheets ───────────────────────────────────────────────────────────────────
+
+@Composable
+private fun LocationSheet(
+    state: ExploreState,
+    onDismiss: () -> Unit,
+    onUseMyLocation: () -> Unit,
+    onSelectArea: (SearchArea) -> Unit,
+    onSelectRadius: (Double) -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(Modifier.padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 16.dp)) {
+            Text("کجا دنبالش بگردیم؟", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(16.dp))
+
+            SheetRow(
+                icon = Icons.Rounded.MyLocation,
+                title = "موقعیت فعلی من",
+                subtitle = when (state.locationStatus) {
+                    LocationStatus.Locating -> "در حال یافتن…"
+                    LocationStatus.Denied -> "دسترسی داده نشده"
+                    LocationStatus.Disabled -> "GPS خاموش است"
+                    LocationStatus.Unavailable -> "موقعیت پیدا نشد؛ دوباره امتحان کنید"
+                    else -> "مرتب‌سازی بر اساس فاصله از شما"
+                },
+                selected = state.area is SearchArea.NearMe,
+                onClick = onUseMyLocation,
+            )
+
+            if (state.hasLocation) {
+                Spacer(Modifier.height(16.dp))
+                Text("محدوده جستجو", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    radiusOptionsKm.forEach { km ->
+                        FilterChipX(
+                            label = "${km.toInt().toPersianDigits()} کیلومتر",
+                            icon = Icons.Rounded.LocationOn,
+                            selected = state.radiusKm == km,
+                            onClick = { onSelectRadius(km) }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Text("یا یک شهر انتخاب کنید", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                majorCities.forEach { city ->
+                    FilterChipX(
+                        label = city.label,
+                        icon = Icons.Rounded.LocationOn,
+                        selected = state.area == city,
+                        onClick = { onSelectArea(city) }
+                    )
+                }
+                FilterChipX(
+                    label = "همه شهرها",
+                    icon = Icons.Rounded.Public,
+                    selected = state.area is SearchArea.Anywhere,
+                    onClick = { onSelectArea(SearchArea.Anywhere) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) Brand.Violet500.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = Brand.Violet500)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = Brand.Violet500)
+        }
+    }
+}
+
+@Composable
+private fun InsuranceSheet(
     insurances: List<Insurance>,
     selectedSlug: String?,
-    onSelectInsurance: (String?) -> Unit
+    onDismiss: () -> Unit,
+    onSelect: (String?) -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
-        shape = RoundedCornerShape(16.dp)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Shield,
-                    contentDescription = null,
-                    tint = PrimaryPurple,
-                    modifier = Modifier.size(18.dp)
-                )
+        LazyColumn(
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+            modifier = Modifier.navigationBarsPadding()
+        ) {
+            item {
+                Text("بیمه شما", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "بیمه تکمیلی من:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "(نمایش مراکز طرف قرارداد)",
+                    "مراکزی نمایش داده می‌شوند که این بیمه را اعلام کرده‌اند. پیش از مراجعه با مرکز هماهنگ کنید.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(Modifier.height(12.dp))
+                InsuranceRow("همه بیمه‌ها", selected = selectedSlug == null) { onSelect(null) }
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item {
-                    val isAllSelected = selectedSlug == null
-                    FilterChip(
-                        selected = isAllSelected,
-                        onClick = { onSelectInsurance(null) },
-                        label = { Text("همه بیمه‌ها", fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal) },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = PrimaryPurple,
-                            selectedLabelColor = Color.White
-                        )
-                    )
-                }
-                items(insurances) { ins ->
-                    val isSelected = selectedSlug == ins.slug
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { onSelectInsurance(if (isSelected) null else ins.slug) },
-                        label = {
-                            Text(
-                                text = ins.name,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        leadingIcon = if (isSelected) {
-                            { Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                        } else null,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = PrimaryPurple,
-                            selectedLabelColor = Color.White,
-                            selectedLeadingIconColor = Color.White
-                        )
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun VipBusinessCard(
-    business: Business,
-    selectedInsuranceSlug: String?,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .width(280.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(1.5.dp, Brush.horizontalGradient(listOf(GradientStart, GradientEnd))),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Header Row: VIP Badge + Distance
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = PrimaryPurple.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, PrimaryPurple.copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = "⚡", fontSize = 12.sp)
-                        Spacer(modifier = Modifier.width(4.dp))
+            val groups = insurances.groupBy { it.insuranceType }
+            listOf("SUPPLEMENTARY" to "بیمه‌های تکمیلی", "BASIC" to "بیمه‌های پایه").forEach { (type, title) ->
+                val list = groups[type].orEmpty()
+                if (list.isNotEmpty()) {
+                    item(key = "h-$type") {
                         Text(
-                            text = "رزرو آنی نوبت‌یار",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryPurple
-                        )
-                    }
-                }
-
-                if (business.distanceKm != null) {
-                    Text(
-                        text = "${formatDistance(business.distanceKm)} تا شما",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Logo & Title
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (business.logoPath.isNotEmpty()) {
-                    AsyncImage(
-                        model = resolveLogoUrl(business.logoPath),
-                        contentDescription = business.title,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                Brush.linearGradient(listOf(GradientStart, GradientEnd)),
-                                RoundedCornerShape(12.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = business.title.take(1),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = business.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = business.categoryLabel.ifEmpty { "مرکز تخصصی" },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Insurances Chips (if any)
-            if (business.insurances.isNotEmpty()) {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    maxLines = 1
-                ) {
-                    business.insurances.take(3).forEach { ins ->
-                        val isMatched = selectedInsuranceSlug != null && selectedInsuranceSlug == ins.slug
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isMatched) AmberAccent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
-                            border = if (isMatched) BorderStroke(1.dp, AmberAccent) else null
-                        ) {
-                            Text(
-                                text = "🛡️ ${ins.name}",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 10.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                color = if (isMatched) Color(0xFFB45309) else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-
-            // CTA Button
-            Button(
-                onClick = onClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(38.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple),
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text(
-                    text = "مشاهده و رزرو نوبت",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ClientBusinessRowCard(
-    business: Business,
-    selectedInsuranceSlug: String?,
-    onClick: () -> Unit
-) {
-    val isOfficial = business.isClaimed
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = if (isOfficial) {
-            BorderStroke(1.5.dp, PrimaryPurple.copy(alpha = 0.45f))
-        } else {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-        },
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isOfficial) 2.dp else 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Top Row: Logo, Title, Official/Directory Badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                if (business.logoPath.isNotEmpty()) {
-                    AsyncImage(
-                        model = resolveLogoUrl(business.logoPath),
-                        contentDescription = business.title,
-                        modifier = Modifier
-                            .size(54.dp)
-                            .clip(RoundedCornerShape(14.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(54.dp)
-                            .background(
-                                if (isOfficial) Brush.linearGradient(listOf(GradientStart, GradientEnd))
-                                else Brush.linearGradient(listOf(Color(0xFF6B7280), Color(0xFF4B5563))),
-                                RoundedCornerShape(14.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = business.title.take(1),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = business.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        if (isOfficial) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF10B981).copy(alpha = 0.12f),
-                                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.3f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Verified,
-                                        contentDescription = null,
-                                        tint = Color(0xFF10B981),
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = "عضو رسمی",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF047857)
-                                    )
-                                }
-                            }
-                        } else {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant
-                            ) {
-                                Text(
-                                    text = "بانک اطلاعات عمومی",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = business.categoryLabel.ifEmpty { "مرکز تخصصی" },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    if (business.distanceKm != null) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.LocationOn,
-                                contentDescription = null,
-                                tint = PrimaryPurple,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "${formatDistance(business.distanceKm)} تا شما",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = PrimaryPurple,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Address & Neighborhood
-            if (business.address.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                val addressText = buildString {
-                    if (business.neighborhood.isNotEmpty()) {
-                        append(business.neighborhood)
-                        append("، ")
-                    }
-                    append(business.address)
-                }
-                Text(
-                    text = addressText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Working hours if official
-            if (isOfficial && business.workStartHour > 0 && business.workEndHour > 0) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.Schedule,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    val startMin = business.workStartMinute.toString().padStart(2, '0')
-                    val endMin = business.workEndMinute.toString().padStart(2, '0')
-                    Text(
-                        text = "ساعت کاری: ${business.workStartHour}:$startMin الی ${business.workEndHour}:$endMin",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Insurances Chips
-            if (business.insurances.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    business.insurances.take(4).forEach { ins ->
-                        val isMatched = selectedInsuranceSlug != null && selectedInsuranceSlug == ins.slug
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isMatched) AmberAccent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
-                            border = if (isMatched) BorderStroke(1.dp, AmberAccent) else null
-                        ) {
-                            Text(
-                                text = "🛡️ ${ins.name}",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 10.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                color = if (isMatched) Color(0xFFB45309) else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    if (business.insurances.size > 4) {
-                        Text(
-                            text = "+${business.insurances.size - 4} بیمه دیگر",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp,
+                            title,
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 2.dp)
+                            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
                         )
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Action Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (isOfficial) {
-                    Text(
-                        text = "⚡ رزرو آنی فعال",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF059669)
-                    )
-                    Button(
-                        onClick = onClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                    ) {
-                        Text(text = "مشاهده و رزرو نوبت", style = MaterialTheme.typography.labelMedium)
-                    }
-                } else {
-                    Text(
-                        text = "${business.onlineBookingRequestsCount} درخواست رزرو آنلاین",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedButton(
-                        onClick = onClick,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                    ) {
-                        Text(text = "مشاهده اطلاعات و تماس", style = MaterialTheme.typography.labelMedium)
+                    items(list, key = { it.slug }) { ins ->
+                        InsuranceRow(ins.name, selected = ins.slug == selectedSlug) { onSelect(ins.slug) }
                     }
                 }
             }
@@ -1113,12 +898,109 @@ private fun ClientBusinessRowCard(
     }
 }
 
-private fun formatDistance(km: Double): String {
-    return if (km < 1.0) {
-        val meters = (km * 1000).toInt()
-        "$meters متر"
-    } else {
-        val rounded = (km * 10).toInt() / 10.0
-        "$rounded کیلومتر"
+@Composable
+private fun InsuranceRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
+        Column {
+            Row(Modifier.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.weight(1f)
+                )
+                if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = Brand.Violet500)
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+        }
+    }
+}
+
+private fun greeting(): String = when (tehranNow().hour) {
+    in 5..11 -> "صبح بخیر ☀️"
+    in 12..16 -> "ظهر بخیر 👋"
+    in 17..20 -> "عصر بخیر 🌇"
+    else -> "شب بخیر 🌙"
+}
+
+/** Common searches shown before the user types — a nudge, not a taxonomy. */
+private val popularSearches = listOf(
+    "دندان‌پزشک", "متخصص پوست", "آرایشگاه زنانه", "ارتودنسی",
+    "روان‌شناس", "فیزیوتراپی", "کاشت مو", "آزمایشگاه", "متخصص اطفال", "ناخن",
+)
+
+@Composable
+private fun SearchSuggestions(
+    recent: List<String>,
+    onPick: (String) -> Unit,
+    onClearRecent: () -> Unit,
+) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        if (recent.isNotEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "جستجوهای اخیر",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onClearRecent) { Text("پاک کردن") }
+            }
+            recent.forEach { q ->
+                Surface(
+                    onClick = { onPick(q) },
+                    color = Color.Transparent,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(Modifier.padding(vertical = 10.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(q, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+        Text(
+            "جستجوهای پرطرفدار",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(10.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            popularSearches.forEach { q ->
+                FilterChipX(label = q, icon = Icons.AutoMirrored.Rounded.TrendingUp, selected = false, onClick = { onPick(q) })
+            }
+        }
+    }
+}
+
+/** Compact search bar that slides in once the hero has scrolled off, so search is always one tap away. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.PinnedSearchBar(
+    visible: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically { -it } + fadeIn(),
+        exit = slideOutVertically { -it } + fadeOut(),
+        modifier = Modifier.align(Alignment.TopCenter)
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(Brand.HeroGradient)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+            SearchField(query = query, onQueryChange = onQueryChange, onSubmit = onSubmit, elevation = 0.dp)
+        }
     }
 }

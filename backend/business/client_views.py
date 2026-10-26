@@ -4,6 +4,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.throttling import AnonRateThrottle
 from django.core.paginator import Paginator
 from django.db.models import F, Q
+import hashlib
 import logging
 import math
 
@@ -11,7 +12,7 @@ from api.phone import is_iran_phone, normalize_phone
 from visitor.auth import VisitorTokenAuthentication
 from visitor.models import Visitor
 
-from .models import Business, ContentReport, Insurance
+from .models import Business, ContentReport, Insurance, OnlineBookingRequest
 from .serializers import PublicBusinessSerializer, InsuranceSerializer
 from api.responses import APIResponse
 
@@ -65,6 +66,28 @@ class RequestBookingRateThrottle(AnonRateThrottle):
             'scope': self.scope,
             'ident': self.get_ident(request),
         }
+
+# Upper bound on a geo search. The ranking below loads every row inside the
+# bounding box into Python, so an unbounded radius would turn one request into
+# a scan of the whole directory.
+MAX_RADIUS_KM = 100.0
+
+
+def request_fingerprint(request):
+    """Stable, anonymised identity of the caller for de-duplicating votes.
+
+    Prefers the app's per-install X-Device-Id header and falls back to the IP;
+    only a hash is stored, never the raw value.
+    """
+    device_id = (request.headers.get('X-Device-Id') or '').strip()[:128]
+    if device_id:
+        raw = f"device:{device_id}"
+    else:
+        forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        ip = forwarded.split(',')[0].strip() if forwarded else request.META.get('REMOTE_ADDR', '')
+        raw = f"ip:{ip}"
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()
+
 
 def haversine_km(lat1, lon1, lat2, lon2):
     """Calculate the great circle distance between two points on the earth in kilometers."""
@@ -122,6 +145,8 @@ class ClientBusinessListView(APIView):
                 radius_km = float(radius_param)
             except (ValueError, TypeError):
                 pass
+        if radius_km is not None:
+            radius_km = min(radius_km, MAX_RADIUS_KM) if radius_km > 0 else MAX_RADIUS_KM
 
         # Build Q objects for filtering. public_filter() carries both reasons a
         # business stays out of public browsing — locked (subscription
@@ -283,20 +308,33 @@ class ClientRequestOnlineBookingView(APIView):
         except Business.DoesNotExist:
             return APIResponse.error(message="کسب و کار مورد نظر یافت نشد", code=404)
 
-        def _increment():
-            Business.objects.filter(id=business.id).update(
-                online_booking_requests_count=F('online_booking_requests_count') + 1
-            )
-            business.refresh_from_db(fields=['online_booking_requests_count'])
-            return business.online_booking_requests_count
+        if business.is_claimed:
+            return APIResponse.error(message="این مرکز خودش نوبت آنلاین دارد", code=400)
 
-        count = await sync_to_async(_increment)()
+        fingerprint = request_fingerprint(request)
+
+        def _record():
+            _req, created = OnlineBookingRequest.objects.get_or_create(
+                business=business, fingerprint=fingerprint,
+            )
+            if created:
+                Business.objects.filter(id=business.id).update(
+                    online_booking_requests_count=F('online_booking_requests_count') + 1
+                )
+            business.refresh_from_db(fields=['online_booking_requests_count'])
+            return created, business.online_booking_requests_count
+
+        created, count = await sync_to_async(_record)()
         return APIResponse.success(
             data={
                 'id': business.id,
                 'online_booking_requests_count': count,
+                'already_requested': not created,
             },
-            message="درخواست شما برای فعال‌سازی نوبت‌دهی آنلاین این مرکز ثبت شد"
+            message=(
+                "درخواست شما برای فعال‌سازی نوبت‌دهی آنلاین این مرکز ثبت شد" if created
+                else "درخواست شما قبلاً ثبت شده بود"
+            )
         )
 
 

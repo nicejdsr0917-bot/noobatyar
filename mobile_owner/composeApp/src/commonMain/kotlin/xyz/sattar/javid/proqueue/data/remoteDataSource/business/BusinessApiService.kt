@@ -15,6 +15,11 @@ import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.core.network.toDirectApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessCategoriesDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimStartRequestDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimStartResponseDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimVerifyRequestDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimVerifyResponseDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimableSearchDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.CreateBusinessRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.AddServiceCatalogItemRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ServiceCatalogItemDto
@@ -222,4 +227,24 @@ class BusinessApiService(private val httpClient: HttpClient) {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
+
+    // --- Claiming an imported directory listing ---
+
+    suspend fun searchClaimable(search: String, page: Int = 1): ApiResponse<ClaimableSearchDto> =
+        httpClient.get("business/claimable/") {
+            parameter("search", search)
+            parameter("page", page)
+        }.toApiResponse()
+
+    suspend fun startClaim(businessId: Long, note: String): ApiResponse<ClaimStartResponseDto> =
+        httpClient.post("business/$businessId/claim/") {
+            contentType(ContentType.Application.Json)
+            setBody(ClaimStartRequestDto(note))
+        }.toApiResponse()
+
+    suspend fun verifyClaim(businessId: Long, code: String): ApiResponse<ClaimVerifyResponseDto> =
+        httpClient.post("business/$businessId/claim/verify/") {
+            contentType(ContentType.Application.Json)
+            setBody(ClaimVerifyRequestDto(code))
+        }.toApiResponse()
 }

@@ -1,6 +1,7 @@
 package xyz.sattar.javid.proqueue.di
 import xyz.sattar.javid.proqueue.feature.explore.ExploreViewModel
 import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailViewModel
+import xyz.sattar.javid.proqueue.feature.saved.SavedViewModel
 
 import io.ktor.client.HttpClient
 import org.koin.core.module.Module
@@ -35,7 +36,6 @@ import xyz.sattar.javid.proqueue.domain.usecase.GetPushLogSummaryUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.GetPushLogsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.GetSmsLogSummaryUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.GetSmsLogsUseCase
-import xyz.sattar.javid.proqueue.domain.usecase.GetTodayStatsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.GetVisitorByIdUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.GetWaitingQueueUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.MarkAppointmentCompletedUseCase
@@ -64,28 +64,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.BuyAddonUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetCurrentUserUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetPlansUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CreatePaymentUseCase
-import xyz.sattar.javid.proqueue.feature.businessList.BusinessListViewModel
-import xyz.sattar.javid.proqueue.feature.calendar.CalendarViewModel
-import xyz.sattar.javid.proqueue.feature.createAppointment.CreateAppointmentViewModel
-import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessState
-import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessViewModel
-import xyz.sattar.javid.proqueue.feature.createVisitor.CreateVisitorState
-import xyz.sattar.javid.proqueue.feature.createVisitor.CreateVisitorViewModel
-import xyz.sattar.javid.proqueue.feature.forgetPassword.resetPassword.ResetPasswordViewModel
-import xyz.sattar.javid.proqueue.feature.forgetPassword.sendOTP.SendOTPViewModel
-import xyz.sattar.javid.proqueue.feature.home.HomeViewModel
-import xyz.sattar.javid.proqueue.feature.lastVisitors.LastVisitorsViewModel
-import xyz.sattar.javid.proqueue.feature.login.LoginViewModel
-import xyz.sattar.javid.proqueue.feature.messages.MessagesViewModel
-import xyz.sattar.javid.proqueue.feature.notifications.NotificationsViewModel
-import xyz.sattar.javid.proqueue.feature.profile.UserViewModel
-import xyz.sattar.javid.proqueue.feature.addons.AddonsViewModel
-import xyz.sattar.javid.proqueue.feature.register.RegisterViewModel
-import xyz.sattar.javid.proqueue.feature.settings.SettingsViewModel
-import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportViewModel
 import xyz.sattar.javid.proqueue.feature.version.VersionViewModel
-import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsViewModel
-import xyz.sattar.javid.proqueue.feature.visitorSelection.VisitorSelectionViewModel
 
 val appModule: Module = module {
 
@@ -151,7 +130,6 @@ val appModule: Module = module {
     factory { RemoveAppointmentUseCase(get()) }
     factory { MarkAppointmentCompletedUseCase(get()) }
     factory { MarkAppointmentNoShowUseCase(get()) }
-    factory { GetTodayStatsUseCase(get()) }
     factory { GetAppointmentsForDateUseCase(get()) }
     factory { GetAppointmentByIdUseCase(get()) }
     factory { UpdateAppointmentUseCase(get()) }
@@ -169,56 +147,9 @@ val appModule: Module = module {
     factory { GetVisitorByIdUseCase(get()) }
     factory { DeleteVisitorUseCase(get(), get(), get()) }
 
-    // --- States ---
-    factory { CreateBusinessState() }
-    factory { CreateVisitorState() }
-
     // --- ViewModels ---
-     viewModel { CreateBusinessViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
-     viewModel { AddonsViewModel(get(), get()) }
-    viewModel { CreateVisitorViewModel(get(), get(), get()) }
-    viewModel { CreateAppointmentViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    viewModel {
-        HomeViewModel(
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get()
-        )
-    }
-    viewModel {
-        LastVisitorsViewModel(
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get()
-        )
-    }
-    viewModel { VisitorSelectionViewModel(get(), get()) }
-    viewModel { SettingsViewModel(get(), get(), get()) }
     viewModel { VersionViewModel(get()) }
-    viewModel { NotificationsViewModel(get(), get(), get(), get(), get()) }
-    viewModel { BusinessListViewModel(get(), get(), get()) }
-    viewModel { VisitorDetailsViewModel(get(), get(), get(), get(), get(), get()) }
-    viewModel { MessagesViewModel(get(), get(), get()) }
-    viewModel { SmsReportViewModel(get(), get(), get(), get()) }
-    viewModel { CalendarViewModel(get(), get()) }
-    viewModel { RegisterViewModel(get()) }
-    viewModel { SendOTPViewModel(get(), get()) }
-    viewModel { ResetPasswordViewModel(get()) }
-    viewModel { LoginViewModel(get()) }
-    viewModel { UserViewModel(get(), get(), get(), get(), get()) }
     viewModel { ExploreViewModel(get()) }
     viewModel { ClientBusinessDetailViewModel(get()) }
+    viewModel { SavedViewModel(get()) }
 }

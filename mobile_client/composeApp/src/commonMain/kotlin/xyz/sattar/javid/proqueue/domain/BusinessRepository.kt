@@ -82,4 +82,5 @@ interface BusinessRepository {
     ): ApiResponse<BusinessDto>
     suspend fun getInsurances(): ApiResponse<List<InsuranceDto>>
     suspend fun requestOnlineBooking(businessId: Long): ApiResponse<RequestBookingResponseDto>
+    suspend fun reportBusiness(businessId: Long, reason: String, detail: String): ApiResponse<Unit>
 }

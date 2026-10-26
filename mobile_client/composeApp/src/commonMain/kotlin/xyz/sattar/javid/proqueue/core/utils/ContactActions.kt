@@ -8,6 +8,9 @@ expect fun openUrl(url: String)
 expect fun openInstagram(username: String)
 expect fun openTwitter(username: String)
 
+/** Opens the device's map/navigation app (Neshan, Balad, Google Maps…) at a point. */
+expect fun openMap(latitude: Double, longitude: Double, label: String)
+
 fun formatPhoneNumberForAction(phone: String): String {
     // 1. Convert Persian/Arabic digits to English digits
     var formatted = phone

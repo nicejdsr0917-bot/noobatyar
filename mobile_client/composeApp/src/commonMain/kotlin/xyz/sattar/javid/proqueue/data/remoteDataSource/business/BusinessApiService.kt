@@ -3,6 +3,7 @@ package xyz.sattar.javid.proqueue.data.remoteDataSource.business
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -11,6 +12,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.network.PaginatedResponseDto
+import xyz.sattar.javid.proqueue.core.network.safeApiCall
 import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.core.network.toDirectApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessCategoriesDto
@@ -21,6 +23,8 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.InsuranceD
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogSummaryDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.RequestBookingResponseDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ContentReportRequestDto
+import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ServiceCatalogItemDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogSummaryDto
@@ -238,8 +242,8 @@ class BusinessApiService(private val httpClient: HttpClient) {
         radiusKm: Double? = null,
         onlyClaimed: Boolean = false,
         sort: String? = null
-    ): ApiResponse<PaginatedResponseDto<BusinessDto>> {
-        return httpClient.get("client/businesses/") {
+    ): ApiResponse<PaginatedResponseDto<BusinessDto>> = safeApiCall {
+        httpClient.get("client/businesses/") {
             contentType(ContentType.Application.Json)
             parameter("page", page)
             parameter("page_size", pageSize)
@@ -258,23 +262,32 @@ class BusinessApiService(private val httpClient: HttpClient) {
         businessId: Long,
         lat: Double? = null,
         lng: Double? = null
-    ): ApiResponse<BusinessDto> {
-        return httpClient.get("client/businesses/$businessId/") {
+    ): ApiResponse<BusinessDto> = safeApiCall {
+        httpClient.get("client/businesses/$businessId/") {
             contentType(ContentType.Application.Json)
             if (lat != null) parameter("lat", lat)
             if (lng != null) parameter("lng", lng)
         }.toApiResponse()
     }
 
-    suspend fun getInsurances(): ApiResponse<List<InsuranceDto>> {
-        return httpClient.get("client/businesses/insurances/") {
+    suspend fun getInsurances(): ApiResponse<List<InsuranceDto>> = safeApiCall {
+        httpClient.get("client/businesses/insurances/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
 
-    suspend fun requestOnlineBooking(businessId: Long): ApiResponse<RequestBookingResponseDto> {
-        return httpClient.post("client/businesses/$businessId/request-booking/") {
+    suspend fun requestOnlineBooking(businessId: Long): ApiResponse<RequestBookingResponseDto> = safeApiCall {
+        httpClient.post("client/businesses/$businessId/request-booking/") {
             contentType(ContentType.Application.Json)
+            // One vote per install: the server de-duplicates on a hash of this.
+            header("X-Device-Id", PreferencesManager.deviceId())
+        }.toApiResponse()
+    }
+
+    suspend fun reportBusiness(businessId: Long, reason: String, detail: String): ApiResponse<Unit> = safeApiCall {
+        httpClient.post("client/businesses/$businessId/report/") {
+            contentType(ContentType.Application.Json)
+            setBody(ContentReportRequestDto(reason = reason, detail = detail))
         }.toApiResponse()
     }
 }

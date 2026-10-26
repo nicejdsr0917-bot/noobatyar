@@ -72,6 +72,7 @@ fun BusinessListScreen(
     onNavigateToCreateBusiness: () -> Unit,
     onNavigateToEditBusiness: (Long) -> Unit,
     onNavigateToLogin: () -> Unit,
+    onNavigateToClaim: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
@@ -122,7 +123,8 @@ fun BusinessListScreen(
         onIntent = viewModel::sendIntent,
         onNavigateToLogin = onNavigateToLogin,
         snackbarHostState = snackbarHostState,
-        onDeleteRequest = { businessToDelete = it }
+        onDeleteRequest = { businessToDelete = it },
+        onNavigateToClaim = onNavigateToClaim
     )
 }
 
@@ -133,7 +135,8 @@ fun BusinessListScreenContent(
     onIntent: (BusinessListIntent) -> Unit,
     onNavigateToLogin: () -> Unit,
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
-    onDeleteRequest: (Long) -> Unit
+    onDeleteRequest: (Long) -> Unit,
+    onNavigateToClaim: () -> Unit = {}
 ) {
     Scaffold(
         snackbarHost = { ToastyHost(hostState = snackbarHostState) },
@@ -144,6 +147,11 @@ fun BusinessListScreenContent(
                         stringResource(Res.string.business_list),
                         style = MaterialTheme.typography.titleLarge
                     )
+                },
+                actions = {
+                    androidx.compose.material3.TextButton(onClick = onNavigateToClaim) {
+                        Text("مرکزم از قبل ثبت شده؟")
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
