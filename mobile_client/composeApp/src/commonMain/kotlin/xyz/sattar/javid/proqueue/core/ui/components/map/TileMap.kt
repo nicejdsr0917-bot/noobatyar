@@ -112,11 +112,19 @@ fun GeoPoint.distanceKmTo(other: GeoPoint): Double {
 
 // ── Tile tint ────────────────────────────────────────────────────────────────
 //
-// The raw tiles are drawn for a general-purpose map: saturated roads, green
-// parks, orange highways. Behind our pins they compete for attention, so the
-// tiles are toned down — mostly grey in light mode, inverted to a deep slate
-// in dark mode (so a dark app doesn't flash a white map). Labels stay legible
-// in both because the filter keeps contrast, it only drains colour.
+// Readability first: the map has to work for someone in their seventies.
+// The HOT style draws side streets as near-white lines on a cream ground, so
+// ordinary contrast (which pushes both towards white) makes streets vanish.
+// Contrast is therefore pivoted on white: white streets stay white, the cream
+// ground and every colour move away from it — streets stand out against the
+// blocks, labels go near-black, and parks, hospitals and other places keep
+// their own colours. Saturation comes down a third first: at full strength
+// the boosted arterials shout red across the city view and drown the pins.
+// Tuned on Tehran tiles at city and street zoom side by side (2026-10-28).
+//
+// Dark mode uses the same map, only dimmed: inverting raster tiles turns the
+// white streets black on a dark ground — exactly the contrast we need gone —
+// and colours go wrong (parks pink). A slightly dimmed light map reads better.
 
 /** 4×5 colour matrices, applied left to right: [first] runs first. */
 private fun concat(first: FloatArray, second: FloatArray): FloatArray {
@@ -131,6 +139,17 @@ private fun concat(first: FloatArray, second: FloatArray): FloatArray {
     return out
 }
 
+/** Scales each channel by [scale] and adds [offset] (0..255). */
+private fun scaleAdd(scale: Float, offset: Float) = floatArrayOf(
+    scale, 0f, 0f, 0f, offset,
+    0f, scale, 0f, 0f, offset,
+    0f, 0f, scale, 0f, offset,
+    0f, 0f, 0f, 1f, 0f,
+)
+
+/** Contrast around white: 255 stays 255, everything darker moves [k]× further from it. */
+private fun contrastFromWhite(k: Float) = scaleAdd(k, 255f * (1 - k))
+
 private fun saturation(s: Float): FloatArray {
     val r = 0.2126f * (1 - s); val g = 0.7152f * (1 - s); val b = 0.0722f * (1 - s)
     return floatArrayOf(
@@ -141,38 +160,15 @@ private fun saturation(s: Float): FloatArray {
     )
 }
 
-/** Scales each channel by [scale] and adds [rgb] (0..255). */
-private fun scaleAdd(scale: Float, rgb: Triple<Float, Float, Float>) = floatArrayOf(
-    scale, 0f, 0f, 0f, rgb.first,
-    0f, scale, 0f, 0f, rgb.second,
-    0f, 0f, scale, 0f, rgb.third,
-    0f, 0f, 0f, 1f, 0f,
-)
+private val READABLE = concat(saturation(0.65f), contrastFromWhite(1.7f))
 
-private val INVERT = floatArrayOf(
-    -1f, 0f, 0f, 0f, 255f,
-    0f, -1f, 0f, 0f, 255f,
-    0f, 0f, -1f, 0f, 255f,
-    0f, 0f, 0f, 1f, 0f,
-)
+private val LIGHT_TINT = ColorFilter.colorMatrix(ColorMatrix(READABLE))
 
-/**
- * Light: almost no colour left, compressed towards white with a cool cast —
- * roads become pale grey lines on near-white, like Apple's or Google's light
- * maps, instead of the HOT style's brown arterials. Tuned on Tehran tiles
- * side by side (2026-10-27): labels stay readable at 0.84 contrast.
- */
-private val LIGHT_TINT = ColorFilter.colorMatrix(
-    ColorMatrix(concat(saturation(0.12f), scaleAdd(0.84f, Triple(36f, 38f, 46f))))
-)
+/** The same map at 80 %, so it doesn't glare out of a dark screen. */
+private val DARK_TINT = ColorFilter.colorMatrix(ColorMatrix(concat(READABLE, scaleAdd(0.8f, 0f))))
 
-/** Dark: grey, inverted, then pulled down onto a cool slate under the app's dark surfaces. */
-private val DARK_TINT = ColorFilter.colorMatrix(
-    ColorMatrix(concat(concat(saturation(0.08f), INVERT), scaleAdd(0.64f, Triple(16f, 17f, 28f))))
-)
-
-/** What the map shows before (or between) tiles, matching each tint. */
-fun mapBackground(dark: Boolean): Color = if (dark) Color(0xFF191A24) else Color(0xFFF1F2F6)
+/** What the map shows before (or between) tiles: the tinted land colour. */
+fun mapBackground(dark: Boolean): Color = if (dark) Color(0xFFBAB6AD) else Color(0xFFE8E4D9)
 
 /** Tints every tile for the current theme. Call again when the theme flips. */
 fun MapState.applyTileTint(dark: Boolean) {
