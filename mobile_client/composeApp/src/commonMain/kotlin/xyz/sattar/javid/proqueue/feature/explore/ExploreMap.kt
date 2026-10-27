@@ -1,22 +1,22 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,20 +28,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.BusinessCenter
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ContentCut
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.MedicalServices
-import androidx.compose.material.icons.outlined.MyLocation
-import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCut
+import androidx.compose.material.icons.rounded.EditLocationAlt
+import androidx.compose.material.icons.rounded.MedicalServices
+import androidx.compose.material.icons.rounded.MonitorHeart
+import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Storefront
+import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,12 +64,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -97,7 +107,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.map.toNormalized
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
 import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategoryGroup
-import xyz.sattar.javid.proqueue.feature.discovery.ToothOutlined
+import xyz.sattar.javid.proqueue.feature.discovery.ToothFilled
 import xyz.sattar.javid.proqueue.feature.discovery.canBookOnline
 import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 
@@ -118,13 +128,13 @@ private const val MOVED_THRESHOLD = 0.2
 private data class PinStyle(val color: Color, val icon: ImageVector)
 
 private fun Business.pinStyle(): PinStyle = when (BusinessCategory.fromString(category).group) {
-    BusinessCategoryGroup.MEDICAL -> PinStyle(Color(0xFF0E9F8E), Icons.Outlined.MedicalServices)
-    BusinessCategoryGroup.DENTAL -> PinStyle(Color(0xFF2F80ED), ToothOutlined)
-    BusinessCategoryGroup.HEALTH -> PinStyle(Color(0xFF3FA34D), Icons.Outlined.Psychology)
-    BusinessCategoryGroup.BEAUTY -> PinStyle(Color(0xFFE0457B), Icons.Outlined.ContentCut)
-    BusinessCategoryGroup.PROFESSIONAL -> PinStyle(Color(0xFFD9822B), Icons.Outlined.BusinessCenter)
-    BusinessCategoryGroup.EDUCATION -> PinStyle(Color(0xFF8E5CD9), Icons.Outlined.FitnessCenter)
-    BusinessCategoryGroup.TRADES, BusinessCategoryGroup.OTHER -> PinStyle(Color(0xFF5B6475), Icons.Outlined.Storefront)
+    BusinessCategoryGroup.MEDICAL -> PinStyle(Color(0xFF0D9488), Icons.Rounded.MedicalServices)
+    BusinessCategoryGroup.DENTAL -> PinStyle(Color(0xFF2563EB), ToothFilled)
+    BusinessCategoryGroup.HEALTH -> PinStyle(Color(0xFF16A34A), Icons.Rounded.MonitorHeart)
+    BusinessCategoryGroup.BEAUTY -> PinStyle(Color(0xFFDB2777), Icons.Rounded.ContentCut)
+    BusinessCategoryGroup.PROFESSIONAL -> PinStyle(Color(0xFFD97706), Icons.Rounded.Work)
+    BusinessCategoryGroup.EDUCATION -> PinStyle(Color(0xFF7C3AED), Icons.Rounded.School)
+    BusinessCategoryGroup.TRADES, BusinessCategoryGroup.OTHER -> PinStyle(Color(0xFF475569), Icons.Rounded.Storefront)
 }
 
 /** A point on the map plus a radius that covers what's on screen around it. */
@@ -150,7 +160,7 @@ fun ExploreMap(
     onLocate: () -> Unit,
     locating: Boolean,
     pickMode: Boolean,
-    onExitPickMode: () -> Unit,
+    onTogglePickMode: () -> Unit,
     visibleFraction: Float,
     bottomInset: Dp,
     modifier: Modifier = Modifier,
@@ -273,41 +283,50 @@ fun ExploreMap(
                 )
             }
             AnimatedVisibility(visible = pickMode, enter = fadeIn(), exit = fadeOut()) {
-                MapPill(text = "نقشه را بکشید تا نشانگر روی محل موردنظر برود", icon = null, onClick = null)
+                MapPill(text = "نقشه را جابه‌جا کنید", icon = null, onClick = null)
             }
         }
 
-        // Pick mode: a pin fixed to the centre of the uncovered strip.
+        // Pick mode: a pin fixed to the centre of the uncovered strip; it lifts
+        // while the map moves under it and settles when the map comes to rest.
         if (pickMode) {
-            CenterPin(Modifier.align(Alignment.TopCenter).offset(y = stripHeight / 2 - 52.dp))
+            val idle by state.idleStateFlow().collectAsState()
+            CenterPin(
+                lifted = !idle,
+                modifier = Modifier.align(Alignment.TopCenter).offset(y = stripHeight / 2 - CenterPinTip)
+            )
         }
 
-        // Bottom of the uncovered strip: credit, location button, pick-mode actions.
-        Box(Modifier.fillMaxSize().padding(bottom = bottomInset + 12.dp)) {
-            MapAttribution(Modifier.align(Alignment.BottomStart).padding(start = 12.dp))
-            if (pickMode) {
-                Row(
-                    Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+        // Bottom of the uncovered strip: credit, the control stack, the pick action.
+        Box(Modifier.fillMaxSize().padding(bottom = bottomInset + 16.dp)) {
+            // Lifted above the pick button while it's there, so the credit stays readable.
+            val creditLift by animateDpAsState(if (pickMode) 60.dp else 0.dp)
+            MapAttribution(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = creditLift))
+            AnimatedVisibility(
+                visible = pickMode,
+                enter = fadeIn() + slideInVertically { it / 2 },
+                exit = fadeOut() + slideOutVertically { it / 2 },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                Button(
+                    onClick = { scope.launch { searchArea(visibleArea(state, fraction)) } },
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 22.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                    modifier = Modifier.height(48.dp)
                 ) {
-                    Button(
-                        onClick = { scope.launch { searchArea(visibleArea(state, fraction)) } },
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.height(48.dp)
-                    ) { Text("جستجو در این نقطه", fontWeight = FontWeight.Bold) }
-                    RoundMapButton(icon = Icons.Outlined.Close, description = "لغو", onClick = onExitPickMode)
+                    Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("جستجو در این نقطه", fontWeight = FontWeight.Bold)
                 }
-            } else {
-                RoundMapButton(
-                    icon = Icons.Outlined.MyLocation,
-                    description = "موقعیت من",
-                    busy = locating,
-                    tint = MaterialTheme.colorScheme.primary,
-                    onClick = onLocate,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp)
-                )
             }
+            MapControls(
+                pickMode = pickMode,
+                locating = locating,
+                onTogglePickMode = onTogglePickMode,
+                onLocate = onLocate,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp)
+            )
         }
     }
 }
@@ -375,72 +394,102 @@ private suspend fun fitCamera(
 
 // ── Pins & overlays ──────────────────────────────────────────────────────────
 
-/** A circle with a pointed bottom — the classic map pin, drawn as one shape so the shadow follows it. */
-private val PinShape = GenericShape { size, _ ->
-    val r = size.width / 2
-    addOval(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.width))
-    moveTo(r - r * 0.42f, size.width * 0.86f)
-    lineTo(r, size.height)
-    lineTo(r + r * 0.42f, size.width * 0.86f)
-    close()
+/**
+ * A rounded body with a pointer at the bottom centre, drawn as one contour so
+ * the shadow and the white ring follow the whole outline without a seam.
+ * With a square body and [cornerRadius] at half its side it's the round pin;
+ * with a wide body it's the speech-bubble label of the selected pin.
+ */
+private class BubbleShape(private val cornerRadius: Dp, private val tail: Dp) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val t = with(density) { tail.toPx() }
+        val h = size.height - t
+        val r = minOf(with(density) { cornerRadius.toPx() }, h / 2, size.width / 2)
+        val cx = size.width / 2
+        val path = Path().apply {
+            moveTo(r, 0f)
+            lineTo(size.width - r, 0f)
+            arcTo(Rect(size.width - 2 * r, 0f, size.width, 2 * r), -90f, 90f, false)
+            lineTo(size.width, h - r)
+            arcTo(Rect(size.width - 2 * r, h - 2 * r, size.width, h), 0f, 90f, false)
+            lineTo(cx + t * 0.85f, h)
+            quadraticTo(cx + t * 0.25f, h, cx, size.height)
+            quadraticTo(cx - t * 0.25f, h, cx - t * 0.85f, h)
+            lineTo(r, h)
+            arcTo(Rect(0f, h - 2 * r, 2 * r, h), 90f, 90f, false)
+            lineTo(0f, r)
+            arcTo(Rect(0f, 0f, 2 * r, 2 * r), 180f, 90f, false)
+            close()
+        }
+        return Outline.Generic(path)
+    }
 }
 
+private val PinTail = 6.dp
+
+/**
+ * Three looks, one shape family:
+ * - bookable: a solid category-coloured pin with a white glyph — the product;
+ * - directory-only: smaller, white, glyph in the category colour — present but quiet;
+ * - selected: grows into a bubble carrying the name, on top of its neighbours.
+ */
 @Composable
 private fun BusinessPin(business: Business, selected: Boolean) {
     val style = business.pinStyle()
     val bookable = business.canBookOnline
-    val scale by animateFloatAsState(
-        if (selected) 1.18f else 1f,
-        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+    val ring = MaterialTheme.colorScheme.surface
+    val pop by animateFloatAsState(
+        if (selected) 1f else 0f,
+        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
     )
-    // Bookable listings are the product — they get the solid pin.
-    val size = if (bookable || selected) 38.dp else 30.dp
-    val surface = MaterialTheme.colorScheme.surface
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        AnimatedVisibility(
-            visible = selected,
-            enter = fadeIn() + scaleIn(initialScale = 0.8f),
-            exit = fadeOut() + scaleOut(targetScale = 0.8f),
+    if (selected) {
+        val shape = BubbleShape(cornerRadius = 22.dp, tail = PinTail)
+        Row(
+            Modifier
+                .scale(0.85f + 0.15f * pop)
+                .shadow(10.dp, shape, ambientColor = style.color, spotColor = style.color)
+                .background(ring, shape)
+                .padding(start = 4.dp, end = 14.dp, top = 4.dp, bottom = 4.dp + PinTail),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = surface,
-                shadowElevation = 4.dp,
-                modifier = Modifier.padding(bottom = 6.dp)
-            ) {
-                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        business.title,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 170.dp)
-                    )
-                    if (bookable) {
-                        Spacer(Modifier.width(4.dp))
-                        Icon(Icons.Rounded.Bolt, contentDescription = null, tint = style.color, modifier = Modifier.size(14.dp))
-                    }
-                }
+            Box(Modifier.size(32.dp).background(style.color, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(style.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                business.title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 168.dp)
+            )
+            if (bookable) {
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Rounded.Bolt, contentDescription = "نوبت آنلاین", tint = style.color, modifier = Modifier.size(16.dp))
             }
         }
-        Box(
-            Modifier
-                .scale(scale)
-                .size(width = size, height = size * 1.22f)
-                .shadow(if (selected) 8.dp else 3.dp, PinShape)
-                .background(if (bookable || selected) style.color else surface, PinShape)
-                .border(2.dp, if (bookable || selected) surface else style.color, PinShape),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            Icon(
-                style.icon,
-                contentDescription = business.title,
-                tint = if (bookable || selected) Color.White else style.color,
-                modifier = Modifier.padding(top = size * 0.2f).size(size * 0.56f)
-            )
-        }
+        return
+    }
+
+    val body = if (bookable) 34.dp else 26.dp
+    val shape = BubbleShape(cornerRadius = body / 2, tail = PinTail)
+    Box(
+        Modifier
+            .size(width = body, height = body + PinTail)
+            .shadow(if (bookable) 5.dp else 2.dp, shape, ambientColor = style.color, spotColor = style.color)
+            .background(if (bookable) style.color else ring, shape)
+            .border(if (bookable) 2.dp else 1.5.dp, if (bookable) ring else style.color.copy(alpha = 0.7f), shape),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Icon(
+            style.icon,
+            contentDescription = business.title,
+            tint = if (bookable) Color.White else style.color,
+            modifier = Modifier.padding(top = body * 0.22f).size(body * 0.56f)
+        )
     }
 }
 
@@ -468,21 +517,35 @@ private fun PickedAreaDot() {
     }
 }
 
-/** The fixed aiming pin of pick mode: its tip marks the centre of the uncovered strip. */
+/** Distance from the top of [CenterPin] to its tip, when resting. */
+private val CenterPinTip = 54.dp
+
+/** The aiming pin of pick mode. Lifts off its shadow while the map moves. */
 @Composable
-private fun CenterPin(modifier: Modifier = Modifier) {
+private fun CenterPin(lifted: Boolean, modifier: Modifier = Modifier) {
     val primary = MaterialTheme.colorScheme.primary
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    val lift by animateDpAsState(if (lifted) 12.dp else 0.dp, spring(stiffness = Spring.StiffnessMediumLow))
+    val shape = BubbleShape(cornerRadius = 22.dp, tail = 13.dp)
+    Box(modifier.size(width = 44.dp, height = CenterPinTip + 6.dp)) {
+        // The shadow stays on the ground and shrinks as the pin rises.
         Box(
             Modifier
-                .size(width = 40.dp, height = 49.dp)
-                .shadow(8.dp, PinShape)
-                .background(primary, PinShape),
+                .align(Alignment.BottomCenter)
+                .size(width = 14.dp - lift / 3, height = 5.dp)
+                .background(Color.Black.copy(alpha = 0.28f - lift.value / 100f), CircleShape)
+        )
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = -lift)
+                .size(width = 44.dp, height = CenterPinTip)
+                .shadow(8.dp, shape)
+                .background(primary, shape)
+                .border(2.dp, Color.White, shape),
             contentAlignment = Alignment.TopCenter
         ) {
-            Box(Modifier.padding(top = 13.dp).size(14.dp).background(Color.White, CircleShape))
+            Box(Modifier.padding(top = 15.dp).size(14.dp).background(Color.White, CircleShape))
         }
-        Box(Modifier.padding(top = 2.dp).size(width = 10.dp, height = 4.dp).background(Color.Black.copy(alpha = 0.25f), CircleShape))
     }
 }
 
@@ -504,25 +567,50 @@ private fun MapPill(text: String, icon: ImageVector?, onClick: (() -> Unit)?) {
     }
 }
 
+/**
+ * The map's own controls, grouped in one card the way Google and Apple Maps
+ * do: "choose on map" on top, "my location" under it. The active pick mode
+ * fills its button with the accent so the mode is never ambiguous.
+ */
 @Composable
-private fun RoundMapButton(
-    icon: ImageVector,
-    description: String,
-    onClick: () -> Unit,
+private fun MapControls(
+    pickMode: Boolean,
+    locating: Boolean,
+    onTogglePickMode: () -> Unit,
+    onLocate: () -> Unit,
     modifier: Modifier = Modifier,
-    busy: Boolean = false,
-    tint: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Surface(
-        onClick = onClick,
-        shape = CircleShape,
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 6.dp,
-        modifier = modifier.size(48.dp)
+        modifier = modifier.width(48.dp)
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            else Icon(icon, contentDescription = description, tint = tint)
+        Column {
+            val activeBg by animateColorAsState(if (pickMode) MaterialTheme.colorScheme.primary else Color.Transparent)
+            val activeFg by animateColorAsState(
+                if (pickMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            )
+            ControlButton(onClick = onTogglePickMode, background = activeBg) {
+                Icon(
+                    if (pickMode) Icons.Rounded.Close else Icons.Rounded.EditLocationAlt,
+                    contentDescription = if (pickMode) "لغو انتخاب روی نقشه" else "انتخاب محل روی نقشه",
+                    tint = activeFg,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Box(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+            ControlButton(onClick = onLocate) {
+                if (locating) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                else Icon(Icons.Rounded.MyLocation, contentDescription = "موقعیت من", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+            }
         }
+    }
+}
+
+@Composable
+private fun ControlButton(onClick: () -> Unit, background: Color = Color.Transparent, content: @Composable () -> Unit) {
+    Surface(onClick = onClick, color = background, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+        Box(contentAlignment = Alignment.Center) { content() }
     }
 }

@@ -44,7 +44,6 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.HealthAndSafety
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MyLocation
-import androidx.compose.material.icons.outlined.PinDrop
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
@@ -275,7 +274,13 @@ fun ExploreScreen(
                     onLocate = locate,
                     locating = state.locationStatus == LocationStatus.Locating,
                     pickMode = pickMode,
-                    onExitPickMode = { pickMode = false },
+                    onTogglePickMode = {
+                        pickMode = !pickMode
+                        if (pickMode) {
+                            selectedId.value = null
+                            scope.launch { sheetState.bottomSheetState.partialExpand() }
+                        }
+                    },
                     visibleFraction = 1f - SHEET_PEEK_FRACTION,
                     bottomInset = peek,
                     modifier = Modifier.fillMaxSize(),
@@ -302,12 +307,6 @@ fun ExploreScreen(
             onSelectArea = {
                 viewModel.selectArea(it)
                 showLocationSheet = false
-            },
-            onPickOnMap = {
-                showLocationSheet = false
-                selectedId.value = null
-                pickMode = true
-                scope.launch { sheetState.bottomSheetState.partialExpand() }
             },
             onSelectRadius = viewModel::selectRadius,
         )
@@ -738,7 +737,6 @@ private fun LocationSheet(
     onDismiss: () -> Unit,
     onUseMyLocation: () -> Unit,
     onSelectArea: (SearchArea) -> Unit,
-    onPickOnMap: () -> Unit,
     onSelectRadius: (Double) -> Unit,
 ) {
     ModalBottomSheet(
@@ -765,13 +763,6 @@ private fun LocationSheet(
                 },
                 selected = state.area is SearchArea.NearMe,
                 onClick = onUseMyLocation
-            )
-            SheetOption(
-                icon = Icons.Outlined.PinDrop,
-                title = "انتخاب روی نقشه",
-                subtitle = "نشانگر را روی محل موردنظر ببرید؛ نگه‌داشتن انگشت روی نقشه هم کار می‌کند",
-                selected = state.area is SearchArea.Picked,
-                onClick = onPickOnMap
             )
             if (state.hasLocation) {
                 Text(
