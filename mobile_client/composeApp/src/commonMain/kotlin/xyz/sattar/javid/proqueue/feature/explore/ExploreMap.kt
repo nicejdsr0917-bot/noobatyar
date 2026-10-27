@@ -66,6 +66,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
@@ -81,6 +82,13 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ovh.plrapps.mapcompose.api.BoundingBox
+import ovh.plrapps.mapcompose.api.Custom
+import ovh.plrapps.mapcompose.api.ExperimentalClusteringApi
+import ovh.plrapps.mapcompose.api.addClusterer
+import ovh.plrapps.mapcompose.api.addPath
+import ovh.plrapps.mapcompose.api.removePath
+import ovh.plrapps.mapcompose.api.setClustererExemptList
+import ovh.plrapps.mapcompose.ui.state.markers.model.RenderingStrategy
 import ovh.plrapps.mapcompose.api.addMarker
 import ovh.plrapps.mapcompose.api.idleStateFlow
 import ovh.plrapps.mapcompose.api.onLongPress
@@ -109,13 +117,22 @@ import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
 import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategoryGroup
 import xyz.sattar.javid.proqueue.feature.discovery.ToothFilled
 import xyz.sattar.javid.proqueue.feature.discovery.canBookOnline
+import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 private const val ME_MARKER = "me"
+private const val CLUSTERER = "results"
+private const val RADIUS_PATH = "radius"
 
 /** Smallest box the camera fits to, in normalized units (≈ 2 km): one pin
  *  alone shouldn't zoom the map down to the building. */
 private const val MIN_SPAN = 0.00005
+
+/** Zooming into a cluster may go this close (≈ 100 m) — enough to pull pins a few doors apart. */
+private const val CLUSTER_MIN_SPAN = 0.0000025
 
 /** A search centre counts as "moved away from" past this share of the visible width. */
 private const val MOVED_THRESHOLD = 0.2
@@ -150,10 +167,12 @@ data class MapArea(val center: GeoPoint, val radiusKm: Double)
  * - Moving the map by hand offers "search this area"; a long press searches
  *   around the pressed point; [pickMode] shows a fixed centre pin to aim with.
  */
+@OptIn(ExperimentalClusteringApi::class)
 @Composable
 fun ExploreMap(
     businesses: List<Business>,
     area: SearchArea,
+    radiusKm: Double,
     selectedId: State<Long?>,
     onSelect: (Long?) -> Unit,
     onSearchArea: (MapArea) -> Unit,
@@ -182,6 +201,21 @@ fun ExploreMap(
     val fraction by rememberUpdatedState(visibleFraction)
 
     LaunchedEffect(state) {
+        // Pins closer than this merge into a count bubble. Tapping one fits its
+        // pins above the sheet (the library's own zoom ignores the sheet and
+        // can leave some of them behind it).
+        state.addClusterer(
+            CLUSTERER,
+            clusteringThreshold = 44.dp,
+            clusterClickBehavior = Custom(withDefaultBehavior = false) { cluster ->
+                scope.launch {
+                    fitCamera(state, cluster.markers.map { it.x to it.y }, fraction, minSpan = CLUSTER_MIN_SPAN)
+                    userMoved = false
+                }
+            },
+        ) { ids ->
+            { ClusterBubble(count = ids.size) }
+        }
         state.onMarkerClick { id, _, _ -> id.toLongOrNull()?.let(select) }
         state.onTap { _, _ -> select(null) }
         state.onTouchDown { userMoved = true }
@@ -217,6 +251,7 @@ fun ExploreMap(
                 business.id.toString(), xy.first, xy.second,
                 relativeOffset = Offset(-0.5f, -1f),
                 zIndex = 1f,
+                renderingStrategy = RenderingStrategy.Clustering(CLUSTERER),
             ) {
                 BusinessPin(business, selected = selectedId.value == business.id)
             }
@@ -228,12 +263,31 @@ fun ExploreMap(
         userMoved = false
     }
 
-    // The selected pin draws over its neighbours and slides into view.
+    // The search area as a soft ring: what "۱۰ کیلومتر" means, drawn on the map.
+    val ringColor = MaterialTheme.colorScheme.primary
+    val center = area.latitude?.let { GeoPoint(it, area.longitude!!) }
+    LaunchedEffect(center, radiusKm, ringColor) {
+        state.removePath(RADIUS_PATH)
+        center ?: return@LaunchedEffect
+        state.addPath(
+            RADIUS_PATH,
+            // Outline only: at street zoom the ring is larger than the screen,
+            // and a fill would just wash the whole map in the accent colour.
+            width = 2.dp,
+            color = ringColor.copy(alpha = 0.55f),
+        ) {
+            addPoints(circlePoints(center, radiusKm))
+        }
+    }
+
+    // The selected pin draws over its neighbours, never folds into a cluster,
+    // and slides into view.
     var lastSelected by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(selectedId.value) {
         lastSelected?.let { state.updateMarkerZ(it.toString(), 1f) }
         val id = selectedId.value
         lastSelected = id
+        state.setClustererExemptList(CLUSTERER, setOfNotNull(id?.toString()))
         id ?: return@LaunchedEffect
         state.updateMarkerZ(id.toString(), 2f)
         val (_, xy) = placed.firstOrNull { it.first.id == id } ?: return@LaunchedEffect
@@ -263,6 +317,13 @@ fun ExploreMap(
     BoxWithConstraints(modifier.background(mapBackground(dark))) {
         val stripHeight = maxHeight * visibleFraction
         MapUI(modifier = Modifier.fillMaxSize(), state = state)
+        // A soft shade under the toolbar, so the map reads as sitting beneath it.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = if (dark) 0.35f else 0.10f), Color.Transparent)))
+        )
 
         // Top of the map: "search this area" or the pick-mode hint.
         Box(Modifier.fillMaxWidth().padding(top = 12.dp), contentAlignment = Alignment.TopCenter) {
@@ -333,6 +394,16 @@ fun ExploreMap(
 
 // ── Camera maths ─────────────────────────────────────────────────────────────
 
+/** A circle of [radiusKm] around [center] as normalized map points (a 72-gon is smooth at any zoom we show). */
+private fun circlePoints(center: GeoPoint, radiusKm: Double): List<Pair<Double, Double>> {
+    val dLat = radiusKm / 111.32
+    val dLng = radiusKm / (111.32 * cos(center.latitude * PI / 180.0))
+    return (0..72).map { i ->
+        val a = 2 * PI * i / 72
+        GeoPoint(center.latitude + dLat * sin(a), center.longitude + dLng * cos(a)).toNormalized()
+    }
+}
+
 /** Centre of the strip above the sheet, in normalized coordinates. */
 private fun stripCenter(box: BoundingBox, fraction: Float): Pair<Double, Double> =
     (box.xLeft + box.xRight) / 2 to box.yTop + (box.yBottom - box.yTop) * fraction / 2
@@ -367,14 +438,15 @@ private suspend fun fitCamera(
     state: MapState,
     points: List<Pair<Double, Double>>,
     visibleFraction: Float,
+    minSpan: Double = MIN_SPAN,
 ) {
     if (points.isEmpty()) return
     val left = points.minOf { it.first }
     val right = points.maxOf { it.first }
     val top = points.minOf { it.second }
     val bottom = points.maxOf { it.second }
-    val w = maxOf(right - left, MIN_SPAN)
-    val h = maxOf(bottom - top, MIN_SPAN)
+    val w = maxOf(right - left, minSpan)
+    val h = maxOf(bottom - top, minSpan)
     val cx = (left + right) / 2
     val cy = (top + bottom) / 2
     // 15% breathing room on the sides; extra on top for the pins' heads and
@@ -490,6 +562,37 @@ private fun BusinessPin(business: Business, selected: Boolean) {
             tint = if (bookable) Color.White else style.color,
             modifier = Modifier.padding(top = body * 0.22f).size(body * 0.56f)
         )
+    }
+}
+
+/** Several pins too close to tell apart: a count in the brand colour, sized by how many. */
+@Composable
+private fun ClusterBubble(count: Int) {
+    val primary = MaterialTheme.colorScheme.primary
+    val size = when {
+        count < 10 -> 40.dp
+        count < 50 -> 46.dp
+        else -> 52.dp
+    }
+    Box(
+        Modifier.size(size + 12.dp).background(primary.copy(alpha = 0.16f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            Modifier
+                .size(size)
+                .shadow(6.dp, CircleShape, ambientColor = primary, spotColor = primary)
+                .background(primary, CircleShape)
+                .border(2.5.dp, Color.White, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                count.toPersianDigits(),
+                color = Color.White,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 

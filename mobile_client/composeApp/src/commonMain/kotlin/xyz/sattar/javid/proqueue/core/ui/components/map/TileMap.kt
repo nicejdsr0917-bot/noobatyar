@@ -156,18 +156,23 @@ private val INVERT = floatArrayOf(
     0f, 0f, 0f, 1f, 0f,
 )
 
-/** Light: a quarter of the colour left, nudged a touch brighter. */
+/**
+ * Light: almost no colour left, compressed towards white with a cool cast —
+ * roads become pale grey lines on near-white, like Apple's or Google's light
+ * maps, instead of the HOT style's brown arterials. Tuned on Tehran tiles
+ * side by side (2026-10-27): labels stay readable at 0.84 contrast.
+ */
 private val LIGHT_TINT = ColorFilter.colorMatrix(
-    ColorMatrix(concat(saturation(0.25f), scaleAdd(0.94f, Triple(16f, 16f, 18f))))
+    ColorMatrix(concat(saturation(0.12f), scaleAdd(0.84f, Triple(36f, 38f, 46f))))
 )
 
-/** Dark: grey, inverted, then pulled down onto the app's dark slate. */
+/** Dark: grey, inverted, then pulled down onto a cool slate under the app's dark surfaces. */
 private val DARK_TINT = ColorFilter.colorMatrix(
-    ColorMatrix(concat(concat(saturation(0.1f), INVERT), scaleAdd(0.72f, Triple(14f, 15f, 22f))))
+    ColorMatrix(concat(concat(saturation(0.08f), INVERT), scaleAdd(0.64f, Triple(16f, 17f, 28f))))
 )
 
 /** What the map shows before (or between) tiles, matching each tint. */
-fun mapBackground(dark: Boolean): Color = if (dark) Color(0xFF1B1C22) else Color(0xFFEDEDEF)
+fun mapBackground(dark: Boolean): Color = if (dark) Color(0xFF191A24) else Color(0xFFF1F2F6)
 
 /** Tints every tile for the current theme. Call again when the theme flips. */
 fun MapState.applyTileTint(dark: Boolean) {

@@ -268,6 +268,7 @@ fun ExploreScreen(
                 ExploreMap(
                     businesses = state.results,
                     area = state.area,
+                    radiusKm = state.radiusKm,
                     selectedId = selectedId,
                     onSelect = selectFromMap,
                     onSearchArea = searchMapArea,
