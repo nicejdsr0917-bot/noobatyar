@@ -1,16 +1,20 @@
 package xyz.sattar.javid.proqueue.core.ui.components.map
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.UserAgent
@@ -18,6 +22,8 @@ import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readBuffer
+import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 import ovh.plrapps.mapcompose.api.addLayer
 import ovh.plrapps.mapcompose.api.setColorFilterProvider
 import ovh.plrapps.mapcompose.api.setMapBackground
@@ -81,7 +87,10 @@ private val tileClient by lazy {
 private val osmTiles = TileStreamProvider { row, col, zoom ->
     runCatching {
         tileClient.prepareGet(MapTiles.url(zoom, col, row)).execute { response ->
-            if (response.status.isSuccess()) response.bodyAsChannel().readBuffer() else null
+            if (!response.status.isSuccess()) return@execute null
+            // Restyled on the way in (see TileRecolor) — before the tile is decoded or cached.
+            val png = response.bodyAsChannel().readBuffer().readByteArray()
+            Buffer().apply { write(TileRecolor.recolor(png)) }
         }
     }.getOrNull()
 }
@@ -110,70 +119,31 @@ fun GeoPoint.distanceKmTo(other: GeoPoint): Double {
     return 2 * r * asin(sqrt(a))
 }
 
-// ── Tile tint ────────────────────────────────────────────────────────────────
+// ── Theme ────────────────────────────────────────────────────────────────────
 //
-// Readability first: the map has to work for someone in their seventies.
-// The HOT style draws side streets as near-white lines on a cream ground, so
-// ordinary contrast (which pushes both towards white) makes streets vanish.
-// Contrast is therefore pivoted on white: white streets stay white, the cream
-// ground and every colour move away from it — streets stand out against the
-// blocks, labels go near-black, and parks, hospitals and other places keep
-// their own colours. Saturation comes down a third first: at full strength
-// the boosted arterials shout red across the city view and drown the pins.
-// Tuned on Tehran tiles at city and street zoom side by side (2026-10-28).
-//
-// Dark mode uses the same map, only dimmed: inverting raster tiles turns the
-// white streets black on a dark ground — exactly the contrast we need gone —
-// and colours go wrong (parks pink). A slightly dimmed light map reads better.
+// The colours themselves come from TileRecolor (soft, natural, readable). Dark
+// mode shows the same map dimmed rather than inverted: inverting raster tiles
+// turns white streets black on a dark ground — the contrast that makes the map
+// readable — and sends colours wrong (parks pink).
 
-/** 4×5 colour matrices, applied left to right: [first] runs first. */
-private fun concat(first: FloatArray, second: FloatArray): FloatArray {
-    val out = FloatArray(20)
-    for (row in 0 until 4) {
-        for (col in 0 until 5) {
-            var v = if (col == 4) second[row * 5 + 4] else 0f
-            for (k in 0 until 4) v += second[row * 5 + k] * first[k * 5 + col]
-            out[row * 5 + col] = v
-        }
-    }
-    return out
-}
-
-/** Scales each channel by [scale] and adds [offset] (0..255). */
-private fun scaleAdd(scale: Float, offset: Float) = floatArrayOf(
-    scale, 0f, 0f, 0f, offset,
-    0f, scale, 0f, 0f, offset,
-    0f, 0f, scale, 0f, offset,
-    0f, 0f, 0f, 1f, 0f,
+/** The recoloured map at 80 %, so it doesn't glare out of a dark screen. */
+private val DIM = ColorFilter.colorMatrix(
+    ColorMatrix(
+        floatArrayOf(
+            0.8f, 0f, 0f, 0f, 0f,
+            0f, 0.8f, 0f, 0f, 0f,
+            0f, 0f, 0.8f, 0f, 0f,
+            0f, 0f, 0f, 1f, 0f,
+        )
+    )
 )
 
-/** Contrast around white: 255 stays 255, everything darker moves [k]× further from it. */
-private fun contrastFromWhite(k: Float) = scaleAdd(k, 255f * (1 - k))
+/** What the map shows before (or between) tiles: the recoloured ground. */
+fun mapBackground(dark: Boolean): Color = if (dark) Color(0xFFBDBEBA) else Color(0xFFECEDE9)
 
-private fun saturation(s: Float): FloatArray {
-    val r = 0.2126f * (1 - s); val g = 0.7152f * (1 - s); val b = 0.0722f * (1 - s)
-    return floatArrayOf(
-        r + s, g, b, 0f, 0f,
-        r, g + s, b, 0f, 0f,
-        r, g, b + s, 0f, 0f,
-        0f, 0f, 0f, 1f, 0f,
-    )
-}
-
-private val READABLE = concat(saturation(0.65f), contrastFromWhite(1.7f))
-
-private val LIGHT_TINT = ColorFilter.colorMatrix(ColorMatrix(READABLE))
-
-/** The same map at 80 %, so it doesn't glare out of a dark screen. */
-private val DARK_TINT = ColorFilter.colorMatrix(ColorMatrix(concat(READABLE, scaleAdd(0.8f, 0f))))
-
-/** What the map shows before (or between) tiles: the tinted land colour. */
-fun mapBackground(dark: Boolean): Color = if (dark) Color(0xFFBAB6AD) else Color(0xFFE8E4D9)
-
-/** Tints every tile for the current theme. Call again when the theme flips. */
+/** Applies the theme to the tiles. Call again when the theme flips. */
 fun MapState.applyTileTint(dark: Boolean) {
-    val filter = if (dark) DARK_TINT else LIGHT_TINT
-    setColorFilterProvider { _, _, _ -> filter }
+    setColorFilterProvider { _, _, _ -> if (dark) DIM else null }
     setMapBackground(mapBackground(dark))
 }
 
@@ -206,15 +176,34 @@ fun DisposeMapState(state: MapState) {
     DisposableEffect(state) { onDispose { state.shutdown() } }
 }
 
-/** The tile provider's required credit, in a corner of every map. */
+/** Our address, signed in the map's corner next to the tile credit. */
+const val MAP_SIGNATURE = "noobatyar.ir"
+
+/**
+ * The corner label of every map: our address on top in the accent colour,
+ * the tile provider's required credit under it. One chip, so the credit is
+ * never hidden behind the signature.
+ */
 @Composable
 fun MapAttribution(modifier: Modifier = Modifier) {
-    Text(
-        text = MapTiles.ATTRIBUTION,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Column(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f), RoundedCornerShape(6.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-    )
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.Start,
+    ) {
+        Text(
+            text = MAP_SIGNATURE,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = MapTiles.ATTRIBUTION,
+            // Starts with "©", a neutral character: in the app's RTL layout it
+            // would otherwise jump to the end of the line.
+            style = MaterialTheme.typography.labelSmall.copy(textDirection = TextDirection.Ltr),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
