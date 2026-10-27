@@ -13,30 +13,54 @@ import androidx.compose.ui.unit.LayoutDirection
 import xyz.sattar.javid.proqueue.core.state.AppThemeMode
 
 
+// Every role is set explicitly: anything left to Material3's baseline comes out
+// as its stock lilac/brown tones, which is exactly the off-brand tint this
+// palette exists to avoid. surfaceVariant = filled controls (search, chips),
+// outline = control borders, outlineVariant = hairline dividers.
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryPurple,
-    onPrimary = Color.White,
+    primary = AccentDarkTheme,
+    onPrimary = Color(0xFF14101F),
+    primaryContainer = AccentSoftDark,
+    onPrimaryContainer = AccentDarkTheme,
+    secondary = AccentDarkTheme,
+    tertiary = AccentDarkTheme,
     background = DarkBackground,
+    onBackground = DarkText,
     surface = DarkSurface,
-    surfaceVariant = DarkSurfaceVariant,
-    onSurface = DarkOnSurface,
-    onSurfaceVariant = DarkOnSurfaceVariant,
-    surfaceContainerHigh = Color(0xFF252525), // رنگ تیره‌تر برای باتم‌بار در تم دارک
+    onSurface = DarkText,
+    surfaceVariant = DarkSurfaceAlt,
+    onSurfaceVariant = DarkTextSecondary,
+    surfaceContainerLowest = DarkBackground,
+    surfaceContainerLow = DarkSurface,
+    surfaceContainer = DarkSurface,
+    surfaceContainerHigh = DarkSurfaceAlt,
+    surfaceContainerHighest = DarkBorder,
     outline = DarkBorder,
-    error = ErrorColor
+    outlineVariant = DarkDivider,
+    error = ErrorColorDark,
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryPurple,
+    primary = Accent,
     onPrimary = Color.White,
+    primaryContainer = AccentSoft,
+    onPrimaryContainer = Accent,
+    secondary = Accent,
+    tertiary = Accent,
     background = LightBackground,
+    onBackground = LightText,
     surface = LightSurface,
-    surfaceVariant = LightSurfaceVariant,
-    onSurface = LightOnSurface,
-    onSurfaceVariant = LightOnSurfaceVariant,
-    surfaceContainerHigh = Color(0xFFF0F0F0), // رنگ روشن متمایز برای باتم‌بار در تم لایت
+    onSurface = LightText,
+    surfaceVariant = LightSurfaceAlt,
+    onSurfaceVariant = LightTextSecondary,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = LightSurface,
+    surfaceContainer = LightSurface,
+    surfaceContainerHigh = LightSurfaceAlt,
+    surfaceContainerHighest = LightBorder,
     outline = LightBorder,
-    error = ErrorColor
+    outlineVariant = LightDivider,
+    error = ErrorColor,
 )
 
 

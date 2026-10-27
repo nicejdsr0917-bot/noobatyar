@@ -32,7 +32,8 @@
 - Redesigned explore and business detail screens; pagination; report-listing dialog; share and map hand-off.
 - Release builds are HTTPS-only; cleartext only in the `local` flavor. Alarm/notification permissions dropped.
 - Network failures no longer crash the app: discovery calls go through `safeApiCall` and show an error state.
-- UI: first-launch welcome screen (asks for location in context), time-of-day greeting, pinned search bar on scroll, recent + popular searches, open-now status (Tehran time) on cards and detail, inline «رزرو» on bookable cards, weekly hours table, sticky book/call bar on detail, dark-mode content colours.
+- UI rebuilt on a neutral design system (per docs/BRAND_GUIDE_FOR_AI.md: violet is the only accent): white/neutral surfaces, 8pt spacing, two radii, outlined monochrome icons (custom tooth glyph for dental), divider-separated result rows with monogram avatars, compact sticky search header, standard flat bottom navigation, segmented theme control. Gradients, emoji, per-category colours and the floating tab bar removed.
+- Features: first-launch welcome screen (asks for location in context), recent + popular searches, open-now status (Tehran time), weekly hours table, sticky book/call bar on detail, consumer-facing About page with all channels on `noobatyar` + Telegram.
 
 ### mobile_owner
 - «مرکزم از قبل ثبت شده؟» on the business list opens the claim flow.

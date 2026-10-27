@@ -176,8 +176,17 @@ fun AboutUsContent(
                         )
                         SocialDivider()
                         SocialRow(
+                            title = stringResource(Res.string.telegram),
+                            handle = "t.me/noobatyar",
+                            painter = painterResource(Res.drawable.ic_social_telegram),
+                            tileColors = listOf(Color(0xFF37AEE2), Color(0xFF1E96C8)),
+                            index = 3,
+                            onClick = { uriHandler.openUri("https://t.me/noobatyar") }
+                        )
+                        SocialDivider()
+                        SocialRow(
                             title = stringResource(Res.string.instagram),
-                            handle = "@javiddev",
+                            handle = "@noobatyar",
                             painter = painterResource(Res.drawable.ic_social_instagram),
                             // Instagram's mark is defined by its gradient, so the
                             // official ramp lives on the tile and the glyph is white.
@@ -188,8 +197,8 @@ fun AboutUsContent(
                                 Color(0xFF962FBF),
                                 Color(0xFF4F5BD5)
                             ),
-                            index = 3,
-                            onClick = { uriHandler.openUri("https://instagram.com/javiddev") }
+                            index = 4,
+                            onClick = { uriHandler.openUri("https://instagram.com/noobatyar") }
                         )
                         SocialDivider()
                         SocialRow(
@@ -197,7 +206,7 @@ fun AboutUsContent(
                             handle = "noobatyar.ir",
                             painter = painterResource(Res.drawable.ic_social_website),
                             tileColors = listOf(Color(0xFFA855F7), Color(0xFF6D28D9)),
-                            index = 4,
+                            index = 5,
                             onClick = { uriHandler.openUri("https://noobatyar.ir") }
                         )
                     }
@@ -554,8 +563,8 @@ private fun SocialRow(
             Text(
                 // Wrapped in an LTR isolate (U+2066 … U+2069). Handles are Latin
                 // but sit in an RTL paragraph, so leading/trailing neutrals get
-                // reordered to the paragraph edge — "@javiddev" rendered as
-                // "javiddev@". The isolate pins the run to LTR without changing
+                // reordered to the paragraph edge — "@noobatyar" rendered as
+                // "noobatyar@". The isolate pins the run to LTR without changing
                 // where the block itself sits.
                 text = "⁦$handle⁩",
                 style = MaterialTheme.typography.bodySmall,

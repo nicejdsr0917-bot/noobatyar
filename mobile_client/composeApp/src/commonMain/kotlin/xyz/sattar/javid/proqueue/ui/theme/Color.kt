@@ -2,50 +2,41 @@ package xyz.sattar.javid.proqueue.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary Colors
-val PrimaryPurple = Color(0xFF8B5CF6)
-val PrimaryPurpleDark = Color(0xFF7C3AED)
+// Consumer-app palette.
+//
+// Neutral surfaces, one accent. Brand violet (docs/BRAND_GUIDE_FOR_AI.md) is
+// reserved for the primary action and the selected state — everything else is
+// greyscale, so the one thing that is violet on a screen is the thing to tap.
+// #7C3AED rather than the lighter brand #8B5CF6 for text/buttons on white: it
+// clears WCAG AA (4.5:1) for normal-size text, the lighter one does not.
 
-// Dark Theme Colors
-val DarkBackground = Color(0xFF0F0F0F)
-val DarkSurface = Color(0xFF1A1A1A)
-val DarkSurfaceVariant = Color(0xFF2A2A2A)
-val DarkOnSurface = Color(0xFFFFFFFF)
-val DarkOnSurfaceVariant = Color(0xFF9CA3AF)
-val DarkBorder = Color(0xFF374151)
+// Accent
+val Accent = Color(0xFF7C3AED)
+val AccentDarkTheme = Color(0xFFA78BFA)
+val AccentSoft = Color(0xFFF3EEFE)
+val AccentSoftDark = Color(0xFF2A2140)
 
-// Light Theme Colors
-val LightBackground = Color(0xFFF9FAFB)
+// Light neutrals
+val LightBackground = Color(0xFFFFFFFF)
 val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFF3F4F6)
-val LightOnSurface = Color(0xFF111827)
-val LightOnSurfaceVariant = Color(0xFF6B7280)
-val LightBorder = Color(0xFFE5E7EB)
+val LightSurfaceAlt = Color(0xFFF5F5F7)
+val LightBorder = Color(0xFFE4E4E9)
+val LightDivider = Color(0xFFEFEFF2)
+val LightText = Color(0xFF16161D)
+val LightTextSecondary = Color(0xFF6B6B76)
 
-// Floating bottom bar.
-//
-// Its own colours rather than surfaceContainerHigh: that token is shared with
-// the shimmers, the stat cards and pull-to-refresh, so tuning it for the bar
-// silently repaints all of them. The bar has a harder job than a card — it
-// floats over scrolling content and has to stay legible as an object in its
-// own right — so it gets a value picked for that alone.
-//
-// Two things have to hold at once, and earlier attempts each got only one.
-//
-// *Separation*: the bar must stand off the page (LightBackground #F9FAFB).
-// #FFFFFF gave 1.04 contrast and #F0F0F0 gave 1.09 — a smudge, then a slightly
-// better smudge. The dark bar reads correctly at 1.25 against its own page, so
-// that is the reference; these sit at ~1.30.
-//
-// *Hue*: solving separation alone produced a neutral grey, which stood out as
-// foreign next to an app that is purple throughout. Both values are now the
-// brand purple (PrimaryPurple) carried to the required lightness, so the bar
-// belongs to the theme instead of merely being visible in it.
-//
-// Icon contrast stays high on both (~12.8:1 dark-on-light, ~14.9:1 light-on-dark).
-val LightBottomBar = Color(0xFFE1D5FD)
-val DarkBottomBar = Color(0xFF2A2340)
+// Dark neutrals
+val DarkBackground = Color(0xFF0F0F12)
+val DarkSurface = Color(0xFF16161B)
+val DarkSurfaceAlt = Color(0xFF1F1F26)
+val DarkBorder = Color(0xFF30303A)
+val DarkDivider = Color(0xFF24242C)
+val DarkText = Color(0xFFF3F3F6)
+val DarkTextSecondary = Color(0xFFA1A1AC)
 
-// Common Colors
-val ErrorColor = Color(0xFFEF4444)
-val SuccessColor = Color(0xFF10B981)
+// Status — used only for small text/dots, never as a fill.
+val SuccessColor = Color(0xFF0E9F6E)
+val SuccessColorDark = Color(0xFF34D399)
+val WarningColor = Color(0xFFD97706)
+val ErrorColor = Color(0xFFDC2626)
+val ErrorColorDark = Color(0xFFF87171)

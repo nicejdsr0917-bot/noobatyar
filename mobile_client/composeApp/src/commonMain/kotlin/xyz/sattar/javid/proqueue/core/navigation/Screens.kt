@@ -3,10 +3,10 @@ package xyz.sattar.javid.proqueue.core.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 
@@ -53,8 +53,8 @@ sealed interface MainTab {
 
     data object More : MainTab {
         override val title = "بیشتر"
-        override val iconSelected = Icons.Rounded.GridView
-        override val iconUnSelected = Icons.Outlined.GridView
+        override val iconSelected = Icons.Rounded.Menu
+        override val iconUnSelected = Icons.Outlined.Menu
         override val route = AppScreens.More
     }
 }

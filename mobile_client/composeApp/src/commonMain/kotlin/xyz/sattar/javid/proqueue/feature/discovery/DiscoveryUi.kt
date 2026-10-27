@@ -1,19 +1,12 @@
 package xyz.sattar.javid.proqueue.feature.discovery
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.offset
-import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,34 +17,35 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.BusinessCenter
+import androidx.compose.material.icons.outlined.ContentCut
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.MedicalServices
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.BusinessCenter
-import androidx.compose.material.icons.rounded.ContentCut
-import androidx.compose.material.icons.rounded.FitnessCenter
-import androidx.compose.material.icons.rounded.HealthAndSafety
-import androidx.compose.material.icons.rounded.LocalHospital
-import androidx.compose.material.icons.rounded.MedicalServices
-import androidx.compose.material.icons.rounded.NearMe
-import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -59,22 +53,31 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import xyz.sattar.javid.proqueue.core.utils.AppConfig
 import xyz.sattar.javid.proqueue.domain.model.business.Business
+import xyz.sattar.javid.proqueue.ui.theme.ErrorColor
+import xyz.sattar.javid.proqueue.ui.theme.ErrorColorDark
 import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
+import xyz.sattar.javid.proqueue.ui.theme.SuccessColor
+import xyz.sattar.javid.proqueue.ui.theme.SuccessColorDark
+import xyz.sattar.javid.proqueue.ui.theme.WarningColor
 import kotlin.math.roundToInt
 
-// ── Brand ────────────────────────────────────────────────────────────────────
+// ── Design tokens ────────────────────────────────────────────────────────────
+//
+// One grid, two radii. Anything not on these values is a bug, not a style.
 
-object Brand {
-    val Violet900 = Color(0xFF3B1782)
-    val Violet700 = Color(0xFF6D28D9)
-    val Violet500 = Color(0xFF8B5CF6)
-    val Violet300 = Color(0xFFC4B5FD)
-    val Violet50 = Color(0xFFF5F3FF)
-    val Amber = Color(0xFFF59E0B)
-    val Emerald = Color(0xFF10B981)
+object Space {
+    val xs = 4.dp
+    val sm = 8.dp
+    val md = 12.dp
+    val lg = 16.dp
+    val xl = 24.dp
+    /** Horizontal page margin. */
+    val page = 16.dp
+}
 
-    val HeroGradient = Brush.linearGradient(listOf(Violet900, Violet700, Violet500))
-    val FeaturedGradient = Brush.linearGradient(listOf(Violet700, Color(0xFFA855F7), Color(0xFFEC4899)))
+object Radius {
+    val sm = RoundedCornerShape(8.dp)
+    val md = RoundedCornerShape(12.dp)
 }
 
 /** Public web page the owner app / landing lives on — the "register your business" CTA target. */
@@ -94,55 +97,19 @@ val Business.canBookOnline: Boolean get() = isClaimed && bookingEnabled
 
 /**
  * Client-side mirror of the backend's CATEGORY_GROUPS keys — the list endpoint
- * accepts a group key and expands it server-side, so this only needs the
- * label/icon/tint per group plus enough of the membership to theme a card.
+ * accepts a group key and expands it server-side. Icons are all one outlined
+ * family and all one colour; the label carries the meaning.
  */
-enum class CategoryGroup(
-    val key: String?,
-    val label: String,
-    val icon: ImageVector,
-    val tint: Color,
-) {
-    ALL(null, "همه", Icons.Rounded.Storefront, Color(0xFF8B5CF6)),
-    MEDICAL("MEDICAL", "پزشکان", Icons.Rounded.LocalHospital, Color(0xFF0EA5E9)),
-    DENTAL("DENTAL", "دندان‌پزشکی", Icons.Rounded.MedicalServices, Color(0xFF14B8A6)),
-    BEAUTY("BEAUTY", "زیبایی", Icons.Rounded.ContentCut, Color(0xFFEC4899)),
-    HEALTH("HEALTH", "سلامت و مشاوره", Icons.Rounded.HealthAndSafety, Color(0xFF22C55E)),
-    PROFESSIONAL("PROFESSIONAL", "خدمات حرفه‌ای", Icons.Rounded.BusinessCenter, Color(0xFFF59E0B)),
-    EDUCATION("EDUCATION", "آموزش و ورزش", Icons.Rounded.FitnessCenter, Color(0xFF6366F1));
+enum class CategoryGroup(val key: String?, val label: String, val icon: ImageVector) {
+    ALL(null, "همه", Icons.Outlined.GridView),
+    MEDICAL("MEDICAL", "پزشک", Icons.Outlined.MedicalServices),
+    DENTAL("DENTAL", "دندان‌پزشک", ToothOutlined),
+    BEAUTY("BEAUTY", "زیبایی", Icons.Outlined.ContentCut),
+    HEALTH("HEALTH", "سلامت و مشاوره", Icons.Outlined.Psychology),
+    PROFESSIONAL("PROFESSIONAL", "خدمات حرفه‌ای", Icons.Outlined.BusinessCenter),
+    EDUCATION("EDUCATION", "آموزش و ورزش", Icons.Outlined.FitnessCenter);
 
     companion object {
-        private val DENTAL_CODES = setOf("DENTIST", "ORTHODONTICS", "DENTAL_IMPLANT", "PEDIATRIC_DENTISTRY")
-        private val BEAUTY_CODES = setOf(
-            "BEAUTY_SALON", "WOMENS_SALON", "BARBERSHOP", "HAIR_SALON", "HAIR_TRANSPLANT", "MAKEUP",
-            "BRIDAL", "NAIL_SALON", "EYEBROW_LASH", "SKIN_LASER", "TATTOO", "MASSAGE_SPA", "SLIMMING",
-        )
-        private val HEALTH_CODES = setOf(
-            "PSYCHOLOGY", "PHYSIOTHERAPY", "NUTRITION", "LABORATORY", "RADIOLOGY", "OPTOMETRY",
-            "SPEECH_THERAPY", "OCCUPATIONAL_THERAPY", "MIDWIFERY", "NURSING", "PHARMACY", "VETERINARY",
-        )
-        private val PROFESSIONAL_CODES = setOf(
-            "CONSULTANT", "LAWYER", "ACCOUNTING", "REAL_ESTATE", "INSURANCE", "IMMIGRATION",
-        )
-        private val EDUCATION_CODES = setOf(
-            "TUTORING", "LANGUAGE_SCHOOL", "MUSIC_SCHOOL", "GYM", "YOGA_PILATES", "DRIVING_SCHOOL",
-        )
-        private val MEDICAL_CODES = setOf(
-            "DOCTOR", "GENERAL_PRACTITIONER", "INTERNAL_MEDICINE", "CARDIOLOGY", "DERMATOLOGY",
-            "ORTHOPEDICS", "PEDIATRICS", "GYNECOLOGY", "ENT", "OPHTHALMOLOGY", "NEUROLOGY", "UROLOGY",
-            "ENDOCRINOLOGY", "GASTROENTEROLOGY", "ONCOLOGY", "SURGERY", "PSYCHIATRY", "INFERTILITY",
-        )
-
-        fun of(categoryCode: String): CategoryGroup = when (categoryCode) {
-            in MEDICAL_CODES -> MEDICAL
-            in DENTAL_CODES -> DENTAL
-            in BEAUTY_CODES -> BEAUTY
-            in HEALTH_CODES -> HEALTH
-            in PROFESSIONAL_CODES -> PROFESSIONAL
-            in EDUCATION_CODES -> EDUCATION
-            else -> ALL
-        }
-
         fun fromKey(key: String?): CategoryGroup = entries.firstOrNull { it.key == key } ?: ALL
     }
 }
@@ -169,18 +136,37 @@ fun formatDistance(km: Double): String = when {
 fun Business.areaLine(): String =
     listOf(neighborhood, city).filter { it.isNotBlank() }.distinct().joinToString("، ")
 
+/** Words that open most listing names and say nothing about *which* one it is. */
+private val GENERIC_PREFIXES = setOf(
+    "مطب", "کلینیک", "مرکز", "سالن", "آرایشگاه", "دندان‌پزشکی", "دندانپزشکی", "دکتر", "تخصصی",
+    "فوق", "آزمایشگاه", "داروخانه", "موسسه", "دفتر", "آموزشگاه", "باشگاه", "زیبایی", "پزشکی",
+)
+
+/** The letter that identifies a listing: "مطب دکتر احمدی" → "ا", not "م". */
+fun Business.monogram(): String {
+    val words = title.split(' ', '‌').filter { it.isNotBlank() }
+    val doctorIdx = words.indexOf("دکتر")
+    val pick = when {
+        doctorIdx >= 0 && doctorIdx + 1 < words.size -> words[doctorIdx + 1]
+        else -> words.lastOrNull { it !in GENERIC_PREFIXES } ?: words.firstOrNull().orEmpty()
+    }
+    return pick.take(1)
+}
+
 // ── Atoms ────────────────────────────────────────────────────────────────────
 
 @Composable
-fun BusinessAvatar(business: Business, size: Dp, corner: Dp = 16.dp) {
-    val group = CategoryGroup.of(business.category)
+fun BusinessAvatar(business: Business, size: Dp) {
     val url = logoUrl(business)
+    val shape = Radius.md
+    val claimed = business.isClaimed
     Box(
         modifier = Modifier
             .size(size)
-            .clip(RoundedCornerShape(corner))
+            .clip(shape)
             .background(
-                Brush.linearGradient(listOf(group.tint.copy(alpha = 0.22f), group.tint.copy(alpha = 0.08f)))
+                if (claimed) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -192,303 +178,136 @@ fun BusinessAvatar(business: Business, size: Dp, corner: Dp = 16.dp) {
                 modifier = Modifier.size(size)
             )
         } else {
-            Icon(group.icon, contentDescription = null, tint = group.tint, modifier = Modifier.size(size * 0.48f))
+            Text(
+                business.monogram(),
+                fontSize = (size.value * 0.38f).sp,
+                fontWeight = FontWeight.Bold,
+                color = if (claimed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
-fun VerifiedBadge(compact: Boolean = false) {
-    Row(
+fun statusColor(tone: OpenTone): Color {
+    val dark = LocalIsDarkTheme.current
+    return when (tone) {
+        OpenTone.OPEN -> if (dark) SuccessColorDark else SuccessColor
+        OpenTone.CLOSING_SOON -> WarningColor
+        OpenTone.CLOSED -> if (dark) ErrorColorDark else ErrorColor
+    }
+}
+
+/** "باز است" in status colour, the rest in secondary text — colour only where it carries meaning. */
+@Composable
+fun OpenStatusText(status: OpenStatus, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            status.headline,
+            color = statusColor(status.tone),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium
+        )
+        if (status.detail.isNotBlank()) {
+            Text(
+                " · ${status.detail}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+fun OnlineBadge() {
+    Text(
+        "نوبت آنلاین",
+        color = MaterialTheme.colorScheme.primary,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
         modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(Brand.FeaturedGradient)
-            .padding(horizontal = if (compact) 6.dp else 8.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Rounded.Bolt, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
-        if (!compact) {
-            Spacer(Modifier.width(3.dp))
-            Text("نوبت آنلاین", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        }
-    }
+            .clip(Radius.sm)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    )
 }
 
 @Composable
-fun Pill(
-    text: String,
-    icon: ImageVector? = null,
-    container: Color = MaterialTheme.colorScheme.surfaceVariant,
-    content: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(container)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(12.dp))
-            Spacer(Modifier.width(3.dp))
-        }
-        Text(text, color = content, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
+fun VerifiedMark(size: Dp = 16.dp) {
+    Icon(
+        Icons.Rounded.Verified,
+        contentDescription = "ثبت‌شده در نوبت‌یار",
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.size(size)
+    )
 }
 
 @Composable
-fun SaveToggle(saved: Boolean, onToggle: () -> Unit, onDark: Boolean = false) {
+fun SaveButton(saved: Boolean, onToggle: () -> Unit) {
     val tint by animateColorAsState(
-        when {
-            saved -> Brand.Violet500
-            onDark -> Color.White
-            else -> MaterialTheme.colorScheme.onSurfaceVariant
-        }
+        if (saved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     )
     IconButton(onClick = onToggle) {
         Icon(
-            if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+            if (saved) Icons.Rounded.Bookmark else Icons.Outlined.BookmarkBorder,
             contentDescription = if (saved) "حذف از نشان‌شده‌ها" else "نشان کردن",
             tint = tint
         )
     }
 }
 
+val BackIcon = Icons.AutoMirrored.Outlined.ArrowBack
+/** "Go into" chevron — AutoMirrored, so it points left in RTL. */
+val ChevronIcon = Icons.AutoMirrored.Outlined.KeyboardArrowRight
+
 @Composable
-fun CircleIconButton(icon: ImageVector, description: String, onClick: () -> Unit, onDark: Boolean = true) {
+fun Hairline(modifier: Modifier = Modifier) {
+    HorizontalDivider(modifier = modifier, thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/** The one chip style in the app. Selected = filled accent; otherwise a quiet outline. */
+@Composable
+fun FilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: ImageVector? = null,
+    trailingIcon: ImageVector? = null,
+) {
+    val bg by animateColorAsState(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+    val fg by animateColorAsState(if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = if (onDark) Color.White.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.size(40.dp)
+        color = bg,
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = description, tint = if (onDark) Color.White else MaterialTheme.colorScheme.onSurface)
-        }
-    }
-}
-
-val BackIcon = Icons.AutoMirrored.Rounded.ArrowBack
-
-// ── Cards ────────────────────────────────────────────────────────────────────
-
-@Composable
-fun OpenStatusLabel(status: OpenStatus, onDark: Boolean = false) {
-    val color = when (status.tone) {
-        OpenTone.OPEN -> if (onDark) Color(0xFF86EFAC) else Brand.Emerald
-        OpenTone.CLOSING_SOON -> Brand.Amber
-        OpenTone.CLOSED -> if (onDark) Color(0xFFFCA5A5) else Color(0xFFEF4444)
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(color))
-        Spacer(Modifier.width(6.dp))
-        Text(status.headline, color = color, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-        if (status.detail.isNotBlank()) {
-            Text(
-                " · ${status.detail}",
-                color = if (onDark) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
-    }
-}
-
-/** Slight shrink while pressed — the tactile cue native lists give. */
-@Composable
-fun Modifier.pressScale(interaction: MutableInteractionSource): Modifier {
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "pressScale")
-    return this.graphicsLayer { scaleX = scale; scaleY = scale }
-}
-
-@Composable
-fun BusinessListCard(
-    business: Business,
-    saved: Boolean,
-    onToggleSave: () -> Unit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    onBook: (() -> Unit)? = null,
-) {
-    val isDark = LocalIsDarkTheme.current
-    val highlighted = business.canBookOnline
-    val group = CategoryGroup.of(business.category)
-    val status = remember(business) { business.openStatus() }
-    val interaction = remember { MutableInteractionSource() }
-    Surface(
-        onClick = onClick,
-        interactionSource = interaction,
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = if (isDark) 0.dp else 2.dp,
-        border = if (highlighted) BorderStroke(1.5.dp, Brand.FeaturedGradient)
-        else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.35f else 0.5f)),
-        modifier = modifier.fillMaxWidth().pressScale(interaction)
-    ) {
-        Column {
-            Row(
-                modifier = Modifier.padding(start = 14.dp, top = 14.dp, end = 4.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Box {
-                    BusinessAvatar(business, size = 68.dp, corner = 20.dp)
-                    if (business.isClaimed) {
-                        Box(
-                            Modifier
-                                .align(Alignment.BottomEnd)
-                                .offset(x = 4.dp, y = 4.dp)
-                                .size(22.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface)
-                                .padding(2.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Rounded.Verified, contentDescription = "ثبت‌شده در نوبت‌یار", tint = Brand.Violet500)
-                        }
-                    }
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f).padding(top = 2.dp)) {
-                    Text(
-                        business.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = 22.sp
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    val area = business.areaLine()
-                    Text(
-                        if (area.isNotBlank()) "${business.categoryLabel} · $area" else business.categoryLabel,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (status != null) {
-                        Spacer(Modifier.height(6.dp))
-                        OpenStatusLabel(status)
-                    }
-                }
-                SaveToggle(saved, onToggleSave)
-            }
-
-            Spacer(Modifier.height(12.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-            )
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    business.distanceKm?.let { Pill(formatDistance(it), Icons.Rounded.NearMe) }
-                    if (business.insurances.isNotEmpty()) {
-                        Pill(
-                            "${business.insurances.size.toPersianDigits()} بیمه",
-                            Icons.Rounded.HealthAndSafety,
-                            container = Brand.Emerald.copy(alpha = 0.12f),
-                            content = Brand.Emerald
-                        )
-                    }
-                    if (business.distanceKm == null && business.insurances.isEmpty()) {
-                        Pill(group.label, group.icon, container = group.tint.copy(alpha = 0.1f), content = group.tint)
-                    }
-                }
-                if (highlighted && onBook != null) {
-                    Surface(onClick = onBook, shape = RoundedCornerShape(50), color = Color.Transparent) {
-                        Row(
-                            Modifier
-                                .background(Brand.FeaturedGradient)
-                                .padding(horizontal = 14.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Rounded.Bolt, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("رزرو", color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                } else if (!business.isClaimed) {
-                    Text(
-                        "اطلاعات عمومی",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FeaturedBusinessCard(business: Business, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(24.dp),
-        color = Color.Transparent,
-        modifier = Modifier.width(220.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .background(Brand.FeaturedGradient)
-                .padding(14.dp)
+        Row(
+            modifier = Modifier.height(36.dp).padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(2.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
-                ) { BusinessAvatar(business, size = 52.dp) }
-                Spacer(Modifier.weight(1f))
-                Icon(Icons.Rounded.Verified, contentDescription = null, tint = Color.White)
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
             }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                business.title,
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                business.categoryLabel,
-                color = Color.White.copy(alpha = 0.85f),
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1
-            )
-            business.openStatus()?.let {
-                Spacer(Modifier.height(6.dp))
-                OpenStatusLabel(it, onDark = true)
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill(
-                    "رزرو آنی",
-                    Icons.Rounded.Bolt,
-                    container = Color.White.copy(alpha = 0.2f),
-                    content = Color.White
-                )
-                business.distanceKm?.let {
-                    Pill(formatDistance(it), Icons.Rounded.NearMe, container = Color.White.copy(alpha = 0.2f), content = Color.White)
-                }
+            Text(label, color = fg, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            if (trailingIcon != null) {
+                Spacer(Modifier.width(2.dp))
+                Icon(trailingIcon, contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
             }
         }
     }
 }
 
 @Composable
-fun SectionHeader(title: String, subtitle: String? = null, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
-    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
+fun SectionTitle(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             if (subtitle != null) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -498,53 +317,214 @@ fun SectionHeader(title: String, subtitle: String? = null, modifier: Modifier = 
     }
 }
 
+// ── Rows & cards ─────────────────────────────────────────────────────────────
+
+/**
+ * A result in the list. Flat, divider-separated rows rather than floating
+ * cards — the density people expect from a directory (Doctolib, Google Maps).
+ */
 @Composable
-fun OwnerInviteBanner(onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun BusinessRow(
+    business: Business,
+    saved: Boolean,
+    onToggleSave: () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val status = remember(business) { business.openStatus() }
+    Surface(onClick = onClick, color = MaterialTheme.colorScheme.background, modifier = modifier.fillMaxWidth()) {
+        Row(
+            Modifier.padding(start = Space.page, end = Space.xs, top = Space.md, bottom = Space.md),
+            verticalAlignment = Alignment.Top
+        ) {
+            BusinessAvatar(business, 56.dp)
+            Spacer(Modifier.width(Space.md))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        business.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (business.isClaimed) {
+                        Spacer(Modifier.width(Space.xs))
+                        VerifiedMark()
+                    }
+                }
+                Spacer(Modifier.height(2.dp))
+                val area = business.areaLine()
+                Text(
+                    if (area.isNotBlank()) "${business.categoryLabel} · $area" else business.categoryLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(6.dp))
+                MetaLine(business, status)
+            }
+            SaveButton(saved, onToggleSave)
+        }
+    }
+}
+
+/** distance · open status · insurances, with the online badge leading when bookable. */
+@Composable
+private fun MetaLine(business: Business, status: OpenStatus?) {
+    val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (business.canBookOnline) OnlineBadge()
+        val parts = buildList {
+            business.distanceKm?.let { add(formatDistance(it)) }
+            if (business.insurances.isNotEmpty()) add("${business.insurances.size.toPersianDigits()} بیمه")
+        }
+        if (status != null) {
+            OpenStatusText(status)
+            if (parts.isNotEmpty()) Text("·", color = secondary, style = MaterialTheme.typography.bodySmall)
+        }
+        if (parts.isNotEmpty()) {
+            Text(
+                parts.joinToString(" · "),
+                color = secondary,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/** Compact card for the horizontal "book online nearby" strip. */
+@Composable
+fun BookableCard(business: Business, onClick: () -> Unit) {
+    val status = remember(business) { business.openStatus() }
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(24.dp),
-        color = Color.Transparent,
-        modifier = modifier.fillMaxWidth()
+        shape = Radius.md,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = Modifier.width(248.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .background(Brand.HeroGradient)
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("کسب‌وکار دارید؟", color = Brand.Violet300, style = MaterialTheme.typography.labelLarge)
-                Spacer(Modifier.height(4.dp))
+        Row(Modifier.padding(Space.md), verticalAlignment = Alignment.CenterVertically) {
+            BusinessAvatar(business, 48.dp)
+            Spacer(Modifier.width(Space.md))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        business.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(Modifier.width(Space.xs))
+                    VerifiedMark(14.dp)
+                }
                 Text(
-                    "نوبت‌دهی آنلاین را رایگان فعال کنید",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    business.categoryLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "مرکز شما با نشان «نوبت آنلاین» بالای نتایج دیده می‌شود.",
-                    color = Color.White.copy(alpha = 0.8f),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Rounded.Storefront, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.height(Space.xs))
+                if (status != null) OpenStatusText(status)
+                else business.distanceKm?.let {
+                    Text(formatDistance(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
 }
 
+/** Plain bordered row inviting owners in. No gradient: an invitation, not an ad. */
 @Composable
-fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier = this.clickable(
-    interactionSource = null,
-    indication = null,
-    onClick = onClick
-)
+fun OwnerInviteRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        shape = Radius.md,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(Modifier.padding(Space.lg), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("صاحب کسب‌وکار هستید؟", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "مرکزتان را در نوبت‌یار ثبت کنید و آنلاین نوبت بدهید.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(Space.sm))
+            Icon(ChevronIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** Icon · title · body · one action. Used for empty, error and permission states. */
+@Composable
+fun StateMessage(
+    icon: ImageVector,
+    title: String,
+    body: String,
+    actionLabel: String? = null,
+    onAction: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
+        Spacer(Modifier.height(Space.lg))
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(Space.xs))
+        Text(
+            body,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        if (actionLabel != null) {
+            Spacer(Modifier.height(Space.lg))
+            OutlinedButton(
+                onClick = onAction,
+                shape = Radius.md,
+                contentPadding = PaddingValues(horizontal = Space.xl, vertical = Space.sm)
+            ) { Text(actionLabel) }
+        }
+    }
+}
+
+/** Settings-style row: outlined icon, label, optional value, chevron. */
+@Composable
+fun ListRow(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    value: String? = null,
+    showChevron: Boolean = true,
+) {
+    Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.height(56.dp).padding(horizontal = Space.page),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(Space.lg))
+            Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            if (value != null) {
+                Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(Space.xs))
+            }
+            if (showChevron) {
+                Icon(ChevronIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+}
