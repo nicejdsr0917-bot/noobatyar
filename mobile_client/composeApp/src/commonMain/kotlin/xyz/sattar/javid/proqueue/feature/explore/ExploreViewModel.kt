@@ -79,7 +79,24 @@ class ExploreViewModel(
         _state.update {
             it.copy(
                 area = area,
-                sort = if (area is SearchArea.Anywhere) SortMode.RECOMMENDED else it.sort,
+                sort = when (area) {
+                    SearchArea.Anywhere -> SortMode.RECOMMENDED
+                    // A spot picked on the map is a "what's around here" question.
+                    is SearchArea.Picked -> SortMode.DISTANCE
+                    else -> it.sort
+                },
+            )
+        }
+        search()
+    }
+
+    /** "Search this area" / a picked point: the centre and a radius that covers what's on screen. */
+    fun searchAround(latitude: Double, longitude: Double, radiusKm: Double) {
+        _state.update {
+            it.copy(
+                area = SearchArea.Picked(latitude, longitude),
+                radiusKm = radiusKm,
+                sort = SortMode.DISTANCE,
             )
         }
         search()

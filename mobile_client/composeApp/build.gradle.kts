@@ -100,6 +100,9 @@ kotlin {
             implementation(libs.easycrop)
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor3)
+            // Tiled map for the explore screen (raster tiles, so Persian street
+            // names come pre-rendered and correct on every platform).
+            implementation(libs.mapcompose.mp)
 
             // Glassmorphism blur for bars/toolbars
             implementation(libs.haze)

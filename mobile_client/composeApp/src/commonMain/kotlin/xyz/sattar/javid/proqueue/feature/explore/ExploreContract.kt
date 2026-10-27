@@ -17,6 +17,11 @@ sealed interface SearchArea {
     /** A city centre picked by hand — for a denied permission, or browsing another city. */
     data class City(override val label: String, val latitude: Double, val longitude: Double) : SearchArea
 
+    /** A point the user chose on the map ("search this area", a long press, or the centre pin). */
+    data class Picked(val latitude: Double, val longitude: Double) : SearchArea {
+        override val label = "محدوده انتخابی روی نقشه"
+    }
+
     /** No location at all: whole directory, claimed businesses first. */
     data object Anywhere : SearchArea {
         override val label = "همه شهرها"
@@ -27,6 +32,7 @@ val SearchArea.latitude: Double?
     get() = when (this) {
         is SearchArea.NearMe -> latitude
         is SearchArea.City -> latitude
+        is SearchArea.Picked -> latitude
         SearchArea.Anywhere -> null
     }
 
@@ -34,6 +40,7 @@ val SearchArea.longitude: Double?
     get() = when (this) {
         is SearchArea.NearMe -> longitude
         is SearchArea.City -> longitude
+        is SearchArea.Picked -> longitude
         SearchArea.Anywhere -> null
     }
 

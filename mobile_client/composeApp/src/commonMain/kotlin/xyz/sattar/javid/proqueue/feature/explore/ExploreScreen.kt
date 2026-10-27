@@ -1,10 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,20 +16,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Bolt
@@ -37,20 +43,25 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.HealthAndSafety
 import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.PinDrop
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,24 +70,30 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import xyz.sattar.javid.proqueue.core.location.LocationResult
 import xyz.sattar.javid.proqueue.core.location.rememberLocationRequester
 import xyz.sattar.javid.proqueue.core.ui.components.ShimmerBox
+import xyz.sattar.javid.proqueue.core.ui.components.map.mapBackground
+import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 import xyz.sattar.javid.proqueue.core.utils.openUrl
 import xyz.sattar.javid.proqueue.domain.model.business.Insurance
 import xyz.sattar.javid.proqueue.feature.discovery.BookableCard
@@ -98,7 +115,15 @@ private const val OWNER_ROW_INDEX = 4
 /** Avatar (56) + gap (12) + page margin (16): dividers start under the text, not the avatar. */
 private val ROW_DIVIDER_INSET = 84.dp
 
-@OptIn(ExperimentalFoundationApi::class)
+/** Share of the map area the collapsed sheet covers: enough for ~2 rows, the rest stays map. */
+private const val SHEET_PEEK_FRACTION = 0.44f
+
+private val SHEET_CORNER = 24.dp
+
+/** How far below the toolbar the sheet starts merging into it. */
+private val MERGE_DISTANCE = 56.dp
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ExploreScreen(
     onNavigateToDetail: (Long) -> Unit,
@@ -107,9 +132,12 @@ fun ExploreScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val focus = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
     var showLocationSheet by remember { mutableStateOf(false) }
     var showInsuranceSheet by remember { mutableStateOf(false) }
+    var showFilterSheet by remember { mutableStateOf(false) }
     var searchFocused by remember { mutableStateOf(false) }
+    val selectedId = remember { mutableStateOf<Long?>(null) }
 
     val openDetail: (Long) -> Unit = { id ->
         viewModel.rememberQuery()
@@ -149,181 +177,117 @@ fun ExploreScreen(
     LaunchedEffect(shouldLoadMore, state.nextPage) {
         if (shouldLoadMore) viewModel.loadMore()
     }
-    val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 } }
+    // A new search drops a selection that may no longer be in the list.
+    LaunchedEffect(state.results) {
+        if (state.results.none { it.id == selectedId.value }) selectedId.value = null
+    }
 
-    PullToRefreshBox(
-        isRefreshing = state.isRefreshing,
-        onRefresh = viewModel::refresh,
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
-    ) {
-        LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(bottom = bottomPadding + Space.xl),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            stickyHeader(key = "header") {
-                Header(
-                    state = state,
-                    showDivider = scrolled,
-                    onLocationClick = { showLocationSheet = true },
-                    onQueryChange = viewModel::updateQuery,
-                    onSubmit = submit,
-                    onFocusChange = { searchFocused = it },
-                )
-            }
+    // The map already gives the overview, so the "book online" strip would only
+    // push the first results out of the collapsed sheet. Kept behind a flag for now.
+    val showFeatured = false
+    val sheetState = rememberBottomSheetScaffoldState()
+    var pickMode by remember { mutableStateOf(false) }
 
-            if (searchFocused && state.query.isBlank()) {
-                item(key = "suggestions") {
-                    SearchSuggestions(state.recentSearches, onPick = submit, onClearRecent = viewModel::clearRecentSearches)
+    // A pin tap highlights its row and brings it to the top of the sheet; a tap
+    // on bare map (null) clears the selection.
+    val selectFromMap: (Long?) -> Unit = { id ->
+        selectedId.value = id
+        val index = if (id == null) -1 else state.results.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            val before = (if (!state.hasLocation) 1 else 0) + 1 + (if (showFeatured) 2 else 0)
+            scope.launch {
+                if (sheetState.bottomSheetState.currentValue != SheetValue.PartiallyExpanded) {
+                    sheetState.bottomSheetState.partialExpand()
                 }
+                listState.animateScrollToItem(before + index)
             }
+        }
+    }
+    val searchMapArea: (MapArea) -> Unit = { area ->
+        pickMode = false
+        selectedId.value = null
+        viewModel.searchAround(area.center.latitude, area.center.longitude, area.radiusKm)
+        scope.launch { listState.scrollToItem(0) }
+    }
 
-            if (!state.hasLocation) {
-                item(key = "location-notice") {
-                    LocationNotice(
-                        status = state.locationStatus,
+    // 0 while the sheet sits low, 1 once its top reaches the toolbar. Drives the
+    // "merge": the corners flatten, the handle and shadow fade, and the toolbar
+    // takes over the divider, so header and list read as one surface.
+    val mergeDistancePx = with(LocalDensity.current) { MERGE_DISTANCE.toPx() }
+    val merge by remember {
+        derivedStateOf {
+            val offset = runCatching { sheetState.bottomSheetState.requireOffset() }.getOrDefault(Float.MAX_VALUE)
+            (1f - offset / mergeDistancePx).coerceIn(0f, 1f)
+        }
+    }
+    val dark = LocalIsDarkTheme.current
+
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Header(
+            state = state,
+            merged = merge,
+            onLocationClick = { showLocationSheet = true },
+            onQueryChange = viewModel::updateQuery,
+            onSubmit = submit,
+            onFocusChange = { searchFocused = it },
+            onOpenFilters = { showFilterSheet = true },
+            onSelectCategory = viewModel::selectCategory,
+        )
+
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val peek = maxHeight * SHEET_PEEK_FRACTION
+            val hiddenSheetHeight = maxHeight - peek
+            val corner = SHEET_CORNER * (1f - merge)
+            BottomSheetScaffold(
+                scaffoldState = sheetState,
+                sheetPeekHeight = peek + bottomPadding,
+                sheetContainerColor = MaterialTheme.colorScheme.background,
+                sheetShadowElevation = 16.dp * (1f - merge),
+                sheetShape = RoundedCornerShape(topStart = corner, topEnd = corner),
+                sheetDragHandle = { SheetHandle(alpha = 1f - merge) },
+                sheetContent = {
+                    ResultsList(
+                        state = state,
+                        listState = listState,
+                        showFeatured = showFeatured,
+                        selectedId = selectedId.value,
+                        // The list is as tall as the expanded sheet but only `peek` of it
+                        // shows when collapsed: the extra room lets a pin's row (even the
+                        // last one) scroll up into that visible strip.
+                        bottomPadding = bottomPadding + hiddenSheetHeight,
                         onLocate = locate,
                         onOpenSettings = locator::openSettings,
+                        onOpenDetail = openDetail,
+                        onClearFilters = viewModel::clearFilters,
+                        onRetry = viewModel::refresh,
+                        onWiden = { viewModel.selectRadius(radiusOptionsKm.last()) },
+                        onToggleSaved = viewModel::toggleSaved,
                     )
-                }
-            }
-
-            item(key = "categories") {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = Space.page),
-                    horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                    modifier = Modifier.padding(top = Space.md)
-                ) {
-                    items(CategoryGroup.entries) { group ->
-                        FilterChip(
-                            label = group.label,
-                            icon = group.icon,
-                            selected = group == state.category,
-                            onClick = { viewModel.selectCategory(group) }
-                        )
-                    }
-                }
-            }
-
-            item(key = "filters") {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = Space.page),
-                    horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                    modifier = Modifier.padding(top = Space.sm)
-                ) {
-                    item {
-                        FilterChip(
-                            label = state.selectedInsurance?.name ?: "بیمه",
-                            icon = Icons.Outlined.HealthAndSafety,
-                            trailingIcon = Icons.Outlined.ExpandMore,
-                            selected = state.insuranceSlug != null,
-                            onClick = { showInsuranceSheet = true }
-                        )
-                    }
-                    item {
-                        FilterChip(
-                            label = "نوبت آنلاین",
-                            icon = Icons.Outlined.Bolt,
-                            selected = state.onlyOnline,
-                            onClick = viewModel::toggleOnlyOnline
-                        )
-                    }
-                    if (state.hasLocation) {
-                        items(SortMode.entries) { mode ->
-                            FilterChip(
-                                label = mode.label,
-                                selected = state.sort == mode,
-                                onClick = { viewModel.selectSort(mode) }
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (state.featured.isNotEmpty() && state.query.isBlank() && !state.onlyOnline) {
-                item(key = "featured-title") {
-                    SectionTitle(
-                        title = if (state.hasLocation) "نوبت آنلاین در نزدیکی شما" else "نوبت آنلاین",
-                        subtitle = "بدون تماس، همین حالا رزرو کنید",
-                        modifier = Modifier.padding(start = Space.page, end = Space.page, top = Space.xl, bottom = Space.md)
-                    )
-                }
-                item(key = "featured") {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = Space.page),
-                        horizontalArrangement = Arrangement.spacedBy(Space.md)
-                    ) {
-                        items(state.featured, key = { it.id }) { b -> BookableCard(b, onClick = { openDetail(b.id) }) }
-                    }
-                }
-            }
-
-            item(key = "results-title") {
-                SectionTitle(
-                    title = resultsTitle(state),
-                    subtitle = if (!state.isLoading && state.errorMessage == null)
-                        "${state.totalCount.toPersianDigits()} نتیجه" else null,
-                    modifier = Modifier.padding(start = Space.page, end = Space.sm, top = Space.xl, bottom = Space.xs),
-                    action = if (state.hasActiveFilters) {
-                        { TextButton(onClick = viewModel::clearFilters) { Text("پاک کردن فیلترها") } }
-                    } else null
+                },
+                containerColor = mapBackground(dark),
+            ) {
+                ExploreMap(
+                    businesses = state.results,
+                    area = state.area,
+                    selectedId = selectedId,
+                    onSelect = selectFromMap,
+                    onSearchArea = searchMapArea,
+                    onLocate = locate,
+                    locating = state.locationStatus == LocationStatus.Locating,
+                    pickMode = pickMode,
+                    onExitPickMode = { pickMode = false },
+                    visibleFraction = 1f - SHEET_PEEK_FRACTION,
+                    bottomInset = peek,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
 
-            when {
-                state.isLoading -> items(6, key = { "shimmer-$it" }) { RowShimmer() }
-
-                state.errorMessage != null && state.results.isEmpty() -> item(key = "error") {
-                    StateMessage(
-                        icon = Icons.Outlined.CloudOff,
-                        title = "ارتباط برقرار نشد",
-                        body = state.errorMessage ?: "",
-                        actionLabel = "تلاش دوباره",
-                        onAction = viewModel::refresh
-                    )
-                }
-
-                state.results.isEmpty() -> item(key = "empty") {
-                    val canWiden = state.hasLocation && state.radiusKm < radiusOptionsKm.last()
-                    StateMessage(
-                        icon = Icons.Outlined.SearchOff,
-                        title = "نتیجه‌ای پیدا نشد",
-                        body = if (canWiden) "محدوده جستجو را بزرگ‌تر کنید یا فیلترها را تغییر دهید."
-                        else "عبارت دیگری را امتحان کنید یا فیلترها را بردارید.",
-                        actionLabel = if (canWiden) "جستجو تا ${radiusOptionsKm.last().toInt().toPersianDigits()} کیلومتر"
-                        else "پاک کردن فیلترها",
-                        onAction = {
-                            if (canWiden) viewModel.selectRadius(radiusOptionsKm.last()) else viewModel.clearFilters()
-                        }
-                    )
-                }
-
-                else -> {
-                    itemsIndexed(state.results, key = { _, b -> b.id }) { index, business ->
-                        Column(Modifier.animateItem()) {
-                            BusinessRow(
-                                business = business,
-                                saved = business.id in state.savedIds,
-                                onToggleSave = { viewModel.toggleSaved(business.id) },
-                                onClick = { openDetail(business.id) }
-                            )
-                            if (index != state.results.lastIndex) Hairline(Modifier.padding(start = ROW_DIVIDER_INSET))
-                            if (index == OWNER_ROW_INDEX ||
-                                (index == state.results.lastIndex && state.results.size <= OWNER_ROW_INDEX)
-                            ) {
-                                OwnerInviteRow(
-                                    onClick = { openUrl(OWNER_LANDING_URL) },
-                                    modifier = Modifier.padding(horizontal = Space.page, vertical = Space.md)
-                                )
-                            }
-                        }
-                    }
-                    if (state.isLoadingMore) {
-                        item(key = "more") {
-                            Box(Modifier.fillMaxWidth().padding(Space.lg), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                            }
-                        }
+            // Search suggestions sit over the map rather than replacing it, so the
+            // map (and its downloaded tiles) survive a trip into the search field.
+            if (searchFocused && state.query.isBlank()) {
+                Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        SearchSuggestions(state.recentSearches, onPick = submit, onClearRecent = viewModel::clearRecentSearches)
                     }
                 }
             }
@@ -339,7 +303,24 @@ fun ExploreScreen(
                 viewModel.selectArea(it)
                 showLocationSheet = false
             },
+            onPickOnMap = {
+                showLocationSheet = false
+                selectedId.value = null
+                pickMode = true
+                scope.launch { sheetState.bottomSheetState.partialExpand() }
+            },
             onSelectRadius = viewModel::selectRadius,
+        )
+    }
+    if (showFilterSheet) {
+        FilterSheet(
+            state = state,
+            onDismiss = { showFilterSheet = false },
+            onSelectRadius = viewModel::selectRadius,
+            onSelectSort = viewModel::selectSort,
+            onToggleOnline = viewModel::toggleOnlyOnline,
+            onOpenInsurance = { showInsuranceSheet = true },
+            onClear = viewModel::clearFilters,
         )
     }
     if (showInsuranceSheet) {
@@ -360,7 +341,134 @@ private fun resultsTitle(state: ExploreState): String {
     return when (val area = state.area) {
         is SearchArea.NearMe -> "$what نزدیک شما"
         is SearchArea.City -> "$what در ${area.label}"
+        is SearchArea.Picked -> "$what در این محدوده"
         SearchArea.Anywhere -> if (state.query.isNotBlank()) "نتایج جستجو" else "همه $what"
+    }
+}
+
+/** How many filters beyond the category row are on — the badge on the filter button.
+ *  Sort isn't counted: "near me" switches it to distance on its own. */
+private fun ExploreState.extraFilterCount(): Int =
+    listOf(insuranceSlug != null, onlyOnline).count { it }
+
+// ── Sheet: the results ───────────────────────────────────────────────────────
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ResultsList(
+    state: ExploreState,
+    listState: LazyListState,
+    showFeatured: Boolean,
+    selectedId: Long?,
+    bottomPadding: Dp,
+    onLocate: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenDetail: (Long) -> Unit,
+    onClearFilters: () -> Unit,
+    onRetry: () -> Unit,
+    onWiden: () -> Unit,
+    onToggleSaved: (Long) -> Unit,
+) {
+    LazyColumn(
+        state = listState,
+        contentPadding = PaddingValues(bottom = bottomPadding + Space.xl),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Keep this prefix in step with `before` in ExploreScreen's selectFromMap.
+        if (!state.hasLocation) {
+            item(key = "location-notice") {
+                LocationNotice(status = state.locationStatus, onLocate = onLocate, onOpenSettings = onOpenSettings)
+            }
+        }
+
+        item(key = "results-title") {
+            SectionTitle(
+                title = resultsTitle(state),
+                subtitle = if (!state.isLoading && state.errorMessage == null)
+                    "${state.totalCount.toPersianDigits()} نتیجه" else null,
+                modifier = Modifier.padding(start = Space.page, end = Space.sm, top = Space.xs, bottom = Space.xs),
+                action = if (state.hasActiveFilters) {
+                    { TextButton(onClick = onClearFilters) { Text("پاک کردن فیلترها") } }
+                } else null
+            )
+        }
+
+        if (showFeatured) {
+            item(key = "featured-title") {
+                Text(
+                    if (state.hasLocation) "نوبت آنلاین در نزدیکی شما" else "نوبت آنلاین",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = Space.page, end = Space.page, top = Space.sm, bottom = Space.sm)
+                )
+            }
+            item(key = "featured") {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = Space.page),
+                    horizontalArrangement = Arrangement.spacedBy(Space.md),
+                    modifier = Modifier.padding(bottom = Space.md)
+                ) {
+                    items(state.featured, key = { it.id }) { b -> BookableCard(b, onClick = { onOpenDetail(b.id) }) }
+                }
+            }
+        }
+
+        when {
+            state.isLoading -> items(6, key = { "shimmer-$it" }) { RowShimmer() }
+
+            state.errorMessage != null && state.results.isEmpty() -> item(key = "error") {
+                StateMessage(
+                    icon = Icons.Outlined.CloudOff,
+                    title = "ارتباط برقرار نشد",
+                    body = state.errorMessage ?: "",
+                    actionLabel = "تلاش دوباره",
+                    onAction = onRetry
+                )
+            }
+
+            state.results.isEmpty() -> item(key = "empty") {
+                val canWiden = state.hasLocation && state.radiusKm < radiusOptionsKm.last()
+                StateMessage(
+                    icon = Icons.Outlined.SearchOff,
+                    title = "نتیجه‌ای پیدا نشد",
+                    body = if (canWiden) "محدوده جستجو را بزرگ‌تر کنید یا فیلترها را تغییر دهید."
+                    else "عبارت دیگری را امتحان کنید یا فیلترها را بردارید.",
+                    actionLabel = if (canWiden) "جستجو تا ${radiusOptionsKm.last().toInt().toPersianDigits()} کیلومتر"
+                    else "پاک کردن فیلترها",
+                    onAction = if (canWiden) onWiden else onClearFilters
+                )
+            }
+
+            else -> {
+                itemsIndexed(state.results, key = { _, b -> b.id }) { index, business ->
+                    Column(Modifier.animateItem()) {
+                        BusinessRow(
+                            business = business,
+                            saved = business.id in state.savedIds,
+                            highlighted = business.id == selectedId,
+                            onToggleSave = { onToggleSaved(business.id) },
+                            onClick = { onOpenDetail(business.id) }
+                        )
+                        if (index != state.results.lastIndex) Hairline(Modifier.padding(start = ROW_DIVIDER_INSET))
+                        if (index == OWNER_ROW_INDEX ||
+                            (index == state.results.lastIndex && state.results.size <= OWNER_ROW_INDEX)
+                        ) {
+                            OwnerInviteRow(
+                                onClick = { openUrl(OWNER_LANDING_URL) },
+                                modifier = Modifier.padding(horizontal = Space.page, vertical = Space.md)
+                            )
+                        }
+                    }
+                }
+                if (state.isLoadingMore) {
+                    item(key = "more") {
+                        Box(Modifier.fillMaxWidth().padding(Space.lg), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -369,11 +477,14 @@ private fun resultsTitle(state: ExploreState): String {
 @Composable
 private fun Header(
     state: ExploreState,
-    showDivider: Boolean,
+    /** 0..1: how far the results sheet has merged into this toolbar. */
+    merged: Float,
     onLocationClick: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSubmit: (String) -> Unit,
     onFocusChange: (Boolean) -> Unit,
+    onOpenFilters: () -> Unit,
+    onSelectCategory: (CategoryGroup) -> Unit,
 ) {
     Column(
         Modifier
@@ -393,6 +504,7 @@ private fun Header(
                     val label = when {
                         state.locationStatus == LocationStatus.Locating -> "در حال یافتن موقعیت…"
                         area is SearchArea.NearMe -> "نزدیک من · ${state.radiusKm.toInt().toPersianDigits()} کیلومتر"
+                        area is SearchArea.Picked -> "روی نقشه · ${state.radiusKm.toInt().toPersianDigits()} کیلومتر"
                         else -> area.label
                     }
                     Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -400,14 +512,77 @@ private fun Header(
                 }
             }
         }
-        SearchField(
-            query = state.query,
-            onQueryChange = onQueryChange,
-            onSubmit = onSubmit,
-            onFocusChange = onFocusChange,
-            modifier = Modifier.padding(horizontal = Space.page, vertical = Space.sm)
+        Row(
+            Modifier.padding(horizontal = Space.page, vertical = Space.sm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SearchField(
+                query = state.query,
+                onQueryChange = onQueryChange,
+                onSubmit = onSubmit,
+                onFocusChange = onFocusChange,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(Space.sm))
+            FilterButton(count = state.extraFilterCount(), onClick = onOpenFilters)
+        }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = Space.page),
+            horizontalArrangement = Arrangement.spacedBy(Space.sm),
+            modifier = Modifier.padding(bottom = Space.md)
+        ) {
+            items(CategoryGroup.entries) { group ->
+                FilterChip(
+                    label = group.label,
+                    icon = group.icon,
+                    selected = group == state.category,
+                    onClick = { onSelectCategory(group) }
+                )
+            }
+        }
+        // Takes over from the sheet's shadow once the two have merged.
+        Hairline(Modifier.alpha(merged))
+    }
+}
+
+/** Square accent button beside the search field, with a count of filters that are on. */
+@Composable
+private fun FilterButton(count: Int, onClick: () -> Unit) {
+    Box {
+        Surface(
+            onClick = onClick,
+            shape = Radius.md,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.Tune, contentDescription = "فیلترها", tint = MaterialTheme.colorScheme.onPrimary)
+            }
+        }
+        if (count > 0) {
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 4.dp, y = (-4).dp)
+                    .size(18.dp)
+                    .background(MaterialTheme.colorScheme.error, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(count.toPersianDigits(), color = MaterialTheme.colorScheme.onError, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+/** Drag handle that fades out as the sheet merges into the toolbar. */
+@Composable
+private fun SheetHandle(alpha: Float) {
+    Box(Modifier.fillMaxWidth().height(22.dp * alpha.coerceAtLeast(0.4f)), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .size(width = 36.dp, height = 4.dp)
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f * alpha), CircleShape)
         )
-        if (showDivider) Hairline() else Spacer(Modifier.height(1.dp))
     }
 }
 
@@ -563,6 +738,7 @@ private fun LocationSheet(
     onDismiss: () -> Unit,
     onUseMyLocation: () -> Unit,
     onSelectArea: (SearchArea) -> Unit,
+    onPickOnMap: () -> Unit,
     onSelectRadius: (Double) -> Unit,
 ) {
     ModalBottomSheet(
@@ -589,6 +765,13 @@ private fun LocationSheet(
                 },
                 selected = state.area is SearchArea.NearMe,
                 onClick = onUseMyLocation
+            )
+            SheetOption(
+                icon = Icons.Outlined.PinDrop,
+                title = "انتخاب روی نقشه",
+                subtitle = "نشانگر را روی محل موردنظر ببرید؛ نگه‌داشتن انگشت روی نقشه هم کار می‌کند",
+                selected = state.area is SearchArea.Picked,
+                onClick = onPickOnMap
             )
             if (state.hasLocation) {
                 Text(
@@ -645,6 +828,92 @@ private fun SheetOption(icon: ImageVector, title: String, subtitle: String, sele
             if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
     }
+}
+
+/**
+ * Everything beyond the category row. Each choice applies at once — the list and
+ * the pins behind the sheet update live — so the button only closes it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterSheet(
+    state: ExploreState,
+    onDismiss: () -> Unit,
+    onSelectRadius: (Double) -> Unit,
+    onSelectSort: (SortMode) -> Unit,
+    onToggleOnline: () -> Unit,
+    onOpenInsurance: () -> Unit,
+    onClear: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(Modifier.navigationBarsPadding().padding(bottom = Space.lg)) {
+            Row(Modifier.padding(start = Space.page, end = Space.sm), verticalAlignment = Alignment.CenterVertically) {
+                Text("فیلترها", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton(onClick = onClear) { Text("پاک کردن") }
+            }
+
+            FilterSection("نوبت‌دهی")
+            Row(Modifier.padding(horizontal = Space.page), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                FilterChip(label = "فقط نوبت آنلاین", icon = Icons.Outlined.Bolt, selected = state.onlyOnline, onClick = onToggleOnline)
+            }
+
+            FilterSection("بیمه")
+            Row(Modifier.padding(horizontal = Space.page)) {
+                FilterChip(
+                    label = state.selectedInsurance?.name ?: "همه بیمه‌ها",
+                    icon = Icons.Outlined.HealthAndSafety,
+                    trailingIcon = Icons.Outlined.ExpandMore,
+                    selected = state.insuranceSlug != null,
+                    onClick = onOpenInsurance
+                )
+            }
+
+            if (state.hasLocation) {
+                FilterSection(if (state.area is SearchArea.NearMe) "فاصله تا من" else "فاصله تا مرکز ${state.area.label}")
+                Row(Modifier.padding(horizontal = Space.page), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                    radiusOptionsKm.forEach { km ->
+                        FilterChip(
+                            label = "${km.toInt().toPersianDigits()} کیلومتر",
+                            selected = state.radiusKm == km,
+                            onClick = { onSelectRadius(km) }
+                        )
+                    }
+                }
+
+                FilterSection("مرتب‌سازی")
+                Row(Modifier.padding(horizontal = Space.page), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                    SortMode.entries.forEach { mode ->
+                        FilterChip(label = mode.label, selected = state.sort == mode, onClick = { onSelectSort(mode) })
+                    }
+                }
+            }
+
+            Button(
+                onClick = onDismiss,
+                shape = Radius.md,
+                modifier = Modifier.fillMaxWidth().padding(start = Space.page, end = Space.page, top = Space.xl).height(52.dp)
+            ) {
+                Text(
+                    if (state.isLoading) "نمایش نتایج" else "نمایش ${state.totalCount.toPersianDigits()} نتیجه",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterSection(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = Space.page, top = Space.lg, bottom = Space.sm)
+    )
 }
 
 @Composable

@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -330,9 +331,16 @@ fun BusinessRow(
     onToggleSave: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The row whose pin is selected on the map. */
+    highlighted: Boolean = false,
 ) {
     val status = remember(business) { business.openStatus() }
-    Surface(onClick = onClick, color = MaterialTheme.colorScheme.background, modifier = modifier.fillMaxWidth()) {
+    val bg by animateColorAsState(
+        if (highlighted) MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
+            .compositeOver(MaterialTheme.colorScheme.background)
+        else MaterialTheme.colorScheme.background
+    )
+    Surface(onClick = onClick, color = bg, modifier = modifier.fillMaxWidth()) {
         Row(
             Modifier.padding(start = Space.page, end = Space.xs, top = Space.md, bottom = Space.md),
             verticalAlignment = Alignment.Top
