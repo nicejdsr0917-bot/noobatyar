@@ -1,0 +1,25 @@
+---
+updated: 2026-10-28
+tags: [gf]
+---
+# اپ صاحب کسب‌وکار (mobile_owner)
+
+**هدف:** مدیریت نوبت، مشتری، تقویم، پیامک/پوش تبلیغاتی، اشتراک و پرداخت. Android + iOS + پنل وب wasm (`panel.noobatyar.ir`).
+
+## فایل‌ها
+ریشهٔ کد: `mobile_owner/composeApp/src/{commonMain,androidMain,iosMain,wasmJsMain}/kotlin/xyz/sattar/javid/proqueue/`
+- `feature/<name>/` — `XScreen.kt` + `XViewModel` (MVI)؛ features: home، calendar، createAppointment، visitorDetails، promo، addons، settings، share، smsReport…
+- `data/remoteDataSource/*ApiService.kt` (پاسخ‌ها `ApiResponse`)، `data/localDataSource` (Room؛ wasm: `InMemory*LocalSource`)، `data/repository/*RepositoryImpl`
+- `di/KoinModule.kt`، `core/navigation/` (`MainNavHost`، `AuthNavHost`)
+- i18n: `composeResources/values/strings.xml` (fa) + `values-en/` → task `generateI18nStrings` کلاس `Str` را می‌سازد؛ کلید جدید را در **هر دو** اضافه کن
+- `composeApp/build.gradle.kts` — flavorها (env × store: `LocalSite` …)، `-PlocalBaseUrl`؛ iOS: `ios.baseUrl` در `local.properties` (تغییر commit‌نشده)
+
+## اجرا
+`./gradlew :composeApp:installLocalSiteDebug -PlocalBaseUrl=http://127.0.0.1:8000` (بدون آن، flavor local به **production** وصل می‌شود). پکیج: `xyz.sattar.javid.proqueue.local`. در worktree، gradlew اجرایی نیست → `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain` با `JAVA_HOME` = jbr اندروید استودیو و `ANDROID_HOME`.
+
+## وابستگی‌ها
+همهٔ APIهای owner در backend؛ [[modules/backend-accounting]] (FeatureGate، checkout).
+
+## نکته‌ها
+- TODO: `iosMain/.../Theme.ios.kt` (status bar)، `wasmJsMain/.../ContactActions.wasmJs.kt`.
+- ریلیز APK فقط از CI با تگ — [[modules/ops-deploy]].
