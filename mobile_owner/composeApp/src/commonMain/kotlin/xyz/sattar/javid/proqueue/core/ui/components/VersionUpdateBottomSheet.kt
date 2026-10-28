@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -13,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.*
 import xyz.sattar.javid.proqueue.domain.model.VersionInfo
 
@@ -68,7 +68,7 @@ fun VersionUpdateBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = stringResource(Res.string.new_update_available),
+                text = Str.new_update_available,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -77,7 +77,7 @@ fun VersionUpdateBottomSheet(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = stringResource(Res.string.version_label, versionInfo.latestVersion.versionName),
+                text = Str.version_label(versionInfo.latestVersion.versionName),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -99,7 +99,7 @@ fun VersionUpdateBottomSheet(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = stringResource(Res.string.changelog_title),
+                        text = Str.changelog_title,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -131,7 +131,7 @@ fun VersionUpdateBottomSheet(
             Spacer(modifier = Modifier.height(32.dp))
             
             AppButton(
-                text = stringResource(Res.string.update_app),
+                text = Str.update_app,
                 onClick = onUpdateClick,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -143,7 +143,7 @@ fun VersionUpdateBottomSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = stringResource(Res.string.remind_later),
+                        text = Str.remind_later,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

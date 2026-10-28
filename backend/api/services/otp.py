@@ -68,9 +68,10 @@ def send_otp(phone: str) -> dict:
     #    run isn't blocked for 3 minutes between attempts.
     dev_code = getattr(settings, "OTP_DEV_CODE", "")
 
-    # 1. Daily ban check
+    # 1. Daily ban check (never in dev — a few mistyped codes during testing
+    #    would otherwise lock the number out for a day)
     fail_count = cache.get(_key_daily_fail(phone), 0)
-    if fail_count >= OTP_MAX_DAILY_FAIL:
+    if not dev_code and fail_count >= OTP_MAX_DAILY_FAIL:
         logger.warning("OTP daily ban active for %s (fails=%d)", phone, fail_count)
         return {
             "success": False,
@@ -119,6 +120,16 @@ def verify_otp(phone: str, code: str) -> dict:
     - On failure  : increments daily fail counter; increments attempt counter.
       If attempt count reaches OTP_MAX_ATTEMPTS the code is invalidated early.
     """
+    # Dev bypass (DEBUG only — settings forces OTP_DEV_CODE empty otherwise): the
+    # fixed code works for any number, whether or not "send" was pressed or the
+    # code has expired, and a wrong guess never counts towards a ban.
+    dev_code = getattr(settings, "OTP_DEV_CODE", "")
+    if dev_code:
+        if str(code) == dev_code:
+            _invalidate_otp(phone)
+            return {"success": True}
+        return {"success": False, "error": "کد اشتباه است"}
+
     stored_code = cache.get(_key_code(phone))
     if not stored_code:
         logger.warning(f"OTP Verify Failed: missing code for {phone}. Submitted: {code}")

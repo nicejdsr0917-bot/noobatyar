@@ -10,6 +10,10 @@ sealed class CreateBusinessIntent {
         val phone: String,
         val extraPhones: List<String> = emptyList(),
         val address: String,
+        // No defaults, like address: the update is a full write, so a call
+        // site that forgot these would erase the business's map pin.
+        val latitude: Double?,
+        val longitude: Double?,
         val defaultProgress: String,
         val workStartHour: Int,
         val workEndHour: Int,

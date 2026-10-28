@@ -8,6 +8,7 @@ import {
   requestPushPermission,
 } from '@/lib/push';
 import Icon from './Icon';
+import { t } from '@/lib/i18n';
 
 /**
  * App-wide "may we notify you" dialog — mounted once in the root layout,
@@ -84,12 +85,9 @@ export default function PushPermissionPrompt() {
           <Icon name="notifications" size={26} />
         </span>
         <h2 style={{ margin: '0 0 8px', fontSize: 17, color: 'var(--color-text)' }}>
-          یادت نره اعلان رو فعال کنی!
-        </h2>
+          {t('dontForgetToTurnOn')}</h2>
         <p style={{ margin: '0 0 20px', fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.7 }}>
-          نوبتت با موفقیت ثبت شد. با فعال کردن اعلان، دقیقاً قبل از نوبتت یک
-          یادآوری برات می‌فرستیم — علاوه بر پیامک، رایگان و آنی.
-        </p>
+          {t('yourAppointmentIsBookedTurn')}</p>
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             onClick={allow}
@@ -107,7 +105,7 @@ export default function PushPermissionPrompt() {
               opacity: requesting ? 0.7 : 1,
             }}
           >
-            {requesting ? 'در حال فعال‌سازی...' : 'فعال کن'}
+            {requesting ? t('turningOn') : t('turnOn')}
           </button>
           <button
             onClick={dismiss}
@@ -122,8 +120,7 @@ export default function PushPermissionPrompt() {
               cursor: requesting ? 'default' : 'pointer',
             }}
           >
-            بعداً
-          </button>
+            {t('later')}</button>
         </div>
       </div>
     </div>

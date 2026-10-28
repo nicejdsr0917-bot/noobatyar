@@ -9,7 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
+import xyz.sattar.javid.proqueue.core.i18n.AppLocale
 import xyz.sattar.javid.proqueue.core.state.AppThemeMode
 
 
@@ -65,7 +65,7 @@ fun AppTheme(
     SystemAppearance(!isDarkTheme)
 
     CompositionLocalProvider(
-        LocalLayoutDirection provides LayoutDirection.Rtl,
+        LocalLayoutDirection provides AppLocale.layoutDirection,
         LocalIsDarkTheme provides isDarkTheme
     ) {
         MaterialTheme(

@@ -8,7 +8,9 @@ sealed interface MessagesIntent {
     data class ApplyReadyTemplate(val text: String) : MessagesIntent
     /** [xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery] value. */
     data class SetDelivery(val delivery: String) : MessagesIntent
+    /** Pick one of the fixed PANEL wordings by key. */
+    data class SelectPanelTemplate(val key: String) : MessagesIntent
     data object UpgradeForPanelDelivery : MessagesIntent
+    data object OpenSmsReport : MessagesIntent
     data object Save : MessagesIntent
 }
-

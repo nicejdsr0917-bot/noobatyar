@@ -3,9 +3,8 @@ package xyz.sattar.javid.proqueue.data.repository.user
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
-import xyz.sattar.javid.proqueue.data.localDataSource.user.SubscriptionEntity
-import xyz.sattar.javid.proqueue.data.localDataSource.user.UserDao
-import xyz.sattar.javid.proqueue.data.localDataSource.user.UserEntity
+import xyz.sattar.javid.proqueue.data.localDataSource.user.UserLocalSource
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.mapper.toDomain
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.CheckVersionRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.RegisterRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.RegisterResponseDto
@@ -26,7 +25,7 @@ import xyz.sattar.javid.proqueue.domain.model.VersionInfo
 
 class UserRepositoryImpl(
     private val userApiService: UserApiService,
-    private val userDao: UserDao
+    private val userDao: UserLocalSource
 ) : UserRepository {
 
     override suspend fun checkVersion(versionCode: Int): ApiResponse<VersionInfo> {
@@ -101,14 +100,23 @@ class UserRepositoryImpl(
         return userApiService.buyAddon(packId)
     }
 
+    override suspend fun checkoutQuote(kind: String, id: Int, channel: String) =
+        userApiService.checkoutQuote(kind, id, channel)
+
+    override suspend fun storeIntent(store: String, kind: String, id: Int) =
+        userApiService.storeIntent(store, xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto(kind, id))
+
+    override suspend fun storeVerify(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyRequestDto) =
+        userApiService.storeVerify(store, body)
+
     override fun getLocalUser(id: Int): Flow<UserDto?> {
-        return userDao.getUserById(id).map { entity ->
-            entity?.let {
+        return userDao.getUserById(id).map { user ->
+            user?.let {
                 UserDto(
                     id = it.id,
                     phone = it.phone,
                     name = it.name,
-                    userType = it.userType,
+                    userType = it.userType.value,
                     isEmployee = it.isEmployee,
                     joinedAt = it.joinedAt
                 )
@@ -117,13 +125,13 @@ class UserRepositoryImpl(
     }
 
     override fun getCurrentUser(): Flow<UserDto?> {
-        return userDao.getCurrentUser().map { entity ->
-            entity?.let {
+        return userDao.getCurrentUser().map { user ->
+            user?.let {
                 UserDto(
                     id = it.id,
                     phone = it.phone,
                     name = it.name,
-                    userType = it.userType,
+                    userType = it.userType.value,
                     isEmployee = it.isEmployee,
                     joinedAt = it.joinedAt
                 )
@@ -132,8 +140,8 @@ class UserRepositoryImpl(
     }
 
     override fun getLocalSubscription(): Flow<SubscriptionDto?> {
-        return userDao.getActiveSubscription().map { entity ->
-            entity?.let {
+        return userDao.getActiveSubscription().map { subscription ->
+            subscription?.let {
                 SubscriptionDto(
                     id = it.id,
                     plan = it.planName?.let { name ->
@@ -158,30 +166,13 @@ class UserRepositoryImpl(
     override suspend fun syncSubscription(): ApiResponse<SubscriptionDto> {
         val response = userApiService.getMySubscription()
         if (response is ApiResponse.Success) {
-            userDao.insertSubscription(
-                SubscriptionEntity(
-                    id = response.data.id ?: 1,
-                    planName = response.data.plan?.name,
-                    startedAt = response.data.startedAt,
-                    endsAt = response.data.endsAt,
-                    isValid = response.data.isValid ?: false
-                )
-            )
+            userDao.insertSubscription(response.data.toDomain())
         }
         return response
     }
 
     private suspend fun saveUserToDb(user: UserDto) {
-        userDao.insertUser(
-            UserEntity(
-                id = user.id,
-                phone = user.phone,
-                name = user.name,
-                userType = user.userType,
-                isEmployee = user.isEmployee,
-                joinedAt = user.joinedAt
-            )
-        )
+        userDao.insertUser(user.toDomain())
     }
 
     override suspend fun sendOTP(phone: String): ApiResponse<SendOTPResponseDto> {

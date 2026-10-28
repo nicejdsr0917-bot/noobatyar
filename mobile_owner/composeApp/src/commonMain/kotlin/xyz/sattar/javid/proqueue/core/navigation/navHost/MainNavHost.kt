@@ -1,11 +1,15 @@
 package xyz.sattar.javid.proqueue.core.navigation.navHost
 
+import xyz.sattar.javid.proqueue.core.navigation.BrowserBackBinding
 import xyz.sattar.javid.proqueue.feature.calendar.CalendarScreen
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import kotlin.reflect.KClass
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -17,9 +21,12 @@ import androidx.compose.ui.Modifier
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import xyz.sattar.javid.proqueue.core.ui.LocalHazeState
+import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
+import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.dialog
@@ -33,7 +40,10 @@ import xyz.sattar.javid.proqueue.core.navigation.DeepLinkTarget
 import xyz.sattar.javid.proqueue.core.navigation.NotificationNavigationManager
 import xyz.sattar.javid.proqueue.core.navigation.PaymentNavigationManager
 import xyz.sattar.javid.proqueue.core.navigation.PendingVisitorsFilter
+import xyz.sattar.javid.proqueue.core.ui.components.AppSidebar
+import xyz.sattar.javid.proqueue.core.ui.components.AppScaffold
 import xyz.sattar.javid.proqueue.core.ui.components.BottomNavigationBar
+import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
 import xyz.sattar.javid.proqueue.feature.createAppointment.CreateAppointmentScreen
 import xyz.sattar.javid.proqueue.feature.createVisitor.CreateVisitorRoute
 import xyz.sattar.javid.proqueue.feature.home.HomeScreen
@@ -43,6 +53,8 @@ import xyz.sattar.javid.proqueue.feature.messages.MessagesScreen
 import xyz.sattar.javid.proqueue.feature.notifications.NotificationsScreen
 import xyz.sattar.javid.proqueue.feature.profile.PaymentResultScreen
 import xyz.sattar.javid.proqueue.feature.settings.EmergencyNoticeScreen
+import xyz.sattar.javid.proqueue.feature.settings.ThemeScreen
+import xyz.sattar.javid.proqueue.feature.promo.PromoCampaignScreen
 import xyz.sattar.javid.proqueue.feature.settings.SettingsScreen
 import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportScreen
 import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsScreen
@@ -61,6 +73,8 @@ fun MainNavHost(
     onNavigateToLogin: () -> Unit = {}
 ) {
     val navController = rememberNavController()
+    // Web: browser back pops a screen here instead of leaving the site.
+    BrowserBackBinding(navController)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
@@ -120,20 +134,51 @@ fun MainNavHost(
         MainTab.Settings
     )
 
-    // Determine if the bottom bar should be shown
-    val shouldShowBottomBar = tabs.any { tab ->
+    // Whether the destination on screen is [route]. A route with arguments
+    // carries them as placeholders ("…Calendar?selectedDate={selectedDate}"),
+    // so it is cut back to the class name before comparing.
+    val isOnScreen: (KClass<*>) -> Boolean = { route ->
         currentDestination?.hierarchy?.any {
-            it.route == tab.route::class.qualifiedName
+            it.route?.substringBefore('?')?.substringBefore('/') == route.qualifiedName
         } == true
     }
 
-    val selectedTab = tabs.find { tab ->
-        currentDestination?.hierarchy?.any {
-            it.route == tab.route::class.qualifiedName
-        } == true
-    } ?: MainTab.Home
+    // Null on any screen that isn't one of the tabs themselves.
+    val currentTab = tabs.find { tab -> isOnScreen(tab.route::class) }
+
+    // Determine if the bottom bar should be shown
+    val shouldShowBottomBar = currentTab != null
+
+    val selectedTab = currentTab ?: MainTab.Home
+
+    // Same tab-switch logic as before extraction — only the container that
+    // triggers it (bottom bar vs rail) differs by window size below.
+    val onTabSelected: (MainTab) -> Unit = { tab ->
+        if (currentTab == null) {
+            // Off the tabs, which only the desktop sidebar can be clicked
+            // from — it stays up on every screen. Go to the tab's own root,
+            // closing the open screen rather than saving it into that tab.
+            navController.navigate(tab.route) {
+                popUpTo(navController.graph.findStartDestination().id)
+                launchSingleTop = true
+            }
+        } else if (currentTab != tab) {
+            navController.navigate(tab.route) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
+    val windowSize = LocalWindowSize.current
 
     CompositionLocalProvider(LocalHazeState provides hazeState) {
+    if (windowSize == WindowSize.Compact) {
+    // Compact: unchanged from before this file gained an adaptive layout —
+    // same Scaffold, same floating BottomNavigationBar.
     Scaffold(
         bottomBar = {
             AnimatedVisibility(
@@ -148,17 +193,7 @@ fun MainNavHost(
                 BottomNavigationBar(
                     tabs = tabs,
                     selectedTab = selectedTab,
-                    onTabSelected = { tab ->
-                        if (selectedTab != tab) {
-                            navController.navigate(tab.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    }
+                    onTabSelected = onTabSelected
                 )
             }
         }
@@ -167,11 +202,84 @@ fun MainNavHost(
         // The bottom bar floats (with a gradient scrim), so screens scroll under
         // it with no solid gap. Tab screens add BottomBarSpacer / FabClearance
         // so the last items and FABs clear the bar.
+        MainNavGraph(
+            navController = navController,
+            hazeState = hazeState,
+            onChangeBusiness = onChangeBusiness,
+            onNavigateToLogin = onNavigateToLogin,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+    } else {
+    // Medium/Expanded: a standard NavigationRail instead of the floating
+    // bottom bar. BottomNavigationBar is a heavily custom shape (cutout
+    // notch for the floating home button) that only makes sense as a
+    // phone-width bottom bar, so it is not reused here — same tabs/icons,
+    // a plain rail container.
+    //
+    // Direction: Theme.kt sets LayoutDirection from the UI language (RTL for
+    // Persian, LTR for English), so the Row's first child lands on the
+    // reading-start edge — the rail sits on the right in Persian and on the
+    // left in English without any manual mirroring.
+    Row(modifier = Modifier.fillMaxSize()) {
+        // On every screen, not just the three tabs: a desktop has the room,
+        // and an owner deep in, say, the SMS report can still jump anywhere
+        // in one click. It highlights whichever of its own rows is on screen.
+        // fillMaxHeight: without it the sidebar only took the height its
+        // content needed and sat jammed into the top corner.
+        Box(modifier = Modifier.fillMaxHeight()) {
+            AppSidebar(
+                tabs = tabs,
+                isOnScreen = isOnScreen,
+                onTabSelected = onTabSelected,
+                onNavigateToAdvancedSettings = { businessId ->
+                    navController.navigate(AppScreens.AdvancedSettings(businessId = businessId))
+                },
+                onNavigateToEmergencyNotice = { navController.navigate(AppScreens.EmergencyNotice) },
+                onNavigateToMessages = { navController.navigate(AppScreens.Messages) },
+                onNavigateToSmsReport = { navController.navigate(AppScreens.SmsReport) },
+                onNavigateToNotifications = { navController.navigate(AppScreens.Notifications) },
+                onNavigateToLogin = onNavigateToLogin,
+                onNavigate = { screen -> navController.navigate(screen) { launchSingleTop = true } }
+            )
+        }
+        // Capped here rather than per-screen so every destination in the
+        // graph is covered, not just the handful that were wrapped
+        // individually — a screen added later inherits this for free.
+        AppScaffold(
+            modifier = Modifier.weight(1f),
+            maxWidth = ContentWidth.Wide
+        ) {
+            MainNavGraph(
+                navController = navController,
+                hazeState = hazeState,
+                onChangeBusiness = onChangeBusiness,
+                onNavigateToLogin = onNavigateToLogin,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+    }
+    }
+}
+
+/**
+ * The tab graph itself, factored out of [MainNavHost] so the Compact
+ * (bottom bar) and Medium/Expanded (rail) branches can share it verbatim
+ * instead of duplicating ~300 lines of `composable<>` destinations.
+ */
+@Composable
+private fun MainNavGraph(
+    navController: NavHostController,
+    hazeState: HazeState,
+    onChangeBusiness: () -> Unit,
+    onNavigateToLogin: () -> Unit,
+    modifier: Modifier = Modifier
+) {
         NavHost(
             navController = navController,
             startDestination = AppScreens.Home,
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = modifier
                 .hazeSource(hazeState)
         ) {
             composable<AppScreens.Home> {
@@ -289,8 +397,25 @@ fun MainNavHost(
                     onNavigateToEmergencyNotice = {
                         navController.navigate(AppScreens.EmergencyNotice)
                     },
+                    onNavigateToTheme = {
+                        navController.navigate(AppScreens.Theme)
+                    },
+                    onNavigateToPromoCampaign = {
+                        navController.navigate(AppScreens.PromoCampaign)
+                    },
                     onNavigateToLogin = onNavigateToLogin
                 )
+            }
+
+            composable<AppScreens.PromoCampaign> {
+                PromoCampaignScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAddons = { navController.navigate(AppScreens.AddOns) }
+                )
+            }
+
+            composable<AppScreens.Theme> {
+                ThemeScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable<AppScreens.CreateBusiness> { backStackEntry ->
@@ -313,12 +438,15 @@ fun MainNavHost(
                 val args = backStackEntry.toRoute<AppScreens.AdvancedSettings>()
                 AdvancedSettingsRoute(
                     businessId = args.businessId,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenPromoCampaign = { navController.navigate(AppScreens.PromoCampaign) },
+                    onOpenReminders = { navController.navigate(AppScreens.Messages) }
                 )
             }
 
             composable<AppScreens.Notifications> {
                 NotificationsScreen(
+                    onNavigateToMessages = { navController.navigate(AppScreens.Messages) },
                     onNavigateBack = {
                         navController.popBackStack()
                     },
@@ -331,7 +459,8 @@ fun MainNavHost(
             composable<AppScreens.Messages> {
                 MessagesScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToAddons = { navController.navigate(AppScreens.AddOns) }
+                    onNavigateToAddons = { navController.navigate(AppScreens.AddOns) },
+                    onNavigateToSmsReport = { navController.navigate(AppScreens.SmsReport) }
                 )
             }
 
@@ -493,6 +622,4 @@ fun MainNavHost(
                 )
             }
         }
-    }
-    }
 }

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -81,7 +82,7 @@ fun HomeHero(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "امروز، $formattedDate",
+                        text = Str.today(formattedDate),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
@@ -106,7 +107,7 @@ fun HomeHero(
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    text = "$todayAppointmentsCount نوبت",
+                                    text = Str.appointments(todayAppointmentsCount),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
@@ -218,7 +219,7 @@ private fun CalendarActionCard(
                 modifier = Modifier.size(22.dp),
             )
             Text(
-                text = "تقویم و رزرو نوبت",
+                text = Str.calendar_booking,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -263,7 +264,7 @@ private fun ShareActionCard(
                 modifier = Modifier.size(22.dp),
             )
             Text(
-                text = "اشتراک لینک نوبت",
+                text = Str.share_booking_link,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,

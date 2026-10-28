@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.lastVisitors
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.domain.model.CustomerOrdering
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -13,6 +15,7 @@ import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.domain.AppointmentRepository
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentOrdering
 import xyz.sattar.javid.proqueue.domain.usecase.GenerateReminderMessageUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.GetRangeReportUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.MarkAppointmentCompletedUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.MarkAppointmentNoShowUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.RemoveAppointmentUseCase
@@ -27,9 +30,10 @@ class LastVisitorsViewModel(
     private val sendMessageUseCase: SendMessageUseCase,
     private val generateReminderMessageUseCase: GenerateReminderMessageUseCase,
     private val syncAppointmentsUseCase: SyncAppointmentsUseCase,
+    private val getRangeReportUseCase: GetRangeReportUseCase,
     private val appointmentRepository: AppointmentRepository
 ) : BaseViewModel<LastVisitorsState, LastVisitorsState.PartialState, LastVisitorsEvent, LastVisitorsIntent>(
-    initialState = LastVisitorsState()
+    initialState = LastVisitorsState(filter = AppointmentFilter().withResolvedDates())
 ) {
 
     init {
@@ -42,7 +46,14 @@ class LastVisitorsViewModel(
 
     override fun handleIntent(intent: LastVisitorsIntent): Flow<LastVisitorsState.PartialState> {
         return when (intent) {
-            LastVisitorsIntent.LoadAppointments -> loadAppointments()
+            LastVisitorsIntent.LoadAppointments -> flow {
+                emitAll(loadAppointments())
+                // The refresh button and a business switch reload whatever
+                // is on screen, report included.
+                if (uiState.value.selectedTab == RANGE_REPORT_TAB) {
+                    emitAll(loadReportIfStale(uiState.value.filter, force = true))
+                }
+            }
             is LastVisitorsIntent.OnAppointmentOptionsClick -> flow {
                 emit(LastVisitorsState.PartialState.ShowOptionsDialog(intent.appointmentId))
             }
@@ -59,23 +70,28 @@ class LastVisitorsViewModel(
             }
             is LastVisitorsIntent.OnTabSelected -> flow {
                 emit(LastVisitorsState.PartialState.TabSelected(intent.index))
+                // The report is a server round trip, so it is fetched when its
+                // tab is opened and only if the shared window moved since the
+                // last fetch — not on every switch back to it.
+                if (intent.index == RANGE_REPORT_TAB) {
+                    emitAll(loadReportIfStale(uiState.value.filter))
+                }
             }
             is LastVisitorsIntent.OnAppointmentClick -> {
                 sendEvent(LastVisitorsEvent.NavigateToVisitorDetails(intent.visitorId))
             }
-            is LastVisitorsIntent.OnFilterChanged -> flow {
-                emit(LastVisitorsState.PartialState.UpdateFilter(intent.filter))
-                emit(LastVisitorsState.PartialState.ShowFilterSheet(false))
-                emitAll(loadAppointments(intent.filter))
-            }
+            is LastVisitorsIntent.OnFilterChanged -> applyFilter(intent.filter)
+            is LastVisitorsIntent.OnDateRangeChanged -> applyFilter(
+                uiState.value.filter.copy(date = null, dateFrom = intent.from, dateTo = intent.to)
+            )
             is LastVisitorsIntent.ShowFilterSheet -> flow {
                 emit(LastVisitorsState.PartialState.ShowFilterSheet(intent.show))
             }
-            LastVisitorsIntent.ClearFilter -> flow {
-                val defaultFilter = AppointmentFilter()
-                emit(LastVisitorsState.PartialState.UpdateFilter(defaultFilter))
-                emitAll(loadAppointments(defaultFilter))
-            }
+            // Clears what the filter sheet sets — status and ordering. The
+            // date window belongs to the date bar and stays where it is.
+            LastVisitorsIntent.ClearFilter -> applyFilter(
+                uiState.value.filter.copy(status = null, ordering = AppointmentFilter().ordering)
+            )
             is LastVisitorsIntent.OnSendMessage -> flow {
                 try {
                     val success = sendMessageUseCase(
@@ -88,14 +104,133 @@ class LastVisitorsViewModel(
                     // reminder either failed loudly or succeeded completely
                     // silently, with nothing to tell them it actually went out.
                     emit(
-                        if (success) LastVisitorsState.PartialState.ShowMessage(UiMessage.success("پیام ارسال شد"))
-                        else LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در ثبت پیام"))
+                        if (success) LastVisitorsState.PartialState.ShowMessage(UiMessage.success(Str.message_sent))
+                        else LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_save_message))
                     )
                 } catch (e: Exception) {
-                    emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در ثبت پیام")))
+                    emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_save_message)))
                 }
             }
             LastVisitorsIntent.ClearMessage -> flow { emit(LastVisitorsState.PartialState.ClearMessage) }
+            LastVisitorsIntent.LoadMoreRangeCustomers -> loadMoreRangeCustomers()
+            is LastVisitorsIntent.OnCustomerOrderingChanged -> flow {
+                if (intent.ordering == uiState.value.customerOrdering) return@flow
+                emit(LastVisitorsState.PartialState.CustomerOrderingChanged(intent.ordering))
+                // Same window, new order: the pages already loaded are in the
+                // old order, so start again from page one. The new order is
+                // passed in rather than read back from uiState, which hasn't
+                // necessarily been reduced yet at this point.
+                emitAll(loadReportIfStale(uiState.value.filter, force = true, ordering = intent.ordering))
+            }
+        }
+    }
+
+    /**
+     * Keeps the requested window inside the server's one-month cap by pulling
+     * the *start* forward, so the recent end — the part the owner is looking
+     * at — is what survives. Matches the server's own clamp direction
+     * (backend/appointment/views/range_visitors_view.py), so a range that
+     * passes here is never narrowed again on arrival.
+     */
+    private fun clampRange(from: Long, to: Long): Pair<Long, Long> {
+        val end = maxOf(from, to)
+        val start = minOf(from, to)
+        val earliest = end - GetRangeReportUseCase.MAX_RANGE_MILLIS
+        return maxOf(start, earliest) to end
+    }
+
+    /**
+     * One filter change, applied to every tab: the lists reload, and the
+     * report too if it is the tab on screen (otherwise it catches up when
+     * opened — see [loadReportIfStale]).
+     */
+    private fun applyFilter(filter: AppointmentFilter): Flow<LastVisitorsState.PartialState> = flow {
+        val resolved = filter.withResolvedDates()
+        emit(LastVisitorsState.PartialState.UpdateFilter(resolved))
+        emit(LastVisitorsState.PartialState.ShowFilterSheet(false))
+        emitAll(loadAppointments(resolved))
+        if (uiState.value.selectedTab == RANGE_REPORT_TAB) {
+            emitAll(loadReportIfStale(resolved))
+        }
+    }
+
+    /**
+     * The report window for the shared filter: the same days, expressed the
+     * way the report endpoint takes them (start of first day, start of last
+     * day), then clamped to the report's cap.
+     */
+    private fun reportWindow(filter: AppointmentFilter): Pair<Long, Long> {
+        val f = filter.withResolvedDates()
+        val from = f.dateFrom!!
+        val lastDayStart = from + ((f.dateTo!! - from) / GetRangeReportUseCase.DAY_MILLIS) *
+            GetRangeReportUseCase.DAY_MILLIS
+        return clampRange(from, lastDayStart)
+    }
+
+    private fun loadReportIfStale(
+        filter: AppointmentFilter,
+        force: Boolean = false,
+        ordering: CustomerOrdering = uiState.value.customerOrdering
+    ): Flow<LastVisitorsState.PartialState> = flow {
+        val window = reportWindow(filter)
+        val state = uiState.value
+        val stale = state.rangeReport == null || state.rangeFailed ||
+            window != (state.rangeFrom to state.rangeTo)
+        if (!force && !stale) return@flow
+        emit(LastVisitorsState.PartialState.RangeSelected(window.first, window.second))
+        emitAll(loadRangeReport(window.first, window.second, ordering))
+    }
+
+    private fun loadRangeReport(
+        from: Long,
+        to: Long,
+        ordering: CustomerOrdering
+    ): Flow<LastVisitorsState.PartialState> = flow {
+        emit(LastVisitorsState.PartialState.RangeLoading(true))
+        val business = BusinessStateHolder.selectedBusiness.value
+        if (business == null) {
+            emit(LastVisitorsState.PartialState.RangeLoading(false))
+            return@flow
+        }
+        try {
+            val report = getRangeReportUseCase(
+                businessId = business.id,
+                dateFrom = from,
+                dateTo = to,
+                ordering = ordering
+            )
+            if (report == null) {
+                emit(LastVisitorsState.PartialState.RangeFailed)
+                return@flow
+            }
+            emit(LastVisitorsState.PartialState.RangeLoaded(report))
+        } catch (e: Exception) {
+            emit(LastVisitorsState.PartialState.RangeFailed)
+        }
+    }
+
+    private fun loadMoreRangeCustomers(): Flow<LastVisitorsState.PartialState> = flow {
+        val state = uiState.value
+        val current = state.rangeReport ?: return@flow
+        if (!current.hasMoreCustomers || state.rangeLoading) return@flow
+        val business = BusinessStateHolder.selectedBusiness.value ?: return@flow
+
+        emit(LastVisitorsState.PartialState.RangeLoading(true))
+        try {
+            val next = getRangeReportUseCase(
+                businessId = business.id,
+                dateFrom = current.dateFrom,
+                dateTo = current.dateTo,
+                ordering = uiState.value.customerOrdering,
+                page = current.currentPage + 1
+            )
+            if (next == null) {
+                emit(LastVisitorsState.PartialState.RangeLoading(false))
+                return@flow
+            }
+            emit(LastVisitorsState.PartialState.RangeCustomersAppended(next))
+        } catch (e: Exception) {
+            emit(LastVisitorsState.PartialState.RangeLoading(false))
         }
     }
 
@@ -127,6 +262,33 @@ class LastVisitorsViewModel(
                 currentState.copy(showFilterSheet = partialState.show)
             LastVisitorsState.PartialState.ClearMessage ->
                 currentState.copy(message = null)
+            is LastVisitorsState.PartialState.RangeSelected ->
+                currentState.copy(rangeFrom = partialState.from, rangeTo = partialState.to)
+            is LastVisitorsState.PartialState.RangeLoading ->
+                currentState.copy(rangeLoading = partialState.isLoading)
+            is LastVisitorsState.PartialState.RangeLoaded ->
+                // rangeFrom/rangeTo stay as requested, not snapped to what the
+                // server measured: they are the staleness key for
+                // loadReportIfStale, and the shared date bar — not the report —
+                // owns the dates on screen. A clamp is surfaced by the note
+                // RangeReportSection shows off report.clamped.
+                currentState.copy(
+                    rangeReport = partialState.report,
+                    rangeLoading = false,
+                    rangeFailed = false
+                )
+            LastVisitorsState.PartialState.RangeFailed ->
+                currentState.copy(rangeLoading = false, rangeFailed = true)
+            is LastVisitorsState.PartialState.RangeCustomersAppended ->
+                currentState.copy(
+                    rangeReport = partialState.report.copy(
+                        customers = (currentState.rangeReport?.customers ?: emptyList()) +
+                            partialState.report.customers
+                    ),
+                    rangeLoading = false
+                )
+            is LastVisitorsState.PartialState.CustomerOrderingChanged ->
+                currentState.copy(customerOrdering = partialState.ordering)
         }
     }
 
@@ -159,26 +321,18 @@ class LastVisitorsViewModel(
         try {
             val business = BusinessStateHolder.selectedBusiness.value
             if (business != null) {
-                // این تب باید فقط ۷ روز آینده را نشان دهد. وقتی فیلتر کاربر نه
-                // یک روز خاص (filter.date) و نه بازه‌ی تاریخ صریحی (مثلاً از
-                // نمودار روند) مشخص کرده، پیش‌فرض را به [امروز, امروز+۷روز]
-                // محدود می‌کنیم — قبلاً بدون این پیش‌فرض همه‌ی نوبت‌های
-                // گذشته/آینده بارگذاری می‌شدند.
-                val effectiveDateFrom: Long?
-                val effectiveDateTo: Long?
-                if (filter.date != null) {
-                    effectiveDateFrom = filter.dateFrom
-                    effectiveDateTo = filter.dateTo
-                } else {
-                    effectiveDateFrom = filter.dateFrom ?: DateTimeUtils.startOfTodayMillis()
-                    effectiveDateTo = filter.dateTo ?: (DateTimeUtils.startOfTodayMillis() + 7L * 24 * 60 * 60 * 1000L)
-                }
+                // The window comes from the shared date bar; withResolvedDates
+                // is a no-op for any filter that went through applyFilter, and
+                // fills in the default (next 7 days) for any that didn't.
+                val resolved = filter.withResolvedDates()
+                val effectiveDateFrom = resolved.dateFrom
+                val effectiveDateTo = resolved.dateTo
 
                 // Sync with server using filters
                 syncAppointmentsUseCase(
                     businessId = business.id,
                     status = filter.status,
-                    date = filter.date,
+                    date = null,
                     dateFrom = effectiveDateFrom,
                     dateTo = effectiveDateTo,
                     ordering = filter.ordering
@@ -192,7 +346,6 @@ class LastVisitorsViewModel(
 
                 val filtered = appointments.filter { app ->
                     (filter.status == null || app.appointment.status == filter.status) &&
-                    (filter.date == null || DateTimeUtils.isSameDay(app.appointment.appointmentDate, filter.date)) &&
                     (effectiveDateFrom == null || app.appointment.appointmentDate >= effectiveDateFrom) &&
                     (effectiveDateTo == null || app.appointment.appointmentDate <= effectiveDateTo)
                 }
@@ -211,10 +364,10 @@ class LastVisitorsViewModel(
                     )
                 )
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("لطفاً ابتدا یک کسب‌وکار انتخاب کنید")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.warning(Str.select_business_error)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در بارگذاری نوبت‌ها")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_load_appointments)))
         } finally {
             emit(LastVisitorsState.PartialState.IsLoading(false))
         }
@@ -225,13 +378,13 @@ class LastVisitorsViewModel(
             val success = removeAppointmentUseCase(appointmentId)
             if (success) {
                 emit(LastVisitorsState.PartialState.ShowOptionsDialog(null))
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success("نوبت حذف شد")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success(Str.appointment_deleted)))
                 emitAll(loadAppointments())
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در حذف نوبت")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_delete_appointment)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در حذف نوبت")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_delete_appointment)))
         }
     }
 
@@ -239,13 +392,13 @@ class LastVisitorsViewModel(
         try {
             val success = markAppointmentCompletedUseCase(appointmentId)
             if (success) {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success("نوبت تکمیل شد")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success(Str.appointment_completed)))
                 emitAll(loadAppointments())
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در تکمیل نوبت")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_complete_appointment)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در تکمیل نوبت")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_complete_appointment)))
         }
     }
 
@@ -253,13 +406,13 @@ class LastVisitorsViewModel(
         try {
             val success = markAppointmentNoShowUseCase(appointmentId)
             if (success) {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success("عدم حضور ثبت شد")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success(Str.no_show_recorded)))
                 emitAll(loadAppointments())
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در ثبت عدم مراجعه")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_record_no_show)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در ثبت عدم مراجعه")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_record_no_show)))
         }
     }
 
@@ -267,14 +420,36 @@ class LastVisitorsViewModel(
         try {
             val success = appointmentRepository.updateAppointmentStatus(appointmentId, status)
             if (success) {
-                val confirmation = if (status == "CANCELLED") "درخواست رد شد" else "درخواست تأیید شد"
+                val confirmation = if (status == "CANCELLED") Str.request_rejected else Str.request_approved
                 emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.success(confirmation)))
                 emitAll(loadAppointments())
             } else {
-                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error("خطا در تغییر وضعیت نوبت")))
+                emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(Str.couldnt_change_appointment_status)))
             }
         } catch (e: Exception) {
-            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در تغییر وضعیت نوبت")))
+            emit(LastVisitorsState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_change_appointment_status)))
+        }
+    }
+}
+
+/**
+ * Fills in whichever end of the date window is missing, so every filter the
+ * screen holds names both days. A single [AppointmentFilter.date] becomes that
+ * whole day; no dates at all becomes the default window, the next seven days —
+ * what an owner opening the screen cold is looking for.
+ */
+internal fun AppointmentFilter.withResolvedDates(): AppointmentFilter {
+    date?.let { day ->
+        val start = DateTimeUtils.startOfDayMillis(day)
+        return copy(date = null, dateFrom = start, dateTo = DateRanges.endOfDay(start))
+    }
+    return when {
+        dateFrom != null && dateTo != null -> this
+        dateFrom != null -> copy(dateTo = DateRanges.endOfDay(DateTimeUtils.startOfDayMillis(dateFrom)))
+        dateTo != null -> copy(dateFrom = DateTimeUtils.startOfDayMillis(dateTo))
+        else -> {
+            val (from, to) = DateRanges.nextWeek()
+            copy(dateFrom = from, dateTo = to)
         }
     }
 }

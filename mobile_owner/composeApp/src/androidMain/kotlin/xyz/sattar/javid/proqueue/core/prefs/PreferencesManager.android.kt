@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import xyz.sattar.javid.proqueue.ProQueueApp
 import androidx.core.content.edit
 
+import xyz.sattar.javid.proqueue.core.i18n.AppLanguage
 import xyz.sattar.javid.proqueue.core.state.AppThemeMode
 import xyz.sattar.javid.proqueue.domain.model.business.DEFAULT_REMINDER_MINUTES
 
@@ -21,6 +22,8 @@ actual object PreferencesManager {
     private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
     private const val KEY_NOTIFICATION_REMINDER_MINUTES = "notification_reminder_minutes"
     private const val KEY_MESSAGE_TEMPLATE_PREFIX = "message_template_" // suffix: businessId
+    private const val KEY_ONBOARDING_SEEN = "onboarding_seen"
+    private const val KEY_LANGUAGE = "app_language"
 
     private val _themeMode = MutableStateFlow(
         AppThemeMode.values()[prefs.getInt(KEY_THEME_MODE, 0).coerceIn(0, 2)]
@@ -89,5 +92,17 @@ actual object PreferencesManager {
 
     actual fun getNotificationReminderMinutes(): Int {
         return prefs.getInt(KEY_NOTIFICATION_REMINDER_MINUTES, DEFAULT_REMINDER_MINUTES)
+    }
+
+    actual fun hasSeenOnboarding(): Boolean = prefs.getBoolean(KEY_ONBOARDING_SEEN, false)
+
+    actual suspend fun setOnboardingSeen() {
+        prefs.edit(commit = true) { putBoolean(KEY_ONBOARDING_SEEN, true) }
+    }
+
+    actual fun getLanguage(): AppLanguage = AppLanguage.fromCode(prefs.getString(KEY_LANGUAGE, null))
+
+    actual suspend fun setLanguage(language: AppLanguage) {
+        prefs.edit(commit = true) { putString(KEY_LANGUAGE, language.code) }
     }
 }

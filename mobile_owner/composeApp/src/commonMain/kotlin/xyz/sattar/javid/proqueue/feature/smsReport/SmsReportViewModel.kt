@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.smsReport
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -135,7 +136,7 @@ class SmsReportViewModel(
         val current = uiState.value
         val businessId = BusinessStateHolder.selectedBusiness.value?.id
         if (businessId == null) {
-            emit(SmsReportState.PartialState.ShowError("کسب‌وکار انتخاب نشده"))
+            emit(SmsReportState.PartialState.ShowError(Str.no_business_selected))
             return@flow
         }
         if (!reset && (!current.canLoadMore || current.isPaginating || current.isLoading)) return@flow
@@ -168,7 +169,7 @@ class SmsReportViewModel(
                 is ApiResponse.Error -> emit(failure(reset, response.message))
             }
         } catch (e: Exception) {
-            emit(failure(reset, e.message ?: "خطا در دریافت گزارش پیامک‌ها"))
+            emit(failure(reset, e.message ?: Str.couldnt_load_sms_report))
         }
     }
 
@@ -180,7 +181,7 @@ class SmsReportViewModel(
         val current = uiState.value
         val businessId = BusinessStateHolder.selectedBusiness.value?.id
         if (businessId == null) {
-            emit(SmsReportState.PartialState.ShowError("کسب‌وکار انتخاب نشده"))
+            emit(SmsReportState.PartialState.ShowError(Str.no_business_selected))
             return@flow
         }
         if (!reset && (!current.pushCanLoadMore || current.isPaginating || current.isLoading)) return@flow
@@ -213,7 +214,7 @@ class SmsReportViewModel(
                 is ApiResponse.Error -> emit(failure(reset, response.message))
             }
         } catch (e: Exception) {
-            emit(failure(reset, e.message ?: "خطا در دریافت گزارش اعلان‌ها"))
+            emit(failure(reset, e.message ?: Str.couldnt_load_notification_report))
         }
     }
 

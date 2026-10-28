@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,27 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.approve_action
-import proqueue.composeapp.generated.resources.click_to_view_full
-import proqueue.composeapp.generated.resources.complete_action
-import proqueue.composeapp.generated.resources.contact_options
-import proqueue.composeapp.generated.resources.delete_appointment
-import proqueue.composeapp.generated.resources.no_show_action
-import proqueue.composeapp.generated.resources.payment_receipt
-import proqueue.composeapp.generated.resources.phone_call
-import proqueue.composeapp.generated.resources.reject_action
-import proqueue.composeapp.generated.resources.sms
-import proqueue.composeapp.generated.resources.telegram
-import proqueue.composeapp.generated.resources.to_label
-import proqueue.composeapp.generated.resources.verify_receipt
 import proqueue.composeapp.generated.resources.whatsapp
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
@@ -86,7 +71,6 @@ fun QueueItemCard(
     val isDark = !MaterialTheme.colorScheme.surface.let { color ->
         (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) > 0.5
     }
-    val uriHandler = LocalUriHandler.current
     val isPending = item.appointment.status == "PENDING_APPROVAL" || item.appointment.status == "PENDING_VERIFICATION"
     var showReminderCard by remember { mutableStateOf(false) }
     val isPendingVerification = item.appointment.status == "PENDING_VERIFICATION"
@@ -110,7 +94,8 @@ fun QueueItemCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onItemClick() },
+        onClick = onItemClick,
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
@@ -120,125 +105,44 @@ fun QueueItemCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            val dateText = DateTimeUtils.formatDateTime(item.estimatedStartTime)
+        // Three bands, each on its own line so nothing competes for width:
+        // who (name + ⋮ menu), when (time and how long until it), and — last,
+        // full width — the one thing to do with this booking. Squeezing the
+        // action button onto the name's line left the name, the menu and the
+        // button fighting over one row.
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             val startTimeOnly = DateTimeUtils.formatTime(item.estimatedStartTime)
             val endTimeOnly = DateTimeUtils.formatTime(item.estimatedEndTime)
+            val todayStart = DateTimeUtils.startOfTodayMillis()
+            val isToday = item.estimatedStartTime in todayStart until todayStart + 24L * 60 * 60 * 1000
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = item.visitorName,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = dateText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = item.visitorPhone,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "$endTimeOnly ${stringResource(Res.string.to_label)} $startTimeOnly",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val badgeBgColor = when {
-                    item.overdue -> if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE)
-                    else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.4f else 0.7f)
-                }
-                val badgeContentColor = when {
-                    item.overdue -> if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828)
-                    else -> MaterialTheme.colorScheme.onSecondaryContainer
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = badgeBgColor
-                ) {
-                    Text(
-                        text = item.waitingText,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = badgeContentColor
-                    )
-                }
-            }
-            // Payment receipt preview — shown inline so the owner can review the
-            // uploaded slip and approve the appointment directly from the card.
-            item.appointment.paymentReceipt?.let { receipt ->
-                val receiptUrl = if (receipt.startsWith("http")) receipt
-                else "${xyz.sattar.javid.proqueue.core.utils.AppConfig.baseUrl}$receipt"
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(Res.string.payment_receipt),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                AsyncImage(
-                    model = receiptUrl,
-                    contentDescription = stringResource(Res.string.payment_receipt),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { uriHandler.openUri(receiptUrl) },
-                    contentScale = ContentScale.Crop
-                )
-                Text(
-                    text = stringResource(Res.string.click_to_view_full),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Footer: a single primary action, everything else tucked into one menu.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
                 var showMenu by remember { mutableStateOf(false) }
                 Box {
-                    IconButton(onClick = { showMenu = true }) {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = stringResource(Res.string.contact_options),
+                            contentDescription = Str.contact_options,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         // --- Contact the visitor ---
                         DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.sms)) },
+                            text = { Text(Str.sms) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, contentDescription = null) },
                             onClick = {
                                 showMenu = false
@@ -246,7 +150,7 @@ fun QueueItemCard(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.whatsapp)) },
+                            text = { Text(Str.whatsapp) },
                             leadingIcon = { Icon(painterResource(Res.drawable.whatsapp), contentDescription = null) },
                             onClick = {
                                 showMenu = false
@@ -254,7 +158,7 @@ fun QueueItemCard(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.telegram)) },
+                            text = { Text(Str.telegram) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null) },
                             onClick = {
                                 showMenu = false
@@ -262,8 +166,15 @@ fun QueueItemCard(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(Res.string.phone_call)) },
+                            text = { Text(Str.phone_call) },
                             leadingIcon = { Icon(Icons.Rounded.Call, contentDescription = null) },
+                            trailingIcon = {
+                                Text(
+                                    text = item.visitorPhone,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
                             onClick = {
                                 showMenu = false
                                 openPhoneDial(item.visitorPhone)
@@ -274,7 +185,7 @@ fun QueueItemCard(
                         // for why that is worth a separate entry rather than
                         // an option inside one of them.
                         DropdownMenuItem(
-                            text = { Text("کارت یادآوری") },
+                            text = { Text(Str.reminder_card) },
                             leadingIcon = { Icon(Icons.Rounded.Image, contentDescription = null) },
                             onClick = {
                                 showMenu = false
@@ -282,14 +193,11 @@ fun QueueItemCard(
                             }
                         )
 
-                        // Payment receipt is now shown inline on the card (above),
-                        // so it no longer needs a menu entry here.
-
                         // --- Destructive / secondary status actions ---
                         HorizontalDivider()
                         if (isPending) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.reject_action), color = MaterialTheme.colorScheme.error) },
+                                text = { Text(Str.reject_action, color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = { Icon(Icons.Rounded.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showMenu = false
@@ -298,7 +206,7 @@ fun QueueItemCard(
                             )
                         } else {
                             DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.no_show_action), color = MaterialTheme.colorScheme.error) },
+                                text = { Text(Str.no_show_action, color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = { Icon(Icons.Rounded.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showMenu = false
@@ -306,7 +214,7 @@ fun QueueItemCard(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.delete_appointment), color = MaterialTheme.colorScheme.error) },
+                                text = { Text(Str.delete_appointment, color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showMenu = false
@@ -317,28 +225,87 @@ fun QueueItemCard(
                     }
                 }
 
-                // Primary action — the one thing an owner does most on a queue row.
-                FilledTonalButton(
-                    onClick = onComplete,
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "$endTimeOnly ${Str.to_label} $startTimeOnly",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
+                if (!isToday) {
                     Text(
-                        text = when {
-                            isPendingVerification -> stringResource(Res.string.verify_receipt)
-                            isPending -> stringResource(Res.string.approve_action)
-                            else -> stringResource(Res.string.complete_action)
-                        },
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
+                        text = DateTimeUtils.getJalaliDate(item.estimatedStartTime),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                val badgeBgColor = when {
+                    item.overdue -> if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE)
+                    else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.4f else 0.7f)
+                }
+                val badgeContentColor = when {
+                    item.overdue -> if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828)
+                    else -> MaterialTheme.colorScheme.onSecondaryContainer
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = badgeBgColor
+                ) {
+                    Text(
+                        text = item.waitingText,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = badgeContentColor,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            // Folded to one line; see CollapsibleReceipt.
+            item.appointment.paymentReceipt?.let { receipt ->
+                Spacer(modifier = Modifier.height(12.dp))
+                CollapsibleReceipt(receipt = receipt)
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Primary action — the one thing an owner does most on a queue
+            // row — on its own line, full width, where the thumb lands.
+            FilledTonalButton(
+                onClick = onComplete,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(42.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = when {
+                        isPendingVerification -> Str.verify_receipt
+                        isPending -> Str.approve_action
+                        else -> Str.complete_action
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
             }
         }
     }

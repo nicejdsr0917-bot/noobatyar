@@ -40,11 +40,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     # word "Phone:" sits in the middle of an otherwise fully Persian RTL panel.
     phone = models.CharField(max_length=11, unique=True, db_index=True, verbose_name='شماره موبایل')
     name = models.CharField(max_length=100, verbose_name='نام')
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='CLIENT')
-    is_employee = models.BooleanField(default=False)
-    is_staff = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
-    joined_at = models.DateTimeField(auto_now_add=True)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='CLIENT', verbose_name='نقش')
+    is_employee = models.BooleanField(default=False, verbose_name='کارمند')
+    is_staff = models.BooleanField(default=False, verbose_name='کارمند پنل')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
+    joined_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ عضویت')
+    # Stamped by the forgot-password reset; enforces "one change per
+    # PASSWORD_CHANGE_COOLDOWN_HOURS" (api/views.py). A DB column rather than
+    # a cache key: the limit has to survive a Redis flush or restart.
+    password_changed_at = models.DateTimeField(null=True, blank=True, verbose_name='آخرین تغییر رمز')
 
     USERNAME_FIELD = 'phone'
     REQUIRED_FIELDS = ['name']
@@ -86,28 +90,32 @@ class DeviceToken(models.Model):
         'api.User',
         on_delete=models.CASCADE,
         related_name='device_tokens',
-        help_text="Owner of this device"
+        help_text='مالک این دستگاه',
+        verbose_name='کاربر',
     )
     token = models.CharField(
         max_length=255,
         unique=True,
         db_index=True,
-        help_text="FCM registration token"
+        help_text='توکن ثبت FCM',
+        verbose_name='توکن',
     )
     platform = models.CharField(
         max_length=10,
         choices=PLATFORM_CHOICES,
         default='ANDROID',
+        verbose_name='پلتفرم',
     )
-    device_name = models.CharField(max_length=100, blank=True, default='')
-    app_version = models.CharField(max_length=30, blank=True, default='')
+    device_name = models.CharField(max_length=100, blank=True, default='', verbose_name='نام دستگاه')
+    app_version = models.CharField(max_length=30, blank=True, default='', verbose_name='نسخه‌ی اپ')
     is_active = models.BooleanField(
         default=True,
         db_index=True,
-        help_text="False once FCM reported the token as unregistered"
+        help_text='وقتی FCM توکن را نامعتبر اعلام کند، غیرفعال می‌شود',
+        verbose_name='فعال',
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:
         verbose_name = 'توکن دستگاه'

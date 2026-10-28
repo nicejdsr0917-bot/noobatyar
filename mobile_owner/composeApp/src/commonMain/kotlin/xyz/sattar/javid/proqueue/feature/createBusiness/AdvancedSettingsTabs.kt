@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,6 +10,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.EventSeat
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Storefront
@@ -31,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.coming_soon_badge
 import proqueue.composeapp.generated.resources.coming_soon_hint
@@ -76,26 +81,21 @@ fun AdvancedSettingsTabs(
     onMerchantId: (String) -> Unit,
     paymentLink: String,
     onPaymentLink: (String) -> Unit,
+    onOpenPromoCampaign: () -> Unit,
+    onOpenReminders: () -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     // "روزهای تعطیل" moved to the business create/edit form, next to work
     // hours — it is basic scheduling info, not a paid/advanced capability, and
     // living here made it easy to miss when setting up a new business.
-    val tabs = listOf("پرداخت", "ظرفیت و بیعانه", "یادآوری")
+    val tabs = listOf(
+        Icons.Rounded.Payments to Str.payment,
+        Icons.Rounded.EventSeat to Str.capacity_deposit,
+        Icons.Rounded.Campaign to Str.sms_promotion,
+    )
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = androidx.compose.ui.graphics.Color.Transparent
-        ) {
-            tabs.forEachIndexed { index, label ->
-                Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
-                    text = { Text(label, style = MaterialTheme.typography.labelLarge) }
-                )
-            }
-        }
+        SegmentedTabs(tabs = tabs, selected = selectedTab, onSelect = { selectedTab = it })
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -128,7 +128,13 @@ fun AdvancedSettingsTabs(
                 depositAmount = depositAmount,
                 onDepositAmount = onDepositAmount
             )
-            2 -> RemindersTab(entitlements = entitlements, plans = plans, onUpgrade = onUpgrade)
+            2 -> MessagingTab(
+                entitlements = entitlements,
+                plans = plans,
+                onUpgrade = onUpgrade,
+                onOpenPromoCampaign = onOpenPromoCampaign,
+                onOpenReminders = onOpenReminders
+            )
         }
     }
 }
@@ -163,7 +169,7 @@ private fun PaymentTab(
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            "روش‌های دریافت وجه را انتخاب کنید.",
+            Str.choose_how_you_get_paid,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -171,8 +177,8 @@ private fun PaymentTab(
         // پرداخت در محل — رایگان در همه‌ی پلن‌ها
         PaymentMethodCard(
             icon = Icons.Rounded.Storefront,
-            title = "پرداخت در محل",
-            description = "مشتری هنگام مراجعه، وجه را حضوری پرداخت می‌کند.",
+            title = Str.pay_on_site,
+            description = Str.customer_pays_in_person_when,
             checked = acceptedPaymentMethods.contains("CASH"),
             onCheckedChange = { toggle("CASH", it) },
             enabled = !isLoading,
@@ -183,14 +189,14 @@ private fun PaymentTab(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.DEPOSIT,
-            title = "کارت به کارت",
-            description = "دریافت مبلغ نوبت با انتقال کارت‌به‌کارت.",
+            title = Str.deposit_method_card,
+            description = Str.receive_appointment_fee_by_card,
             onUpgrade = onUpgrade
         ) {
             PaymentMethodCard(
                 icon = Icons.Rounded.CreditCard,
-                title = "کارت به کارت",
-                description = "مشتری مبلغ را به کارت شما واریز و فیش را ارسال می‌کند.",
+                title = Str.deposit_method_card,
+                description = Str.customer_transfers_amount_to_your,
                 checked = acceptedPaymentMethods.contains("CARD"),
                 onCheckedChange = { toggle("CARD", it) },
                 enabled = !isLoading,
@@ -207,7 +213,7 @@ private fun PaymentTab(
                     enabled = !isLoading,
                     value = cardNumber,
                     onValueChange = onCardNumber,
-                    label = "شماره کارت (۱۶ رقم)",
+                    label = Str.card_number_16_digits,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Number,
                     maxLength = 16,
@@ -228,7 +234,7 @@ private fun PaymentTab(
                     enabled = !isLoading,
                     value = cardOwnerName,
                     onValueChange = onCardOwnerName,
-                    label = "نام صاحب کارت",
+                    label = Str.cardholder_name,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Text
                 )
@@ -240,14 +246,14 @@ private fun PaymentTab(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.ONLINE_GATEWAY,
-            title = "درگاه پرداخت آنلاین",
-            description = "دریافت مبلغ نوبت مستقیم از طریق درگاه بانکی.",
+            title = Str.online_payment_gateway,
+            description = Str.receive_appointment_fee_directly_through,
             onUpgrade = onUpgrade
         ) {
             PaymentMethodCard(
                 icon = Icons.Rounded.AccountBalance,
-                title = "درگاه پرداخت آنلاین",
-                description = "مشتری مستقیم به درگاه بانکی می‌رود و نوبت بلافاصله قطعی می‌شود.",
+                title = Str.online_payment_gateway,
+                description = Str.customer_goes_straight_to_bank,
                 checked = acceptedPaymentMethods.contains("ONLINE"),
                 onCheckedChange = { toggle("ONLINE", it) },
                 enabled = !isLoading,
@@ -256,26 +262,26 @@ private fun PaymentTab(
                     enabled = !isLoading,
                     value = merchantId,
                     onValueChange = onMerchantId,
-                    label = "مرچنت آیدی زیبال (Merchant ID)",
+                    label = Str.zibal_merchant_id,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Text
                 )
                 FieldHint(
-                    "با پر کردن این فیلد، بیعانه به حساب زیبالِ شما واریز می‌شود و " +
-                        "نوبت بدون بررسی فیش قطعی می‌شود. مرچنت آیدی را از پنل zibal.ir بردارید."
+                    Str.with_this_filled_in_deposits +
+                        Str.appointment_is_confirmed_without_checking
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 AppTextField(
                     enabled = !isLoading,
                     value = paymentLink,
                     onValueChange = onPaymentLink,
-                    label = "لینک پرداخت (در نبودِ مرچنت آیدی)",
+                    label = Str.payment_link_when_theres_no,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardType = KeyboardType.Uri
                 )
                 FieldHint(
-                    "فقط وقتی لازم است که حساب زیبال ندارید. چون مبلغ به لینک فرستاده " +
-                        "نمی‌شود، لینک باید مبلغِ ثابتِ برابر با بیعانه داشته باشد."
+                    Str.only_needed_if_you_dont +
+                        Str.link_must_have_fixed_amount
                 )
             }
         }
@@ -402,16 +408,18 @@ private fun PaymentMethodCard(
  * OPTIONAL is a real third state: the client may pay the deposit or choose to
  * settle in person, so it must not collapse into a boolean.
  */
-enum class DepositMode(val value: String, val label: String) {
-    NONE("NONE", "بدون بیعانه"),
-    OPTIONAL("OPTIONAL", "اختیاری"),
-    MANDATORY("MANDATORY", "اجباری");
+enum class DepositMode(val value: String, private val labelRef: () -> String) {
+    NONE("NONE", Str::no_deposit),
+    OPTIONAL("OPTIONAL", Str::optional_2),
+    MANDATORY("MANDATORY", Str::required);
+    val label: String get() = labelRef()
+
 
     companion object {
         fun describe(value: String): String = when (value) {
-            OPTIONAL.value -> "مشتری می‌تواند بیعانه را پرداخت کند یا «پرداخت در محل» را انتخاب کند."
-            MANDATORY.value -> "مشتری برای نهایی شدن نوبت باید بیعانه را پرداخت کند."
-            else -> "نوبت بدون دریافت بیعانه ثبت می‌شود."
+            OPTIONAL.value -> Str.customer_can_pay_deposit_or
+            MANDATORY.value -> Str.customer_must_pay_deposit_to
+            else -> Str.appointment_is_booked_without_deposit
         }
     }
 }
@@ -435,31 +443,40 @@ private fun CapacityTab(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.CAPACITY_CONTROL,
-            title = "کنترل ظرفیت ساعتی",
-            description = "محدود کردن حداکثر تعداد نوبت در هر ساعت.",
+            title = Str.hourly_capacity_control,
+            description = Str.limit_maximum_number_of_appointments,
             onUpgrade = onUpgrade
         ) {
+          SettingCard(
+              icon = Icons.Rounded.EventSeat,
+              title = Str.hourly_capacity_control,
+              description = Str.prevent_overcrowding_no_more_than
+          ) {
             AppTextField(
                 enabled = !isLoading,
                 value = maxAppointmentsPerHour,
                 onValueChange = onMaxAppointmentsPerHour,
-                label = "حداکثر نوبت در هر ساعت (خالی = نامحدود)",
+                label = Str.max_appointments_per_hour_empty,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardType = KeyboardType.Number
             )
+          }
         }
 
         FeatureGate(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.DEPOSIT,
-            title = "دریافت بیعانه",
-            description = "از مشتری هنگام رزرو بیعانه دریافت کنید.",
+            title = Str.take_deposit,
+            description = Str.collect_deposit_from_customer_when,
             onUpgrade = onUpgrade
         ) {
+          SettingCard(
+              icon = Icons.Rounded.AccountBalanceWallet,
+              title = Str.take_deposit,
+              description = Str.cut_down_on_no_shows
+          ) {
             Column {
-                Text("دریافت بیعانه", style = MaterialTheme.typography.bodyLarge)
-                Spacer(modifier = Modifier.height(8.dp))
                 // Three real modes, not a switch: OPTIONAL is a distinct
                 // behaviour (client may pay the deposit or choose to pay in
                 // person), and a boolean silently rewrote it to MANDATORY.
@@ -490,7 +507,7 @@ private fun CapacityTab(
                         enabled = !isLoading,
                         value = depositAmount,
                         onValueChange = onDepositAmount,
-                        label = "مبلغ بیعانه (تومان)",
+                        label = Str.deposit_amount_toman,
                         modifier = Modifier.fillMaxWidth(),
                         keyboardType = KeyboardType.Number,
                         visualTransformation = xyz.sattar.javid.proqueue.core.ui.utils.CurrencyVisualTransformation()
@@ -500,45 +517,176 @@ private fun CapacityTab(
                     // the «پرداخت» tab. Without saying so, the two screens look
                     // unrelated and it is not obvious how the money arrives.
                     Text(
-                        text = "بیعانه از همان روش‌هایی گرفته می‌شود که در تب «پرداخت» " +
-                                "فعال کرده‌اید — کارت به کارت یا درگاه آنلاین.",
+                        text = Str.deposit_is_collected_with_methods +
+                                Str.card_transfer_or_online_gateway,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
+          }
         }
     }
 }
 
-/** Messaging capabilities — promotional SMS and multi-channel reminders. */
+/**
+ * SMS the owner pays for: the promo campaign composer and automatic reminders.
+ *
+ * Both used to be bare "this is enabled" rows with nothing to do — the
+ * campaign had no sending tool at all, and a "multi-channel reminder" card
+ * advertised WhatsApp/Telegram delivery that no code path implements (it is
+ * still marked coming-soon on the server, so it is simply not shown here).
+ * Each capability now opens the screen where it is actually used.
+ */
 @Composable
-private fun RemindersTab(
+private fun MessagingTab(
     entitlements: EntitlementsResponseDto?,
     plans: List<PlanDto>,
     onUpgrade: (Int) -> Unit,
+    onOpenPromoCampaign: () -> Unit,
+    onOpenReminders: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         FeatureGate(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.PROMOTIONAL_SMS,
-            title = "پیامک تبلیغاتی",
-            description = "ارسال پیامک کمپین و تبلیغات به مشتریان.",
+            title = Str.promotional_sms_campaign,
+            description = Str.send_your_customers_discount_and,
             onUpgrade = onUpgrade
         ) {
-            IncludedFeatureRow("امکان ارسال پیامک تبلیغاتی برای این کسب‌وکار فعال است.")
+            SettingCard(
+                icon = Icons.Rounded.Campaign,
+                title = Str.promotional_sms_campaign,
+                description = Str.win_back_customers_who_havent +
+                    Str.or_fill_empty_slots_before
+            ) {
+                IncludedFeatureRow(Str.sent_with_each_customers_name)
+                Spacer(Modifier.height(6.dp))
+                IncludedFeatureRow(Str.choose_audience_everyone_recent_visitors)
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = onOpenPromoCampaign,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Rounded.Campaign, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(Str.create_new_campaign)
+                }
+            }
         }
 
         FeatureGate(
             entitlements = entitlements,
             plans = plans,
-            featureKey = EntitlementKeys.MULTI_CHANNEL,
-            title = "یادآوری چندکاناله",
-            description = "یادآوری خودکار نوبت از طریق واتساپ و تلگرام، علاوه بر پیامک.",
+            featureKey = EntitlementKeys.AUTO_REMINDER_SMS,
+            title = Str.automatic_appointment_reminders,
+            description = Str.reminder_sms_is_sent_to,
             onUpgrade = onUpgrade
         ) {
-            IncludedFeatureRow("یادآوری خودکار از طریق پیامک، واتساپ و تلگرام برای این کسب‌وکار فعال است.")
+            SettingCard(
+                icon = Icons.Rounded.NotificationsActive,
+                title = Str.automatic_appointment_reminders,
+                description = Str.before_each_appointment_reminder_sms +
+                    Str.set_text_timing_and_delivery
+            ) {
+                OutlinedButton(
+                    onClick = onOpenReminders,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(Str.set_up_reminder_message)
+                }
+            }
+        }
+    }
+}
+
+/** A capability card: icon, name, one-line why, then its controls. */
+@Composable
+private fun SettingCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            content()
+        }
+    }
+}
+
+/** Pill-shaped segmented tabs, each with an icon. */
+@Composable
+private fun SegmentedTabs(
+    tabs: List<Pair<androidx.compose.ui.graphics.vector.ImageVector, String>>,
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        tabs.forEachIndexed { index, (icon, label) ->
+            val isSelected = index == selected
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
+                    .clickable { onSelect(index) }
+                    .padding(vertical = 10.dp, horizontal = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -17,7 +18,8 @@ fun SectionTabs(
     labels: List<String>,
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tabHeight: Dp = 58.dp
 ) {
     PrimaryTabRow(
         selectedTabIndex = selectedIndex,
@@ -30,7 +32,7 @@ fun SectionTabs(
             Tab(
                 selected = selectedIndex == index,
                 onClick = { onSelected(index) },
-                modifier = Modifier.height(58.dp),
+                modifier = Modifier.height(tabHeight),
                 text = {
                     Text(
                         text = title,

@@ -1,5 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.aboutUs
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -30,17 +36,18 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.*
 import xyz.sattar.javid.proqueue.core.utils.AppInfo
 
@@ -58,10 +65,6 @@ private val HeroViolets = listOf(
     Color(0xFFA855F7),
     Color(0xFF7C3AED)
 )
-
-/** Converts ASCII digits to Persian digits for display. */
-private fun String.toPersianDigits(): String =
-    map { c -> if (c in '0'..'9') "۰۱۲۳۴۵۶۷۸۹"[c - '0'] else c }.joinToString("")
 
 @Composable
 fun AboutUsScreen(
@@ -84,7 +87,7 @@ fun AboutUsContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = stringResource(Res.string.about_us_title),
+                        text = Str.about_us_title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -112,25 +115,32 @@ fun AboutUsContent(
                 modifier = modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = adaptivePagePadding()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Who we are on one side, how to reach us on the other.
+                AdaptiveColumns(
+                    start = {
                 HeroCard()
 
-                // Description Card
+                // Start-aligned, not Justify: Compose justifies Persian by
+                // stretching the spaces (no kashida), which opened visibly
+                // huge gaps between words on every line but the last.
                 SettingsCard {
                     Text(
-                        text = stringResource(Res.string.about_us_description),
+                        text = Str.about_us_description,
                         style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Justify,
+                        textAlign = TextAlign.Start,
                         color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.6f,
+                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.45f,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
+                    },
+                    end = {
                 // Contact list.
                 //
                 // Was a 3-per-row FlowRow of icon+label tiles, which left five
@@ -141,76 +151,103 @@ fun AboutUsContent(
                 SettingsCard {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = stringResource(Res.string.about_us_follow_us),
+                            text = Str.about_us_follow_us,
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
 
+                        // Bale/Eitaa/Rubika are the official app icons (from each
+                        // messenger's own web app), so they fill the tile as-is;
+                        // Instagram/website are white glyphs on a drawn tile.
                         SocialRow(
-                            title = stringResource(Res.string.social_bale),
+                            title = Str.social_bale,
                             handle = "ble.ir/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_bale),
-                            tileColors = listOf(Color(0xFF10D19E), Color(0xFF059669)),
+                            tile = SolidColor(Color(0xFF00B894)),
+                            iconPadding = 0.dp,
                             index = 0,
                             onClick = { uriHandler.openUri("https://ble.ir/noobatyar") }
                         )
                         SocialDivider()
                         SocialRow(
-                            title = stringResource(Res.string.social_eitaa),
+                            title = Str.social_eitaa,
                             handle = "eitaa.com/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_eitaa),
-                            tileColors = listOf(Color(0xFFFB923C), Color(0xFFEA6D0E)),
+                            tile = SolidColor(Color(0xFFF47435)),
+                            iconPadding = 0.dp,
                             index = 1,
                             onClick = { uriHandler.openUri("https://eitaa.com/noobatyar") }
                         )
                         SocialDivider()
                         SocialRow(
-                            title = stringResource(Res.string.social_rubika),
+                            title = Str.social_rubika,
                             handle = "rubika.ir/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_rubika),
-                            tileColors = listOf(Color(0xFF4ABDC9), Color(0xFF126AA1)),
+                            // Rubika's icon is a hexagon on transparency — a white
+                            // plate is what it sits on in every app store.
+                            tile = SolidColor(Color.White),
+                            iconPadding = 3.dp,
                             index = 2,
                             onClick = { uriHandler.openUri("https://rubika.ir/noobatyar") }
                         )
                         SocialDivider()
                         SocialRow(
-                            title = stringResource(Res.string.telegram),
+                            title = Str.telegram,
                             handle = "t.me/noobatyar",
                             painter = painterResource(Res.drawable.ic_social_telegram),
-                            tileColors = listOf(Color(0xFF37AEE2), Color(0xFF1E96C8)),
+                            tile = Brush.linearGradient(listOf(Color(0xFF37AEE2), Color(0xFF1E96C8))),
+                            iconPadding = 10.dp,
                             index = 3,
                             onClick = { uriHandler.openUri("https://t.me/noobatyar") }
                         )
                         SocialDivider()
                         SocialRow(
-                            title = stringResource(Res.string.instagram),
+                            title = Str.instagram,
                             handle = "@noobatyar",
                             painter = painterResource(Res.drawable.ic_social_instagram),
-                            // Instagram's mark is defined by its gradient, so the
-                            // official ramp lives on the tile and the glyph is white.
-                            tileColors = listOf(
-                                Color(0xFFFEDA75),
-                                Color(0xFFFA7E1E),
-                                Color(0xFFD62976),
-                                Color(0xFF962FBF),
-                                Color(0xFF4F5BD5)
-                            ),
+                            tile = InstagramGradient,
+                            iconPadding = 11.dp,
                             index = 4,
                             onClick = { uriHandler.openUri("https://instagram.com/noobatyar") }
                         )
                         SocialDivider()
                         SocialRow(
-                            title = stringResource(Res.string.social_website),
+                            title = Str.social_website,
                             handle = "noobatyar.ir",
                             painter = painterResource(Res.drawable.ic_social_website),
-                            tileColors = listOf(Color(0xFFA855F7), Color(0xFF6D28D9)),
+                            tile = Brush.linearGradient(listOf(Color(0xFFA855F7), Color(0xFF6D28D9))),
+                            iconPadding = 10.dp,
                             index = 5,
                             onClick = { uriHandler.openUri("https://noobatyar.ir") }
                         )
                     }
                 }
+
+                SettingsCard {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = Str.about_us_developer,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        SocialRow(
+                            title = Str.about_us_developer,
+                            handle = "@javiddev",
+                            painter = null,
+                            badge = "</>",
+                            tile = Brush.linearGradient(listOf(Color(0xFF1E1B4B), Color(0xFF6D28D9))),
+                            iconPadding = 11.dp,
+                            index = 5,
+                            onClick = { uriHandler.openUri("https://instagram.com/javiddev") }
+                        )
+                    }
+                }
+                    }
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -425,7 +462,7 @@ private fun HeroCard() {
                     ) {
                         Image(
                             painter = painterResource(Res.drawable.main_icon),
-                            contentDescription = stringResource(Res.string.about_us_app_name),
+                            contentDescription = Str.about_us_app_name,
                             modifier = Modifier
                                 .size(72.dp)
                                 .clip(RoundedCornerShape(18.dp))
@@ -434,13 +471,13 @@ private fun HeroCard() {
                 }
 
                 Text(
-                    text = stringResource(Res.string.about_us_app_name),
+                    text = Str.about_us_app_name,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White
                 )
                 Text(
-                    text = stringResource(Res.string.about_us_app_description),
+                    text = Str.about_us_app_description,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.88f),
                     textAlign = TextAlign.Center
@@ -450,7 +487,7 @@ private fun HeroCard() {
                     shape = RoundedCornerShape(50)
                 ) {
                     Text(
-                        text = "${stringResource(Res.string.app_version)} ${AppInfo.versionName.toPersianDigits()}",
+                        text = "${Str.app_version} ${AppInfo.versionName.toPersianDigits()}",
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White,
@@ -490,13 +527,27 @@ private fun SocialDivider() {
     )
 }
 
+/** Instagram's mark is defined by its gradient, so it lives on the tile. */
+private val InstagramGradient = Brush.linearGradient(
+    listOf(
+        Color(0xFFFEDA75),
+        Color(0xFFFA7E1E),
+        Color(0xFFD62976),
+        Color(0xFF962FBF),
+        Color(0xFF4F5BD5)
+    )
+)
+
 @Composable
 private fun SocialRow(
     title: String,
     handle: String,
-    painter: Painter,
-    tileColors: List<Color>,
+    painter: Painter?,
+    tile: Brush,
+    iconPadding: Dp,
     index: Int,
+    /** Short code-style glyph (e.g. "</>") drawn in the tile instead of [painter]. */
+    badge: String? = null,
     onClick: () -> Unit
 ) {
     // Same sheen as the hero card, staggered down the list so it reads as one
@@ -522,7 +573,7 @@ private fun SocialRow(
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(13.dp))
-                .background(Brush.linearGradient(tileColors))
+                .background(tile)
                 .drawWithContent {
                     drawContent()
                     val w = size.width
@@ -542,12 +593,27 @@ private fun SocialRow(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                painter = painter,
-                contentDescription = title,
-                tint = Color.Unspecified,
-                modifier = Modifier.size(24.dp)
-            )
+            if (badge != null) {
+                Text(
+                    // Same LTR isolate as the handle below: "</>" is all
+                    // neutrals and would render mirrored in RTL.
+                    text = "\u2066$badge\u2069",
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    maxLines = 1
+                )
+            } else if (painter != null) {
+                Icon(
+                    painter = painter,
+                    contentDescription = title,
+                    tint = Color.Unspecified,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(iconPadding)
+                )
+            }
         }
 
         Spacer(Modifier.width(14.dp))

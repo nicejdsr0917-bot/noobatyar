@@ -5,6 +5,12 @@ expect object AppInfo {
     val versionName: String
     val isIOS: Boolean
     /**
+     * True only for the wasmJs build, so App can skip the store version gate
+     * there the same way it already does on iOS.
+     */
+    val isWeb: Boolean
+
+    /**
      * True for a debug build (an Android Studio "Run", not a signed release
      * APK). A Studio run has no `ANDROID_VERSION_CODE` set at build time, so
      * it falls back to the placeholder in build.gradle.kts (100) — far below

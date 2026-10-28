@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.visitorSelection
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -89,7 +90,7 @@ class VisitorSelectionViewModel(
             emit(VisitorSelectionState.PartialState.LoadVisitors(result.visitors, pageToLoad, result.hasMore))
             
         } catch (e: Exception) {
-            emit(VisitorSelectionState.PartialState.ShowMessage(e.message ?: "خطا در بارگذاری لیست مراجعین"))
+            emit(VisitorSelectionState.PartialState.ShowMessage(e.message ?: Str.error_loading_visitors))
         }
     }
 
@@ -113,7 +114,7 @@ class VisitorSelectionViewModel(
                 }
             }
         } catch (e: Exception) {
-            emit(VisitorSelectionState.PartialState.ShowMessage(e.message ?: "خطا در بایگانی مراجع"))
+            emit(VisitorSelectionState.PartialState.ShowMessage(e.message ?: Str.couldnt_archive_client))
         }
     }
 }

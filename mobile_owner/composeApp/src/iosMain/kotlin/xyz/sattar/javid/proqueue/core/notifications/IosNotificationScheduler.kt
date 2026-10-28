@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.notifications
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import platform.UserNotifications.UNAuthorizationStatusAuthorized
 import platform.UserNotifications.UNMutableNotificationContent
 import platform.UserNotifications.UNNotificationRequest
@@ -51,20 +52,20 @@ class IosNotificationScheduler : NotificationScheduler {
                 val businessName = userInfo["businessName"] as? String ?: ""
                 val minutesBefore = userInfo["minutesBefore"] as? Int ?: 0
 
-                val message = "نوتیفیکیشن: $customerName - $businessName ($minutesBefore دقیقه قبل) [Biz: $businessId, Vis: $visitorId]"
+                val message = Str.notification_min_before_biz_vis(customerName, businessName, minutesBefore, businessId, visitorId)
                 
                 // Show Alert on Main Thread
                 platform.darwin.dispatch_async(platform.darwin.dispatch_get_main_queue()) {
                     val rootViewController = UIApplication.sharedApplication.keyWindow?.rootViewController
                     if (rootViewController != null) {
                         val alert = UIAlertController.alertControllerWithTitle(
-                            title = "اطلاعات نوتیفیکیشن",
+                            title = Str.notification_info,
                             message = message,
                             preferredStyle = platform.UIKit.UIAlertControllerStyleAlert
                         )
                         alert.addAction(
                             UIAlertAction.actionWithTitle(
-                                title = "باشه",
+                                title = Str.ok,
                                 style = UIAlertActionStyleDefault,
                                 handler = null
                             )
@@ -90,8 +91,8 @@ class IosNotificationScheduler : NotificationScheduler {
         val center = UNUserNotificationCenter.currentNotificationCenter()
         
         val content = UNMutableNotificationContent().apply {
-            setTitle("یادآوری نوبت")
-            setBody("نوبت $customerName در $businessName تا $minutesBefore دقیقه دیگر نزدیک هست برای اطلاع رسانی نوبت اینجا را لمس کنید")
+            setTitle(Str.appointment_reminder)
+            setBody(Str.s_appointment_at_is_in(customerName, businessName, minutesBefore))
             setSound(UNNotificationSound.defaultSound())
             setUserInfo(
                 mapOf(

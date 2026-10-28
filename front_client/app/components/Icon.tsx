@@ -45,6 +45,7 @@ import {
   IconLanguage,
   IconLock,
   IconLogout,
+  IconMap2,
   IconMapPin,
   IconMessage,
   IconMessages,
@@ -54,6 +55,7 @@ import {
   IconPlus,
   IconReceipt,
   IconRefresh,
+  IconRoute,
   IconSend,
   IconSun,
   IconTool,
@@ -134,6 +136,8 @@ const ICONS = {
   // CategoryGlyph, which is what re-creates the mismatch just removed.
   storefront: IconBuildingStore,
   locationOn: IconMapPin,
+  map: IconMap2,
+  directions: IconRoute,
   build: IconTool,
 
   // ── Theme ──
@@ -167,6 +171,9 @@ interface IconProps {
   title?: string;
 }
 
+/** Glyphs drawn for RTL that flip in the LTR UI (see .icon-dir in globals.css). */
+const DIRECTIONAL: ReadonlySet<IconName> = new Set<IconName>(['back', 'chevronLeft', 'chevronRight']);
+
 export default function Icon({
   name,
   size = '1em',
@@ -184,7 +191,7 @@ export default function Icon({
     size,
     stroke,
     color: color ?? 'currentColor',
-    className,
+    className: DIRECTIONAL.has(name) ? [className, 'icon-dir'].filter(Boolean).join(' ') : className,
     // Tabler sets neither of these; the hand-rolled SVG this replaced did, and
     // the layouts here rely on both — icons sit in flex rows that would
     // otherwise squash them, and inline display adds descender space beneath.

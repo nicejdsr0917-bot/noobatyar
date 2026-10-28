@@ -2,6 +2,7 @@ package xyz.sattar.javid.proqueue.core.prefs
 
 import kotlinx.coroutines.flow.Flow
 
+import xyz.sattar.javid.proqueue.core.i18n.AppLanguage
 import xyz.sattar.javid.proqueue.core.state.AppThemeMode
 
 expect object PreferencesManager {
@@ -17,4 +18,12 @@ expect object PreferencesManager {
     suspend fun setMessageTemplate(businessId: Long, template: String)
     fun getMessageTemplate(businessId: Long): String?
     fun getNotificationReminderMinutes(): Int
+    /** Whether the first-run introduction has been shown. Synchronous: it
+     *  picks the auth flow's start destination before the first frame. */
+    fun hasSeenOnboarding(): Boolean
+    suspend fun setOnboardingSeen()
+    /** UI language. Synchronous so the first frame already has the right
+     *  strings and layout direction; defaults to Persian when unset. */
+    fun getLanguage(): AppLanguage
+    suspend fun setLanguage(language: AppLanguage)
 }

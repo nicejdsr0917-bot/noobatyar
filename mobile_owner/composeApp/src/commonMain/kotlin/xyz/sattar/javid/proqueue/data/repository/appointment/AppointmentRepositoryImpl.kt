@@ -2,30 +2,69 @@ package xyz.sattar.javid.proqueue.data.repository.appointment
 
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
-import xyz.sattar.javid.proqueue.data.localDataSource.appointment.AppointmentDao
-import xyz.sattar.javid.proqueue.data.localDataSource.appointment.toDomain
-import xyz.sattar.javid.proqueue.data.localDataSource.appointment.toEntity
-import xyz.sattar.javid.proqueue.data.localDataSource.business.BusinessDao
-import xyz.sattar.javid.proqueue.data.localDataSource.business.toDomain
-import xyz.sattar.javid.proqueue.data.localDataSource.visitor.VisitorDao
-import xyz.sattar.javid.proqueue.data.localDataSource.visitor.VisitorEntity
-import xyz.sattar.javid.proqueue.data.localDataSource.visitor.toDomain
+import xyz.sattar.javid.proqueue.data.localDataSource.appointment.AppointmentLocalSource
+import xyz.sattar.javid.proqueue.data.localDataSource.business.BusinessLocalSource
+import xyz.sattar.javid.proqueue.data.localDataSource.visitor.VisitorLocalSource
 import xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApiService
 import xyz.sattar.javid.proqueue.domain.AppointmentRepository
 import xyz.sattar.javid.proqueue.domain.model.appointment.Appointment
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
 import xyz.sattar.javid.proqueue.domain.model.DashboardStats
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentOrdering
-import xyz.sattar.javid.proqueue.data.localDataSource.appointment.AppointmentEntity
+import xyz.sattar.javid.proqueue.domain.model.visitor.Visitor
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 class AppointmentRepositoryImpl(
-    private val appointmentDao: AppointmentDao,
-    private val businessDao: BusinessDao,
-    private val visitorDao: VisitorDao,
+    private val appointmentDao: AppointmentLocalSource,
+    private val businessDao: BusinessLocalSource,
+    private val visitorDao: VisitorLocalSource,
     private val appointmentApiService: AppointmentApiService
 ) : AppointmentRepository {
+    override suspend fun getRangeReport(
+        businessId: Long,
+        dateFrom: Long,
+        dateTo: Long,
+        ordering: xyz.sattar.javid.proqueue.domain.model.CustomerOrdering,
+        page: Int,
+        pageSize: Int
+    ): xyz.sattar.javid.proqueue.domain.model.RangeReport? {
+        return try {
+            val visitorsResponse = appointmentApiService.getRangeVisitors(
+                businessId = businessId,
+                dateFrom = dateFrom,
+                dateTo = dateTo,
+                ordering = ordering.apiValue,
+                page = page,
+                pageSize = pageSize
+            )
+            val visitorsPage = when (visitorsResponse) {
+                is ApiResponse.Success -> visitorsResponse.data
+                is ApiResponse.Error -> return null
+            }
+
+            xyz.sattar.javid.proqueue.domain.model.RangeReport(
+                dateFrom = visitorsPage.dateFrom,
+                dateTo = visitorsPage.dateTo,
+                clamped = visitorsPage.clamped,
+                customers = visitorsPage.results.map {
+                    xyz.sattar.javid.proqueue.domain.model.RangeCustomer(
+                        visitorId = it.visitorId,
+                        fullName = it.fullName,
+                        phoneNumber = it.phoneNumber,
+                        appointmentCount = it.appointmentCount,
+                        lastVisit = it.lastVisit
+                    )
+                },
+                customersTotal = visitorsPage.count,
+                currentPage = visitorsPage.currentPage,
+                totalPages = visitorsPage.totalPages
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     override suspend fun getDailyCounts(
         businessId: Long,
         days: Int,
@@ -54,7 +93,7 @@ class AppointmentRepositoryImpl(
             val response = appointmentApiService.createAppointment(request)
             if (response is ApiResponse.Success) {
                 val dto = response.data
-                val entity = xyz.sattar.javid.proqueue.data.localDataSource.appointment.AppointmentEntity(
+                val created = Appointment(
                     id = dto.id,
                     businessId = appointment.businessId,
                     visitorId = dto.visitor.id,
@@ -67,10 +106,10 @@ class AppointmentRepositoryImpl(
                     trackingCode = dto.trackingCode,
                     paymentReference = dto.paymentReference,
                     depositPaymentMethod = dto.depositPaymentMethod,
-                    createdAt = xyz.sattar.javid.proqueue.core.utils.DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
-                    updatedAt = xyz.sattar.javid.proqueue.core.utils.DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
+                    createdAt = DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
+                    updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                 )
-                appointmentDao.upsertAppointment(entity)
+                appointmentDao.upsertAppointment(created)
                 dto.id
             } else if (response is ApiResponse.Error) {
                 throw xyz.sattar.javid.proqueue.core.network.ApiException(response.message, response.code)
@@ -87,11 +126,11 @@ class AppointmentRepositoryImpl(
             val appointments = appointmentDao.getWaitingQueue(businessId, date)
 
             appointments.map { appointment ->
-                val visitor = visitorDao.getVisitorById(appointment.visitor.id)?.toDomain()
-                val business = businessDao.getBusinessById(appointment.business.id)?.toDomain()
+                val visitor = visitorDao.getVisitorById(appointment.visitor.id)
+                val business = businessDao.getBusinessById(appointment.business.id)
 
                 AppointmentWithDetails(
-                    appointment = appointment.appointment.toDomain(),
+                    appointment = appointment.appointment,
                     visitor = visitor ?: throw Exception("Visitor not found"),
                     business = business ?: throw Exception("Business not found")
                 )
@@ -173,9 +212,7 @@ class AppointmentRepositoryImpl(
 
     override suspend fun getVisitorHistory(visitorId: Long): List<AppointmentWithDetails> {
         return try {
-            appointmentDao.getVisitorHistory(visitorId).map {
-                it.toDomain()
-            }
+            appointmentDao.getVisitorHistory(visitorId) 
         } catch (e: Exception) {
             emptyList()
         }
@@ -183,9 +220,7 @@ class AppointmentRepositoryImpl(
 
     override suspend fun getVisitorHistoryForBusiness(visitorId: Long, businessId: Long): List<AppointmentWithDetails> {
         return try {
-            appointmentDao.getVisitorHistoryForBusiness(visitorId, businessId).map {
-                it.toDomain()
-            }
+            appointmentDao.getVisitorHistoryForBusiness(visitorId, businessId) 
         } catch (e: Exception) {
             emptyList()
         }
@@ -204,7 +239,7 @@ class AppointmentRepositoryImpl(
     }
     override suspend fun getAppointmentById(appointmentId: Long): Appointment? {
         return try {
-            appointmentDao.getAppointmentById(appointmentId)?.toDomain()
+            appointmentDao.getAppointmentById(appointmentId)
         } catch (e: Exception) {
             null
         }
@@ -212,9 +247,7 @@ class AppointmentRepositoryImpl(
 
     override suspend fun getAllWaitingAppointments(businessId: Long): List<AppointmentWithDetails> {
         return try {
-            appointmentDao.getAllWaitingAppointments(businessId).map {
-                it.toDomain()
-            }
+            appointmentDao.getAllWaitingAppointments(businessId) 
         } catch (e: Exception) {
             emptyList()
         }
@@ -222,9 +255,7 @@ class AppointmentRepositoryImpl(
 
     override suspend fun getTodayAppointments(businessId: Long): List<AppointmentWithDetails> {
         return try {
-            appointmentDao.getTodayAppointments(businessId).map {
-                it.toDomain()
-            }
+            appointmentDao.getTodayAppointments(businessId) 
         } catch (e: Exception) {
             emptyList()
         }
@@ -232,9 +263,7 @@ class AppointmentRepositoryImpl(
 
     override suspend fun getAllAppointmentsForBusiness(businessId: Long): List<AppointmentWithDetails> {
         return try {
-            appointmentDao.getAllAppointmentsForBusiness(businessId).map {
-                it.toDomain()
-            }
+            appointmentDao.getAllAppointmentsForBusiness(businessId) 
         } catch (e: Exception) {
             emptyList()
         }
@@ -255,9 +284,7 @@ class AppointmentRepositoryImpl(
         defaultDuration: Int
     ): List<AppointmentWithDetails> {
         return try {
-            appointmentDao.getConflictingAppointments(businessId, startTime, endTime, defaultDuration).map {
-                it.toDomain()
-            }
+            appointmentDao.getConflictingAppointments(businessId, startTime, endTime, defaultDuration) 
         } catch (e: Exception) {
             emptyList()
         }
@@ -265,9 +292,7 @@ class AppointmentRepositoryImpl(
 
     override suspend fun getAppointmentsForDate(businessId: Long, date: Long): List<AppointmentWithDetails> {
         return try {
-            appointmentDao.getAppointmentsForDate(businessId, date).map {
-                it.toDomain()
-            }
+            appointmentDao.getAppointmentsForDate(businessId, date) 
         } catch (e: Exception) {
             emptyList()
         }
@@ -303,7 +328,7 @@ class AppointmentRepositoryImpl(
 
                 // 1. Sync Visitors
                 val visitors = appointmentsDto.map { dto ->
-                    VisitorEntity(
+                    Visitor(
                         id = dto.visitor.id,
                         fullName = dto.visitor.fullName,
                         phoneNumber = dto.visitor.phoneNumber,
@@ -315,7 +340,7 @@ class AppointmentRepositoryImpl(
 
                 // 2. Sync Appointments
                 val appointments = appointmentsDto.map { dto ->
-                    AppointmentEntity(
+                    Appointment(
                         id = dto.id,
                         businessId = businessId,
                         visitorId = dto.visitor.id,

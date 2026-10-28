@@ -45,18 +45,18 @@ def appointment_list(request):
     except ValueError:
         return APIResponse.error('شناسه کسب‌وکار (business_id) باید عدد صحیح معتبر باشد', code=status.HTTP_400_BAD_REQUEST)
 
-    # Check if user has access to this business
     user = request.user
-    # if user.role == 'BUSINESS_OWNER':
-    #     # Business owners can only see their own businesses
-    #     if not user.businesses.filter(id=business_id).exists():
-    #         return Response(
-    #             {'error': 'You do not have permission to access this business'},
-    #             status=status.HTTP_403_FORBIDDEN
-    #         )
 
-    # Start with base queryset
-    queryset = Appointment.objects.filter(business_id=business_id).select_related('visitor')
+    # Scoped to the caller's own businesses, the same rule daily_counts_view.py
+    # and service_breakdown_view.py already apply. The access check that used
+    # to stand here was commented out, leaving this endpoint returning any
+    # owner's appointments to any authenticated caller who guessed a
+    # business_id. Expressed as a queryset filter rather than a 403 so an id
+    # the caller doesn't own comes back empty and the endpoint reveals nothing
+    # about whether it exists.
+    queryset = Appointment.objects.filter(
+        business_id=business_id, business__user=user
+    ).select_related('visitor')
 
     # Filter by visitor_id
     visitor_id = request.query_params.get('visitor_id')

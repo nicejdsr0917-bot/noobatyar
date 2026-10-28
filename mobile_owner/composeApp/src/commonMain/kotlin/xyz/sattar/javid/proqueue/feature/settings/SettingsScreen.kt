@@ -1,5 +1,18 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.i18n.AppLanguage
+import xyz.sattar.javid.proqueue.core.i18n.AppLocale
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveGrid
+import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
+import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
+import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -45,12 +60,8 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SubscriptionDto
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import proqueue.composeapp.generated.resources.*
-import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
-import xyz.sattar.javid.proqueue.core.state.AppThemeMode
-import xyz.sattar.javid.proqueue.core.state.ThemeStateHolder
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.ui.components.BottomBarSpacer
 import xyz.sattar.javid.proqueue.core.ui.components.ModerationBadge
@@ -71,16 +82,14 @@ fun SettingsScreen(
     onNavigateToMessages: () -> Unit = {},
     onNavigateToSmsReport: () -> Unit = {},
     onNavigateToEmergencyNotice: () -> Unit = {},
+    onNavigateToTheme: () -> Unit = {},
+    onNavigateToPromoCampaign: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val userState by userViewModel.uiState.collectAsState()
-    val scope = rememberCoroutineScope()
-    var showThemeSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showNotificationToast by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState()
-    val themeMode by ThemeStateHolder.themeMode.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Initial load happens once in SettingsViewModel.init (it observes the
@@ -113,46 +122,24 @@ fun SettingsScreen(
         }
     }
 
-    if (showThemeSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showThemeSheet = false },
-            sheetState = sheetState
-        ) {
-            ThemeSelectionContent(
-                currentMode = themeMode,
-                onThemeSelected = { mode ->
-                    ThemeStateHolder.setThemeMode(mode)
-                    scope.launch {
-                        PreferencesManager.setThemeMode(mode)
-                        sheetState.hide()
-                    }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            showThemeSheet = false
-                        }
-                    }
-                }
-            )
-        }
-    }
-
     if (showNotificationToast) {
         AlertDialog(
             onDismissRequest = { showNotificationToast = false },
             confirmButton = {
                 TextButton(onClick = { showNotificationToast = false }) {
-                    Text(stringResource(Res.string.confirm))
+                    Text(Str.confirm)
                 }
             },
-            title = { Text(stringResource(Res.string.notification_title)) },
-            text = { Text(stringResource(Res.string.coming_soon_message)) }
+            title = { Text(Str.notification_title) },
+            text = { Text(Str.coming_soon_message) }
         )
     }
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text(stringResource(Res.string.delete_business)) },
-            text = { Text(stringResource(Res.string.delete_business_confirmation)) },
+            title = { Text(Str.delete_business) },
+            text = { Text(Str.delete_business_confirmation) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -161,12 +148,12 @@ fun SettingsScreen(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(Res.string.delete))
+                    Text(Str.delete)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(stringResource(Res.string.cancel))
+                    Text(Str.cancel)
                 }
             }
         )
@@ -184,7 +171,7 @@ fun SettingsScreen(
             userViewModel.sendIntent(xyz.sattar.javid.proqueue.feature.profile.UserIntent.LoadProfile)
         },
         onIntent = viewModel::sendIntent,
-        onShowThemeSheet = { showThemeSheet = true },
+        onShowThemeSheet = onNavigateToTheme,
         onShowDeleteDialog = { showDeleteDialog = true },
         onNavigateToLogin = onNavigateToLogin,
         onLogout = { userViewModel.sendIntent(xyz.sattar.javid.proqueue.feature.profile.UserIntent.Logout) },
@@ -193,7 +180,8 @@ fun SettingsScreen(
             uiState.currentBusiness?.let {
                 onNavigateToAdvancedSettings(it.id)
             }
-        }
+        },
+        onPromoCampaign = onNavigateToPromoCampaign
     )
 }
 
@@ -213,7 +201,8 @@ fun SettingsContent(
     onNavigateToLogin: () -> Unit,
     onLogout: () -> Unit = {},
     onChangeBusiness: () -> Unit = {},
-    onAdvancedSettings: () -> Unit
+    onAdvancedSettings: () -> Unit,
+    onPromoCampaign: () -> Unit = {}
 ) {
     // No top app bar here: the profile hero below is this screen's header, so a
     // separate toolbar showing the business title would just overlap it. We only
@@ -226,6 +215,7 @@ fun SettingsContent(
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = onRefresh,
+            refreshTab = MainTab.Settings,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = paddingValues.calculateTopPadding())
@@ -234,11 +224,87 @@ fun SettingsContent(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = adaptivePagePadding()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
+            if (isWideLayout()) {
+                // Desktop: the sidebar beside this page already lists the
+                // customer pages, advanced settings, about and logout, so
+                // repeating them here was a second copy of the menu. Only
+                // what this page alone offers is left — who you are, the
+                // business itself, and the app's theme — at the list width the
+                // settings page is meant for, centred under the header.
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    Column(
+                        modifier = Modifier.widthIn(max = ContentWidth.List),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        ProfileHeaderCard(
+                            userName = userName,
+                            userPhone = userPhone,
+                            business = uiState.currentBusiness,
+                            subscription = subscription
+                        )
+                        uiState.currentBusiness?.let { business ->
+                            ModerationBanner(
+                                business = business,
+                                onEditClick = { onIntent(SettingsIntent.OnEditBusinessClick(business.id)) }
+                            )
+                        }
+                        SettingsGroupLabel(Str.manage_business)
+                        SettingsTiles(
+                            tiles = listOf(
+                                SettingsTile(
+                                    icon = Icons.Rounded.Factory,
+                                    title = Str.change_business,
+                                    subtitle = Str.switch_to_another_business_from,
+                                    onClick = { onIntent(SettingsIntent.OnChangeBusinessClick) }
+                                ),
+                                SettingsTile(
+                                    icon = Icons.Rounded.Edit,
+                                    title = Str.edit_business_title,
+                                    subtitle = Str.name_logo_opening_hours_and,
+                                    onClick = {
+                                        uiState.currentBusiness?.let { business ->
+                                            onIntent(SettingsIntent.OnEditBusinessClick(business.id))
+                                        }
+                                    }
+                                ),
+                                SettingsTile(
+                                    icon = Icons.Rounded.Delete,
+                                    title = Str.delete_business,
+                                    subtitle = Str.remove_this_business_from_your,
+                                    danger = true,
+                                    onClick = onShowDeleteDialog
+                                )
+                            )
+                        )
+                        // The app's look, not the business's — its own group.
+                        SettingsGroupLabel(Str.app_appearance)
+                        SettingsCard {
+                            Column {
+                                SettingsItem(
+                                    icon = Icons.Rounded.Palette,
+                                    title = Str.theme_appearance,
+                                    subtitle = Str.theme_settings,
+                                    onClick = onShowThemeSheet
+                                )
+                                HorizontalDivider()
+                                LanguageSettingsItem()
+                            }
+                        }
+                    }
+                }
+            } else {
+            // Phone: the full list — there is no sidebar, so this page is the
+            // way to everything below. Who you are and which business you run
+            // first, then how the business talks to customers and looks.
+            AdaptiveColumns(
+                startWeight = 1f,
+                endWeight = 1.15f,
+                start = {
             // Profile identity hero — the owner sees who they are and which
             // business they're currently managing, front and center.
             ProfileHeaderCard(
@@ -264,44 +330,14 @@ fun SettingsContent(
             AdvancedSettingsPromoCard(onClick = onAdvancedSettings)
 
             // Business actions: change + delete, grouped together.
-            SettingsCard {
-                Column {
-                    SettingsItem(
-                        icon = Icons.Rounded.Factory,
-                        title = stringResource(Res.string.change_business),
-                        subtitle = null,
-                        onClick = { onIntent(SettingsIntent.OnChangeBusinessClick) },
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.Rounded.Edit,
-                        title = stringResource(Res.string.edit_business_title),
-                        subtitle = null,
-                        onClick = {
-                            uiState.currentBusiness?.let { business ->
-                                onIntent(SettingsIntent.OnEditBusinessClick(business.id))
-                            }
-                        },
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.Rounded.Delete,
-                        title = stringResource(Res.string.delete_business),
-                        subtitle = null,
-                        onClick = onShowDeleteDialog,
-                        tint = MaterialTheme.colorScheme.error,
-                        centerVertically = true
-                    )
-                }
-            }
-
-            // Options Card
+            BusinessActionsCard(
+                business = uiState.currentBusiness,
+                onIntent = onIntent,
+                onShowDeleteDialog = onShowDeleteDialog
+            )
+                },
+                end = {
+            SettingsGroupLabel(Str.customer_contact)
             SettingsCard {
                 Column {
                     // Its own row rather than an inline switch+textfield card —
@@ -310,26 +346,35 @@ fun SettingsContent(
                     // EmergencyNoticeScreen.
                     SettingsItem(
                         icon = Icons.Rounded.Campaign,
-                        title = stringResource(Res.string.notice_section_title),
-                        subtitle = stringResource(Res.string.notice_settings_subtitle),
+                        title = Str.notice_section_title,
+                        subtitle = Str.notice_settings_subtitle,
                         onClick = { onIntent(SettingsIntent.OnEmergencyNoticeClick) }
                     )
 
                     HorizontalDivider()
 
                     SettingsItem(
-                        icon = Icons.Rounded.Message,
-                        title = stringResource(Res.string.messages_auto_item),
-                        subtitle = stringResource(Res.string.messages_auto_subtitle),
+                        icon = Icons.AutoMirrored.Rounded.Message,
+                        title = Str.messages_auto_item,
+                        subtitle = Str.messages_auto_subtitle,
                         onClick = { onIntent(SettingsIntent.OnMessagesClick) }
                     )
 
                     HorizontalDivider()
 
                     SettingsItem(
+                        icon = Icons.Rounded.LocalOffer,
+                        title = Str.promotional_sms,
+                        subtitle = Str.send_discounts_and_news_to,
+                        onClick = onPromoCampaign
+                    )
+
+                    HorizontalDivider()
+
+                    SettingsItem(
                         icon = Icons.Rounded.Sms,
-                        title = stringResource(Res.string.sms_report_title),
-                        subtitle = stringResource(Res.string.sms_report_settings_subtitle),
+                        title = Str.sms_report_title,
+                        subtitle = Str.sms_report_settings_subtitle,
                         onClick = { onIntent(SettingsIntent.OnSmsReportClick) }
                     )
 
@@ -337,45 +382,52 @@ fun SettingsContent(
 
                     SettingsItem(
                         icon = Icons.Rounded.Notifications,
-                        title = stringResource(Res.string.reminders_notifications_item),
-                        subtitle = stringResource(Res.string.reminders_notifications_subtitle),
+                        title = Str.reminders_notifications_item,
+                        subtitle = Str.reminders_notifications_subtitle,
                         onClick = { onIntent(SettingsIntent.OnNotificationsClick) }
                     )
                 }
             }
 
-            // Appearance & Info Card
+            SettingsGroupLabel(Str.appearance_info)
             SettingsCard {
                 Column {
                     SettingsItem(
                         icon = Icons.Rounded.Palette,
-                        title = stringResource(Res.string.theme_appearance),
-                        subtitle = stringResource(Res.string.theme_settings),
+                        title = Str.theme_appearance,
+                        subtitle = Str.theme_settings,
                         onClick = onShowThemeSheet
                     )
 
                     HorizontalDivider()
 
+                    LanguageSettingsItem()
+
+                    HorizontalDivider()
+
                     SettingsItem(
                         icon = Icons.Rounded.Info,
-                        title = stringResource(Res.string.about_us_label),
-                        subtitle = stringResource(Res.string.about_us_subtitle),
+                        title = Str.about_us_label,
+                        subtitle = Str.about_us_subtitle,
                         onClick = { onIntent(SettingsIntent.OnAboutClick) }
                     )
                 }
             }
 
-            // Logout (previously reached via the top-bar avatar, which this screen
-            // no longer shows).
+            // Logout (previously reached via the top-bar avatar, which this
+            // screen no longer shows).
             SettingsCard {
                 SettingsItem(
-                    icon = Icons.Rounded.Logout,
-                    title = stringResource(Res.string.logout_label),
+                    icon = Icons.AutoMirrored.Rounded.Logout,
+                    title = Str.logout_label,
                     subtitle = null,
                     onClick = onLogout,
                     tint = MaterialTheme.colorScheme.error,
                     centerVertically = true
                 )
+            }
+                }
+            )
             }
 
             // Subtle Noobatyar branding footer (moved out of the header, which now
@@ -395,14 +447,14 @@ fun SettingsContent(
                         modifier = Modifier.size(24.dp).alpha(0.7f)
                     )
                     Text(
-                        text = stringResource(Res.string.appName),
+                        text = Str.appName,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
-                    text = "${stringResource(Res.string.app_version)} ${uiState.appVersion}",
+                    text = "${Str.app_version} ${uiState.appVersion}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -412,6 +464,144 @@ fun SettingsContent(
         }
         }
     }
+}
+
+private class SettingsTile(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,
+    val onClick: () -> Unit,
+    val danger: Boolean = false
+)
+
+/**
+ * The desktop page's business actions as one even row of tiles instead of a
+ * list stretched across the page — stacked instead when the content column
+ * is too narrow for a row (a small browser window). Two subtitle lines are
+ * reserved on every tile so they all come out the same height.
+ */
+@Composable
+private fun SettingsTiles(tiles: List<SettingsTile>) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = if (maxWidth >= 480.dp) tiles.size else 1
+        AdaptiveGrid(
+            count = tiles.size,
+            compactColumns = columns,
+            mediumColumns = columns,
+            expandedColumns = columns
+        ) { index ->
+            SettingsTileCard(tiles[index])
+        }
+    }
+}
+
+@Composable
+private fun SettingsTileCard(tile: SettingsTile) {
+    val accent = if (tile.danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    Card(
+        onClick = tile.onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(accent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = tile.icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = tile.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (tile.danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = tile.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/** Change, edit and delete the current business — the one group both the
+ *  phone and the desktop page keep. */
+@Composable
+private fun BusinessActionsCard(
+    business: Business?,
+    onIntent: (SettingsIntent) -> Unit,
+    onShowDeleteDialog: () -> Unit
+) {
+    SettingsCard {
+        Column {
+            SettingsItem(
+                icon = Icons.Rounded.Factory,
+                title = Str.change_business,
+                subtitle = null,
+                onClick = { onIntent(SettingsIntent.OnChangeBusinessClick) },
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+
+            HorizontalDivider()
+
+            SettingsItem(
+                icon = Icons.Rounded.Edit,
+                title = Str.edit_business_title,
+                subtitle = null,
+                onClick = {
+                    business?.let { onIntent(SettingsIntent.OnEditBusinessClick(it.id)) }
+                },
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+
+            HorizontalDivider()
+
+            SettingsItem(
+                icon = Icons.Rounded.Delete,
+                title = Str.delete_business,
+                subtitle = null,
+                onClick = onShowDeleteDialog,
+                tint = MaterialTheme.colorScheme.error,
+                centerVertically = true
+            )
+        }
+    }
+}
+
+/** A quiet heading over a group of settings rows, so related rows read as
+ *  one block instead of one long undifferentiated list. */
+@Composable
+private fun SettingsGroupLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp)
+    )
 }
 
 @Composable
@@ -498,7 +688,7 @@ private fun AdvancedSettingsPromoCard(onClick: () -> Unit) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = stringResource(Res.string.advanced_settings_title),
+                            text = Str.advanced_settings_title,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -513,13 +703,13 @@ private fun AdvancedSettingsPromoCard(onClick: () -> Unit) {
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = stringResource(Res.string.advanced_settings_promo),
+                        text = Str.advanced_settings_promo,
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.85f)
                     )
                 }
                 Icon(
-                    imageVector = Icons.Rounded.ChevronLeft,
+                    imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(22.dp)
@@ -571,7 +761,7 @@ private fun ProfileHeaderCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = userName?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: "؟",
+                            text = userName?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: Str.text_2,
                             style = MaterialTheme.typography.headlineMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Bold
@@ -582,7 +772,7 @@ private fun ProfileHeaderCard(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = userName ?: stringResource(Res.string.noobatyar_user),
+                            text = userName ?: Str.noobatyar_user,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White
@@ -650,21 +840,24 @@ private fun ProfileHeaderCard(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = stringResource(Res.string.active_business),
+                                    text = Str.active_business,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color.White.copy(alpha = 0.7f)
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
+                                // Name only, under the logo that is already
+                                // next to it. The category line that used to
+                                // sit here ("دندان‌پزشکی", "آرایشگاه") told the
+                                // owner something they picked themselves and
+                                // never see again — the logo and the name are
+                                // what identify a business everywhere else in
+                                // the app, so they are all this row carries.
                                 Text(
                                     text = business.title,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = business.categoryLabel,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.8f)
+                                    color = Color.White,
+                                    maxLines = 2
                                 )
                             }
 
@@ -694,9 +887,9 @@ private fun SubscriptionBadge(subscription: SubscriptionDto?) {
     val isValid = subscription?.isValid == true
     val isVip = subscription?.plan?.isVip == true
     val label = when {
-        isVip -> stringResource(Res.string.subscription_vip)
-        isValid -> stringResource(Res.string.subscription_active)
-        else -> stringResource(Res.string.subscription_none)
+        isVip -> Str.subscription_vip
+        isValid -> Str.subscription_active
+        else -> Str.subscription_none
     }
     val icon = if (isValid) Icons.Rounded.Star else Icons.Rounded.Info
 
@@ -748,6 +941,51 @@ private fun SettingsCard(content: @Composable () -> Unit) {
     }
 }
 
+/** Switches the UI language in place; see core/i18n/AppLocale. */
+@Composable
+private fun LanguageSettingsItem() {
+    var showPicker by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    SettingsItem(
+        icon = Icons.Rounded.Language,
+        title = Str.language,
+        subtitle = if (AppLocale.isEnglish) Str.language_name_en else Str.language_name_fa,
+        onClick = { showPicker = true }
+    )
+    if (showPicker) {
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text(Str.language_choose) },
+            text = {
+                Column {
+                    AppLanguage.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showPicker = false
+                                    scope.launch { AppLocale.change(option) }
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = AppLocale.language == option, onClick = null)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                if (option == AppLanguage.EN) Str.language_name_en else Str.language_name_fa,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPicker = false }) { Text(Str.cancel) }
+            }
+        )
+    }
+}
+
 @Composable
 private fun SettingsItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -795,75 +1033,12 @@ private fun SettingsItem(
         }
         if (!centerVertically) {
             Icon(
-                imageVector = Icons.Rounded.ChevronLeft,
+                imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = tint.copy(alpha = 0.5f)
             )
         }
-    }
-}
-
-@Composable
-private fun ThemeSelectionContent(
-    currentMode: AppThemeMode,
-    onThemeSelected: (AppThemeMode) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = stringResource(Res.string.select_theme),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        ThemeItem(
-            title = stringResource(Res.string.theme_system),
-            isSelected = currentMode == AppThemeMode.SYSTEM,
-            onClick = { onThemeSelected(AppThemeMode.SYSTEM) }
-        )
-        ThemeItem(
-            title = stringResource(Res.string.theme_light),
-            isSelected = currentMode == AppThemeMode.LIGHT,
-            onClick = { onThemeSelected(AppThemeMode.LIGHT) }
-        )
-        ThemeItem(
-            title = stringResource(Res.string.theme_dark),
-            isSelected = currentMode == AppThemeMode.DARK,
-            onClick = { onThemeSelected(AppThemeMode.DARK) }
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-    }
-}
-
-@Composable
-private fun ThemeItem(
-    title: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        RadioButton(
-            selected = isSelected,
-            onClick = onClick
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge
-        )
     }
 }
 

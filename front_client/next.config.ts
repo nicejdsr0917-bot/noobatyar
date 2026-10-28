@@ -13,6 +13,14 @@ const nextConfig = {
   // /api/client/business/ with a 308 to the slash-less path before the rewrite
   // below ever runs, and the proxied call never reaches the backend.
   skipTrailingSlashRedirect: true,
+
+  // `next dev` refuses its dev resources (HMR, the client bundle's runtime) to
+  // any origin but localhost, so a page opened as 127.0.0.1:3000 — which is
+  // what the owner app's local build links to, through `adb reverse` — or as
+  // 10.0.2.2:3000 from an Android emulator renders but never hydrates: every
+  // button is dead. Dev-only; production builds ignore this.
+  allowedDevOrigins: ['127.0.0.1', '10.0.2.2'],
+
   images: {
     remotePatterns: [
       {

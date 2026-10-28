@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.share
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -30,7 +32,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -45,7 +47,6 @@ import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.rememberCaptureController
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
-import xyz.sattar.javid.proqueue.core.utils.encodePng
 import xyz.sattar.javid.proqueue.core.utils.shareImage
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.domain.model.business.Business
@@ -78,7 +79,7 @@ import androidx.compose.runtime.collectAsState
  */
 internal fun remainingUntil(appointmentDate: Long): String {
     val diff = appointmentDate - DateTimeUtils.systemCurrentMilliseconds()
-    if (diff <= 0) return "زمان نوبت فرا رسیده"
+    if (diff <= 0) return Str.waiting_time_arrived
 
     val totalMinutes = diff / 60_000
     val days = totalMinutes / (60 * 24)
@@ -88,11 +89,11 @@ internal fun remainingUntil(appointmentDate: Long): String {
     fun fa(n: Long) = n.toString().toPersianDigits()
 
     return when {
-        days > 0 && hours > 0 -> "${fa(days)} روز و ${fa(hours)} ساعت"
-        days > 0 -> "${fa(days)} روز"
-        hours > 0 && minutes > 0 -> "${fa(hours)} ساعت و ${fa(minutes)} دقیقه"
-        hours > 0 -> "${fa(hours)} ساعت"
-        else -> "${fa(minutes)} دقیقه"
+        days > 0 && hours > 0 -> Str.days_and_hours(fa(days), fa(hours))
+        days > 0 -> Str.d(fa(days))
+        hours > 0 && minutes > 0 -> Str.hours_and_minutes(fa(hours), fa(minutes))
+        hours > 0 -> Str.h(fa(hours))
+        else -> Str.min(fa(minutes))
     }
 }
 
@@ -109,11 +110,11 @@ private fun reminderShareText(
     visitorName: String,
     appointmentDate: Long,
 ): String = buildString {
-    append("$visitorName عزیز، یادآوری نوبت شما")
-    business?.let { append(" در «${it.title}»") }
+    append(Str.dear_your_appointment_reminder(visitorName))
+    business?.let { append(Str.at(it.title)) }
     append(":\n")
-    append("${reminderDate(appointmentDate)} ساعت ${DateTimeUtils.formatTime(appointmentDate).toPersianDigits()}")
-    append("\n(${remainingUntil(appointmentDate)} دیگر)")
+    append(Str.at_2(reminderDate(appointmentDate), DateTimeUtils.formatTime(appointmentDate).toPersianDigits()))
+    append(Str.n_from_now(remainingUntil(appointmentDate)))
 }
 
 /**
@@ -142,11 +143,11 @@ fun ReminderCardDialog(
     // is a step in that flow rather than an interruption of it — it slides up
     // from where the tap happened, and a drag down is the same "not now" the
     // owner would have expressed by tapping outside a dialog.
-    ModalBottomSheet(
+    AdaptiveSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         // Straight to fully expanded, and scrollable inside: the card is a
-        // 4:5 image and the two buttons sit under it, which is taller than
+        // 14 × 21 cm portrait image and the two buttons sit under it, which is taller than
         // the half-height a sheet opens at by default — the owner would have
         // had to drag the sheet up before they could reach "share".
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -159,7 +160,7 @@ fun ReminderCardDialog(
                 .padding(bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ExportableCard(controller = capture, designHeightDp = POSTER_HEIGHT_DP) {
+            ExportableCard(controller = capture, designHeightDp = CARD_HEIGHT_DP) {
                 ReminderPosterCard(
                     business = business,
                     visitorName = visitorName,
@@ -175,19 +176,19 @@ fun ReminderCardDialog(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 AppButton(
-                    text = "انصراف",
+                    text = Str.cancel,
                     onClick = onDismiss,
                     isOutlined = true,
                     modifier = Modifier.weight(1f),
                 )
                 AppButton(
-                    text = "اشتراک‌گذاری تصویر",
+                    text = Str.share_image,
                     isLoading = exporting,
                     onClick = {
                         exporting = true
                         scope.launch {
                             shareImage(
-                                bytes = encodePng(capture.capture()),
+                                bytes = encodeCardPng(capture.capture()),
                                 fileName = "noobatyar-reminder-$appointmentDate.png",
                                 caption = reminderShareText(business, visitorName, appointmentDate),
                             )
@@ -219,40 +220,24 @@ private fun ReminderPosterCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 18.dp),
+                .padding(horizontal = CARD_SIDE_PADDING, vertical = CARD_EDGE_PADDING),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (business != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    BusinessAvatar(business, size = 34, ring = true)
-                    Spacer(Modifier.width(9.dp))
-                    Text(
-                        text = business.title,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
+            if (business != null) CardHeader(business, compact = true)
 
             Spacer(Modifier.weight(1f))
 
             NeonGlass(shape = RoundedCornerShape(20.dp), glowRadius = 8.dp, glowWidth = 2.dp) {
                 Text(
-                    text = "یادآوری نوبت",
+                    text = Str.appointment_reminder,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
 
             // The customer's own name, at the top of the card and larger than
             // anything else on it: this is sent to one person, and a reminder
@@ -261,13 +246,13 @@ private fun ReminderPosterCard(
             Text(
                 text = visitorName,
                 fontSize = 20.sp,
-                lineHeight = 26.sp,
+                lineHeight = 25.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
             )
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
 
             NeonGlass(
                 modifier = Modifier.fillMaxWidth(),
@@ -277,12 +262,12 @@ private fun ReminderPosterCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ReminderFact(
                         icon = Icons.Rounded.CalendarMonth,
-                        label = "تاریخ",
+                        label = Str.date,
                         value = reminderDate(appointmentDate),
                         modifier = Modifier.weight(1f),
                     )
@@ -294,7 +279,7 @@ private fun ReminderPosterCard(
                     )
                     ReminderFact(
                         icon = Icons.Rounded.Schedule,
-                        label = "ساعت",
+                        label = Str.time,
                         value = DateTimeUtils.formatTime(appointmentDate).toPersianDigits(),
                         modifier = Modifier.weight(1f),
                     )
@@ -303,13 +288,17 @@ private fun ReminderPosterCard(
 
             if (!services.isNullOrBlank()) {
                 Spacer(Modifier.height(8.dp))
+                // One line: the services are a reminder of what was booked,
+                // not a menu, and the height is the address's to use.
                 Text(
                     text = services.split(",").joinToString(" • ") { it.trim() },
                     fontSize = 12.sp,
                     lineHeight = 20.sp,
                     color = Color.White.copy(alpha = 0.85f),
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 
@@ -323,7 +312,7 @@ private fun ReminderPosterCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color.White, RoundedCornerShape(22.dp))
-                        .padding(vertical = 11.dp),
+                        .padding(vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
@@ -334,20 +323,21 @@ private fun ReminderPosterCard(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "تا نوبت شما باقی مانده",
+                        text = Str.until_your_appointment,
                         fontSize = 12.sp,
                         color = ShareVioletDark.copy(alpha = 0.75f),
                     )
                 }
             }
 
+            Spacer(Modifier.height(12.dp))
             Spacer(Modifier.weight(1f))
 
             // The address gets the card's full width — squeezed beside the
             // signature it broke after "طبقه" and left "سوم" alone on a line,
             // which is the kind of detail that makes a generated image look
             // generated. The mark then sits on its own line below it, in the
-            // corner the eye reaches last.
+            // centre of the card's foot, under it.
             if (business?.address?.isNotBlank() == true) {
                 Text(
                     text = business.address,
@@ -363,16 +353,10 @@ private fun ReminderPosterCard(
                     maxLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
             }
 
-            // AbsoluteAlignment, not Start: the card is RTL, where Start is
-            // the right-hand edge — this mark belongs on the physical left.
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Box(Modifier.align(AbsoluteAlignment.CenterLeft)) {
-                    AppSignature(onDark = true)
-                }
-            }
+            CardFooter()
         }
     }
 }
@@ -398,7 +382,7 @@ private fun ReminderFact(
             Spacer(Modifier.width(4.dp))
             Text(text = label, fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
         }
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             text = value,
             fontSize = 14.sp,

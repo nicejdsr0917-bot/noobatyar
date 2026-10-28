@@ -1,5 +1,9 @@
 package xyz.sattar.javid.proqueue.feature.register
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
+import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
+import xyz.sattar.javid.proqueue.core.ui.components.NewAccountIllustration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Person4
-import androidx.compose.material.icons.filled.PersonAddAlt1
 import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -35,20 +38,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.back
+import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
+import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.components.AppTextField
+import xyz.sattar.javid.proqueue.core.ui.components.AuthWebLayout
 import xyz.sattar.javid.proqueue.ui.theme.AppTheme
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 
@@ -76,8 +81,31 @@ fun RegisterScreen(
     )
 }
 
+/**
+ * Picks the layout by window width. Compact keeps the existing phone screen
+ * untouched; anything wider gets the web card.
+ */
 @Composable
 fun RegisterScreenContent(
+    modifier: Modifier = Modifier,
+    uiState: RegisterState,
+    snackbarHostState: SnackbarHostState,
+    onIntent: (RegisterIntent) -> Unit
+) {
+    if (LocalWindowSize.current == WindowSize.Compact) {
+        RegisterPhoneContent(modifier, uiState, snackbarHostState, onIntent)
+    } else {
+        RegisterWebContent(modifier, uiState, snackbarHostState, onIntent)
+    }
+}
+
+/**
+ * Phone layout — unchanged. A Scaffold whose bottomBar pins the submit button
+ * to the bottom of the viewport. See [RegisterWebContent] for the desktop
+ * case.
+ */
+@Composable
+private fun RegisterPhoneContent(
     modifier: Modifier = Modifier,
     uiState: RegisterState,
     snackbarHostState: SnackbarHostState,
@@ -88,7 +116,7 @@ fun RegisterScreenContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "ثبت‌ نام",
+                        text = Str.sign_up,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -96,7 +124,7 @@ fun RegisterScreenContent(
                     IconButton(onClick = { onIntent(RegisterIntent.BackPress) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.back)
+                            contentDescription = Str.back
                         )
                     }
                 },
@@ -114,7 +142,7 @@ fun RegisterScreenContent(
                     shadowElevation = 8.dp
                 ) {
                     AppButton(
-                        text = "ثبت نام",
+                        text = Str.sign_up_2,
                         onClick = { onIntent(RegisterIntent.Submit) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -143,103 +171,144 @@ fun RegisterScreenContent(
             {
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Icon(
-                    imageVector = Icons.Default.PersonAddAlt1,
-                    contentDescription = null,
-                    modifier = Modifier.size(72.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-
-                Text(
-                    text = "ایجاد حساب کاربری",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Text(
-                    text = "اطلاعات خود را وارد کنید",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                AppTextField(
-                    value = uiState.name,
-                    onValueChange = { onIntent(RegisterIntent.NameChanged(it)) },
-                    label = "نام",
-                    isError = uiState.nameError != null,
-                    errorMessage = uiState.nameError,
-                    enabled = !uiState.isLoading,
-                    keyboardType = KeyboardType.Text,
-                    maxLength = 100,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Person4,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
-
-                AppTextField(
-                    value = uiState.phone,
-                    onValueChange = { onIntent(RegisterIntent.PhoneChanged(it)) },
-                    label = "شماره موبایل",
-                    isError = uiState.phoneError != null,
-                    errorMessage = uiState.phoneError,
-                    enabled = !uiState.isLoading,
-                    keyboardType = KeyboardType.Phone,
-                    maxLength = 11,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.PhoneIphone,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
-
-                AppTextField(
-                    value = uiState.password,
-                    onValueChange = { onIntent(RegisterIntent.PasswordChanged(it)) },
-                    label = "رمز عبور",
-                    isError = uiState.passwordError != null,
-                    errorMessage = uiState.passwordError,
-                    enabled = !uiState.isLoading,
-                    keyboardType = KeyboardType.Password,
-                    maxLength = 100,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
-
-                if (uiState.errorMessage != null) {
-                    Text(
-                        text = uiState.errorMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+                RegisterFormFields(uiState = uiState, onIntent = onIntent)
             }
+        }
+    }
+}
+
+/**
+ * The form itself — icon, headings, all three fields, the error line and the
+ * loading indicator. Shared by [RegisterPhoneContent] and [RegisterWebContent]
+ * so the two layouts can differ in *chrome* without the fields themselves
+ * drifting apart.
+ */
+@Composable
+private fun ColumnScope.RegisterFormFields(
+    uiState: RegisterState,
+    onIntent: (RegisterIntent) -> Unit
+) {
+    BrandIllustration(size = AuthHeaderIllustrationSize) {
+        NewAccountIllustration()
+    }
+
+    Text(
+        text = Str.create_account,
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onBackground
+    )
+
+    Text(
+        text = Str.enter_your_details,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    AppTextField(
+        value = uiState.name,
+        onValueChange = { onIntent(RegisterIntent.NameChanged(it)) },
+        label = Str.name,
+        isError = uiState.nameError != null,
+        errorMessage = uiState.nameError,
+        enabled = !uiState.isLoading,
+        keyboardType = KeyboardType.Text,
+        maxLength = 100,
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Person4,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    )
+
+    AppTextField(
+        value = uiState.phone,
+        onValueChange = { onIntent(RegisterIntent.PhoneChanged(it)) },
+        label = Str.mobile_number,
+        isError = uiState.phoneError != null,
+        errorMessage = uiState.phoneError,
+        enabled = !uiState.isLoading,
+        keyboardType = KeyboardType.Phone,
+        maxLength = 11,
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.PhoneIphone,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    )
+
+    AppTextField(
+        value = uiState.password,
+        onValueChange = { onIntent(RegisterIntent.PasswordChanged(it)) },
+        label = Str.password,
+        isError = uiState.passwordError != null,
+        errorMessage = uiState.passwordError,
+        enabled = !uiState.isLoading,
+        keyboardType = KeyboardType.Password,
+        maxLength = 100,
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    )
+
+    if (uiState.errorMessage != null) {
+        Text(
+            text = uiState.errorMessage,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    if (uiState.isLoading) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(48.dp),
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+/** Web/desktop layout: the shared auth shell (see [AuthWebLayout]) plus this
+ *  screen's own fields and actions. The topBar's back button has no web
+ *  equivalent app bar, so it is re-homed as a [TextButton] at the end of the
+ *  form — otherwise the only way back would be lost on desktop. */
+@Composable
+private fun RegisterWebContent(
+    modifier: Modifier = Modifier,
+    uiState: RegisterState,
+    snackbarHostState: SnackbarHostState,
+    onIntent: (RegisterIntent) -> Unit
+) {
+    AuthWebLayout(snackbarHostState = snackbarHostState, modifier = modifier) {
+        RegisterFormFields(uiState = uiState, onIntent = onIntent)
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        AppButton(
+            text = Str.sign_up_2,
+            onClick = { onIntent(RegisterIntent.Submit) },
+            isLoading = uiState.isLoading
+        )
+        TextButton(onClick = { onIntent(RegisterIntent.BackPress) }) {
+            Text(
+                text = Str.back,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 }

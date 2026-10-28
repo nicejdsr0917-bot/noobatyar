@@ -14,9 +14,9 @@ class Visitor(models.Model):
     # is identified by phone_number alone (globally, across the whole
     # platform), not scoped per-owner, so the same person booking at two
     # different businesses is still a single Visitor row.
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='visitors', null=True, blank=True)
-    full_name = models.CharField(max_length=255)
-    phone_number = models.CharField(max_length=20, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='visitors', null=True, blank=True, verbose_name='کاربر')
+    full_name = models.CharField(max_length=255, verbose_name='نام و نام خانوادگی')
+    phone_number = models.CharField(max_length=20, unique=True, verbose_name='شماره موبایل')
     # Platform-wide marketing consent — distinct from Business.enable_promotional_sms,
     # which only governs whether *a given business* may send promotional SMS to its
     # own clients. This flag is the one that matters to core/segments.py: the audience
@@ -30,11 +30,14 @@ class Visitor(models.Model):
         db_index=True,
         help_text="اگر فعال باشد، این مراجع در فهرست‌های بازاریابی پلتفرم (خارج از پیامک‌های "
                   "خودِ کسب‌وکار) قرار نمی‌گیرد.",
+                  verbose_name='انصراف از پیام تبلیغاتی',
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:
+        verbose_name = 'مشتری'
+        verbose_name_plural = 'مشتریان'
         db_table = 'visitor'
         ordering = ['-created_at']
 
@@ -42,11 +45,13 @@ class Visitor(models.Model):
     def readable_by(cls, user):
         """Visitors ``user`` (a business owner) may see and book appointments for.
 
-        Either the owner curated this contact themselves (``user`` set, which
-        only VisitorView.post does), or the person booked online and has an
-        appointment at one of the owner's businesses. Most self-booked visitors
-        never have ``user`` set at all, so an owner-only filter hides nearly
-        every online booking from the very business it belongs to.
+        Three ways in: the owner curated this contact themselves (``user``
+        set), the owner added someone who already existed under a different
+        owner (a `VisitorContact` row — see that model for why ``user``
+        alone could not express this), or the person booked online and has an
+        appointment at one of the owner's businesses. Most self-booked
+        visitors never have ``user`` set at all, so an owner-only filter hides
+        nearly every online booking from the very business it belongs to.
 
         A classmethod because this rule has to be identical everywhere: it was
         already written out by hand in visitor/views.py for reading, while the
@@ -61,7 +66,9 @@ class Visitor(models.Model):
         everyone else.
         """
         return cls.objects.filter(
-            models.Q(user=user) | models.Q(appointments__business__user=user)
+            models.Q(user=user)
+            | models.Q(contacts__owner=user)
+            | models.Q(appointments__business__user=user)
         ).distinct()
 
     def __str__(self):
@@ -98,7 +105,7 @@ class SmsLog(models.Model):
         ('SKIPPED_QUOTA', 'Skipped (quota exhausted)'),
     ]
     
-    business = models.ForeignKey('business.Business', on_delete=models.CASCADE, related_name='sms_logs')
+    business = models.ForeignKey('business.Business', on_delete=models.CASCADE, related_name='sms_logs', verbose_name='کسب‌وکار')
     # Null when the recipient is the owner rather than a client (e.g. the
     # "new booking" notification). Those are billed to the owner's quota too, so
     # they belong in this log — leaving them out made the SMS report undercount
@@ -106,13 +113,16 @@ class SmsLog(models.Model):
     visitor = models.ForeignKey(
         Visitor, on_delete=models.CASCADE, related_name='sms_logs',
         null=True, blank=True,
+        verbose_name='مشتری',
     )
-    message_text = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SENT')
-    error_detail = models.TextField(blank=True, null=True)
-    sent_at = models.DateTimeField(auto_now_add=True)
+    message_text = models.TextField(verbose_name='متن پیام')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SENT', verbose_name='وضعیت')
+    error_detail = models.TextField(blank=True, null=True, verbose_name='جزئیات خطا')
+    sent_at = models.DateTimeField(auto_now_add=True, verbose_name='زمان ارسال')
     
     class Meta:
+        verbose_name = 'پیامک'
+        verbose_name_plural = 'پیامک‌ها'
         db_table = 'sms_log'
         ordering = ['-sent_at']
 
@@ -220,6 +230,44 @@ class VisitorArchive(models.Model):
 
     def __str__(self):
         return f"{self.visitor.phone_number} archived by user {self.owner_id}"
+
+
+class VisitorContact(models.Model):
+    """One owner having this person in their own contact list.
+
+    ``Visitor.user`` cannot express this. It is a single FK, so it records
+    only *who added the person first* — and since phone_number is unique
+    platform-wide there is exactly one Visitor row per person, shared by every
+    business they ever deal with. The second owner to meet the same customer
+    therefore had nowhere to record the relationship at all: adding them was
+    refused as a duplicate phone number, and they were invisible in that
+    owner's list because ``readable_by`` had nothing to match on. Booking for
+    them was impossible, since the only other way into ``readable_by`` is
+    already having an appointment at that business — which is the thing the
+    owner was trying to create.
+
+    Per-owner rather than per-business, matching ``VisitorArchive`` and the
+    owner-scoped visitor list: an owner with two businesses keeps one address
+    book, the same way they always have.
+
+    Adding a contact is not ownership. ``get_owned_visitor`` (rename,
+    re-number) deliberately still requires ``user=owner``, so knowing someone
+    never becomes the right to edit them for everybody else.
+    """
+
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='visitor_contacts')
+    visitor = models.ForeignKey(Visitor, on_delete=models.CASCADE, related_name='contacts')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'visitor_contact'
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['owner', 'visitor'], name='unique_owner_visitor_contact'),
+        ]
+
+    def __str__(self):
+        return f"visitor {self.visitor_id} in contacts of user {self.owner_id}"
 
 
 class VisitorActivity(models.Model):

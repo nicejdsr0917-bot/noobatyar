@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,18 +23,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.accept
-import proqueue.composeapp.generated.resources.notice_section_title
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
+import xyz.sattar.javid.proqueue.core.ui.components.AppScaffold
+import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
 import xyz.sattar.javid.proqueue.core.ui.components.EmergencyNoticeSection
 
 /**
  * Own destination rather than an inline card in Settings — a switch + text
  * field sitting between "change business" and "auto messages" broke the flow
  * of an otherwise uniform list of nav rows.
+ *
+ * The only piece that changes between phone and web is the width cap: the
+ * form itself (toggle + text field + save button) is short and single-column
+ * either way, so — same reasoning as CreateVisitorRoute — it's centred at
+ * ContentWidth.Form on Medium/Expanded rather than stretched edge to edge.
  */
 @Composable
 fun EmergencyNoticeScreen(
@@ -47,7 +51,7 @@ fun EmergencyNoticeScreen(
             TopAppBar(
                 title = {
                     Text(
-                        stringResource(Res.string.notice_section_title),
+                        Str.notice_section_title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -64,10 +68,13 @@ fun EmergencyNoticeScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues: PaddingValues ->
+        AppScaffold(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            maxWidth = ContentWidth.Form
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
@@ -80,12 +87,13 @@ fun EmergencyNoticeScreen(
             )
             if (uiState.noticeDirty) {
                 AppButton(
-                    text = stringResource(Res.string.accept),
+                    text = Str.accept,
                     onClick = { viewModel.sendIntent(SettingsIntent.SaveNotice) },
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                     isLoading = uiState.isSavingNotice
                 )
             }
+        }
         }
     }
 }

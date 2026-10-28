@@ -1,3 +1,5 @@
+
+import { getLocale, t } from '@/lib/i18n';
 // API client for Noobatyar backend
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
@@ -25,6 +27,21 @@ export interface Business {
    *  server, meaning "no extra numbers". */
   extra_phones?: string[];
   address: string | null;
+  /** The owner's map pin. Null when none is set, and — like `address` —
+   *  masked to null for a guest when allow_anonymous_view is off. Absent on
+   *  an older server. */
+  latitude?: number | null;
+  longitude?: number | null;
+  /** The owner has no active subscription. When the admin's contact policy
+   *  is on, the server then sends phone/extra_phones/address/location as
+   *  null (withheld, not hidden) — this flag is how a client tells that
+   *  apart from the owner's own allow_anonymous_view switch, which nulls the
+   *  same fields. Absent on an older server. */
+  is_expired?: boolean;
+  /** Whether the business has a map pin at all — never where it is. Lets a
+   *  client tell a withheld pin (null coordinates, is_expired) from one that
+   *  was never set. Absent on an older server. */
+  has_location?: boolean;
   logo: string | null;
   default_service_duration: number;
   work_start_hour: number;
@@ -175,7 +192,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     } else if (typeof window !== 'undefined') {
       localStorage.removeItem('visitor_token');
     }
-    throw new UnauthorizedError('نشست شما منقضی شده است. لطفاً دوباره وارد شوید.');
+    throw new UnauthorizedError(t('yourSessionHasExpiredPlease2'));
   }
 
   // An error response is not guaranteed to be JSON — a 404 from the proxy or a
@@ -193,7 +210,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     // message is the whole point ("این کسب‌وکار در حال حاضر نوبت نمی‌پذیرد");
     // replacing it with a generic string would leave the user with no idea
     // what happened.
-    throw new ApiError(json?.message || 'خطا در ارتباط با سرور', res.status);
+    throw new ApiError(json?.message || t('couldntReachServer2'), res.status);
   }
   return json?.data as T;
 }
@@ -260,7 +277,7 @@ export async function getBusinessByCode(code: string): Promise<Business> {
   // "absent from the results" is the same condition as a 404 on the detail
   // endpoint — report it as one, so callers get the not-available screen rather
   // than a load-failure screen.
-  if (!biz) throw new ApiError('کسب‌وکار یافت نشد', 404);
+  if (!biz) throw new ApiError(t('businessNotFound'), 404);
   return biz;
 }
 
@@ -395,7 +412,7 @@ export async function getMyAppointments(token: string): Promise<Appointment[]> {
 export async function getAppointment(id: number, token: string): Promise<Appointment> {
   const all = await getMyAppointments(token);
   const apt = all.find((a) => a.id === id);
-  if (!apt) throw new Error('نوبت یافت نشد');
+  if (!apt) throw new Error(t('appointmentNotFound'));
   return apt;
 }
 
@@ -447,11 +464,11 @@ export async function payAppointmentWithReceipt(id: number, formData: FormData, 
   // Same 401-or-403 rule as apiFetch(); this upload always carries a token.
   if (res.status === 401 || res.status === 403) {
     forceReLogin();
-    throw new UnauthorizedError('نشست شما منقضی شده است. لطفاً دوباره وارد شوید.');
+    throw new UnauthorizedError(t('yourSessionHasExpiredPlease2'));
   }
   const json = await res.json();
   if (!res.ok || json.status === 'error') {
-    throw new Error(json.message || 'خطا در آپلود فیش');
+    throw new Error(json.message || t('couldntUploadReceipt'));
   }
   return json.data;
 }
@@ -477,79 +494,81 @@ export function extractCode(slug: string): string {
 export function businessCategoryLabel(
   biz: { category: string; category_display?: string },
 ): string {
+  // category_display comes from the server in Persian; use our own label in English.
+  if (getLocale() === 'en') return categoryLabel(biz.category);
   return biz.category_display?.trim() || categoryLabel(biz.category);
 }
 
 export function categoryLabel(category: string): string {
   const map: Record<string, string> = {
-    DOCTOR: 'پزشک و کلینیک',
-    GENERAL_PRACTITIONER: 'پزشک عمومی',
-    INTERNAL_MEDICINE: 'داخلی',
-    CARDIOLOGY: 'قلب و عروق',
-    DERMATOLOGY: 'پوست، مو و زیبایی (پزشک)',
-    ORTHOPEDICS: 'ارتوپدی',
-    PEDIATRICS: 'اطفال و کودکان',
-    GYNECOLOGY: 'زنان و زایمان',
-    ENT: 'گوش، حلق و بینی',
-    OPHTHALMOLOGY: 'چشم‌پزشکی',
-    NEUROLOGY: 'مغز و اعصاب',
-    UROLOGY: 'اورولوژی',
-    ENDOCRINOLOGY: 'غدد و دیابت',
-    GASTROENTEROLOGY: 'گوارش و کبد',
-    ONCOLOGY: 'انکولوژی',
-    SURGERY: 'جراحی',
-    PSYCHIATRY: 'روان‌پزشکی',
-    INFERTILITY: 'ناباروری و IVF',
-    DENTIST: 'دندان‌پزشکی',
-    ORTHODONTICS: 'ارتودنسی',
-    DENTAL_IMPLANT: 'ایمپلنت و جراحی دهان',
-    PEDIATRIC_DENTISTRY: 'دندان‌پزشکی کودکان',
-    PSYCHOLOGY: 'روان‌شناسی و مشاوره',
-    PHYSIOTHERAPY: 'فیزیوتراپی و توان‌بخشی',
-    NUTRITION: 'تغذیه و رژیم‌درمانی',
-    LABORATORY: 'آزمایشگاه',
-    RADIOLOGY: 'رادیولوژی و سونوگرافی',
-    OPTOMETRY: 'بینایی‌سنجی و عینک',
-    SPEECH_THERAPY: 'گفتاردرمانی',
-    OCCUPATIONAL_THERAPY: 'کاردرمانی',
-    MIDWIFERY: 'مامایی و سلامت بانوان',
-    NURSING: 'پرستاری و خدمات در منزل',
-    PHARMACY: 'داروخانه',
-    VETERINARY: 'دامپزشکی',
-    BEAUTY_SALON: 'آرایشگاه و سالن زیبایی',
-    WOMENS_SALON: 'سالن زیبایی زنانه',
-    BARBERSHOP: 'آرایشگاه مردانه',
-    HAIR_SALON: 'سالن مو (رنگ و کراتین)',
-    HAIR_TRANSPLANT: 'کاشت مو و ابرو',
-    MAKEUP: 'میکاپ و گریم',
-    BRIDAL: 'عروس و خدمات مجلسی',
-    NAIL_SALON: 'سالن ناخن',
-    EYEBROW_LASH: 'ابرو، مژه و میکروبلیدینگ',
-    SKIN_LASER: 'پوست و لیزر',
-    TATTOO: 'تتو و میکروپیگمنتیشن',
-    MASSAGE_SPA: 'ماساژ و اسپا',
-    SLIMMING: 'لاغری و تناسب اندام',
-    CONSULTANT: 'مشاوره',
-    LAWYER: 'وکالت و مشاوره حقوقی',
-    ACCOUNTING: 'حسابداری و مالیات',
-    REAL_ESTATE: 'املاک و مستغلات',
-    INSURANCE: 'بیمه',
-    IMMIGRATION: 'مهاجرت و ویزا',
-    TUTORING: 'تدریس و کلاس خصوصی',
-    LANGUAGE_SCHOOL: 'آموزشگاه زبان',
-    MUSIC_SCHOOL: 'آموزش موسیقی',
-    GYM: 'باشگاه ورزشی و مربی شخصی',
-    YOGA_PILATES: 'یوگا و پیلاتس',
-    DRIVING_SCHOOL: 'آموزشگاه رانندگی',
-    AUTO_SERVICE: 'تعمیرگاه و خدمات خودرو',
-    CAR_WASH: 'کارواش و دیتیلینگ',
-    HOME_SERVICE: 'خدمات و تعمیرات منزل',
-    DEVICE_REPAIR: 'تعمیر موبایل و لوازم برقی',
-    TAILORING: 'خیاطی و طراحی لباس',
-    PHOTOGRAPHY: 'عکاسی و آتلیه',
-    EVENT_SERVICES: 'تالار و خدمات مراسم',
-    PET_GROOMING: 'آرایش و نگهداری حیوانات',
-    OTHER: 'سایر',
+    DOCTOR: t('doctorsClinics'),
+    GENERAL_PRACTITIONER: t('generalPractitioner'),
+    INTERNAL_MEDICINE: t('internalMedicine'),
+    CARDIOLOGY: t('cardiology'),
+    DERMATOLOGY: t('dermatologyHairBeautyDoctor'),
+    ORTHOPEDICS: t('orthopedics'),
+    PEDIATRICS: t('pediatrics'),
+    GYNECOLOGY: t('obstetricsGynecology'),
+    ENT: t('ent'),
+    OPHTHALMOLOGY: t('ophthalmology'),
+    NEUROLOGY: t('neurology'),
+    UROLOGY: t('urology'),
+    ENDOCRINOLOGY: t('endocrinologyDiabetes'),
+    GASTROENTEROLOGY: t('gastroenterologyHepatology'),
+    ONCOLOGY: t('oncology'),
+    SURGERY: t('surgery'),
+    PSYCHIATRY: t('psychiatry'),
+    INFERTILITY: t('fertilityIvf'),
+    DENTIST: t('dentistry'),
+    ORTHODONTICS: t('orthodontics'),
+    DENTAL_IMPLANT: t('implantsOralSurgery'),
+    PEDIATRIC_DENTISTRY: t('pediatricDentistry'),
+    PSYCHOLOGY: t('psychologyCounseling'),
+    PHYSIOTHERAPY: t('physiotherapyRehabilitation'),
+    NUTRITION: t('nutritionDietTherapy'),
+    LABORATORY: t('laboratory'),
+    RADIOLOGY: t('radiologyUltrasound'),
+    OPTOMETRY: t('optometryEyewear'),
+    SPEECH_THERAPY: t('speechTherapy'),
+    OCCUPATIONAL_THERAPY: t('occupationalTherapy'),
+    MIDWIFERY: t('midwiferyWomensHealth'),
+    NURSING: t('nursingHomeCare'),
+    PHARMACY: t('pharmacy'),
+    VETERINARY: t('veterinary'),
+    BEAUTY_SALON: t('hairBeautySalons'),
+    WOMENS_SALON: t('womensBeautySalon'),
+    BARBERSHOP: t('barbershop'),
+    HAIR_SALON: t('hairSalonColorKeratin'),
+    HAIR_TRANSPLANT: t('hairEyebrowTransplant'),
+    MAKEUP: t('makeupArtist'),
+    BRIDAL: t('bridalEventServices'),
+    NAIL_SALON: t('nailSalon'),
+    EYEBROW_LASH: t('browsLashesMicroblading'),
+    SKIN_LASER: t('skinLaser'),
+    TATTOO: t('tattooMicropigmentation'),
+    MASSAGE_SPA: t('massageSpa'),
+    SLIMMING: t('weightLossFitness'),
+    CONSULTANT: t('consulting'),
+    LAWYER: t('legalServicesAdvice'),
+    ACCOUNTING: t('accountingTax'),
+    REAL_ESTATE: t('realEstate'),
+    INSURANCE: t('insurance'),
+    IMMIGRATION: t('immigrationVisas'),
+    TUTORING: t('tutoringPrivateLessons'),
+    LANGUAGE_SCHOOL: t('languageSchool'),
+    MUSIC_SCHOOL: t('musicLessons'),
+    GYM: t('gymPersonalTrainer'),
+    YOGA_PILATES: t('yogaPilates'),
+    DRIVING_SCHOOL: t('drivingSchool'),
+    AUTO_SERVICE: t('carRepairServices'),
+    CAR_WASH: t('carWashDetailing'),
+    HOME_SERVICE: t('homeServicesRepairs'),
+    DEVICE_REPAIR: t('phoneElectronicsRepair'),
+    TAILORING: t('tailoringFashionDesign'),
+    PHOTOGRAPHY: t('photographyStudio'),
+    EVENT_SERVICES: t('eventVenuesServices'),
+    PET_GROOMING: t('petGroomingCare'),
+    OTHER: t('other'),
   };
   return map[category] || category;
 }

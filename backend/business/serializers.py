@@ -66,6 +66,72 @@ def normalize_service_names(value):
     return cleaned
 
 
+def _mask_phone(data):
+    data['phone'] = None
+    data['extra_phones'] = []
+
+
+def _mask_address(data):
+    # The pin goes with the address: a map pin *is* the address.
+    data['address'] = None
+    data['latitude'] = None
+    data['longitude'] = None
+
+
+def apply_contact_rules(data, instance, context):
+    """Withhold a business's contact details from a customer-facing payload.
+
+    Two independent reasons, and the payload keeps them apart so a client
+    never has to guess which one applied:
+
+    1. The owner's own switch: ``allow_anonymous_view`` off hides phone and
+       address from guests (signed-in customers still see them).
+    2. The admin policy (``accounting.ContactVisibilityPolicy``): an owner
+       without an active subscription has the chosen fields withheld from
+       everyone.
+
+    Withheld fields go out as null — the values never leave the server, so
+    a "blur" on the client can't be undone from devtools. ``is_expired`` is
+    always present: with it a client can show the subscription case as a
+    blurred placeholder while still simply leaving out what the owner chose
+    to keep private.
+
+    ``has_location`` is always present too, and says only whether a map pin
+    exists — never where. The pin is optional, so once it is withheld a null
+    latitude can't tell "hidden" from "never set"; without this the client
+    would draw a blurred map for every expired business, and the map would
+    vanish on renewal for the ones that never had a pin.
+    """
+    data['has_location'] = instance.latitude is not None and instance.longitude is not None
+
+    request = context.get('request')
+    if (not request or not request.user or request.user.is_anonymous) \
+            and not instance.allow_anonymous_view:
+        _mask_phone(data)
+        _mask_address(data)
+
+    from accounting.entitlements import get_active_subscription
+    from accounting.models import ContactVisibilityPolicy
+
+    # An imported directory listing (is_claimed=False) belongs to the system
+    # user, who never has a subscription: it is public directory data, not a
+    # lapsed customer, so the subscription policy does not apply to it.
+    is_expired = instance.is_claimed and get_active_subscription(instance.user_id) is None
+    data['is_expired'] = is_expired
+    if is_expired:
+        # Once per response, not once per business in a listing: a
+        # ListSerializer's children share the root's context dict.
+        policy = context.get('_contact_policy')
+        if policy is None:
+            policy = context['_contact_policy'] = ContactVisibilityPolicy.load()
+        if policy.hide_when_expired:
+            if policy.hide_phone:
+                _mask_phone(data)
+            if policy.hide_address:
+                _mask_address(data)
+    return data
+
+
 def apply_notice_rules(data, instance):
     """Normalise the client-facing notice + booking flags on an outgoing payload.
 
@@ -163,7 +229,7 @@ class BusinessSerializer(serializers.ModelSerializer):
             'payment_link', 'card_number', 'card_owner_name',
             # SMS preferences
             'enable_reminder_sms', 'enable_promotional_sms', 'notify_owner_by_sms',
-            'reminder_delivery',
+            'reminder_delivery', 'reminder_template',
             # Service menu shown to the owner when booking and to clients on the
             # public booking page
             'services', 'allow_client_add_service',
@@ -376,6 +442,17 @@ class BusinessSerializer(serializers.ModelSerializer):
                 'deposit_amount': 'برای دریافت بیعانه، مبلغ آن باید بیشتر از صفر باشد'
             })
 
+        # A map pin is a pair: half of one would put the business on the
+        # equator or the prime meridian. Clearing sends both empty.
+        if (current('latitude') is None) != (current('longitude') is None):
+            raise serializers.ValidationError({
+                'latitude': 'موقعیت روی نقشه باید هر دو مختصات (عرض و طول) را داشته باشد'
+            })
+        # Six decimals is ~10cm — finer is noise from the device, not precision.
+        for field in ('latitude', 'longitude'):
+            if data.get(field) is not None:
+                data[field] = round(data[field], 6)
+
         return data
 
     def validate_logo(self, value):
@@ -469,6 +546,8 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             'logo',
             'theme_color',
             'address',
+            # The map pin + "route there" links. Masked together with the
+            # address in to_representation.
             'latitude',
             'longitude',
             'province',
@@ -511,16 +590,7 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
 
     def _build_public_representation(self, instance):
         data = super().to_representation(instance)
-        request = self.context.get('request')
-
-        # If user is anonymous and the business doesn't allow anonymous viewing,
-        # mask contact fields
-        user = getattr(request, 'user', None) if request else None
-        if (not user or getattr(user, 'is_anonymous', True)) and not instance.allow_anonymous_view:
-            data['phone'] = None
-            data['extra_phones'] = []
-            data['address'] = None
-
+        data = apply_contact_rules(data, instance, self.context)
         # Emergency-notice gating + the subscription-driven booking block.
         return apply_notice_rules(data, instance)
 
@@ -584,16 +654,7 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
 
     def _build_public_representation(self, instance):
         data = super().to_representation(instance)
-        request = self.context.get('request')
-
-        # If user is anonymous and the business doesn't allow anonymous viewing,
-        # mask contact fields
-        user = getattr(request, 'user', None) if request else None
-        if (not user or getattr(user, 'is_anonymous', True)) and not instance.allow_anonymous_view:
-            data['phone'] = None
-            data['extra_phones'] = []
-            data['address'] = None
-
+        data = apply_contact_rules(data, instance, self.context)
         # Emergency-notice gating + the subscription-driven booking block.
         return apply_notice_rules(data, instance)
 

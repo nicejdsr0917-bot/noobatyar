@@ -63,13 +63,67 @@ def _as_list(value):
     return []
 
 
-def validate_business_settings(user, data):
+def _gated_features(get, has):
+    """
+    Plan features a set of business settings relies on, in the order they
+    should be reported. ``has(key)`` says whether the setting is part of the
+    source at all; ``get(key)`` reads it (strings under multipart).
+    """
+    features = []
+
+    def add(feature_key):
+        if feature_key not in features:
+            features.append(feature_key)
+
+    # Online gateway
+    payment_method = get("payment_method") if has("payment_method") else None
+    accepted = _as_list(get("accepted_payment_methods")) if has("accepted_payment_methods") else []
+    if payment_method in ("GATEWAY", "ONLINE") or "ONLINE" in accepted or "GATEWAY" in accepted:
+        add(entitlements.FEATURE_ONLINE_GATEWAY)
+
+    # Card-to-card belongs to the paid (deposit/commitment) tier — basic plans
+    # are cash-only. A CARD method or a card number both imply it.
+    card_number = (get("card_number") or "").strip() if has("card_number") else ""
+    if payment_method == "CARD" or "CARD" in accepted or card_number:
+        add(entitlements.FEATURE_DEPOSIT)
+
+    # Deposit
+    if has("deposit_mode") and get("deposit_mode") in ("MANDATORY", "OPTIONAL"):
+        add(entitlements.FEATURE_DEPOSIT)
+
+    # Promotional SMS
+    if has("enable_promotional_sms") and _as_bool(get("enable_promotional_sms")):
+        add(entitlements.FEATURE_PROMOTIONAL_SMS)
+
+    # Automatic reminder delivery from the SMS panel. MANUAL costs nothing (the
+    # message leaves the owner's own SIM), PANEL bills every reminder to the
+    # owner's plan quota — so only the tier that pays for panel sending may
+    # switch it on.
+    if has("reminder_delivery") and get("reminder_delivery") == "PANEL":
+        add(entitlements.FEATURE_AUTO_REMINDER_SMS)
+
+    # Hourly capacity control
+    if has("max_appointments_per_hour") and get("max_appointments_per_hour") not in (None, "", "null"):
+        add(entitlements.FEATURE_CAPACITY_CONTROL)
+
+    return features
+
+
+def validate_business_settings(user, data, business=None):
     """
     Return a Persian error message if ``data`` tries to enable a capability the
     user's plan does not include; otherwise None.
 
     ``data`` is the raw request payload (values may be strings under multipart).
     Only keys that are present are checked, so partial updates are fine.
+
+    ``business`` is the stored instance on an update. A capability it already
+    uses is not re-checked: the owner apps post the whole business back on
+    every save, so an owner whose plan lapsed after saving a card number would
+    otherwise be refused *every* edit — the business name, an emergency notice
+    — over a setting they did not touch. Turning a capability off is always
+    allowed for the same reason. Whether a lapsed capability still takes effect
+    is decided where it is used (see appointment/client_views.py), not here.
     """
     if getattr(user, "is_staff", False):
         return None
@@ -78,59 +132,29 @@ def validate_business_settings(user, data):
         label = entitlements.FEATURE_LABELS.get(feature_key, feature_key)
         return f"قابلیت «{label}» در پلن فعلی شما فعال نیست. برای استفاده، پلن خود را ارتقا دهید."
 
-    # Online gateway
-    payment_method = data.get("payment_method")
-    accepted = _as_list(data.get("accepted_payment_methods")) if "accepted_payment_methods" in data else []
-    wants_gateway = (payment_method in ("GATEWAY", "ONLINE")) or ("ONLINE" in accepted) or ("GATEWAY" in accepted)
-    if wants_gateway and not entitlements.has_feature(user, entitlements.FEATURE_ONLINE_GATEWAY):
-        return need(entitlements.FEATURE_ONLINE_GATEWAY)
+    already_used = set()
+    if business is not None:
+        already_used = set(_gated_features(
+            lambda key: getattr(business, key, None),
+            lambda key: hasattr(business, key),
+        ))
 
-    # Card-to-card belongs to the paid (deposit/commitment) tier — basic plans
-    # are cash-only. A CARD method or a card number both imply it.
-    card_number = (data.get("card_number") or "").strip() if "card_number" in data else ""
-    wants_card = (payment_method == "CARD") or ("CARD" in accepted) or bool(card_number)
-    if wants_card and not entitlements.has_feature(user, entitlements.FEATURE_DEPOSIT):
-        return need(entitlements.FEATURE_DEPOSIT)
+    for feature_key in _gated_features(data.get, lambda key: key in data):
+        if feature_key in already_used:
+            continue
+        if not entitlements.has_feature(user, feature_key):
+            return need(feature_key)
 
-    # Deposit
-    if "deposit_mode" in data:
-        deposit_mode = data.get("deposit_mode")
-        if deposit_mode in ("MANDATORY", "OPTIONAL"):
-            if not entitlements.has_feature(user, entitlements.FEATURE_DEPOSIT):
-                return need(entitlements.FEATURE_DEPOSIT)
-            # A deposit with no amount leaves the client staring at
-            # "مبلغ بیعانه: نامشخص" with nothing meaningful to pay. Only checked
-            # when the amount is part of this payload, so partial updates that
-            # do not touch it keep working (see the docstring contract).
-            if "deposit_amount" in data:
-                try:
-                    amount = int(data.get("deposit_amount") or 0)
-                except (TypeError, ValueError):
-                    amount = 0
-                if amount <= 0:
-                    return "برای فعال کردن بیعانه، مبلغ بیعانه را وارد کنید."
-
-    # Promotional SMS
-    if "enable_promotional_sms" in data and _as_bool(data.get("enable_promotional_sms")):
-        if not entitlements.has_feature(user, entitlements.FEATURE_PROMOTIONAL_SMS):
-            return need(entitlements.FEATURE_PROMOTIONAL_SMS)
-
-    # Automatic reminder delivery from the SMS panel.
-    # MANUAL costs nothing (the message leaves the owner's own SIM from the
-    # owner app), PANEL bills every reminder to the owner's plan quota — so
-    # only the tier that pays for panel sending may switch it on. Switching
-    # back to MANUAL is always allowed, including for a user whose plan just
-    # expired, otherwise a downgrade would strand them on a paid setting they
-    # can no longer turn off.
-    if "reminder_delivery" in data and data.get("reminder_delivery") == "PANEL":
-        if not entitlements.has_feature(user, entitlements.FEATURE_AUTO_REMINDER_SMS):
-            return need(entitlements.FEATURE_AUTO_REMINDER_SMS)
-
-    # Hourly capacity control
-    if "max_appointments_per_hour" in data:
-        value = data.get("max_appointments_per_hour")
-        has_value = value not in (None, "", "null")
-        if has_value and not entitlements.has_feature(user, entitlements.FEATURE_CAPACITY_CONTROL):
-            return need(entitlements.FEATURE_CAPACITY_CONTROL)
+    # A deposit with no amount leaves the client staring at
+    # "مبلغ بیعانه: نامشخص" with nothing meaningful to pay. Only checked when
+    # the amount is part of this payload, so partial updates that do not touch
+    # it keep working (see the docstring contract).
+    if data.get("deposit_mode") in ("MANDATORY", "OPTIONAL") and "deposit_amount" in data:
+        try:
+            amount = int(data.get("deposit_amount") or 0)
+        except (TypeError, ValueError):
+            amount = 0
+        if amount <= 0:
+            return "برای فعال کردن بیعانه، مبلغ بیعانه را وارد کنید."
 
     return None

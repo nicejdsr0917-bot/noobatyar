@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import SupportLinks from '@/app/components/SupportLinks';
+import { getServerT } from '@/lib/i18n/server';
 
 /** Catch-all 404 for any route that isn't a business code. */
-export default function NotFound() {
+export default async function NotFound() {
+  const t = await getServerT();
   return (
     <div className="page-content">
       <div
@@ -19,7 +21,7 @@ export default function NotFound() {
         {/* eslint-disable-next-line @next/next/no-img-element -- local static brand mark */}
         <img
           src="/icons/icon-192.png"
-          alt="نوبت‌یار"
+          alt={t('noobatyar')}
           width={84}
           height={84}
           style={{ borderRadius: 22, marginBottom: 22 }}
@@ -33,8 +35,7 @@ export default function NotFound() {
             marginBottom: 10,
           }}
         >
-          صفحه یافت نشد
-        </h1>
+          {t('pageNotFound')}</h1>
 
         <p
           style={{
@@ -45,8 +46,7 @@ export default function NotFound() {
             marginBottom: 26,
           }}
         >
-          نشانی‌ای که وارد کرده‌اید وجود ندارد یا جابه‌جا شده است
-        </p>
+          {t('addressYouEnteredDoesntExist')}</p>
 
         <p
           style={{
@@ -56,8 +56,7 @@ export default function NotFound() {
             marginBottom: 12,
           }}
         >
-          نیاز به کمک دارید؟
-        </p>
+          {t('needHelp')}</p>
 
         <SupportLinks />
 
@@ -71,8 +70,7 @@ export default function NotFound() {
             fontWeight: 600,
           }}
         >
-          بازگشت به نوبت‌یار
-        </Link>
+          {t('backToNoobatyar')}</Link>
       </div>
     </div>
   );

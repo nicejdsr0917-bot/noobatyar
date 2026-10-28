@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,13 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.notice_message_label
-import proqueue.composeapp.generated.resources.notice_message_public_warning
-import proqueue.composeapp.generated.resources.notice_section_title
-import proqueue.composeapp.generated.resources.notice_switch_description
-import proqueue.composeapp.generated.resources.notice_switch_label
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 
 /** Backend limit on Business.notice_message — enforced here so the request can't be rejected. */
@@ -63,7 +57,7 @@ fun EmergencyNoticeSection(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = stringResource(Res.string.notice_section_title),
+                text = Str.notice_section_title,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -80,7 +74,7 @@ fun EmergencyNoticeSection(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = stringResource(Res.string.notice_switch_label),
+                text = Str.notice_switch_label,
                 style = MaterialTheme.typography.bodyLarge
             )
             Switch(
@@ -91,7 +85,7 @@ fun EmergencyNoticeSection(
         }
 
         Text(
-            text = stringResource(Res.string.notice_switch_description),
+            text = Str.notice_switch_description,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -103,7 +97,7 @@ fun EmergencyNoticeSection(
                     // Truncate rather than reject: pasting a long text should
                     // keep the first 300 characters, not silently do nothing.
                     onValueChange = { onMessageChange(it.take(NOTICE_MESSAGE_MAX_LENGTH)) },
-                    label = stringResource(Res.string.notice_message_label),
+                    label = Str.notice_message_label,
                     maxLine = 5,
                     maxLength = NOTICE_MESSAGE_MAX_LENGTH,
                     enabled = isEditable,
@@ -115,7 +109,7 @@ fun EmergencyNoticeSection(
                     verticalAlignment = Alignment.Top
                 ) {
                     Text(
-                        text = stringResource(Res.string.notice_message_public_warning),
+                        text = Str.notice_message_public_warning,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)

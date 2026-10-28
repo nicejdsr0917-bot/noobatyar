@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,8 +23,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.*
+import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
+import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 
 @Composable
@@ -35,7 +36,8 @@ fun DateBottomSheet(
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val scope = rememberCoroutineScope()
-    
+    val windowSize = LocalWindowSize.current
+
     // Convert initialDate to Persian
     val initialPersian = remember(initialDate) { DateTimeUtils.getJalaliDateParts(initialDate) }
     
@@ -43,18 +45,18 @@ fun DateBottomSheet(
     var month by remember { mutableStateOf(initialPersian.month) }
     var day by remember { mutableStateOf(initialPersian.dayOfMonth) }
 
-    val month_1 = stringResource(Res.string.month_1)
-    val month_2 = stringResource(Res.string.month_2)
-    val month_3 = stringResource(Res.string.month_3)
-    val month_4 = stringResource(Res.string.month_4)
-    val month_5 = stringResource(Res.string.month_5)
-    val month_6 = stringResource(Res.string.month_6)
-    val month_7 = stringResource(Res.string.month_7)
-    val month_8 = stringResource(Res.string.month_8)
-    val month_9 = stringResource(Res.string.month_9)
-    val month_10 = stringResource(Res.string.month_10)
-    val month_11 = stringResource(Res.string.month_11)
-    val month_12 = stringResource(Res.string.month_12)
+    val month_1 = Str.month_1
+    val month_2 = Str.month_2
+    val month_3 = Str.month_3
+    val month_4 = Str.month_4
+    val month_5 = Str.month_5
+    val month_6 = Str.month_6
+    val month_7 = Str.month_7
+    val month_8 = Str.month_8
+    val month_9 = Str.month_9
+    val month_10 = Str.month_10
+    val month_11 = Str.month_11
+    val month_12 = Str.month_12
 
     val persianMonths = remember(
         month_1, month_2, month_3, month_4, month_5, month_6,
@@ -67,7 +69,7 @@ fun DateBottomSheet(
         )
     }
 
-    ModalBottomSheet(
+    AdaptiveSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
@@ -84,7 +86,7 @@ fun DateBottomSheet(
             ) {
                 // Year
                  NumberPicker(
-                    range = 1300..1499,
+                    range = DateTimeUtils.yearPickerRange(),
                     initialValue = year,
                     onValueChange = { year = it },
                     modifier = Modifier.width(80.dp),
@@ -123,12 +125,19 @@ fun DateBottomSheet(
                 onClick = {
                     val millis = DateTimeUtils.jalaliToGregorian(year, month, day)
                     onDateSelected(millis)
-                    scope.launch { sheetState.hide() }.invokeOnCompletion {
-                        if (!sheetState.isVisible) onDismiss()
+                    // sheetState.hide() only makes sense when we're actually inside a
+                    // ModalBottomSheet (Compact) — on the AdaptiveSheet dialog path it
+                    // has no anchors attached to anything, so we dismiss directly there.
+                    if (windowSize == WindowSize.Compact) {
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) onDismiss()
+                        }
+                    } else {
+                        onDismiss()
                     }
                 }
             ) {
-                Text(stringResource(Res.string.confirm))
+                Text(Str.confirm)
             }
         }
     }

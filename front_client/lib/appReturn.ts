@@ -44,3 +44,15 @@ export function tryReturnToApp(link: string): void {
     // No app installed, or the browser blocked the scheme — the button remains.
   }
 }
+
+/** Where a payer who started in the owner web panel goes back to. */
+export const PANEL_URL = process.env.NEXT_PUBLIC_PANEL_URL || 'https://panel.noobatyar.ir/';
+
+/**
+ * Callback pages ending in `-web` are the ones the backend hands to payers who
+ * started in the web panel (see accounting.views._from_web_panel). A browser
+ * has no `noobatyar://` handler, so the way back is the panel itself.
+ */
+export function isWebPanelReturn(pathname: string | null): boolean {
+  return !!pathname && pathname.replace(/\/+$/, '').endsWith('-web');
+}

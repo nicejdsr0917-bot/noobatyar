@@ -2,15 +2,18 @@ package xyz.sattar.javid.proqueue.data.remoteDataSource.user
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.patch
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.core.network.TokenManager
 import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.CheckVersionRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.LoginRequestDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.LogoutRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.RegisterRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.RegisterResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SendOTPResponseDto
@@ -53,9 +56,16 @@ class UserApiService(private val httpClient: HttpClient) {
             setBody(body)
         }.toApiResponse()
     }
+    /**
+     * Blacklists the refresh token on the server. It used to post no body,
+     * while the server requires `refresh`, so every logout failed silently
+     * and the session stayed usable for the token's full 14 days — on a
+     * shared desktop, by whoever had copied it.
+     */
     suspend fun logout(): ApiResponse<Unit> {
         return httpClient.post("auth/logout/") {
             contentType(ContentType.Application.Json)
+            setBody(LogoutRequestDto(refresh = TokenManager.getRefreshToken().orEmpty()))
         }.toApiResponse()
     }
 
@@ -93,6 +103,28 @@ class UserApiService(private val httpClient: HttpClient) {
         return httpClient.post("accounting/addons/buy/") {
             contentType(ContentType.Application.Json)
             setBody(BuyAddonRequestDto(packId))
+        }.toApiResponse()
+    }
+
+    suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto> {
+        return httpClient.get("accounting/checkout/quote/") {
+            parameter("kind", kind)
+            parameter("id", id)
+            parameter("channel", channel)
+        }.toApiResponse()
+    }
+
+    suspend fun storeIntent(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentDto> {
+        return httpClient.post("accounting/store/$store/intent/") {
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }.toApiResponse()
+    }
+
+    suspend fun storeVerify(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyDto> {
+        return httpClient.post("accounting/store/$store/verify/") {
+            contentType(ContentType.Application.Json)
+            setBody(body)
         }.toApiResponse()
     }
 

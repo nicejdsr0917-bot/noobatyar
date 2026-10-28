@@ -1,7 +1,10 @@
 package xyz.sattar.javid.proqueue
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -9,6 +12,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,14 +22,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.koinInject
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.notification_permission_prompt_allow
-import proqueue.composeapp.generated.resources.notification_permission_prompt_later
-import proqueue.composeapp.generated.resources.notification_permission_prompt_message
-import proqueue.composeapp.generated.resources.notification_permission_prompt_title
+import xyz.sattar.javid.proqueue.core.billing.CheckoutConfirmHost
 import xyz.sattar.javid.proqueue.core.network.GlobalError
 import xyz.sattar.javid.proqueue.core.network.GlobalErrorManager
 import xyz.sattar.javid.proqueue.core.navigation.navHost.AuthNavHost
@@ -37,6 +36,8 @@ import xyz.sattar.javid.proqueue.core.permissions.rememberNotificationPermission
 import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.state.ThemeStateHolder
+import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
+import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
@@ -44,6 +45,7 @@ import xyz.sattar.javid.proqueue.core.utils.AppInfo
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.domain.usecase.push.SyncPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.HasTokenUseCase
+import xyz.sattar.javid.proqueue.feature.version.SiteVersionHandler
 import xyz.sattar.javid.proqueue.feature.version.VersionHandler
 import xyz.sattar.javid.proqueue.ui.theme.AppTheme
 
@@ -69,6 +71,12 @@ fun App() {
         if (onAuthComplete) syncPushToken()
     }
 
+    // Anyone who has signed in already knows the app, including owners from
+    // before the introduction existed — a later logout must not show it.
+    LaunchedEffect(onAuthComplete) {
+        if (onAuthComplete) PreferencesManager.setOnboardingSeen()
+    }
+
     // Mounted for the whole app (outside the auth/business/main nav swap below),
     // so a toast triggered right before a forced navigation — e.g. the session
     // expiring — actually survives to be seen instead of unmounting with the
@@ -83,7 +91,7 @@ fun App() {
                     // the user was just silently dropped back on the login screen.
                     scope.launch {
                         globalSnackbarHostState.showToasty(
-                            UiMessage.warning("نشست شما منقضی شده است. لطفاً دوباره وارد شوید.")
+                            UiMessage.warning(Str.your_session_has_expired_please)
                         )
                     }
                     onAuthComplete = false
@@ -100,10 +108,32 @@ fun App() {
     }
 
     AppTheme(themeMode = themeMode) {
-        Box(modifier = Modifier.fillMaxSize()) {
-        // Handle Version Update (no iOS store listing yet, so skip this gate on iOS)
-        if (!AppInfo.isIOS) {
+        // Root width probe for the adaptive layout (docs/OWNER_WEB_PLAN.md
+        // section ۸): everything below reads its bucket from LocalWindowSize
+        // instead of measuring the window itself. maxWidth here is in dp
+        // already (BoxWithConstraints), matching the plan's breakpoint table.
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val windowSize = WindowSize.of(maxWidth)
+        CompositionLocalProvider(LocalWindowSize provides windowSize) {
+        // Painted at the root so no region can ever fall through to the
+        // web canvas's white clear colour — on wasmJs anything Compose
+        // does not draw over shows up as a white gap, not as the page
+        // background.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+        // Handle Version Update (no iOS store listing yet, so skip this gate on
+        // iOS; no store/version concept on the web either, see AppInfo.isWeb)
+        if (!AppInfo.isIOS && !AppInfo.isWeb) {
             VersionHandler()
+        }
+
+        // Signed-in only, so the "days of use" count from the first real session.
+        // Not on web: the web panel already is the site build this invites to.
+        if (onAuthComplete && !AppInfo.isIOS && !AppInfo.isWeb) {
+            SiteVersionHandler()
         }
 
         if (!onAuthComplete) {
@@ -118,7 +148,22 @@ fun App() {
         LaunchedEffect(Unit) {
             PreferencesManager.defaultBusinessId.collect { id ->
                 if (id != null && BusinessStateHolder.selectedBusiness.value == null) {
-                    val business = businessRepository.getBusinessById(id)
+                    var business = businessRepository.getBusinessById(id)
+                    // On wasmJs the local cache is in-memory only (see
+                    // docs/OWNER_WEB_PLAN.md section 5) and starts empty on
+                    // every fresh page load — unlike Android/iOS, where Room
+                    // persists it to disk. defaultBusinessId itself survives
+                    // a refresh (it's in localStorage), so without this
+                    // fallback the owner's remembered business could never be
+                    // found again after a browser reload, and every refresh
+                    // silently dropped back to the business list. Refetching
+                    // once and re-checking the cache fixes that on web and is
+                    // a harmless no-op on Android/iOS, where the first lookup
+                    // above already succeeds and this branch never runs.
+                    if (business == null) {
+                        businessRepository.fetchAndCacheBusinesses(page = 1, pageSize = 20)
+                        business = businessRepository.getBusinessById(id)
+                    }
                     if (business != null) {
                         BusinessStateHolder.selectBusiness(business)
                     }
@@ -156,7 +201,10 @@ fun App() {
         }
         }
 
+        CheckoutConfirmHost()
         ToastyHost(hostState = globalSnackbarHostState)
+        }
+        }
         }
     }
 }
@@ -215,19 +263,19 @@ private fun NotificationPermissionPrompt(
     if (showPrompt) {
         AlertDialog(
             onDismissRequest = { showPrompt = false },
-            title = { Text(stringResource(Res.string.notification_permission_prompt_title)) },
-            text = { Text(stringResource(Res.string.notification_permission_prompt_message)) },
+            title = { Text(Str.notification_permission_prompt_title) },
+            text = { Text(Str.notification_permission_prompt_message) },
             confirmButton = {
                 TextButton(
                     onClick = { launcher.launch() },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text(stringResource(Res.string.notification_permission_prompt_allow))
+                    Text(Str.notification_permission_prompt_allow)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showPrompt = false }) {
-                    Text(stringResource(Res.string.notification_permission_prompt_later))
+                    Text(Str.notification_permission_prompt_later)
                 }
             }
         )

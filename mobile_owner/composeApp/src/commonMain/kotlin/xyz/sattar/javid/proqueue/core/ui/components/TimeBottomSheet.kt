@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,11 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.confirm
-import proqueue.composeapp.generated.resources.hour_label
-import proqueue.composeapp.generated.resources.minute_label
+import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
+import xyz.sattar.javid.proqueue.core.ui.WindowSize
 
 @Composable
 fun TimeBottomSheet(
@@ -38,11 +35,12 @@ fun TimeBottomSheet(
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val scope = rememberCoroutineScope()
+    val windowSize = LocalWindowSize.current
     val parts = initialTime.split(":")
     var hour by remember { mutableStateOf(parts.getOrNull(0)?.toIntOrNull() ?: 12) }
     var minute by remember { mutableStateOf(parts.getOrNull(1)?.toIntOrNull() ?: 0) }
 
-    ModalBottomSheet(
+    AdaptiveSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
@@ -59,7 +57,7 @@ fun TimeBottomSheet(
             ) {
                 // Minute Picker
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(Res.string.minute_label), style = MaterialTheme.typography.labelMedium)
+                    Text(Str.minute_label, style = MaterialTheme.typography.labelMedium)
                     NumberPicker(
                         range = 0..59,
                         initialValue = minute,
@@ -73,7 +71,7 @@ fun TimeBottomSheet(
 
                 // Hour Picker
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(Res.string.hour_label), style = MaterialTheme.typography.labelMedium)
+                    Text(Str.hour_label, style = MaterialTheme.typography.labelMedium)
                     NumberPicker(
                         range = 0..23,
                         initialValue = hour,
@@ -91,12 +89,18 @@ fun TimeBottomSheet(
                 onClick = {
                     val formattedTime = "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
                     onTimeSelected(formattedTime)
-                    scope.launch { sheetState.hide() }.invokeOnCompletion {
-                        if (!sheetState.isVisible) onDismiss()
+                    // See DateBottomSheet: sheetState.hide() only applies on the real
+                    // ModalBottomSheet (Compact) path of AdaptiveSheet.
+                    if (windowSize == WindowSize.Compact) {
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) onDismiss()
+                        }
+                    } else {
+                        onDismiss()
                     }
                 }
             ) {
-                Text(stringResource(Res.string.confirm))
+                Text(Str.confirm)
             }
         }
     }

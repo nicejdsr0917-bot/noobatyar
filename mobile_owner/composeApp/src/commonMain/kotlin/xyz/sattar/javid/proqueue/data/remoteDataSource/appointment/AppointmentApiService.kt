@@ -79,14 +79,45 @@ class AppointmentApiService(private val httpClient: HttpClient) {
         return httpClient.delete("appointment/$id/") {}.toApiResponse()
     }
 
+    /**
+     * [dateFrom]/[dateTo] are optional and, when omitted, the server keeps its
+     * long-standing "today" window — so existing callers are unaffected. The
+     * range report passes them to get the same numbers over its own window.
+     */
     suspend fun getAppointmentStats(
-            businessId: Long
+            businessId: Long,
+            dateFrom: Long? = null,
+            dateTo: Long? = null
     ): ApiResponse<
             xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.model.AppointmentStatsDto> {
         return httpClient
                 .get("appointment/stats/") {
                     contentType(ContentType.Application.Json)
                     parameter("business_id", businessId)
+                    dateFrom?.let { parameter("date_from", it) }
+                    dateTo?.let { parameter("date_to", it) }
+                }
+                .toApiResponse()
+    }
+
+    suspend fun getRangeVisitors(
+            businessId: Long,
+            dateFrom: Long,
+            dateTo: Long,
+            ordering: String = "visits",
+            page: Int = 1,
+            pageSize: Int = 20
+    ): ApiResponse<
+            xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.model.RangeVisitorsPageDto> {
+        return httpClient
+                .get("appointment/range-visitors/") {
+                    contentType(ContentType.Application.Json)
+                    parameter("business_id", businessId)
+                    parameter("date_from", dateFrom)
+                    parameter("date_to", dateTo)
+                    parameter("ordering", ordering)
+                    parameter("page", page)
+                    parameter("page_size", pageSize)
                 }
                 .toApiResponse()
     }

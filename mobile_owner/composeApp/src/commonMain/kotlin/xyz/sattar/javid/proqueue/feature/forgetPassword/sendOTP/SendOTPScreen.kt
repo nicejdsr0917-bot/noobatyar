@@ -1,5 +1,10 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.sendOTP
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import androidx.compose.ui.draw.clip
+import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
+import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
+import xyz.sattar.javid.proqueue.core.ui.components.VerifyCodeIllustration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,13 +18,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Numbers
-import androidx.compose.material.icons.filled.Password
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -41,11 +47,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.back
+import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
+import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
+import xyz.sattar.javid.proqueue.core.ui.components.AuthWebLayout
 import xyz.sattar.javid.proqueue.core.ui.components.OTPTextField
 import xyz.sattar.javid.proqueue.core.ui.toTimerFormat
 import xyz.sattar.javid.proqueue.feature.createAppointment.CreateAppointmentIntent
@@ -64,7 +70,8 @@ fun SendOTPScreen(
 
     LaunchedEffect(Unit) {
         viewModel.sendIntent(SendOTPIntent.PhoneChanged(phone))
-        viewModel.sendIntent(SendOTPIntent.StartTimer(120))
+        // The countdown starts from the send's own success, with the server's
+        // expires_in — a second timer started here ran alongside it.
         viewModel.sendIntent(SendOTPIntent.SendOTPAgain(phone))
     }
 
@@ -82,8 +89,29 @@ fun SendOTPScreen(
     )
 }
 
+/**
+ * Picks the layout by window width. Compact keeps the existing phone screen
+ * untouched; anything wider gets the web card.
+ */
 @Composable
 fun SendOTPScreenContent(
+    modifier: Modifier = Modifier,
+    uiState: SendOTPState,
+    snackbarHostState: SnackbarHostState,
+    onIntent: (SendOTPIntent) -> Unit
+) {
+    if (LocalWindowSize.current == WindowSize.Compact) {
+        SendOTPPhoneContent(modifier, uiState, snackbarHostState, onIntent)
+    } else {
+        SendOTPWebContent(modifier, uiState, snackbarHostState, onIntent)
+    }
+}
+
+/**
+ * Phone layout — unchanged. See [SendOTPWebContent] for the desktop case.
+ */
+@Composable
+private fun SendOTPPhoneContent(
     modifier: Modifier = Modifier,
     uiState: SendOTPState,
     snackbarHostState: SnackbarHostState,
@@ -94,7 +122,7 @@ fun SendOTPScreenContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "کد راستی‌آزمایی",
+                        text = Str.verification_code,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -105,7 +133,7 @@ fun SendOTPScreenContent(
                     IconButton(onClick = { onIntent(SendOTPIntent.BackPress) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.back)
+                            contentDescription = Str.back
                         )
                     }
                 },
@@ -130,51 +158,87 @@ fun SendOTPScreenContent(
             ) {
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Icon(
-                    imageVector = Icons.Default.Password,
-                    contentDescription = null,
-                    modifier = Modifier.size(72.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-
-                Text(
-                    text = "کد راستی‌آزمایی",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Text(
-                    text = "کد ارسال شده به ${uiState.phone} را وارد کنید",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OTPTextField(
-                    otp = uiState.otp,
-                    onOTPChange = { onIntent(SendOTPIntent.OTPChanged(it, uiState.phone)) },
-                    isError = uiState.otpError != null, errorMessage = uiState.otpError
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                TimerAndResendButton(
-                    remainingTime = uiState.remainingTime,
-                    canResend = uiState.canResend,
-                    isLoading = uiState.isLoading,
-                    onResend = { onIntent(SendOTPIntent.SendOTPAgain(uiState.phone)) }
-                )
-
-                if (uiState.isLoading && uiState.otp.length == 6) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+                SendOTPFormFields(uiState = uiState, onIntent = onIntent)
             }
+        }
+    }
+}
+
+/**
+ * The form itself — icon, headings, the OTP field, the resend timer/button
+ * and the loading indicator. Shared by [SendOTPPhoneContent] and
+ * [SendOTPWebContent] so the two layouts can differ in *chrome* without the
+ * OTP-specific state/timer handling drifting apart.
+ */
+@Composable
+private fun ColumnScope.SendOTPFormFields(
+    uiState: SendOTPState,
+    onIntent: (SendOTPIntent) -> Unit
+) {
+    BrandIllustration(size = AuthHeaderIllustrationSize) {
+        VerifyCodeIllustration()
+    }
+
+    Text(
+        text = Str.verification_code,
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onBackground
+    )
+
+    Text(
+        text = Str.enter_code_sent_to(uiState.phone),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center
+    )
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    OTPTextField(
+        otp = uiState.otp,
+        onOTPChange = { onIntent(SendOTPIntent.OTPChanged(it, uiState.phone)) },
+        isError = uiState.otpError != null, errorMessage = uiState.otpError
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    TimerAndResendButton(
+        remainingTime = uiState.remainingTime,
+        canResend = uiState.canResend,
+        isLoading = uiState.isLoading,
+        onResend = { onIntent(SendOTPIntent.SendOTPAgain(uiState.phone)) }
+    )
+
+    if (uiState.isLoading && uiState.otp.length == 6) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(48.dp),
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+/** Web/desktop layout: the shared auth shell (see [AuthWebLayout]) plus this
+ *  screen's own fields. The topBar's back button has no web equivalent app
+ *  bar, so it is re-homed as a [TextButton] at the end of the form —
+ *  otherwise the only way back would be lost on desktop. */
+@Composable
+private fun SendOTPWebContent(
+    modifier: Modifier = Modifier,
+    uiState: SendOTPState,
+    snackbarHostState: SnackbarHostState,
+    onIntent: (SendOTPIntent) -> Unit
+) {
+    AuthWebLayout(snackbarHostState = snackbarHostState, modifier = modifier) {
+        SendOTPFormFields(uiState = uiState, onIntent = onIntent)
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        TextButton(onClick = { onIntent(SendOTPIntent.BackPress) }) {
+            Text(
+                text = Str.back,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 }
@@ -193,7 +257,7 @@ fun TimerAndResendButton(
     ) {
         if (remainingTime > 0) {
             Text(
-                text = "ارسال مجدد کد در ${remainingTime.toTimerFormat()} دیگر ",
+                text = Str.resend_code_in(remainingTime.toTimerFormat()),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -202,6 +266,7 @@ fun TimerAndResendButton(
         AnimatedVisibility(visible = canResend && !isLoading) {
             Box(
                 modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
                     .border(
                         width = 1.dp,
                         color = MaterialTheme.colorScheme.primary,
@@ -211,7 +276,7 @@ fun TimerAndResendButton(
                     .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
                 Text(
-                    text = "ارسال مجدد کد",
+                    text = Str.resend_code,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium

@@ -9,12 +9,14 @@ from api.views import _extract_error
 from .models import Plan, Subscription, AddOnPack
 from .payment.zibal_payment import ZibalPaymentService
 from .payment.zibal_payment_verification import PaymentVerificationService
-from .payment.addon_payment import AddOnPaymentService, AddOnVerificationService
+from .payment.addon_payment import (
+    NO_SUBSCRIPTION_MESSAGE, AddOnPaymentService, AddOnVerificationService, can_buy_addon,
+)
 from .serializers import (
     PlanSerializer, SubscriptionSerializer, BuyPlanSerializer,
     AddOnPackSerializer, BuyAddOnSerializer,
 )
-from . import entitlements, usage
+from . import entitlements, pricing, usage
 from rest_framework.decorators import api_view, permission_classes
 
 
@@ -36,6 +38,31 @@ def _client_callback(path: str) -> str:
     return f'{base}{path}'
 
 
+def _from_web_panel(request) -> bool:
+    """True when the payment was started by the owner web panel (a browser),
+    not by the native apps.
+
+    The gateway sends the payer back to a web page either way, but only the
+    native apps own the ``noobatyar://`` link that page uses to return. In a
+    browser that link is an invalid address (Safari shows an error), so the
+    panel gets its own return page that goes back to the panel instead. The
+    browser tells us who is asking in the Origin header on its API calls.
+    """
+    from django.conf import settings
+
+    panel = (getattr(settings, 'PANEL_WEB_URL', '') or '').rstrip('/')
+    origin = (request.headers.get('Origin') or '').rstrip('/')
+    if not origin:
+        return False
+    return origin == panel or origin.startswith(('http://localhost', 'http://127.0.0.1'))
+
+
+def _payment_callback(request, path: str) -> str:
+    """The callback URL for this request: the panel's page for browsers,
+    the app-link page for everyone else."""
+    return _client_callback(f'{path}-web' if _from_web_panel(request) else path)
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def plan_list(request):
@@ -46,67 +73,6 @@ def plan_list(request):
         data=serializer.data,
         message=None
     )
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def buy_plan(request):
-    """
-    خرید مستقیم پلن (بدون درگاه):
-    - اشتراک قبلی expire
-    - اشتراک جدید
-    - VIP upgrade
-    """
-    serializer = BuyPlanSerializer(data=request.data)
-    if not serializer.is_valid():
-        return APIResponse.error(message=_extract_error(serializer.errors))
-
-    plan_id = serializer.validated_data['plan_id']
-
-    try:
-        plan = Plan.objects.get(id=plan_id, is_active=True)
-    except Plan.DoesNotExist:
-        return APIResponse.error(message='پلن پیدا نشد', code=404)
-
-    user = request.user
-
-    # بررسی اشتراک فعلی برای تمدید زمان
-    active_sub = Subscription.objects.filter(user=user, status='active').first()
-    
-    # اگر اشتراک فعال و معتبری وجود دارد، از تاریخ پایان آن شروع می‌کنیم
-    # در غیر این صورت از همین الان شروع می‌کنیم
-    if active_sub and active_sub.is_valid():
-        start_date = active_sub.ends_at
-        active_sub.status = 'expired'
-        active_sub.save(update_fields=['status'])
-    else:
-        # اگر اشتراک منقضی شده هم وجود داشته باشد، آن را غیرفعال می‌کنیم
-        Subscription.objects.filter(user=user, status='active').update(status='expired')
-        start_date = timezone.now()
-
-    # Create new subscription
-    subscription = Subscription.objects.create(
-        user=user,
-        plan=plan,
-        ends_at=plan.get_end_date(start_date=start_date)
-    )
-
-    # VIP upgrade
-    if plan.is_vip and user.role != 'BUSINESS_OWNER':
-        user.role = 'BUSINESS_OWNER'
-        user.save(update_fields=['role'])
-
-    # Unlock businesses that were locked under a smaller/expired plan.
-    from business.services import sync_locks
-    sync_locks(user)
-
-    serializer = SubscriptionSerializer(subscription)
-    return APIResponse.success(
-        data=serializer.data,
-        message=f'پلن {plan.name} با موفقیت فعال شد',
-        status=201
-    )
-
 
 
 @api_view(['GET'])
@@ -182,10 +148,13 @@ def buy_addon(request):
     except AddOnPack.DoesNotExist:
         return APIResponse.error(message='بسته پیدا نشد', code=404)
 
+    if not can_buy_addon(request.user):
+        return APIResponse.error(message=NO_SUBSCRIPTION_MESSAGE, code=403)
+
     result = AddOnPaymentService().create_payment(
         user=request.user,
         pack=pack,
-        callback_url=_client_callback('/home/payment-result-addon'),
+        callback_url=_payment_callback(request, '/home/payment-result-addon'),
     )
     if not result['success']:
         return APIResponse.error(message=result.get('error', 'خطا در ایجاد درخواست پرداخت'))
@@ -244,7 +213,7 @@ def pay_for_plan(request):  # ✅ sync
     result = payment_service.create_payment(  # ✅ بدون await
         user=user,
         plan=plan,
-        callback_url=_client_callback('/home/payment-result'),
+        callback_url=_payment_callback(request, '/home/payment-result'),
     )
 
     if not result['success']:
@@ -284,3 +253,73 @@ def payment_callback(request):
         'message': result['message'],
         'data': result.get('data', {})
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def checkout_quote(request):
+    """
+    مبلغ نهایی یک خرید با جزئیات (قیمت، مالیات، کارمزد درگاه/مایکت) تا اپ
+    پیش از رفتن به درگاه یا مایکت آن را به کاربر نشان دهد و تأیید بگیرد.
+    Query: kind=plan|addon, id, channel=zibal|myket
+    """
+    kind = request.query_params.get('kind')
+    channel = request.query_params.get('channel') or pricing.CHANNEL_ZIBAL
+    if channel not in pricing.CHANNELS:
+        return APIResponse.error(message='روش پرداخت نامعتبر است')
+    try:
+        item_id = int(request.query_params.get('id'))
+    except (TypeError, ValueError):
+        return APIResponse.error(message='شناسه نامعتبر است')
+
+    if kind == 'plan':
+        item = Plan.objects.filter(id=item_id, is_active=True).first()
+        base = pricing.plan_base(item) if item else None
+    elif kind == 'addon':
+        item = AddOnPack.objects.filter(id=item_id, is_active=True).first()
+        base = item.price if item else None
+    else:
+        return APIResponse.error(message='نوع خرید نامعتبر است')
+    if item is None:
+        return APIResponse.error(message='مورد پیدا نشد', code=404)
+
+    data = pricing.quote(base, channel)
+    data['title'] = item.name
+    return APIResponse.success(data=data)
+
+
+# ── Myket in-app billing (store build of the owner app) ──────────────────────
+# See accounting/payment/myket.py for the full flow.
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def myket_intent(request):
+    """Reserve a purchase and return the Myket product id + developer payload."""
+    from .payment import myket
+    try:
+        data = myket.create_intent(
+            request.user,
+            kind=request.data.get('kind'),
+            item_id=request.data.get('id'),
+        )
+    except myket.StoreError as exc:
+        return APIResponse.error(message=exc.message, code=exc.status)
+    return APIResponse.success(data=data, message='سفارش ثبت شد')
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def myket_verify(request):
+    """Verify a Myket purchase token server-to-server and grant what it paid for."""
+    from .payment import myket
+    try:
+        data = myket.verify_and_grant(
+            request.user,
+            payload=request.data.get('payload') or '',
+            sku=request.data.get('sku') or '',
+            token=request.data.get('token') or '',
+            order_id=request.data.get('order_id') or '',
+        )
+    except myket.StoreError as exc:
+        return APIResponse.error(message=exc.message, code=exc.status)
+    return APIResponse.success(data=data, message=data['message'])

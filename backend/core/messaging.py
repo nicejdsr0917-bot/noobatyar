@@ -182,6 +182,222 @@ def _deliver(audience, recipient_id, campaign):
     )
 
 
+def expiry_sms_audience(days_before: int, *, plan_ids=None, skip_reminded=True, mode='expiring'):
+    """
+    The audience of a renewal-reminder SMS, in one of two modes.
+
+    ``mode='expiring'`` (default): active subscriptions ending within
+    ``days_before`` days, soonest first. ``skip_reminded`` leaves out anyone
+    already sent a reminder for this subscription (by hand or by the
+    automatic job), so a second send doesn't message the same owner twice.
+
+    ``mode='expired'``: owners whose subscription ended within the last
+    ``days_before`` days and who have **not renewed** — nobody with a later
+    subscription of any kind (cancelled ones don't count as a subscription
+    to lose), so an owner who already paid again is never nagged. Most
+    recently lapsed first. ``skip_reminded`` here leaves out subscriptions
+    that already got this "you didn't renew" message, tracked on its own flag
+    (``expired_reminder_sent``) because ``reminder_sent`` is spent by the
+    "ending soon" message every one of these owners got before they lapsed.
+
+    One query for the live count, the recipient preview and the send itself,
+    so the three can never disagree about who is in it.
+    """
+    from datetime import timedelta
+
+    from django.db.models import Exists, OuterRef
+    from django.utils import timezone
+
+    from accounting.models import Subscription
+
+    now = timezone.now()
+    if mode == 'expired':
+        later = Subscription.objects.filter(
+            user_id=OuterRef('user_id'), ends_at__gt=OuterRef('ends_at'),
+        ).exclude(status='cancelled')
+        subs = (
+            Subscription.objects
+            .filter(status__in=('active', 'expired'),
+                    ends_at__lte=now, ends_at__gt=now - timedelta(days=days_before))
+            .exclude(Exists(later))
+            .select_related('user', 'plan').order_by('-ends_at')
+        )
+        if skip_reminded:
+            subs = subs.filter(expired_reminder_sent=False)
+    else:
+        subs = Subscription.objects.filter(
+            status='active', ends_at__gt=now, ends_at__lte=now + timedelta(days=days_before),
+        ).select_related('user', 'plan').order_by('ends_at')
+        if skip_reminded:
+            subs = subs.filter(reminder_sent=False)
+    if plan_ids:
+        subs = subs.filter(plan_id__in=plan_ids)
+    return subs
+
+
+def days_for_sms(sub, mode='expiring'):
+    """The number a message's ``{days}`` shows: days left, or — for owners who
+    already lapsed — days since it ended. Never below 1, so "0 days" can't read
+    oddly."""
+    from django.utils import timezone
+
+    if mode == 'expired':
+        return max(1, (timezone.now() - sub.ends_at).days)
+    return max(1, sub.days_left())
+
+
+def send_expiry_sms(message: str, days_before: int, actor=None, *,
+                    plan_ids=None, skip_reminded=True, mode='expiring'):
+    """
+    Sends ``message`` to everyone in :func:`expiry_sms_audience`, filled per
+    owner by ``accounting.models.render_reminder_text`` (``{full_name}``,
+    ``{days}`` — their actual days left (days since expiry in ``expired``
+    mode), not the window edge — and ``{plan}``), and records one
+    :class:`core.models.ExpirySmsLog` row.
+
+    Each subscription reached is marked as reminded — ``reminder_sent`` (the
+    same flag the automatic reminder sets, so the cron skips it) in the
+    default mode, ``expired_reminder_sent`` in ``expired`` mode.
+
+    Funded the same way as :func:`send_admin_message` — straight through
+    ``api.sms.send_sms``, never ``accounting.usage.consume_sms``: a
+    staff-triggered renewal notice is a platform cost, not something billed
+    to the owner's own SMS quota (see this module's docstring).
+    """
+    from accounting.models import Plan
+    from core.models import ExpirySmsLog
+
+    subs = expiry_sms_audience(
+        days_before, plan_ids=plan_ids, skip_reminded=skip_reminded, mode=mode,
+    )
+    matched, sent, failed, recipients = _send_renewal_sms(subs, message, mode_of=lambda sub: mode)
+
+    plan_names = list(Plan.objects.filter(id__in=plan_ids).values_list('name', flat=True)) if plan_ids else []
+    return ExpirySmsLog.objects.create(
+        source=ExpirySmsLog.SOURCE_MANUAL,
+        message=message, days_before=days_before,
+        filters={'plans': plan_names, 'skip_reminded': skip_reminded, 'mode': mode},
+        matched_count=matched, sent_count=sent, failed_count=failed,
+        recipients=recipients, sent_by=actor,
+    )
+
+
+def send_sms_to_subscriptions(subs, message: str, actor=None):
+    """
+    Sends ``message`` to the owners of hand-picked subscriptions — the
+    "ارسال پیامک" action on the subscription list — and records one
+    :class:`core.models.ExpirySmsLog` row, so these sends show up in the same
+    report as the campaign-page ones.
+
+    One SMS per owner: when several of one owner's subscriptions are picked,
+    the one ending last speaks for them. Each subscription is filled and
+    flagged by its own state — already ended reads ``{days}`` as days since
+    the end and sets ``expired_reminder_sent``, still running reads days left
+    and sets ``reminder_sent`` — so the campaign page's "skip already
+    reminded" sees these sends too.
+    """
+    from django.utils import timezone
+
+    from core.models import ExpirySmsLog
+
+    by_user = {}
+    for sub in subs:
+        current = by_user.get(sub.user_id)
+        if current is None or sub.ends_at > current.ends_at:
+            by_user[sub.user_id] = sub
+    picked = sorted(by_user.values(), key=lambda sub: sub.ends_at, reverse=True)
+
+    now = timezone.now()
+    matched, sent, failed, recipients = _send_renewal_sms(
+        picked, message, mode_of=lambda sub: 'expired' if sub.ends_at <= now else 'expiring',
+    )
+    return ExpirySmsLog.objects.create(
+        source=ExpirySmsLog.SOURCE_MANUAL,
+        message=message, days_before=0,
+        filters={'mode': 'selection', 'plans': sorted({sub.plan.name for sub in picked})},
+        matched_count=matched, sent_count=sent, failed_count=failed,
+        recipients=recipients, sent_by=actor,
+    )
+
+
+def _send_renewal_sms(subs, message, *, mode_of):
+    """The send loop behind both renewal-SMS entry points: fill the template
+    per owner, send, flag the subscription on success, and collect the
+    per-recipient report. ``mode_of(sub)`` is 'expired' or 'expiring'."""
+    from accounting.models import render_reminder_text
+    from api.sms import send_sms, signed
+
+    matched = sent = failed = 0
+    recipients = []
+    for sub in subs:
+        matched += 1
+        mode = mode_of(sub)
+        name = sub.user.name or ''
+        phone = getattr(sub.user, 'phone', None)
+        if not phone:
+            failed += 1
+            recipients.append({'name': name, 'phone': '', 'status': 'FAILED', 'error': 'بدون شماره تلفن'})
+            continue
+        personalized = render_reminder_text(
+            message, owner_name=name, days_left=days_for_sms(sub, mode), plan_name=sub.plan.name,
+        )
+        try:
+            ok, err = send_sms(phone, signed(personalized))
+        except Exception as exc:  # noqa: BLE001 — one bad send must not sink the whole blast
+            ok, err = False, str(exc)
+        if ok:
+            sent += 1
+            recipients.append({'name': name, 'phone': phone, 'status': 'SENT'})
+            flag = 'expired_reminder_sent' if mode == 'expired' else 'reminder_sent'
+            setattr(sub, flag, True)
+            sub.save(update_fields=[flag])
+        else:
+            failed += 1
+            logger.warning('Expiry SMS to %s failed: %s', phone, err)
+            recipients.append({'name': name, 'phone': phone, 'status': 'FAILED', 'error': err or ''})
+    return matched, sent, failed, recipients
+
+
+def send_expiry_sms_test(message: str, days_before: int, actor):
+    """
+    One copy of ``message`` to the operator's own phone, filled with their own
+    name, ``days_before`` as the days left and their current plan (or a
+    placeholder) — to read the real SMS, signature and opt-out line included,
+    before sending it to every owner. Logged like any other send, since it
+    costs a real SMS.
+    """
+    from accounting.models import render_reminder_text
+    from api.sms import send_sms, signed
+    from core.models import ExpirySmsLog
+
+    name = getattr(actor, 'name', '') or ''
+    phone = getattr(actor, 'phone', '') or ''
+    sub = actor.subscriptions.select_related('plan').order_by('-ends_at').first()
+    plan_name = sub.plan.name if sub else 'پلن نمونه'
+
+    if not phone:
+        ok, err = False, 'حساب شما شماره تلفن ندارد'
+    else:
+        personalized = render_reminder_text(
+            message, owner_name=name, days_left=days_before, plan_name=plan_name,
+        )
+        try:
+            ok, err = send_sms(phone, signed(personalized))
+        except Exception as exc:  # noqa: BLE001
+            ok, err = False, str(exc)
+
+    return ExpirySmsLog.objects.create(
+        source=ExpirySmsLog.SOURCE_TEST,
+        message=message, days_before=days_before,
+        matched_count=1, sent_count=1 if ok else 0, failed_count=0 if ok else 1,
+        recipients=[{
+            'name': name, 'phone': phone,
+            'status': 'SENT' if ok else 'FAILED', 'error': '' if ok else (err or ''),
+        }],
+        sent_by=actor,
+    )
+
+
 def send_push_campaign(campaign, audience, filters, definition, *,
                        group_id=None, exclude_opted_out=True, actor=None) -> MarketingPushLog:
     """

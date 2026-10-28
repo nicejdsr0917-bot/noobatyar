@@ -1,0 +1,91 @@
+{% extends "admin/base_site.html" %}
+
+{% comment %} ---------------------------------------------------------------------------
+  Confirmation step of SubscriptionAdmin's «ارسال پیامک» action: who it
+  reaches (one row per owner), the text, then send.
+
+  Posts back to the changelist with `action`, the original `_selected_action`
+  checkboxes and `select_across`, which is how Django's action machinery
+  re-enters the same action with `apply` set — same as the moderation bulk
+  page (business/templates/admin/business/moderation_bulk.html). The form
+  posts to the current URL, so the list's filters come along with it.
+--------------------------------------------------------------------------- {% endcomment %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .ss-table { width:100%; max-width:820px; border-collapse:collapse; margin-block:12px 18px; }
+  .ss-table th, .ss-table td { border:1px solid var(--border-color); padding:6px 10px; font-size:13px; text-align:start; }
+  .ss-table th { background:var(--darkened-bg); }
+  .ss-ltr { direction:ltr; unicode-bidi:isolate; }
+  .ss-ended { color:#b91c1c; }
+  .ss-running { color:#15803d; }
+  .ss-tokens { font-size:12px; color:var(--body-quiet-color); margin-block:4px 8px; }
+  .ss-tokens code { direction:ltr; unicode-bidi:isolate; }
+  .ss-window { border:1px solid #e0a800; background:#fff8e6; color:#7a5c00; border-radius:8px;
+               padding:10px 14px; max-width:820px; margin-block-end:14px; }
+  .ss-message { width:100%; max-width:820px; padding:8px 10px; border:1px solid var(--border-color);
+                border-radius:6px; background:transparent; color:inherit; font:inherit; line-height:1.8; }
+  .ss-message:focus { outline:2px solid #7c3aed; outline-offset:1px; }
+  .submit-row input[disabled] { opacity:.45; cursor:not-allowed; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+
+  <form method="post" action="">
+    {% csrf_token %}
+
+    <p>این پیامک به <strong>{{ recipients|length }}</strong> صاحب اشتراک ارسال می‌شود
+      (به هر نفر یک پیامک، حتی اگر چند اشتراکش انتخاب شده باشد).</p>
+    {% if missing_phone %}
+      <p class="help">{{ missing_phone }} نفر شماره ندارند و ناموفق ثبت می‌شوند.</p>
+    {% endif %}
+
+    <table class="ss-table">
+      <thead><tr><th>نام</th><th>موبایل</th><th>پلن</th><th>پایان</th></tr></thead>
+      <tbody>
+        {% for r in recipients %}
+          <tr>
+            <td>{{ r.name }}</td>
+            <td class="ss-ltr">{{ r.phone|default:"—" }}</td>
+            <td>{{ r.plan }}</td>
+            <td class="{% if r.ended %}ss-ended{% else %}ss-running{% endif %}">
+              {{ r.ends_at }} {% if r.ended %}(تمام شده){% else %}(فعال){% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if not window_open %}
+      <div class="ss-window">{{ window_closed_text }}</div>
+    {% endif %}
+    {% if error %}
+      <p class="errornote">{{ error }}</p>
+    {% endif %}
+
+    <div style="margin-block-end:16px">
+      <label for="id_sms_message"><strong>متن پیامک:</strong></label>
+      <p class="ss-tokens">
+        {% for token, label in tokens %}<code>{{ token }}</code> {{ label }}{% if not forloop.last %} · {% endif %}{% endfor %}
+        — برای کسی که اشتراکش تمام شده، <code>{days}</code> یعنی چند روز از پایانش گذشته.
+        امضای «نوبت‌یار» و «لغو11» خودکار اضافه می‌شود و نقطه حذف می‌شود.
+      </p>
+      <textarea id="id_sms_message" name="sms_message" rows="5" class="ss-message" required>{{ message }}</textarea>
+    </div>
+
+    {% for pk in selected %}
+      <input type="hidden" name="_selected_action" value="{{ pk }}">
+    {% endfor %}
+    <input type="hidden" name="action" value="{{ action_name }}">
+    <input type="hidden" name="select_across" value="{{ request.POST.select_across|default:'0' }}">
+
+    <div class="submit-row">
+      <input type="submit" name="apply" value="ارسال پیامک" class="default"{% if not window_open %} disabled{% endif %}>
+      <a href="{% url 'admin:accounting_subscription_changelist' %}?{{ request.GET.urlencode }}" class="button cancel-link">انصراف</a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

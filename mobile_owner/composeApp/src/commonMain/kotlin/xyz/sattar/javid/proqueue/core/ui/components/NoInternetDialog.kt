@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -16,7 +17,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import org.jetbrains.compose.resources.stringResource
 import proqueue.composeapp.generated.resources.*
 
 @Composable
@@ -65,7 +65,7 @@ fun NoInternetDialog(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = stringResource(Res.string.no_internet_title),
+                    text = Str.no_internet_title,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -74,7 +74,7 @@ fun NoInternetDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = stringResource(Res.string.no_internet_message),
+                    text = Str.no_internet_message,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -91,7 +91,7 @@ fun NoInternetDialog(
                     )
                 } else {
                     AppButton(
-                        text = stringResource(Res.string.retry_action),
+                        text = Str.retry_action,
                         onClick = onRetry,
                         modifier = Modifier.fillMaxWidth()
                     )

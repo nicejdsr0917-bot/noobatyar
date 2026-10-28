@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
+import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -27,9 +30,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-import org.jetbrains.compose.resources.getString
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.home_sms_quota_exhausted_warning
 
 
 class HomeViewModel(
@@ -40,7 +40,7 @@ class HomeViewModel(
     private val markAppointmentNoShowUseCase: MarkAppointmentNoShowUseCase,
     private val sendMessageUseCase: SendMessageUseCase,
     private val getPlansUseCase: GetPlansUseCase,
-    private val createPaymentUseCase: CreatePaymentUseCase,
+    private val purchaseUseCase: PurchaseUseCase,
     private val syncAppointmentsUseCase: SyncAppointmentsUseCase,
     private val getMySubscriptionUseCase: GetMySubscriptionUseCase,
     private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase,
@@ -55,6 +55,16 @@ class HomeViewModel(
         viewModelScope.launch {
             BusinessStateHolder.selectedBusiness.collectLatest {
                 sendIntent(HomeIntent.LoadData)
+            }
+        }
+        // Store builds: finish any purchase that was paid in the store but
+        // never activated (app killed mid-purchase, network drop). No-op on
+        // the site build.
+        viewModelScope.launch {
+            val activated = runCatching { purchaseUseCase.recoverPending() }.getOrDefault(emptyList())
+            if (activated.isNotEmpty()) {
+                sendIntent(HomeIntent.LoadData)
+                activated.forEach { sendEvent(HomeEvent.ShowSuccess(it)) }
             }
         }
     }
@@ -160,10 +170,7 @@ class HomeViewModel(
                         emit(
                             HomeState.PartialState.ShowMessage(
                                 UiMessage.warning(
-                                    getString(
-                                        Res.string.home_sms_quota_exhausted_warning,
-                                        skipped
-                                    )
+                                    Str.home_sms_quota_exhausted_warning(skipped)
                                 )
                             )
                         )
@@ -221,7 +228,7 @@ class HomeViewModel(
                 emit(HomeState.PartialState.LoadStats(DashboardStats()))
                 emit(HomeState.PartialState.LoadDailyCounts(emptyList()))
                 emit(HomeState.PartialState.LoadMonthOverview(null))
-                emit(HomeState.PartialState.ShowMessage(UiMessage.error(e.message ?: "خطا در بارگذاری")))
+                emit(HomeState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_load)))
             }
         } else {
             emit(HomeState.PartialState.LoadStats(DashboardStats()))
@@ -292,16 +299,17 @@ class HomeViewModel(
     private fun purchasePlan(planId: Int): Flow<HomeState.PartialState> = flow {
         emit(HomeState.PartialState.IsLoading(true))
         try {
-            when (val response = createPaymentUseCase(planId)) {
-                is ApiResponse.Success -> {
-                    sendEvent(HomeEvent.OpenUrl(response.data.paymentUrl))
+            when (val outcome = purchaseUseCase.plan(planId)) {
+                is PurchaseOutcome.Redirect -> sendEvent(HomeEvent.OpenUrl(outcome.url))
+                is PurchaseOutcome.Completed -> {
+                    emit(HomeState.PartialState.ShowMessage(UiMessage.success(outcome.message)))
+                    sendIntent(HomeIntent.LoadData)
                 }
-                is ApiResponse.Error -> {
-                    sendEvent(HomeEvent.ShowError(response.message))
-                }
+                PurchaseOutcome.Cancelled -> Unit
+                is PurchaseOutcome.Failed -> sendEvent(HomeEvent.ShowError(outcome.message))
             }
         } catch (e: Exception) {
-            sendEvent(HomeEvent.ShowError(e.message ?: "خطا در برقراری ارتباط"))
+            sendEvent(HomeEvent.ShowError(e.message ?: Str.connection_error))
         } finally {
             emit(HomeState.PartialState.IsLoading(false))
         }

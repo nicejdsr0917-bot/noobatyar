@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
 import Icon from './Icon';
+import { intlLocale, t } from '@/lib/i18n';
 
 /** Longest edge of the stored receipt. Plenty to read a tracking number off. */
 const MAX_EDGE = 1400;
@@ -14,15 +15,15 @@ const QUALITY_LADDER = [0.82, 0.72, 0.62, 0.5, 0.4];
 
 function formatBytes(bytes: number): string {
   const kb = bytes / 1024;
-  if (kb < 1024) return `${Math.round(kb).toLocaleString('fa-IR')} کیلوبایت`;
-  return `${(kb / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت`;
+  if (kb < 1024) return t('kb', Math.round(kb).toLocaleString(intlLocale()));
+  return t('mb', (kb / 1024).toLocaleString(intlLocale(), { maximumFractionDigits: 1 }));
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('تصویر قابل خواندن نیست'));
+    img.onerror = () => reject(new Error(t('imageCantBeRead')));
     img.src = src;
   });
 }
@@ -44,7 +45,7 @@ async function cropAndCompress(imageSrc: string, area: Area, fileName: string): 
   canvas.height = Math.max(1, Math.round(area.height * scale));
 
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('پردازش تصویر در این مرورگر پشتیبانی نمی‌شود');
+  if (!ctx) throw new Error(t('imageProcessingIsntSupportedIn'));
   // A receipt is a document; smoothing keeps text legible after downscaling.
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
@@ -65,7 +66,7 @@ async function cropAndCompress(imageSrc: string, area: Area, fileName: string): 
     blob = await encode(quality);
     if (blob && blob.size <= TARGET_BYTES) break;
   }
-  if (!blob) throw new Error('خطا در فشرده‌سازی تصویر');
+  if (!blob) throw new Error(t('couldntCompressImage'));
 
   const base = fileName.replace(/\.[^.]+$/, '') || 'receipt';
   return new File([blob], `${base}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
@@ -118,11 +119,11 @@ export default function ReceiptUpload({ file, onChange, onError }: ReceiptUpload
   const handlePick = (picked: File | undefined) => {
     if (!picked) return;
     if (!picked.type.startsWith('image/')) {
-      onError?.('فقط تصویر می‌توانید انتخاب کنید');
+      onError?.(t('youCanOnlyChooseImage'));
       return;
     }
     if (picked.size > MAX_INPUT_BYTES) {
-      onError?.(`حجم تصویر نباید بیشتر از ${formatBytes(MAX_INPUT_BYTES)} باشد`);
+      onError?.(t('imageCantBeLargerThan', formatBytes(MAX_INPUT_BYTES)));
       return;
     }
     setOriginalSize(picked.size);
@@ -149,7 +150,7 @@ export default function ReceiptUpload({ file, onChange, onError }: ReceiptUpload
       setPreviewUrl(URL.createObjectURL(result));
       closeCropper();
     } catch (err) {
-      onError?.(err instanceof Error ? err.message : 'خطا در پردازش تصویر');
+      onError?.(err instanceof Error ? err.message : t('couldntProcessImage'));
     } finally {
       setWorking(false);
     }
@@ -168,27 +169,24 @@ export default function ReceiptUpload({ file, onChange, onError }: ReceiptUpload
       {file && previewUrl ? (
         <div className="receipt-preview">
           {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
-          <img src={previewUrl} alt="پیش‌نمایش فیش" />
+          <img src={previewUrl} alt={t('receiptPreview')} />
           <div className="receipt-preview-meta">
             <div className="receipt-preview-title">
               <Icon name="checkCircle" size={16} color="var(--color-success)" />
-              <span>فیش آماده ارسال</span>
+              <span>{t('receiptReadyToSend')}</span>
             </div>
             <div className="receipt-preview-size">
               {formatBytes(file.size)}
               {originalSize > file.size && (
                 <span className="receipt-saving">
-                  {' '}(از {formatBytes(originalSize)} فشرده شد)
-                </span>
+                  {' '}{t('compressedFrom')}{formatBytes(originalSize)} {t('text')}</span>
               )}
             </div>
             <div className="receipt-preview-actions">
               <button type="button" onClick={() => inputRef.current?.click()}>
-                <Icon name="crop" size={15} /> تغییر تصویر
-              </button>
+                <Icon name="crop" size={15} /> {t('changeImage')}</button>
               <button type="button" className="danger" onClick={clearFile}>
-                <Icon name="close" size={15} /> حذف
-              </button>
+                <Icon name="close" size={15} /> {t('remove')}</button>
             </div>
           </div>
         </div>
@@ -198,8 +196,8 @@ export default function ReceiptUpload({ file, onChange, onError }: ReceiptUpload
             <Icon name="image" size={22} />
           </span>
           <span className="upload-dropzone-text">
-            <strong>افزودن تصویر فیش</strong>
-            <small>بعد از انتخاب می‌توانید تصویر را برش دهید</small>
+            <strong>{t('addReceiptImage')}</strong>
+            <small>{t('youCanCropImageAfter')}</small>
           </span>
           <Icon name="add" size={20} />
         </button>
@@ -207,13 +205,13 @@ export default function ReceiptUpload({ file, onChange, onError }: ReceiptUpload
 
       {/* ── Crop dialog ── */}
       {rawSrc && (
-        <div className="crop-sheet" role="dialog" aria-modal="true" aria-label="برش تصویر فیش">
+        <div className="crop-sheet" role="dialog" aria-modal="true" aria-label={t('cropReceiptImage')}>
           <div className="crop-sheet-panel">
             <div className="crop-sheet-head">
-              <button type="button" onClick={closeCropper} aria-label="انصراف">
+              <button type="button" onClick={closeCropper} aria-label={t('cancel')}>
                 <Icon name="close" size={20} />
               </button>
-              <h2>برش تصویر فیش</h2>
+              <h2>{t('cropReceiptImage')}</h2>
               <span style={{ width: 36 }} />
             </div>
 
@@ -243,7 +241,7 @@ export default function ReceiptUpload({ file, onChange, onError }: ReceiptUpload
                   step={0.05}
                   value={zoom}
                   onChange={(e) => setZoom(Number(e.target.value))}
-                  aria-label="بزرگ‌نمایی"
+                  aria-label={t('zoom')}
                 />
                 <Icon name="crop" size={16} />
               </label>
@@ -255,10 +253,9 @@ export default function ReceiptUpload({ file, onChange, onError }: ReceiptUpload
               >
                 {working ? (
                   <>
-                    <span className="btn-spinner" /> در حال پردازش…
-                  </>
+                    <span className="btn-spinner" /> {t('processing')}</>
                 ) : (
-                  'تأیید و استفاده از این برش'
+                  t('confirmAndUseThisCrop')
                 )}
               </button>
             </div>

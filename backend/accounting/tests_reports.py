@@ -25,6 +25,7 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 
 from accounting import reports
 from accounting.models import AddOnPack, AddOnPurchase, Plan, Subscription, Transaction
@@ -227,6 +228,44 @@ class PlanSalesTests(ReportTestData):
     def test_plans_with_no_sales_in_range_are_absent(self):
         start, end, _, _ = reports.parse_range('1404/03/25', '1404/03/25', NOW)
         self.assertEqual(reports.plan_sales(start, end), [])
+
+
+# ── Who paid ────────────────────────────────────────────────────────────────────
+
+class PaymentsTests(ReportTestData):
+
+    def test_lists_successful_payments_in_range_newest_first(self):
+        payer = make_user('09120000009', name='مهری')
+        self.transaction(300_000, tehran(2025, 6, 15, 10), user=payer)
+        self.purchase(self.sms_pack, 50_000, tehran(2025, 6, 15, 12))
+        self.transaction(300_000, tehran(2025, 6, 15, 13), status='pending')
+        self.transaction(300_000, tehran(2025, 6, 14, 10))  # outside the range
+
+        start, end, _, _ = reports.parse_range('1404/03/25', '1404/03/25', NOW)
+        rows = reports.payments(start, end)
+
+        self.assertEqual([(r['kind'], r['item'], r['amount']) for r in rows], [
+            ('بسته', 'بسته پیامک', 50_000),
+            ('اشتراک', 'حرفه‌ای', 300_000),
+        ])
+        self.assertEqual((rows[1]['name'], rows[1]['phone']), ('مهری', '09120000009'))
+
+    def test_channel_and_internal_accounts_are_marked(self):
+        staff = make_user('09120000010', is_staff=True)
+        tx = self.transaction(300_000, tehran(2025, 6, 15, 10), user=staff)
+        Transaction.objects.filter(pk=tx.pk).update(track_id='myket-abc', order_id='myket-p1')
+        manual = self.purchase(self.sms_pack, 50_000, tehran(2025, 6, 15, 11))
+        AddOnPurchase.objects.filter(pk=manual.pk).update(track_id='manual-1a2b', order_id='MANUAL-1-1-1')
+        self.purchase(self.apt_pack, 80_000, tehran(2025, 6, 15, 12))
+
+        start, end, _, _ = reports.parse_range('1404/03/25', '1404/03/25', NOW)
+        rows = {r['amount']: r for r in reports.payments(start, end)}
+
+        self.assertEqual(rows[300_000]['channel'], 'myket')
+        self.assertTrue(rows[300_000]['is_staff'])
+        self.assertEqual(rows[50_000]['channel'], 'manual')
+        self.assertEqual(rows[80_000]['channel'], 'zibal')
+        self.assertFalse(rows[80_000]['is_staff'])
 
 
 # ── Payment conversion ──────────────────────────────────────────────────────────
@@ -501,6 +540,15 @@ class PermissionGateTests(ReportTestData):
         response = self.client.get(reverse('admin:accounting_financial_report'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'گزارش مالی')
+
+    def test_page_lists_who_paid(self):
+        payer = make_user('09120000033', name='مهری')
+        self.transaction(300_000, timezone.now(), user=payer)
+        self.client.force_login(self._staff('09120000034', 'Finance'))
+        response = self.client.get(reverse('admin:accounting_financial_report'))
+        self.assertContains(response, 'پرداخت‌کننده‌ها (1)')
+        self.assertContains(response, reverse('admin:api_user_change', args=[payer.pk]))
+        self.assertContains(response, '09120000033')
 
     def test_superadmin_gets_200(self):
         boss = make_user('09120000031')

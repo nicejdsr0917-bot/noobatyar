@@ -1,16 +1,16 @@
 {% extends "admin/base_site.html" %}
 
-{# Full, paginated customer list for one business — the standalone counterpart
-   to the short preview embedded in business_detail.html. #}
+{% comment %} Full, paginated customer list for one business — the standalone counterpart
+   to the short preview embedded in business_detail.html. {% endcomment %}
 
 {% block extrastyle %}{{ block.super }}
 <style>
-  .bc-table { width:100%; border-collapse:collapse; background:#fff; }
-  .bc-table th, .bc-table td { border:1px solid #e6e6e6; padding:7px 10px; font-size:13px; }
-  .bc-table th { background:#fafafa; text-align:start; }
+  .bc-table { width:100%; border-collapse:collapse; background:var(--body-bg); }
+  .bc-table th, .bc-table td { border:1px solid var(--border-color); padding:7px 10px; font-size:13px; }
+  .bc-table th { background:var(--darkened-bg); text-align:start; }
   .bc-table td.num { direction:ltr; text-align:end; }
   .bc-pager { margin-block-start:14px; display:flex; gap:10px; }
-  .bc-note { font-size:12px; color:#666; margin-block-end:14px; }
+  .bc-note { font-size:12px; color:var(--body-quiet-color); margin-block-end:14px; }
 </style>
 {% endblock %}
 

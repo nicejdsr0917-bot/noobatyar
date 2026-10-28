@@ -164,7 +164,7 @@ class BusinessView(APIView):
             )
 
         # Capability-gated settings (gateway, deposit, promo SMS, capacity).
-        settings_error = await sync_to_async(validate_business_settings)(user, request.data)
+        settings_error = await sync_to_async(validate_business_settings)(user, request.data, business)
         if settings_error:
             return APIResponse.error(message=settings_error, code=403)
 

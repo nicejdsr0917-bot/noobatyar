@@ -12,13 +12,15 @@ import xyz.sattar.javid.proqueue.domain.usecase.push.UnregisterPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.ClearTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetCurrentUserUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMySubscriptionUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.user.SyncUserProfileUseCase
 
 class UserViewModel(
     private val getCurrentUserUseCase: GetCurrentUserUseCase,
     private val getMySubscriptionUseCase: GetMySubscriptionUseCase,
     private val userLogoutUseCase: UserLogoutUseCase,
     private val unregisterPushTokenUseCase: UnregisterPushTokenUseCase,
-    private val clearTokenUseCase: ClearTokenUseCase
+    private val clearTokenUseCase: ClearTokenUseCase,
+    private val syncUserProfileUseCase: SyncUserProfileUseCase,
 ) : BaseViewModel<UserState, UserState.PartialState, UserEvent, UserIntent>(
     initialState = UserState()
 ) {
@@ -65,6 +67,14 @@ class UserViewModel(
 
     private fun loadSubscription(): Flow<UserState.PartialState> = flow {
         emit(UserState.PartialState.IsLoading(true))
+        // Name/phone come from the local store (observeCurrentUser). Nothing
+        // ever refreshed it from the server, which on the web panel — where
+        // the store doesn't survive a reload — left the card on "کاربر
+        // نوبت‌یار" for good. Failure here just keeps whatever is stored.
+        try {
+            syncUserProfileUseCase()
+        } catch (e: Exception) {
+        }
         try {
             when (val subResponse = getMySubscriptionUseCase()) {
                 is ApiResponse.Success -> {

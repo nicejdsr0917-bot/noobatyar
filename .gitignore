@@ -52,3 +52,7 @@ backend/static/
 
 # Obsidian vault config — local editor state, not project content.
 .obsidian/
+
+# graphify
+/graphify-out
+.claude/graphify-out/cache/

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -30,10 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.jetbrains.compose.resources.stringResource
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.service_duration_sheet_hint
-import proqueue.composeapp.generated.resources.service_duration_sheet_title
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 
 /** Shortest slot the business can sell, and the longest one worth listing. */
@@ -52,12 +48,12 @@ val serviceDurationOptions: List<Int> =
 fun formatServiceDuration(minutes: Int): String {
     val hours = minutes / 60
     val rest = minutes % 60
-    val hourPart = "$hours ساعت".toPersianDigits()
-    val minutePart = "$rest دقیقه".toPersianDigits()
+    val hourPart = Str.h(hours).toPersianDigits()
+    val minutePart = Str.min(rest).toPersianDigits()
     return when {
         hours == 0 -> minutePart
         rest == 0 -> hourPart
-        else -> "$hourPart و $minutePart"
+        else -> Str.text(hourPart, minutePart)
     }
 }
 
@@ -82,7 +78,7 @@ fun ServiceDurationBottomSheet(
         if (index > 0) listState.scrollToItem(index)
     }
 
-    ModalBottomSheet(
+    AdaptiveSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
@@ -93,13 +89,13 @@ fun ServiceDurationBottomSheet(
                 .padding(bottom = 24.dp)
         ) {
             Text(
-                text = stringResource(Res.string.service_duration_sheet_title),
+                text = Str.service_duration_sheet_title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(Res.string.service_duration_sheet_hint),
+                text = Str.service_duration_sheet_hint,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

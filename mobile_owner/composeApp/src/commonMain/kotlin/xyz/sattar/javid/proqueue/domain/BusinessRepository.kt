@@ -6,6 +6,9 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogSum
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ServiceCatalogItemDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogSummaryDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoCampaignDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoPreviewDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoSmsOverviewDto
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.domain.model.business.CategoryGroup
 
@@ -44,6 +47,12 @@ interface BusinessRepository {
     ): ApiResponse<PushLogPageDto>
 
     suspend fun getPushLogSummary(businessId: Long): ApiResponse<PushLogSummaryDto>
+
+    // --- Promo-SMS campaigns (server-side, no local cache) ---
+    suspend fun getPromoSms(businessId: Long): ApiResponse<PromoSmsOverviewDto>
+    suspend fun previewPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoPreviewDto>
+    suspend fun sendPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoCampaignDto>
+    suspend fun getPromoCampaign(businessId: Long, campaignId: Long): ApiResponse<PromoCampaignDto>
 
     // --- Service catalog (shared across every business in a category) ---
     /**

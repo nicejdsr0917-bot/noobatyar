@@ -12,7 +12,6 @@ sealed interface SendOTPIntent {
     data class PhoneChanged(val phone: String) : SendOTPIntent
     data class OTPChanged(val otp: String,val phone: String) : SendOTPIntent
     data class SendOTPAgain(val phone: String) : SendOTPIntent
-    data class StartTimer(val expiresIn: Int) : SendOTPIntent
     data object BackPress : SendOTPIntent
 }
 

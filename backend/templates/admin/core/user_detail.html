@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 
-{# ---------------------------------------------------------------------------
+{% comment %} ---------------------------------------------------------------------------
   User 360 page (core.admin_site.NobatyarAdminSite.user_detail_view).
 
   Every section below is conditional on `detail.can.*`
@@ -8,32 +8,32 @@
   permission loses that one card, never the whole page. Styling follows the
   financial report / moderation queue's own inline <style> convention:
   logical properties for RTL, no new stylesheet.
---------------------------------------------------------------------------- #}
+--------------------------------------------------------------------------- {% endcomment %}
 
 {% block extrastyle %}{{ block.super }}
 <style>
   .ud-head { display:flex; flex-wrap:wrap; gap:18px; align-items:baseline;
              margin-block-end:18px; }
   .ud-head h2 { margin:0; }
-  .ud-head .ud-meta { font-size:13px; color:#666; }
+  .ud-head .ud-meta { font-size:13px; color:var(--body-quiet-color); }
   .ud-section { margin-block-end:26px; }
   .ud-section h3 { margin-block-end:10px; }
-  .ud-table { width:100%; border-collapse:collapse; background:#fff; }
-  .ud-table th, .ud-table td { border:1px solid #e6e6e6; padding:7px 10px; font-size:13px; }
-  .ud-table th { background:#fafafa; text-align:start; }
+  .ud-table { width:100%; border-collapse:collapse; background:var(--body-bg); }
+  .ud-table th, .ud-table td { border:1px solid var(--border-color); padding:7px 10px; font-size:13px; }
+  .ud-table th { background:var(--darkened-bg); text-align:start; }
   .ud-table td.num { direction:ltr; text-align:end; }
-  .ud-empty { padding:14px; text-align:center; color:#888; border:1px dashed #ddd; border-radius:8px; }
+  .ud-empty { padding:14px; text-align:center; color:var(--body-quiet-color); border:1px dashed var(--border-color); border-radius:8px; }
   .ud-cards { display:flex; flex-wrap:wrap; gap:14px; }
-  .ud-card { border:1px solid #ddd; border-radius:8px; padding:12px 16px; min-width:150px; background:#fff; }
-  .ud-card-title { font-size:12px; color:#666; margin-block-end:6px; }
+  .ud-card { border:1px solid var(--border-color); border-radius:8px; padding:12px 16px; min-width:150px; background:var(--body-bg); }
+  .ud-card-title { font-size:12px; color:var(--body-quiet-color); margin-block-end:6px; }
   .ud-card-value { font-size:18px; font-weight:700; direction:ltr; text-align:end; }
   .ud-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
   .ud-b-approved { background:#d9f2e3; color:#0b6b34; }
   .ud-b-pending  { background:#fff3cd; color:#7a5c00; }
   .ud-b-rejected { background:#fbdddd; color:#8b1a1a; }
-  .ud-b-suspended{ background:#e4e4e4; color:#3d3d3d; }
+  .ud-b-suspended{ background:var(--hairline-color); color:var(--body-loud-color); }
   .ud-b-locked   { background:#fbdddd; color:#8b1a1a; }
-  .ud-note { font-size:12px; color:#666; margin-block-start:6px; }
+  .ud-note { font-size:12px; color:var(--body-quiet-color); margin-block-start:6px; }
   a.ud-link { text-decoration:none; }
 </style>
 {% endblock %}

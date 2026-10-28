@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -40,11 +41,13 @@ import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
  * titles here are what the header renders, so a step's name and its content
  * cannot drift apart.
  */
-enum class BusinessFormStep(val title: String) {
-    IDENTITY("شناسنامه"),
-    SCHEDULE("زمان‌بندی"),
-    SERVICES("خدمات"),
-    CONTACT("تماس");
+enum class BusinessFormStep(private val titleRef: () -> String) {
+    IDENTITY(Str::profile),
+    SCHEDULE(Str::schedule),
+    SERVICES(Str::services),
+    CONTACT(Str::contact);
+    val title: String get() = titleRef()
+
 
     companion object {
         val count = entries.size

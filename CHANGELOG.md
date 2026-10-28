@@ -41,6 +41,175 @@
 ### front_client
 - `/privacy` page (needed for the store listing's location permission).
 
+## v1.9.8 — 2026-10-17
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- برنامه حالا انگلیسی هم دارد؛ زبان را از تنظیمات عوض کنید.
+- تصویرهای اشتراک (کد QR، استوری، شماره کارت و کارت یادآوری) آماده‌ی چاپ در اندازه‌ی ۱۴×۲۱ سانتی‌متر شدند و چیدمانشان مرتب‌تر شد؛ مناسب استند روی میز پذیرش.
+- در نسخه‌ی مایکت، فاکتور فقط قیمت و مالیات را نشان می‌دهد (جمع پرداختی تغییری نکرده).
+<!-- fa:end -->
+
+### mobile_owner
+- i18n: all UI strings in `composeResources/values` (fa) and `values-en`; generated `Str` follows the in-app `AppLocale` (direction, Nunito/Yekan, Gregorian calendar and Latin digits in English). Language picker in Settings.
+- Share cards export at 1654 × 2480 px (14 × 21 cm, 300 dpi, pHYs-tagged); shared centred header/footer, signature no longer overlays the link, QR size adapts so long names fit.
+- Myket checkout shows price + VAT only (Myket's cut folded into the price).
+- iOS compiles again (`iosMain` now depends on `roomMain`).
+
+### front_client
+- Persian/English switch (`lang` cookie), logical CSS; SSR locale read per request from context instead of a shared module variable.
+
+### ci
+- Android versionCode = previous release's + 1 (from `Config.xcconfig` on develop), instead of epoch seconds.
+
+## v1.9.7 — 2026-10-09
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- پیش از پرداخت، جزئیات مبلغ (قیمت، مالیات بر ارزش افزوده و کارمزد پرداخت) نمایش داده می‌شود و پرداخت فقط با تأیید شما انجام می‌شود.
+- بهبودهای پنل وب و رفع چند ایراد.
+<!-- fa:end -->
+
+### mobile_owner
+- Checkout confirm dialog: every plan/pack purchase fetches `accounting/checkout/quote/` and shows price, VAT and the Zibal fee or Myket cut before opening the gateway or Myket billing (`core/billing/CheckoutConfirmation.kt`, `PurchaseUseCase`).
+- Web panel: fills the screen when installed, toolbar below the status bar, browser back stays in the panel, payers return to the panel.
+
+### backend
+- `accounting/pricing.py`: price is the net; VAT 10% and Zibal's fee are added on top, Myket store prices grossed up for VAT, Myket's 15% and Shaparak. `manage.py myket_prices` lists the Myket panel prices. Paid items can't be priced under 10,000 toman.
+- Security: removed `accounting/plans/buy/`, which activated any plan without payment.
+- Admin: renewal SMS to owners whose subscription ended.
+
+## v1.9.6 — 2026-10-01
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- ثبت موقعیت کسب‌وکار روی نقشه؛ مشتری‌ها آن را در صفحه‌ی رزرو می‌بینند و با نشان یا بلد مسیریابی می‌کنند.
+- معرفی کوتاه برنامه برای کاربران تازه، و صفحه‌های ورود و ثبت‌نام تازه.
+- طراحی تازه‌ی ثبت نوبت و فهرست کسب‌وکارها.
+- خروج از حساب حالا نشست را روی سرور هم می‌بندد.
+- رفع ایراد: شمارش معکوس کد تأیید، نمایش‌ندادن خطای ورود، و آیکن ریز به‌روزرسانی صفحه.
+<!-- fa:end -->
+
+### mobile_owner
+- Business location: optional map pin in the business form (MapCompose 0.13.2, OSM raster tiles), full-screen picker with "my location" on Android/web. Room version 19.
+- `BusinessDto.toDomain()` maps the fields it used to drop (extra phones, minutes, closed weekdays, deposit mode, reminder template), which the next save wiped.
+- Onboarding (phone width), animated auth headers, redesigned new-appointment and business-list screens, desktop sidebar on every screen, ripples clipped to rounded shapes.
+- Security: the bearer token is no longer logged; logout sends the refresh token so the server revokes it; web links open with noopener.
+- Web panel: API host chosen from the page's host (localhost → dev, otherwise production), installable (manifest, icons, iOS tags), boot script moved out of index.html for CSP.
+
+### backend
+- Business latitude/longitude; admin contact-visibility policy for owners without a subscription (`is_expired`, `has_location`).
+- Admin campaigns page split into tabs; expiry SMS rework.
+- Login throttle + per-phone lockout, one password change per 24h, user_detail needs model permissions, role read-only.
+- nginx: security headers, sandboxed /media/, owner panel on panel.noobatyar.ir.
+
+### front_client
+- Map card with Neshan / Balad routing on the business page; blurred placeholders for withheld contact info.
+
+## v1.9.5 — 2026-09-25
+
+<!-- fa:start -->
+⚠️ برای نصب این نسخه، ابتدا برنامه‌ی فعلی را حذف کنید و سپس نسخه‌ی جدید را نصب کنید.
+
+تغییرات این نسخه:
+- سه نسخه‌ی اندروید: سایت، بازار و مایکت.
+- نسخه‌ی سایت و بازار (و iOS) با درگاه پرداخت نوبت‌یار؛ نسخه‌ی مایکت با پرداخت درون‌برنامه‌ای مایکت.
+- پیام‌ها بر اساس نوع رنگ‌بندی شدند: موفق، خطا و هشدار.
+- کارت‌های صف و مراجعین مرتب‌تر و خواناتر شدند.
+- اشتراک‌گذاری: استوری آموزش نوبت‌گرفتن، و کارت شماره‌کارت راست‌چین و خواناتر.
+- تنظیمات اعلان‌ها حالا روی سرور ذخیره می‌شود.
+<!-- fa:end -->
+
+### mobile_owner
+- New `bazaar` store flavor (`STORE="bazaar"`, `src/androidBazaar` returns no store billing → Zibal gateway).
+- Release workflow also publishes `Noobatyar-Owner-<version>-bazaar.apk` for upload to Cafe Bazaar.
+- Typed toasts (`UiMessage`) on every screen that still showed plain red strings; 403s show the server's message.
+- Notifications screen saves through `updateBusiness` (it only wrote the local Room cache before).
+- Queue / visitors appointment cards restructured; share cards RTL, story card is the booking guide.
+- Room database version 18 (no schema change; clean cache).
+- `local` flavor derives `BOOKING_BASE_URL` from `-PlocalBaseUrl`.
+
+### backend
+- Business update only gates plan features that are newly enabled (a saved card number no longer blocks every edit).
+- Dev OTP code works without a prior send and never counts towards a ban (DEBUG only).
+
+### front_client
+- Signed-out visitors go to sign in / sign up before booking; "نوبت‌های من" beside the booking actions.
+- Appointment details show the business logo; `allowedDevOrigins` for emulator testing.
+
+## v1.9.4 — 2026-09-25
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- نسخه‌ی ویژه‌ی مایکت: خرید اشتراک و بسته‌ها در نسخه‌ی مایکت از طریق پرداخت درون‌برنامه‌ای مایکت انجام می‌شود.
+- نسخه‌ی سایت و iOS بدون تغییر، با همان درگاه پرداخت نوبت‌یار.
+- اگر برنامه وسط خرید بسته شود، خرید پرداخت‌شده در اجرای بعدی خودکار ثبت می‌شود.
+<!-- fa:end -->
+
+### mobile_owner
+- Android flavor dimension `store`: `site` (Zibal, as before) and `myket` (`myket-billing-client` 1.19, `MyketStoreBilling`).
+  `PurchaseUseCase` picks the store only when `StoreBillingProvider.billing` is set, which only the myket flavor does.
+- Release workflow also publishes `Noobatyar-Owner-<version>-myket.apk` for upload to Myket.
+
+### backend
+- `accounting/payment/myket.py` — intent/verify endpoints (`accounting/store/myket/...`), server-to-server verification and
+  consume, `StorePurchase` model, `myket_sku` on `Plan`/`AddOnPack`; `MYKET_ACCESS_TOKEN` from `.env`.
+
+## v1.9.3 — 2026-09-24
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- پیامک تبلیغاتی: کمپین پیامکی با نام خود مشتری، انتخاب مخاطب (همه، مراجعه‌ی اخیر، مشتری‌های غایب)، نمایش هزینه‌ی دقیق پیش از ارسال و گزارش هر کمپین.
+- پیام خودکار: در ارسال خودکار از پنل، متن از الگوهای تأییدشده انتخاب می‌شود، «لغو۱۱» ثابت است و تعداد پیامک شمرده می‌شود؛ زمان یادآوری هم حالا واقعاً ذخیره می‌شود.
+- تنظیمات پیشرفته با طراحی تازه؛ رفع ریست‌شدن حالت بیعانه به «بدون بیعانه».
+- صفحه‌ی جدید «تم و ظاهر» با پیش‌نمایش؛ «درباره ما» با آیکن‌های رسمی و اینستاگرام نوبت‌یار.
+<!-- fa:end -->
+
+### mobile_owner
+- `BusinessMapper.kt` — `depositMode` در هر چهار تبدیل (DTO↔Entity↔Domain↔Request) جا افتاده بود؛ کش محلی همیشه بدون
+  حالت بیعانه برمی‌گشت و ذخیره‌ی بعدی در تنظیمات پیشرفته `NONE` را به سرور می‌فرستاد.
+- `feature/promo/` — صفحه‌ی کمپین پیامک تبلیغاتی (API جدید `business/<id>/promo-sms/`).
+- `feature/messages/` — بازطراحی پیام خودکار؛ PANEL فقط الگوهای ثابت (`ReminderTemplates.kt`، هم‌خوان با
+  `backend/business/reminder_templates.py`) و ذخیره‌ی `notification_minutes_before`/`reminder_template` روی سرور.
+- `AdvancedSettingsRoute.kt`/`AdvancedSettingsTabs.kt` — هدر قابلیت‌های پلن، تب‌های جدید، نوار ذخیره با وضعیت
+  تغییرات؛ کارت «یادآوری چندکاناله» (پیاده‌سازی‌نشده) حذف شد.
+- `ThemeScreen.kt` (جدید)، `AboutUsScreen.kt` (آیکن‌های رسمی بله/ایتا/روبیکا از وب‌اپ خودشان، گلیف رسمی اینستاگرام).
+- Room schema 17 (`BusinessEntity.reminderTemplate`).
+
+### backend
+- `business/promo_sms.py`، `promo_views.py`، مدل‌های `PromoCampaign`/`PromoCampaignRecipient`، دستور
+  `send_promo_campaigns` برای ادامه‌ی ارسال‌های نیمه‌کاره؛ `promotional_sms` از `COMING_SOON_FEATURES` خارج شد.
+- `Business.reminder_template` و استفاده از آن در `send_appointment_reminders` (قبلاً متن ثابت و یکسان).
+
+### infra
+- `.github/workflows/android-release.yml` — آپلود APK به `noobatyar.ir` از مسیر اشتباه (`public_html/...`) به مسیر درست
+  (ریشه‌ی همان اکانت FTP jail‌شده) اصلاح شد؛ ارسال هم از `curl` به `ftplib.FTP_TLS` تغییر کرد چون `curl` روی این
+  هاست آپلودهای چند-مگابایتی را بی‌صدا ناقص می‌گذاشت.
+- کانال مقصد ارسال در تلگرام از کانال مشتریان به کانال بکاپ (`TELEGRAM_CHAT_ID`) تغییر کرد.
+
+Full commit range: [`v1.9.2...v1.9.3`](https://github.com/javiddeveloper/Noobatyar-automation/compare/v1.9.2...v1.9.3)
+
+## v1.9.2 — 2026-09-22
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- لوگوی کسب‌وکار حالا روی هر چهار کارت اشتراک‌گذاری کنار نام آن می‌آید — پیش‌تر کارت شماره‌ی کارت فقط نام را داشت و تب «لینک» اصلاً نام کسب‌وکار را نشان نمی‌داد.
+- نمایش دسته‌بندی کسب‌وکار (مثل «دندان‌پزشکی» یا «آرایشگاه») از کارت QR و از ردیف کسب‌وکار فعال در تنظیمات برداشته شد؛ نام و لوگو کافی است.
+- آدرس لینک از کارت پروفایل/استوری حذف شد. استوری یک عکس است و آدرس روی آن فقط قابل تایپ‌کردن است؛ راه‌های واقعی یعنی لینک بایو و کد QR هر دو روی کارت هستند. آدرس کامل فقط روی کارت QR می‌ماند، چون همان کارتی است که چاپ می‌شود.
+- اصلاح چیدمان: عنوان «شماره کارت» در نوار تب‌ها وسط حرف بریده می‌شد؛ آدرس لینک در تب «لینک» کج و جابه‌جا نمایش داده می‌شد.
+- رفع خرابی متن فارسی در سراسر برنامه (منوها، عنوان تب‌ها، پیام‌ها) که در اثر خواندن اشتباه فایل متن‌های فارسی به‌وجود آمده بود — روی گوشی به‌جای حروف فارسی، کاراکترهای لاتین به‌هم‌ریخته نمایش داده می‌شد.
+<!-- fa:end -->
+
+### mobile_owner
+- `ShareCardKit.kt` — `BusinessAvatar` پارامتر `ringColor` گرفت: حلقه‌ی سفیدِ پیش‌فرض روی کارت‌های بنفش درست است ولی روی کارت روشنِ تب «لینک» دیده نمی‌شد.
+- `ShareBusinessScreen.kt` — `LinkShareCard` حالا `business` می‌گیرد و با لوگو و نام کسب‌وکار شروع می‌شود، نه آیکون عمومی لینک. سربرگ `CardNumberPosterCard` هم دقیقاً هم‌اندازه‌ی سربرگ کارت QR شد (لوگوی ۴۴dp، فاصله‌ی ۱۰dp، عنوان ۱۷sp) تا جابه‌جا شدن بین دو تب پرش نداشته باشد.
+- `LtrText` فقط `maxLines = 1` داشت و بدون `overflow`، پس لینک یا شماره‌کارتِ بلند بی‌صدا بریده می‌شد؛ `softWrap = false` و `TextOverflow.Ellipsis` اضافه شد.
+- آدرس در تب «لینک» یک `Text` ساده بود، پس الگوریتم bidi در این اپِ راست‌به‌چپ بخش‌های جداشده با `/` را جابه‌جا می‌کرد؛ حالا از همان `LtrText` بقیه‌ی صفحه رد می‌شود و داخل `Box` وسط‌چین شده.
+- `SettingsScreen.kt` — حذف خط `categoryLabel` از ردیف کسب‌وکار فعال.
+- `strings.xml` — کل فایل به‌صورت UTF-8 که به‌اشتباه Windows-1252 خوانده و دوباره ذخیره شده بود خراب شده بود (نزدیک به ۲۸۰ رشته از ۳۳۰ تا). با معکوس‌کردن همان مسیر تبدیل (رمزگذاری هر کاراکتر با جدول Windows-1252 و رمزگشایی نتیجه با UTF-8) اصلاح شد؛ این خرابی قبل از این نسخه هم در کد وجود داشت، نه نتیجه‌ی تغییرات این نسخه.
+
+Full commit range: [`v1.9.1...v1.9.2`](https://github.com/javiddeveloper/Noobatyar-automation/compare/v1.9.1...v1.9.2)
+
 ## v1.9.1 — 2026-09-19
 
 <!-- fa:start -->

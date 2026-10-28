@@ -1,5 +1,29 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.text.style.TextOverflow
+import xyz.sattar.javid.proqueue.core.i18n.AppLocale
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.launch
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
+import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveGrid
+import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
+import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
+import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -149,6 +173,17 @@ private const val COLLAPSE_DISTANCE_PX = 130f
  * Arguments for jumping into the visitors/appointments tab pre-filtered —
  * used when tapping a Home stat card, the queue row, or the month card.
  */
+/** Args for opening the نوبت‌ها screen on today, from a card that counts today. */
+private fun todayArgs(status: String? = null, tab: Int): VisitorsNavArgs {
+    val start = DateTimeUtils.startOfTodayMillis()
+    return VisitorsNavArgs(
+        status = status,
+        tab = tab,
+        dateFrom = start,
+        dateTo = start + 24L * 60 * 60 * 1000 - 1
+    )
+}
+
 data class VisitorsNavArgs(
     val status: String? = null,
     val tab: Int? = null,
@@ -227,6 +262,7 @@ fun HomeScreenContent(
         PullToRefreshBox(
             isRefreshing = uiState.isLoading,
             onRefresh = { onIntent(HomeIntent.LoadData) },
+            refreshTab = MainTab.Home,
             // Keeps the badge clear of the glass top bar, which the content
             // deliberately scrolls underneath.
             indicatorTopPadding = paddingValues.calculateTopPadding(),
@@ -250,126 +286,120 @@ fun HomeScreenContent(
                 onOpenShare = onNavigateToShare
             )
 
+            // Each block is written once; only the arrangement differs.
+            // Phone: the original single column, in priority order. Wide:
+            // two rows of paired blocks. Today's activity sits beside its
+            // trend, and what's been used sits beside what can be bought.
+            val queueBlock: @Composable () -> Unit = {
+                if (!uiState.statsLoaded) {
+                    HomeQueueRowShimmer()
+                } else {
+                    QueueStatRow(
+                        count = uiState.queue.size,
+                        // Today's queue, so the list opens on the same day
+                        // the count here was taken from.
+                        onClick = { onNavigateToVisitors(todayArgs(tab = 1)) }
+                    )
+                }
+            }
+            val statsBlock: @Composable () -> Unit = {
+                if (!uiState.statsLoaded) {
+                    HomeDashboardShimmer()
+                } else {
+                    DashboardStatsGrid(
+                        stats = uiState.stats,
+                        // tab = 0 (مراجعین/history) explicitly — LastVisitorsState
+                        // defaults selectedTab to 1 (صف/queue), where a status
+                        // filter like "cancelled" has nothing to show.
+                        // Scoped to today as well: these are today's
+                        // numbers, and the list used to open on the next
+                        // seven days, where the counts didn't match.
+                        onStatClick = { status ->
+                            onNavigateToVisitors(todayArgs(status = status, tab = 0))
+                        }
+                    )
+                }
+            }
+            val trendBlock: @Composable () -> Unit = {
+                if (!uiState.chartLoaded) {
+                    HomeChartShimmer()
+                } else {
+                    HomeTrendCard(
+                        weeklyCounts = uiState.dailyCounts.map { it.count },
+                        overview = uiState.monthOverview,
+                        onRangeClick = { start, endExclusive ->
+                            onNavigateToVisitors(
+                                VisitorsNavArgs(
+                                    dateFrom = start,
+                                    // endExclusive − 1ms so the range ends
+                                    // inside the last day shown rather than
+                                    // the day after it.
+                                    dateTo = endExclusive - 1
+                                )
+                            )
+                        }
+                    )
+                }
+            }
+            val usageBlock: @Composable () -> Unit = {
+                if (!uiState.entitlementsLoaded) {
+                    HomeUsageShimmer()
+                } else if (uiState.entitlements != null) {
+                    UsageMeterSection(
+                        entitlements = uiState.entitlements,
+                        onNavigateToAddons = onNavigateToAddons
+                    )
+                }
+            }
+            val plansBlock: @Composable () -> Unit = {
+                if (!uiState.plansLoaded) {
+                    HomePlanBannerShimmer()
+                } else if (uiState.plans.isNotEmpty()) {
+                    PlanBannerSection(
+                        plans = uiState.plans,
+                        onPlanClick = { plan ->
+                            onIntent(HomeIntent.PurchasePlan(plan.id))
+                        }
+                    )
+                }
+            }
+            val wide = isWideLayout()
+
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = adaptivePagePadding()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // ۱. صف امروز — تنها بخش «زنده»‌ی صفحه، پس اول می‌آید.
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 120)
-                        )
-                    ) {
-                        if (!uiState.statsLoaded) {
-                            HomeQueueRowShimmer()
-                        } else {
-                            QueueStatRow(
-                                count = uiState.queue.size,
-                                onClick = { onNavigateToVisitors(VisitorsNavArgs(tab = 1)) }
+                if (wide) {
+                    item {
+                        HomeReveal(visible, delayMillis = 120) {
+                            AdaptiveColumns(
+                                startWeight = 1f,
+                                endWeight = 1.25f,
+                                spacing = 14.dp,
+                                start = { queueBlock(); statsBlock() },
+                                end = { trendBlock(); usageBlock() }
                             )
                         }
                     }
-                }
-
-                // ۲. آمار امروز (۲×۲)
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 180)
-                        )
-                    ) {
-                        if (!uiState.statsLoaded) {
-                            HomeDashboardShimmer()
-                        } else {
-                            DashboardStatsGrid(
-                                stats = uiState.stats,
-                                // tab = 0 (مراجعین/history) explicitly — LastVisitorsState
-                                // defaults selectedTab to 1 (صف/queue), where a status
-                                // filter like "cancelled" has nothing to show.
-                                onStatClick = { status ->
-                                    onNavigateToVisitors(VisitorsNavArgs(status = status, tab = 0))
-                                }
-                            )
-                        }
+                    // Full width: plan cards need room for their two feature
+                    // columns, which a half-width column cut off mid-word.
+                    item {
+                        HomeReveal(visible, delayMillis = 240) { plansBlock() }
                     }
-                }
-
-                // ۳. روند نوبت‌ها — هفتگی یا ماهانه.
-                //    نمودار خطی با دو حالت هفتگی/ماهانه، جای دو بخش جدا
-                //    (نمودار ۷ روزه + کارت ماه) را می‌گیرد.
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 240)
-                        )
-                    ) {
-                        if (!uiState.chartLoaded) {
-                            HomeChartShimmer()
-                        } else {
-                            HomeTrendCard(
-                                weeklyCounts = uiState.dailyCounts.map { it.count },
-                                overview = uiState.monthOverview,
-                                onRangeClick = { start, endExclusive ->
-                                    onNavigateToVisitors(
-                                        VisitorsNavArgs(
-                                            dateFrom = start,
-                                            // endExclusive − 1ms so the range ends
-                                            // inside the last day shown rather than
-                                            // the day after it.
-                                            dateTo = endExclusive - 1
-                                        )
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // ۴. مصرف‌سنج ماهانه
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 300)
-                        )
-                    ) {
-                        if (!uiState.entitlementsLoaded) {
-                            HomeUsageShimmer()
-                        } else if (uiState.entitlements != null) {
-                            UsageMeterSection(
-                                entitlements = uiState.entitlements,
-                                onNavigateToAddons = onNavigateToAddons
-                            )
-                        }
-                    }
-                }
-
-                // ۵. بنرهای پلن اشتراک
-                item {
-                    AnimatedVisibility(
-                        visible = visible,
-                        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-                            animationSpec = tween(500, delayMillis = 360)
-                        )
-                    ) {
-                        if (!uiState.plansLoaded) {
-                            HomePlanBannerShimmer()
-                        } else if (uiState.plans.isNotEmpty()) {
-                            PlanBannerSection(
-                                plans = uiState.plans,
-                                onPlanClick = { plan ->
-                                    onIntent(HomeIntent.PurchasePlan(plan.id))
-                                }
-                            )
-                        }
-                    }
+                } else {
+                    // ۱. صف امروز — تنها بخش «زنده»‌ی صفحه، پس اول می‌آید.
+                    item { HomeReveal(visible, delayMillis = 120) { queueBlock() } }
+                    // ۲. آمار امروز (۲×۲)
+                    item { HomeReveal(visible, delayMillis = 180) { statsBlock() } }
+                    // ۳. روند نوبت‌ها — هفتگی یا ماهانه.
+                    item { HomeReveal(visible, delayMillis = 240) { trendBlock() } }
+                    // ۴. مصرف‌سنج ماهانه
+                    item { HomeReveal(visible, delayMillis = 300) { usageBlock() } }
+                    // ۵. بنرهای پلن اشتراک
+                    item { HomeReveal(visible, delayMillis = 360) { plansBlock() } }
                 }
 
                 item { BottomBarSpacer() }
@@ -379,11 +409,29 @@ fun HomeScreenContent(
     }
 }
 
+/** The staggered slide-and-fade every home block enters with. */
+@Composable
+private fun HomeReveal(visible: Boolean, delayMillis: Int, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
+            animationSpec = tween(500, delayMillis = delayMillis)
+        )
+    ) {
+        content()
+    }
+}
+
 @Composable
 fun PlanBannerSection(
     plans: List<PlanDto>,
     onPlanClick: (PlanDto) -> Unit
 ) {
+    if (isWideLayout()) {
+        PlanCarousel(plans = plans, onPlanClick = onPlanClick)
+        return
+    }
+
     val pagerState = rememberPagerState(pageCount = { plans.size })
 
     Column(
@@ -430,7 +478,7 @@ fun PlanBannerSection(
 
         if (plans.size > 1) {
             Text(
-                text = "برای مشاهده‌ی سایر طرح‌ها بکشید ⟷",
+                text = Str.swipe_to_see_other_plans,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -473,41 +521,124 @@ fun PlanBannerSection(
     }
 }
 
+/**
+ * Desktop plans: one horizontal row of equal cards. A fixed card width keeps
+ * each card's two feature columns readable, and every card takes the tallest
+ * one's height so the row reads as a set. A mouse can't swipe, so the row
+ * moves with the arrow buttons or by dragging.
+ */
+@Composable
+private fun PlanCarousel(
+    plans: List<PlanDto>,
+    onPlanClick: (PlanDto) -> Unit
+) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    var maxCardHeight by remember(plans) { mutableStateOf(0.dp) }
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = Str.subscription_plans,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            // Backward first: it lands on the right under RTL, and the
+            // auto-mirrored "Left" arrow is drawn pointing right there.
+            FilledTonalIconButton(
+                onClick = {
+                    scope.launch {
+                        listState.animateScrollToItem((listState.firstVisibleItemIndex - 1).coerceAtLeast(0))
+                    }
+                },
+                enabled = listState.canScrollBackward
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = Str.previous_plan)
+            }
+            Spacer(Modifier.width(6.dp))
+            FilledTonalIconButton(
+                onClick = {
+                    scope.launch {
+                        listState.animateScrollToItem(
+                            (listState.firstVisibleItemIndex + 1).coerceAtMost(plans.lastIndex)
+                        )
+                    }
+                },
+                enabled = listState.canScrollForward
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = Str.next_plan)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        LazyRow(
+            state = listState,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                // Mouse drag. Pointer deltas are screen-space, while the list
+                // scrolls in layout direction, so RTL flips the sign.
+                .draggable(
+                    orientation = Orientation.Horizontal,
+                    state = rememberDraggableState { delta ->
+                        scope.launch { listState.scrollBy(if (rtl) delta else -delta) }
+                    }
+                )
+        ) {
+            itemsIndexed(plans, key = { _, plan -> plan.id }) { _, plan ->
+                PlanBannerItem(
+                    plan = plan,
+                    onClick = { onPlanClick(plan) },
+                    modifier = Modifier
+                        .width(360.dp)
+                        .then(if (maxCardHeight > 0.dp) Modifier.height(maxCardHeight) else Modifier)
+                        .onSizeChanged { size ->
+                            val h = with(density) { size.height.toDp() }
+                            if (h > maxCardHeight) maxCardHeight = h
+                        }
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun PlanBannerItem(
     plan: PlanDto,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Matches the server-side (Persian) plan names, so these stay literal.
     val (gradientColors, badgeLabel) = when {
-        plan.name.contains("پرو پلاس") -> Pair(
+        plan.name.contains("پرو پلاس") -> Pair( // i18n-keep: server plan name
             listOf(Color(0xFF4A148C), Color(0xFF6A1B9A), Color(0xFFE65100)),
-            "💎 پرو پلاس"
+            Str.pro_plus_2
         )
-        plan.name.contains("پرو") -> Pair(
+        plan.name.contains("پرو") -> Pair( // i18n-keep: server plan name
             listOf(Color(0xFF1A237E), Color(0xFF283593), Color(0xFF7C4DFF)),
-            "🚀 پرو"
+            Str.pro_2
         )
-        plan.name.contains("اکو") -> Pair(
+        plan.name.contains("اکو") -> Pair( // i18n-keep: server plan name
             listOf(Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)),
-            "🌿 اکو"
+            Str.eco_2
         )
-        plan.name.contains("پایه") -> Pair(
+        plan.name.contains("پایه") -> Pair( // i18n-keep: server plan name
             listOf(Color(0xFF0D47A1), Color(0xFF1565C0), Color(0xFF1976D2)),
-            "⚡ پایه"
+            Str.basic_2
         )
         else -> Pair(
             listOf(Color(0xFF37474F), Color(0xFF455A64), Color(0xFF607D8B)),
-            "🌱 آزمایشی"
+            Str.trial
         )
     }
 
     val gradient = Brush.linearGradient(colors = gradientColors)
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
@@ -560,7 +691,7 @@ fun PlanBannerItem(
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text(
-                                    text = "رایگان",
+                                    text = Str.free,
                                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = Color.White,
@@ -675,7 +806,7 @@ fun PlanBannerItem(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "خرید اشتراک",
+                            text = Str.buy_subscription,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 10.dp),
@@ -719,7 +850,7 @@ fun DashboardStatsGrid(
         ) {
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "تکمیل شده",
+                title = Str.complete_action,
                 value = stats.completedAppointments.toString(),
                 containerColor = if (isDark) Color(0xFF1B5E20).copy(alpha = 0.4f) else Color(0xFFE8F5E9),
                 contentColor = if (isDark) Color(0xFFA5D6A7) else Color(0xFF2E7D32),
@@ -728,7 +859,7 @@ fun DashboardStatsGrid(
             )
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "کل مراجعین",
+                title = Str.total_clients,
                 value = stats.totalVisitors.toString(),
                 containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.4f else 0.7f),
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -742,7 +873,7 @@ fun DashboardStatsGrid(
         ) {
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "عدم حضور",
+                title = Str.status_no_show,
                 value = stats.noShowAppointments.toString(),
                 containerColor = if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE),
                 contentColor = if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828),
@@ -751,7 +882,7 @@ fun DashboardStatsGrid(
             )
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "لغو شده",
+                title = Str.status_cancelled,
                 value = stats.cancelledAppointments.toString(),
                 containerColor = if (isDark) Color(0xFF4A148C).copy(alpha = 0.4f) else Color(0xFFF3E5F5),
                 contentColor = if (isDark) Color(0xFFCE93D8) else Color(0xFF6A1B9A),
@@ -768,9 +899,8 @@ fun QueueStatRow(count: Int, onClick: () -> Unit = {}) {
         (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) > 0.5
     }
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) Color(0xFF01579B).copy(alpha = 0.35f) else Color(0xFFE1F5FE)
@@ -793,7 +923,7 @@ fun QueueStatRow(count: Int, onClick: () -> Unit = {}) {
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "افراد در صف",
+                    text = Str.in_queue,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = if (isDark) Color(0xFF81D4FA) else Color(0xFF0277BD)
@@ -825,7 +955,7 @@ fun StatCard(
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().height(100.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(if (AppLocale.isEnglish) 108.dp else 100.dp)) {
             // Large background icon
             Icon(
                 imageVector = icon,
@@ -843,22 +973,50 @@ fun StatCard(
                     .fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
+                val titleIcon = @Composable {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = contentColor.copy(alpha = 0.7f)
                     )
+                }
+                val titleText = @Composable {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.labelMedium,
                         color = contentColor.copy(alpha = 0.8f),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
+                }
+                // English labels ("Completed", "Total clients") are longer than
+                // the Persian ones this tile was sized for; beside the icon they
+                // broke mid-word on narrow tiles, so in English the label gets
+                // its own line under the icon.
+                if (AppLocale.isEnglish) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        titleIcon()
+                        // One line, shrinking to fit rather than breaking a word.
+                        BasicText(
+                            text = title,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = contentColor.copy(alpha = 0.8f),
+                                fontWeight = FontWeight.Bold
+                            ),
+                            maxLines = 1,
+                            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 12.sp)
+                        )
+                    }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        titleIcon()
+                        titleText()
+                    }
                 }
                 
                 Text(
@@ -902,7 +1060,7 @@ fun UsageMeterSection(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "مصرف این ماه",
+                    text = Str.this_months_usage,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -912,21 +1070,21 @@ fun UsageMeterSection(
             Spacer(modifier = Modifier.height(16.dp))
 
             UsageRow(
-                label = "نوبت‌ها",
+                label = Str.appointments_tab,
                 icon = Icons.Rounded.Event,
                 used = appt.used,
                 quota = appt.quota,
-                trailingNote = if (appt.wallet > 0) "کیف‌پول: ${appt.wallet}" else null
+                trailingNote = if (appt.wallet > 0) Str.wallet(appt.wallet) else null
             )
 
             Spacer(modifier = Modifier.height(14.dp))
 
             UsageRow(
-                label = "پیامک",
+                label = Str.sms,
                 icon = Icons.Rounded.Sms,
                 used = smsUsed,
                 quota = sms.quota,
-                trailingNote = if (sms.wallet > 0) "کیف‌پول: ${sms.wallet}" else null
+                trailingNote = if (sms.wallet > 0) Str.wallet(sms.wallet) else null
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -938,7 +1096,7 @@ fun UsageMeterSection(
             ) {
                 Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("خرید بسته‌ی افزودنی", style = MaterialTheme.typography.labelMedium)
+                Text(Str.buy_add_on_pack, style = MaterialTheme.typography.labelMedium)
             }
         }
     }
@@ -1036,6 +1194,9 @@ fun HandleEvents(
             }
             is HomeEvent.ShowError -> {
                 snackbarHostState.showToasty(event.message, ToastyType.Error)
+            }
+            is HomeEvent.ShowSuccess -> {
+                snackbarHostState.showToasty(event.message, ToastyType.Success)
             }
         }
     }

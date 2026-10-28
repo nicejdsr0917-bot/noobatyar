@@ -6,7 +6,9 @@ import { getAppointment, cancelAppointment, businessCategoryLabel, type Appointm
 import { STATUS_LABELS, formatDate } from '@/lib/format';
 import Toolbar from '@/app/components/Toolbar';
 import Icon from '@/app/components/Icon';
-import { CategoryGlyph } from '@/app/components/CategoryArt';
+import LockedContact, { isWithheld } from '@/app/components/LockedContact';
+import { BusinessAvatar } from '@/app/components/AppointmentCard';
+import { t } from '@/lib/i18n';
 
 // Anything still ahead of the appointment time can be cancelled by the client.
 const CANCELLABLE = ['LOCKED', 'PENDING_APPROVAL', 'PENDING_VERIFICATION', 'WAITING', 'CONFIRMED'];
@@ -31,10 +33,10 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
       await cancelAppointment(appointment.id, token);
       setAppointment({ ...appointment, status: 'CANCELLED' });
       setConfirmCancel(false);
-      setToast('نوبت شما لغو شد');
+      setToast(t('yourAppointmentWasCancelled'));
       setTimeout(() => setToast(''), 3000);
     } catch (err: unknown) {
-      setToast(err instanceof Error ? err.message : 'خطا در لغو نوبت');
+      setToast(err instanceof Error ? err.message : t('couldntCancelAppointment'));
       setTimeout(() => setToast(''), 3000);
     } finally {
       setCancelling(false);
@@ -51,7 +53,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
       }
       getAppointment(aptId, token)
         .then(setAppointment)
-        .catch(() => setError('نوبت یافت نشد یا دسترسی ندارید'))
+        .catch(() => setError(t('appointmentNotFoundOrYou')))
         .finally(() => setLoading(false));
     });
   }, [params, router]);
@@ -59,7 +61,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
   if (loading) {
     return (
       <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
-        <Toolbar title="جزئیات نوبت" />
+        <Toolbar title={t('appointmentDetails')} actions={[{ icon: 'calendar', label: t('myAppointments'), onClick: () => router.push('/appointments') }]} />
         <div style={{ padding: 24 }}>
           <div className="skeleton" style={{ width: 72, height: 72, borderRadius: '50%', margin: '8px auto 16px' }} />
           <div className="skeleton" style={{ height: 20, width: 160, borderRadius: 8, margin: '0 auto 24px' }} />
@@ -77,7 +79,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
           <Icon name="error" size={26} />
         </span>
         <p style={{ color: 'var(--color-muted)' }}>{error}</p>
-        <button className="btn-primary" style={{ marginTop: 20, width: 'auto', padding: '0 32px' }} onClick={() => router.back()}>بازگشت</button>
+        <button className="btn-primary" style={{ marginTop: 20, width: 'auto', padding: '0 32px' }} onClick={() => router.back()}>{t('back')}</button>
       </div>
     );
   }
@@ -88,19 +90,16 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
   return (
     <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
 
-      <Toolbar title="جزئیات نوبت" />
+      <Toolbar title={t('appointmentDetails')} actions={[{ icon: 'calendar', label: t('myAppointments'), onClick: () => router.push('/appointments') }]} />
 
       <div style={{ padding: '24px 24px' }}>
 
         {/* ── Header ── */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{
-            width: 76, height: 76, borderRadius: '50%', margin: '0 auto 12px',
-            background: 'var(--color-primary-tint)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            color: 'var(--color-primary)',
-          }}>
-            <CategoryGlyph category={biz.category} size={36} stroke={1.75} />
+          {/* The business's own logo, as on the booking pages; falls back to
+              the category glyph when there is none (or it fails to load). */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+            <BusinessAvatar logo={biz.logo} category={biz.category} size={76} />
           </div>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text)' }}>{biz.title}</h2>
           <div style={{ fontSize: 13, color: 'var(--color-muted)', marginTop: 4, marginBottom: 14 }}>
@@ -111,7 +110,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
           </div>
           {appointment.status === 'WAITING' && (
             <div style={{ marginTop: 12, fontSize: 13, color: 'var(--color-success-text)', fontWeight: 600 }}>
-              {appointment.queue_position === 0 ? 'نوبت شما رسیده است' : `${appointment.queue_position} نفر جلوتر از شما هستند`}
+              {appointment.queue_position === 0 ? t('itsYourTurn') : t('peopleAheadOfYou', appointment.queue_position)}
             </div>
           )}
         </div>
@@ -121,31 +120,29 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
           background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)',
           padding: 24, marginBottom: 16,
         }}>
-          <h2 style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 12 }}>اطلاعات نوبت</h2>
+          <h2 style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 12 }}>{t('appointmentInfo')}</h2>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text)', direction: 'rtl' }}>
             {formatDate(appointment.appointment_date)}
           </div>
 
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px dashed var(--color-border)', display: 'flex', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 13, color: 'var(--color-muted)' }}>کد پیگیری نوبت</div>
+            <div style={{ fontSize: 13, color: 'var(--color-muted)' }}>{t('trackingCode')}</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text)', fontFamily: 'monospace' }}>#{appointment.id}</div>
           </div>
 
           {(appointment.reminder_sms_sent || appointment.reminder_push_sent) && (
             <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px dashed var(--color-border)' }}>
-              <div style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 8 }}>یادآوری</div>
+              <div style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 8 }}>{t('reminder')}</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {appointment.reminder_push_sent && (
                   <span className="reminder-chip" style={{ fontSize: 11, padding: '4px 10px' }}>
                     <Icon name="notifications" size={13} />
-                    اعلان ارسال شد
-                  </span>
+                    {t('notificationSent')}</span>
                 )}
                 {appointment.reminder_sms_sent && (
                   <span className="reminder-chip" style={{ fontSize: 11, padding: '4px 10px' }}>
                     <Icon name="sms" size={13} />
-                    پیامک ارسال شد
-                  </span>
+                    {t('smsSent')}</span>
                 )}
               </div>
             </div>
@@ -157,31 +154,35 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
           background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)',
           padding: 24, marginBottom: 24,
         }}>
-          <h2 style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 12 }}>راه‌های ارتباطی</h2>
+          <h2 style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 12 }}>{t('contactDetails')}</h2>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{ fontSize: 12, color: 'var(--color-muted)', flexShrink: 0 }}>آدرس</div>
+            <div style={{ fontSize: 12, color: 'var(--color-muted)', flexShrink: 0 }}>{t('address')}</div>
             {biz.address ? (
               <a
                 href={`https://maps.google.com/?q=${encodeURIComponent(biz.address)}`}
                 target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 13, color: 'var(--color-primary)', lineHeight: 1.7, textAlign: 'left', textDecoration: 'none', fontWeight: 600 }}
+                style={{ fontSize: 13, color: 'var(--color-primary)', lineHeight: 1.7, textAlign: 'end', textDecoration: 'none', fontWeight: 600 }}
               >
                 {biz.address}
               </a>
+            ) : isWithheld(biz, 'address') ? (
+              <div style={{ fontSize: 13 }}><LockedContact kind="address" /></div>
             ) : (
-              <div style={{ fontSize: 13, color: 'var(--color-text)' }}>ثبت نشده</div>
+              <div style={{ fontSize: 13, color: 'var(--color-text)' }}>{t('notProvided')}</div>
             )}
           </div>
 
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px dashed var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>تلفن تماس</div>
+            <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>{t('phone')}</div>
             {biz.phone ? (
               <a href={`tel:${biz.phone}`} dir="ltr" style={{ fontSize: 14, color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 700 }}>
                 {biz.phone}
               </a>
+            ) : isWithheld(biz, 'phone') ? (
+              <div style={{ fontSize: 14 }}><LockedContact kind="phone" /></div>
             ) : (
-              <div style={{ fontSize: 13, color: 'var(--color-text)' }}>ثبت نشده</div>
+              <div style={{ fontSize: 13, color: 'var(--color-text)' }}>{t('notProvided')}</div>
             )}
           </div>
         </div>
@@ -193,8 +194,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
             onClick={() => router.push(`/b/Noobatyar-${biz.unique_code}/checkout/${appointment.id}`)}
             style={{ marginBottom: 12 }}
           >
-            تکمیل پرداخت
-          </button>
+            {t('completePayment')}</button>
         )}
 
         <button
@@ -205,31 +205,28 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
             cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
-          مشاهده پروفایل کسب‌وکار
-        </button>
+          {t('viewBusinessProfile')}</button>
 
         {/* ── Cancel (only while the appointment is still ahead of us) ── */}
         {CANCELLABLE.includes(appointment.status) && appointment.appointment_date > Date.now() && (
           confirmCancel ? (
             <div style={{ marginTop: 12, padding: 16, borderRadius: 14, border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
               <div style={{ fontSize: 14, color: 'var(--color-text)', textAlign: 'center', marginBottom: 14, lineHeight: 1.8 }}>
-                از لغو این نوبت مطمئن هستید؟
-              </div>
+                {t('areYouSureYouWant')}</div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button
                   onClick={handleCancel}
                   disabled={cancelling}
                   style={{ flex: 1, height: 46, borderRadius: 12, border: 'none', background: '#b91c1c', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
                 >
-                  {cancelling ? 'در حال لغو...' : 'بله، لغو کن'}
+                  {cancelling ? t('cancelling') : t('yesCancel')}
                 </button>
                 <button
                   onClick={() => setConfirmCancel(false)}
                   disabled={cancelling}
                   style={{ flex: 1, height: 46, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                 >
-                  انصراف
-                </button>
+                  {t('cancel')}</button>
               </div>
             </div>
           ) : (
@@ -241,8 +238,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
                 fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              لغو نوبت
-            </button>
+              {t('cancelAppointment')}</button>
           )
         )}
 

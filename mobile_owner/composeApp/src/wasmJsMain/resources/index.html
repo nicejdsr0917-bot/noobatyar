@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0F0F0F">
+    <title>پنل نوبت‌یار</title>
+    <!-- Installable: Chrome/Edge read the manifest; iOS Safari ("Add to Home
+         Screen") reads the apple-* tags and the touch icon instead. -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="پنل نوبت‌یار">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <style>
+        /*
+         * No-white-flash background per docs/OWNER_WEB_PLAN.md section 7.3:
+         * the wasm bundle takes a couple of seconds to boot, and until it
+         * does the browser is showing this document as-is. #0F0F0F matches
+         * ui/theme/Color.kt's DarkBackground exactly, and the wasmJs default
+         * theme is dark (PreferencesManager.wasmJs.kt, section 7.2), so this
+         * is the color that's actually correct to show first, not a filler.
+         */
+        /*
+         * The document itself never scrolls: the app draws on its own canvas
+         * and handles every gesture itself. A scrollable body made iOS Safari
+         * scroll the page when a field took focus, which collapsed its toolbar,
+         * which resized the viewport, which made the keyboard close again a
+         * moment after it opened (first field only; by the second tap the
+         * toolbar was already collapsed). Pinning the document stops that.
+         */
+        html, body {
+            background: #0F0F0F;
+            margin: 0;
+            padding: 0;
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
+        /*
+         * Same Yakan Bold the app itself uses (ui/theme/Typography.kt), not a
+         * system-font stand-in — this text renders before the wasm bundle
+         * (and with it Compose's own font loading) exists, so it needs its
+         * own @font-face pointed at the same file Compose Resources packs
+         * for wasmJs: composeResources/<module>/font/, confirmed by reading
+         * the actual build output rather than guessed.
+         */
+        @font-face {
+            font-family: "Yakan";
+            src: url("composeResources/proqueue.composeapp.generated.resources/font/yakan_bold.ttf") format("truetype");
+            font-weight: 700;
+            font-style: normal;
+            font-display: block;
+        }
+
+        #compose-loading {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            /* Opaque on purpose: #compose-root sits right underneath and
+               starts painting as soon as Compose mounts, which can be well
+               before the minimum-display timer lets this overlay fade —
+               without its own background it would be transparent and the
+               app would show through early. */
+            background: #0F0F0F;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            font-family: "Yakan", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #EDE9FE;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            transition: opacity 0.25s ease;
+        }
+
+        #compose-loading.nb-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /*
+         * Compose mounts into this sibling instead of document.body directly
+         * (see main.kt): ComposeViewport takes ownership of whatever element
+         * it's given and clears its content, which would wipe #compose-loading
+         * out from under it the instant the wasm module finishes booting —
+         * before the minimum-display timer below ever got a say. Keeping them
+         * as separate elements means Compose can mount and start rendering
+         * underneath while the loading screen keeps covering it on top.
+         */
+        /*
+         * Installed on an iPhone the page runs full screen. The status bar is
+         * opaque black (apple-mobile-web-app-status-bar-style=black above), so
+         * the page starts below it and nothing draws under the clock; the
+         * app fills everything else, down to the bottom edge. An earlier
+         * version inset this root by every safe area and left the dark body
+         * showing through, which read as empty black bars around a light-theme
+         * app. Only the sides are inset, and only matter in landscape, where
+         * the notch would otherwise cover content.
+         */
+        #compose-root {
+            position: fixed;
+            /* 0 on a fresh install (opaque status bar), the status-bar height
+               on an install made while the style was black-translucent: the
+               style is fixed when the app is added to the home screen, so
+               both kinds of install are out there and this has to fit each. */
+            top: env(safe-area-inset-top, 0px);
+            bottom: 0;
+            left: env(safe-area-inset-left, 0px);
+            right: env(safe-area-inset-right, 0px);
+        }
+
+        /*
+         * Same mark as backend/templates/admin/base_site.html's inline SVG,
+         * and the mark's own ring is the progress indicator. A separate circle
+         * around the mark looked lopsided, because the mark isn't symmetric:
+         * its dot sits above the ring.
+         *
+         * While loading, a bright band travels around the ring and the amber
+         * dot swings tick-tock in the ring's top opening. Once the app is
+         * ready (.nb-done, set by the script below), the dot winds up and
+         * strikes and the check draws in, as AnimatedNoobatyarMark does in
+         * the app (NoobatyarMark.kt).
+         *
+         * Performance: this runs while the wasm bundle compiles and boots on
+         * the main thread. Animating SVG attributes (stroke-dashoffset, <g>
+         * transforms) or a drop-shadow filter repaints on that same busy
+         * thread and stutters. So every looping motion here is a CSS transform
+         * on its own HTML layer, which the compositor thread runs on its own:
+         * the band is a light sweep rotating under a mask of the ring, the
+         * dot is a separate layer that rotates and translates, and the final
+         * check is revealed by a sliding window. Nothing animates a stroke.
+         *
+         * Geometry: each layer uses viewBox "43 20 426 426" at 104px, so the
+         * ring centre is at (52px, 57.6px) and a 512-box unit is 0.244px.
+         */
+        #compose-loading .nb-stage {
+            position: relative;
+            width: 104px;
+            height: 104px;
+        }
+
+        #compose-loading .nb-stage > * {
+            position: absolute;
+            inset: 0;
+            width: 104px;
+            height: 104px;
+            overflow: visible;
+        }
+
+        /* Nested layers (lift, dot, band) fill the same 104px box, so they
+           all share the one coordinate system described above. */
+        #compose-loading .nb-lift,
+        #compose-loading .nb-dot {
+            display: block;
+            width: 104px;
+            height: 104px;
+            overflow: visible;
+        }
+
+        #compose-loading .nb-glow {
+            border-radius: 50%;
+            background: radial-gradient(circle at 50% 55.4%, rgba(139, 92, 246, 0.25), rgba(139, 92, 246, 0) 70%);
+        }
+
+        /* Ring, band and check share one wrapper so the strike's jolt
+           shakes them together. */
+        #compose-loading .nb-ringwrap {
+            transform-origin: 52px 57.6px;
+        }
+
+        #compose-loading .nb-ringwrap > *,
+        #compose-loading .nb-check-in,
+        #compose-loading .nb-check-in svg {
+            position: absolute;
+            inset: 0;
+            display: block;
+            width: 104px;
+            height: 104px;
+            overflow: visible;
+        }
+
+        #compose-loading .nb-track,
+        #compose-loading .nb-check-in svg {
+            color: #A78BFA;
+        }
+
+        /* Opacity on the <svg> element itself (an HTML-level box) rather
+           than on a path inside it, so the brightening is composited too. */
+        #compose-loading .nb-track {
+            opacity: 0.3;
+            transition: opacity 0.25s ease;
+        }
+
+        /*
+         * The check is revealed by a wipe instead of animating its stroke,
+         * because it plays exactly when Compose starts painting its first
+         * screen and the main thread is at its busiest. A window slides left
+         * to right while the check inside slides the opposite way by the same
+         * amount, so the check stays put and appears from its first stroke
+         * to its last. Both moves are transforms, so the compositor runs them.
+         * The window's right edge travels only across the check, stroke caps
+         * included (x=173..345 in the 512 box, 31.7..73.7px), so the whole
+         * duration is spent revealing rather than sliding over empty space.
+         */
+        #compose-loading .nb-check-win {
+            overflow: hidden;
+            transform: translateX(-73px);
+        }
+
+        #compose-loading .nb-check-in {
+            transform: translateX(73px);
+        }
+
+        /*
+         * The travelling band is carved out of the ring itself: a light sweep
+         * rotates underneath, and the ring's own shape masks it. The light
+         * can only ever show inside the ring's stroke, never beside it or in
+         * its opening, however the page is zoomed or scaled. A separately
+         * drawn band arc, even at the ring's exact radius, drifted off it by
+         * a pixel on real screens. The mask is static; only the sweep turns,
+         * with a transform, so it stays on the compositor.
+         */
+        #compose-loading .nb-sweep {
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='43 20 426 426'%3E%3Cpath d='M337.64 156.96A146 146 0 1 1 174.36 156.96' fill='none' stroke='black' stroke-width='36' stroke-linecap='round'/%3E%3C/svg%3E") center / 104px 104px no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='43 20 426 426'%3E%3Cpath d='M337.64 156.96A146 146 0 1 1 174.36 156.96' fill='none' stroke='black' stroke-width='36' stroke-linecap='round'/%3E%3C/svg%3E") center / 104px 104px no-repeat;
+            transition: opacity 0.2s ease;
+        }
+
+        #compose-loading .nb-sweep-rot {
+            position: absolute;
+            inset: 0;
+            /* Centred on the ring centre, so it turns in place around it. */
+            background: conic-gradient(from 0deg at 50% 55.4%,
+                rgba(237, 233, 254, 0) 0deg,
+                rgba(237, 233, 254, 0) 250deg,
+                rgba(237, 233, 254, 0.85) 335deg,
+                #FFFFFF 355deg,
+                rgba(237, 233, 254, 0) 360deg);
+            transform-origin: 52px 57.6px;
+            animation: nb-orbit 1.15s linear infinite;
+            will-change: transform;
+        }
+
+        #compose-loading .nb-swing {
+            transform-origin: 52px 57.6px;
+            animation: nb-tick 1s ease-in-out 0.55s infinite;
+            will-change: transform;
+        }
+
+        #compose-loading .nb-lift {
+            will-change: transform;
+        }
+
+        #compose-loading .nb-dot {
+            transform-origin: 52px 31.7px;
+            animation: nb-pop 0.3s ease-out 0.25s both;
+            will-change: transform;
+        }
+
+        /* ── Ready: strike and check ── */
+        #compose-loading.nb-done .nb-sweep { opacity: 0; }
+        #compose-loading.nb-done .nb-sweep-rot { animation-play-state: paused; }
+        #compose-loading.nb-done .nb-track { opacity: 1; }
+        #compose-loading.nb-done .nb-swing {
+            animation: none;
+            transform: rotate(0deg);
+            transition: transform 0.15s ease-out;
+        }
+        #compose-loading.nb-done .nb-lift { animation: nb-strike 0.55s linear both; }
+        #compose-loading.nb-done .nb-dot { animation: nb-squash 0.3s linear 0.55s both; }
+        #compose-loading.nb-done .nb-ringwrap { animation: nb-jolt 0.32s linear 0.55s both; }
+        #compose-loading.nb-done .nb-check-win {
+            animation: nb-wipe-win 0.42s cubic-bezier(0.45, 0, 0.35, 1) 0.58s both;
+        }
+        #compose-loading.nb-done .nb-check-in {
+            animation: nb-wipe-in 0.42s cubic-bezier(0.45, 0, 0.35, 1) 0.58s both;
+        }
+
+        @keyframes nb-orbit {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes nb-pop {
+            0%   { transform: scale(0); }
+            70%  { transform: scale(1.18); }
+            100% { transform: scale(1); }
+        }
+
+        /* Snap to a side and hold there, like a clock hammer. */
+        @keyframes nb-tick {
+            0%, 100% { transform: rotate(0deg); }
+            12%, 38% { transform: rotate(11deg); }
+            62%, 88% { transform: rotate(-11deg); }
+        }
+
+        /* A small dip (wind-up), a rise, then an accelerating strike. */
+        @keyframes nb-strike {
+            0%   { transform: translateY(0); animation-timing-function: ease-in-out; }
+            15%  { transform: translateY(2.4px); animation-timing-function: ease-out; }
+            76%  { transform: translateY(-19px); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes nb-squash {
+            0%   { transform: scale(1, 1); }
+            30%  { transform: scale(1.28, 0.72); }
+            65%  { transform: scale(0.92, 1.08); }
+            100% { transform: scale(1, 1); }
+        }
+
+        @keyframes nb-jolt {
+            0%   { transform: scale(1); }
+            35%  { transform: scale(1.06); }
+            70%  { transform: scale(0.98); }
+            100% { transform: scale(1); }
+        }
+
+        /* Each half starts from its offset set above and ends once the
+           window's right edge has passed the check's (75px). */
+        @keyframes nb-wipe-win { to { transform: translateX(-29px); } }
+        @keyframes nb-wipe-in  { to { transform: translateX(29px); } }
+
+        /* Reduced motion: the finished mark, still. */
+        @media (prefers-reduced-motion: reduce) {
+            #compose-loading .nb-stage * { animation: none !important; }
+            #compose-loading .nb-sweep { display: none; }
+            #compose-loading .nb-track { opacity: 1; }
+            #compose-loading .nb-check-win,
+            #compose-loading .nb-check-in { transform: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="compose-root"></div>
+    <div id="compose-loading">
+        <div class="nb-stage" aria-hidden="true">
+            <div class="nb-glow"></div>
+            <div class="nb-ringwrap">
+                <svg class="nb-track" viewBox="43 20 426 426" focusable="false">
+                    <path d="M337.64 156.96A146 146 0 1 1 174.36 156.96"
+                          fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round"/>
+                </svg>
+                <div class="nb-sweep"><div class="nb-sweep-rot"></div></div>
+                <div class="nb-check-win"><div class="nb-check-in">
+                    <svg viewBox="43 20 426 426" focusable="false">
+                        <path d="M191 276L234 323L327 221" fill="none" stroke="currentColor"
+                              stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div></div>
+            </div>
+            <div class="nb-swing"><div class="nb-lift">
+                <svg class="nb-dot" viewBox="43 20 426 426" focusable="false">
+                    <circle cx="256" cy="122" r="28" fill="#F59E0B"/>
+                </svg>
+            </div></div>
+        </div>
+        <span>نوبت‌یار</span>
+    </div>
+    <script src="boot.js"></script>
+    <!--
+      Firebase JS SDK (compat build) for FCM web push — see
+      core/push/FirebaseMessagingInterop.kt and docs/OWNER_WEB_PLAN.md
+      section 10.1. Vendored locally under vendor/firebase/ rather than
+      loaded from Google's CDN: this app is served to users in Iran, where
+      gstatic.com and most public CDNs are unreachable (see
+      backend/docs/ADMIN_PANEL.md section 3 for the same constraint on the
+      admin panel's fonts) — a CDN script tag wouldn't degrade gracefully
+      for them, it would just never load, ever, for the whole audience.
+      Serving it from this app's own origin instead means it loads exactly
+      as reliably as composeApp.js itself. Must come before composeApp.js so
+      the `firebase` global exists once Kotlin needs it. If it's missing for
+      any other reason (a build that didn't get vendor/firebase/, e.g.), the
+      interop layer checks `typeof firebase` itself and fails soft — no push
+      token, everything else in the app works exactly the same.
+    -->
+    <script src="vendor/firebase/firebase-app-compat.js"></script>
+    <script src="vendor/firebase/firebase-messaging-compat.js"></script>
+    <script src="composeApp.js"></script>
+</body>
+</html>

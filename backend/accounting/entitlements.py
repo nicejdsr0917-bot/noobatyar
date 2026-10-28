@@ -57,7 +57,6 @@ QUOTA_KEYS = (QUOTA_MAX_BUSINESSES, QUOTA_MONTHLY_APPOINTMENTS, QUOTA_MONTHLY_SM
 # part of this backend has ever been able to send. Delete a key from here the
 # moment its feature ships; this list is the single source of truth.
 COMING_SOON_FEATURES = (
-    FEATURE_PROMOTIONAL_SMS,
     FEATURE_MULTI_CHANNEL,
 )
 
@@ -211,6 +210,18 @@ def get_active_subscription(user_or_id):
     if sub and sub.is_valid():
         return sub
     return None
+
+
+def owners_with_active_subscription():
+    """Queryset of user ids holding a still-valid active subscription — the
+    set-based counterpart of :func:`get_active_subscription`, for filtering
+    many businesses at once (e.g. the admin's impact count)."""
+    from accounting.models import Subscription
+    return (
+        Subscription.objects
+        .filter(status="active", ends_at__gt=timezone.now())
+        .values("user_id")
+    )
 
 
 def _active_feature_addons(user_id):

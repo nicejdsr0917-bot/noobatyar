@@ -129,7 +129,6 @@ fun String.iSValidForSearchHashtag(): Boolean = this.trim().length > 1
 
 val hashtagRegex = "#[\\p{L}0-9_\\p{M}]+".toRegex()
 val stringListRegex = "(\\S+|\\s)".toRegex()
-val emojiRegex = """[\uD83C\uDF00-\uD83D\uDFFF\uD83E\uDD00-\uD83E\uDFFF]+""".toRegex()
 
 fun Int.toTimerFormat(): String {
     val minutes = this / 60

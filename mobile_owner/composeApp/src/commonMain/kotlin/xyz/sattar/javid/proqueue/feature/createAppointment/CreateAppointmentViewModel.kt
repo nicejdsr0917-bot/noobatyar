@@ -1,19 +1,14 @@
 package xyz.sattar.javid.proqueue.feature.createAppointment
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import org.jetbrains.compose.resources.getString
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.appointment_not_found
-import proqueue.composeapp.generated.resources.error_loading_appointment
-import proqueue.composeapp.generated.resources.error_loading_visitors
-import proqueue.composeapp.generated.resources.error_saving_appointment
-import proqueue.composeapp.generated.resources.operation_error
-import proqueue.composeapp.generated.resources.select_business_error
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
 import xyz.sattar.javid.proqueue.domain.usecase.AddServiceCatalogItemUseCase
@@ -54,7 +49,7 @@ class CreateAppointmentViewModel(
                 } catch (e: Exception) {
                     emit(
                         ShowMessage(
-                            e.message ?: getString(Res.string.error_loading_visitors)
+                            e.message ?: Str.error_loading_visitors
                         )
                     )
                 }
@@ -101,7 +96,7 @@ class CreateAppointmentViewModel(
                 currentState.copy(isLoading = partialState.isLoading)
 
             is ShowMessage ->
-                currentState.copy(message = partialState.message, isLoading = false)
+                currentState.copy(message = UiMessage(partialState.message, partialState.type), isLoading = false)
 
             is LoadVisitor ->
                 currentState.copy(
@@ -230,12 +225,12 @@ class CreateAppointmentViewModel(
                         // Ignore visitor load error, just show appointment
                     }
                 } else {
-                    emit(CreateAppointmentState.PartialState.ShowMessage(getString(Res.string.appointment_not_found)))
+                    emit(CreateAppointmentState.PartialState.ShowMessage(Str.appointment_not_found))
                 }
             } catch (e: Exception) {
                 emit(
                     CreateAppointmentState.PartialState.ShowMessage(
-                        e.message ?: getString(Res.string.error_loading_appointment)
+                        e.message ?: Str.error_loading_appointment
                     )
                 )
             }
@@ -254,7 +249,7 @@ class CreateAppointmentViewModel(
         try {
             val business = BusinessStateHolder.selectedBusiness.value
             if (business == null) {
-                emit(CreateAppointmentState.PartialState.ShowMessage(getString(Res.string.select_business_error)))
+                emit(CreateAppointmentState.PartialState.ShowMessage(Str.select_business_error, ToastyType.Warning))
                 return@flow
             }
 
@@ -303,19 +298,19 @@ class CreateAppointmentViewModel(
                 emit(CreateAppointmentState.PartialState.AppointmentCreated)
                 sendEvent(CreateAppointmentEvent.AppointmentCreated)
             } else {
-                emit(CreateAppointmentState.PartialState.ShowMessage(getString(Res.string.error_saving_appointment)))
+                emit(CreateAppointmentState.PartialState.ShowMessage(Str.error_saving_appointment))
             }
         } catch (e: xyz.sattar.javid.proqueue.core.network.ApiException) {
             if (e.code == 409) {
                 // Monthly appointment quota (or hourly capacity) reached — show a
                 // dedicated dialog explaining what happened, not just a snackbar
                 // that's easy to miss.
-                emit(CreateAppointmentState.PartialState.ShowQuotaDialog(e.message ?: getString(Res.string.operation_error)))
+                emit(CreateAppointmentState.PartialState.ShowQuotaDialog(e.message ?: Str.operation_error))
             } else {
-                emit(CreateAppointmentState.PartialState.ShowMessage(e.message ?: getString(Res.string.operation_error)))
+                emit(CreateAppointmentState.PartialState.ShowMessage(e.message ?: Str.operation_error))
             }
         } catch (e: Exception) {
-            emit(CreateAppointmentState.PartialState.ShowMessage(e.message ?: getString(Res.string.operation_error)))
+            emit(CreateAppointmentState.PartialState.ShowMessage(e.message ?: Str.operation_error))
         }
     }
 
@@ -327,10 +322,10 @@ class CreateAppointmentViewModel(
                 emit(AppointmentDeleted)
                 sendEvent(CreateAppointmentEvent.AppointmentDeleted)
             } else {
-                emit(ShowMessage(getString(Res.string.operation_error)))
+                emit(ShowMessage(Str.operation_error))
             }
         } catch (e: Exception) {
-            emit(ShowMessage(e.message ?: getString(Res.string.operation_error)))
+            emit(ShowMessage(e.message ?: Str.operation_error))
         }
     }
 
@@ -376,7 +371,7 @@ class CreateAppointmentViewModel(
             val updatedSelected = (uiState.value.selectedServices + addedName).distinct()
             emit(CreateAppointmentState.PartialState.UpdateSelectedServices(updatedSelected))
         } catch (e: Exception) {
-            emit(ShowMessage(e.message ?: getString(Res.string.operation_error)))
+            emit(ShowMessage(e.message ?: Str.operation_error))
         }
     }
 }

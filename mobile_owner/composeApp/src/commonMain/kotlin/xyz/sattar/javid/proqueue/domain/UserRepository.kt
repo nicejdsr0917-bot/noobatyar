@@ -25,6 +25,9 @@ interface UserRepository {
     suspend fun getMyEntitlements(): ApiResponse<EntitlementsResponseDto>
     suspend fun getAddons(): ApiResponse<List<AddOnPackDto>>
     suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto>
+    suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto>
+    suspend fun storeIntent(store: String, kind: String, id: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentDto>
+    suspend fun storeVerify(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyDto>
 
     // Local Data
     fun getLocalUser(id: Int): Flow<UserDto?>

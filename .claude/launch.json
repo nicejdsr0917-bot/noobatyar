@@ -4,19 +4,39 @@
     {
       "name": "front_client",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "front_client", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "front_client",
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "backend",
-      "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd backend && source .venv/bin/activate && python manage.py runserver 0.0.0.0:8000"],
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set DEBUG=True&& set PYTHONIOENCODING=utf-8&& backend\\.venv\\Scripts\\python.exe backend\\manage.py runserver 8000"
+      ],
       "port": 8000
+    },
+    {
+      "name": "mobile_owner_web",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "mobile_owner\\gradlew.bat -p mobile_owner wasmJsBrowserDevelopmentRun --console=plain"
+      ],
+      "port": 8080
     },
     {
       "name": "backend_admin",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set DEBUG=True&& set PYTHONIOENCODING=utf-8&& backend\\.venv\\Scripts\\python.exe backend\\manage.py runserver 8010"],
+      "runtimeArgs": [
+        "/c",
+        "set DEBUG=True&& set PYTHONIOENCODING=utf-8&& backend\\.venv\\Scripts\\python.exe backend\\manage.py runserver 8010"
+      ],
       "port": 8010
     },
     {
@@ -24,6 +44,29 @@
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "set DEBUG=True&& set PYTHONUTF8=1&& backend\\.venv\\Scripts\\python.exe backend\\manage.py runserver 0.0.0.0:8002"],
       "port": 8002
+    },
+    {
+      "name": "backend_mac",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "cd backend && DEBUG=True .venv/bin/python manage.py runserver 8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "mobile_owner_web_mac",
+      "runtimeExecutable": "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java",
+      "runtimeArgs": [
+        "-classpath",
+        "mobile_owner/gradle/wrapper/gradle-wrapper.jar",
+        "org.gradle.wrapper.GradleWrapperMain",
+        "-p",
+        "mobile_owner",
+        "wasmJsBrowserDevelopmentRun",
+        "--console=plain"
+      ],
+      "port": 8080
     }
   ]
 }

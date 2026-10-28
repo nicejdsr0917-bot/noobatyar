@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.resetPassword
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
@@ -67,13 +69,13 @@ class ResetPasswordViewModel(
         val currentState = uiState.value
 
         val newPasswordError = when {
-            currentState.newPassword.isBlank() -> "رمز عبور جدید را وارد کنید"
-            currentState.newPassword.length < 5 -> "رمز عبور باید حداقل ۵ کاراکتر باشد"
+            currentState.newPassword.isBlank() -> Str.enter_your_new_password
+            currentState.newPassword.length < 5 -> Str.password_must_be_at_least
             else -> null
         }
         val confirmPasswordError = when {
-            currentState.confirmPassword.isBlank() -> "تکرار رمز عبور را وارد کنید"
-            currentState.newPassword != currentState.confirmPassword -> "رمز عبور و تکرار آن یکسان نیستند"
+            currentState.confirmPassword.isBlank() -> Str.repeat_your_password
+            currentState.newPassword != currentState.confirmPassword -> Str.passwords_dont_match
             else -> null
         }
 
@@ -91,12 +93,12 @@ class ResetPasswordViewModel(
         )) {
             is ApiResponse.Success -> {
                 emit(ResetPasswordSuccess)
-                sendEvent(ResetPasswordEvent.ShowToast("رمز عبور با موفقیت تغییر کرد"))
+                sendEvent(ResetPasswordEvent.ShowToast(UiMessage.success(Str.password_changed_successfully)))
                 sendEvent(ResetPasswordEvent.NavigateToLogin)
             }
             is ApiResponse.Error -> {
                 emit(ResetPasswordError(response.message))
-                sendEvent(ResetPasswordEvent.ShowToast(response.message))
+                sendEvent(ResetPasswordEvent.ShowToast(UiMessage.error(response.message)))
             }
         }
     }

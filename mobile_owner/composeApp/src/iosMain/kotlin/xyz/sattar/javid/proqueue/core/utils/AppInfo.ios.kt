@@ -11,5 +11,6 @@ actual object AppInfo {
     actual val versionCode: Int = (NSBundle.mainBundle.infoDictionary?.get("CFBundleVersion") as? String)?.toIntOrNull() ?: 100
     actual val versionName: String = (NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String) ?: "1.0.0"
     actual val isIOS: Boolean = true
+    actual val isWeb: Boolean = false
     actual val isDebug: Boolean = kotlin.native.Platform.isDebugBinary
 }

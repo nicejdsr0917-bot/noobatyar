@@ -7,7 +7,12 @@ import BusinessNotice from '@/app/components/BusinessNotice';
 import Icon, { type IconName } from '@/app/components/Icon';
 import CategoryArt, { CategoryGlyph } from '@/app/components/CategoryArt';
 import AppBanner from '@/app/components/AppBanner';
+import BusinessMap from '@/app/components/BusinessMap';
+import LockedContact, { LockedMap, isWithheld } from '@/app/components/LockedContact';
+import { baladUrl, businessLocation, neshanUrl } from '@/lib/maps';
 import { toPersianDigits as toFa } from '@/lib/validation';
+import { useVisitorToken } from '@/lib/visitorToken';
+import { t } from '@/lib/i18n';
 
 interface Props {
   business: Business;
@@ -17,12 +22,14 @@ interface Props {
 export default function BusinessProfileClient({ business, slug }: Props) {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
+  const isSignedIn = !!useVisitorToken();
 
   // Derived from the logo server-side (Business.theme_color) and already
   // contrast-clamped for white text there, so it can be used raw. Falls back
   // to the brand purple for a business with no logo.
   const heroColor = business.theme_color || '#8b5cf6';
   const bookingEnabled = business.booking_enabled !== false; // default true if undefined
+  const location = businessLocation(business);
 
   const logoUrl = business.logo
     ? business.logo.startsWith('http')
@@ -64,7 +71,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
     bio.split('\n').length > HERO_TAGLINE_MAX_LINES || bio.length > HERO_TAGLINE_MAX_CHARS;
   const heroTagline = bioIsProse
     ? ''
-    : bio || `ارائه خدمات تخصصی در زمینه ${businessCategoryLabel(business)} توسط کادر مجرب.`;
+    : bio || t('specializedServicesByExperiencedTeam', businessCategoryLabel(business));
 
   // ── Stat values (short, so they fit the compact cards) ──
   // Minute suffix only when non-zero: "۹ تا ۲۱" reads better than "۹:۰۰ تا
@@ -72,16 +79,16 @@ export default function BusinessProfileClient({ business, slug }: Props) {
   // actually opens on a half hour is exactly when the suffix earns its space.
   const formatWorkTime = (hour: number, minute: number | undefined) =>
     minute ? `${toFa(String(hour).padStart(2, '0'))}:${toFa(String(minute).padStart(2, '0'))}` : toFa(String(hour).padStart(2, '0'));
-  const workHours = `${formatWorkTime(business.work_start_hour, business.work_start_minute)} تا ${formatWorkTime(business.work_end_hour, business.work_end_minute)}`;
+  const workHours = t('to', formatWorkTime(business.work_start_hour, business.work_start_minute), formatWorkTime(business.work_end_hour, business.work_end_minute));
 
   const depositText =
     business.deposit_mode === 'NONE'
-      ? 'رایگان'
+      ? t('free')
       : business.deposit_amount
-        ? `${toFa(business.deposit_amount.toLocaleString('en-US'))} ت`
+        ? t('t', toFa(business.deposit_amount.toLocaleString('en-US')))
         : business.deposit_mode === 'MANDATORY'
-          ? 'اجباری'
-          : 'اختیاری';
+          ? t('required')
+          : t('optional');
 
   // Payment comes from accepted_payment_methods. The older single-value
   // payment_method is only a fallback: the owner app never sends it, so it is
@@ -97,12 +104,12 @@ export default function BusinessProfileClient({ business, slug }: Props) {
   const acceptsCash = methods.includes('CASH');
 
   const paymentText =
-    acceptsOnline && acceptsCard ? 'آنلاین / کارت'
-      : acceptsOnline ? 'آنلاین'
-        : acceptsCard && acceptsCash ? 'کارت / محل'
-          : acceptsCard ? 'کارت به کارت'
-            : acceptsCash ? 'در محل'
-              : 'ندارد';
+    acceptsOnline && acceptsCard ? t('onlineCard')
+      : acceptsOnline ? t('online')
+        : acceptsCard && acceptsCash ? t('cardOnSite')
+          : acceptsCard ? t('cardTransfer')
+            : acceptsCash ? t('onSite')
+              : t('none');
 
   const paymentIcon: IconName = acceptsOnline
     ? 'payments'
@@ -172,6 +179,14 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             ))}
           </div>
         )}
+        {isWithheld(business, 'phone') && (
+          <div className="biz-hero-actions">
+            <span className="biz-action call">
+              <Icon name="call" size={16} />
+              <LockedContact kind="phone" />
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Owner notice — first thing under the hero, before any detail ── */}
@@ -182,17 +197,17 @@ export default function BusinessProfileClient({ business, slug }: Props) {
         <div className="stat-grid">
           <div className="stat-card">
             <div className="ico"><Icon name="schedule" size={20} /></div>
-            <div className="k">ساعات کاری</div>
+            <div className="k">{t('openingHours')}</div>
             <div className="v">{workHours}</div>
           </div>
           <div className="stat-card">
             <div className="ico"><Icon name="creditCard" size={20} /></div>
-            <div className="k">بیعانه</div>
+            <div className="k">{t('deposit')}</div>
             <div className="v">{depositText}</div>
           </div>
           <div className="stat-card">
             <div className="ico"><Icon name={paymentIcon} size={20} /></div>
-            <div className="k">روش پرداخت</div>
+            <div className="k">{t('paymentMethod')}</div>
             <div className="v">{paymentText}</div>
           </div>
         </div>
@@ -207,7 +222,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
           <div className="biz-about">
             <div className="biz-about-head">
               <span className="ico"><Icon name="info" size={17} /></span>
-              <h2>درباره‌ی ما</h2>
+              <h2>{t('aboutUs')}</h2>
             </div>
             <p className={bioExpanded ? 'biz-about-text' : 'biz-about-text clamped'}>
               {bio}
@@ -218,15 +233,51 @@ export default function BusinessProfileClient({ business, slug }: Props) {
               onClick={() => setBioExpanded((v) => !v)}
               aria-expanded={bioExpanded}
             >
-              {bioExpanded ? 'کمتر' : 'بیشتر'}
+              {bioExpanded ? t('less') : t('more')}
               <Icon name={bioExpanded ? 'chevronUp' : 'chevronDown'} size={15} />
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Address ── */}
-      {business.address && (
+      {/* ── Location ──
+          With a map pin: the map, the address under it, and hand-offs to
+          the routing apps people in Iran actually use. Without one: the
+          address card alone, as before. */}
+      {location ? (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-location">
+            <BusinessMap location={location} title={business.title} />
+            {business.address && (
+              <div className="biz-address">
+                <div className="pin"><Icon name="locationOn" size={19} /></div>
+                <div className="addr-text">
+                  <div className="addr-k">{t('address')}</div>
+                  <div className="addr-v">{business.address}</div>
+                </div>
+              </div>
+            )}
+            <div className="biz-route">
+              <a
+                className="biz-route-btn"
+                href={neshanUrl(location)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Icon name="directions" size={17} />
+                {t('directionsWithNeshan')}</a>
+              <a
+                className="biz-route-btn"
+                href={baladUrl(location)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Icon name="directions" size={17} />
+                {t('directionsWithBalad')}</a>
+            </div>
+          </div>
+        </div>
+      ) : business.address && (
         <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
           <a
             className="biz-address"
@@ -236,11 +287,48 @@ export default function BusinessProfileClient({ business, slug }: Props) {
           >
             <div className="pin"><Icon name="locationOn" size={19} /></div>
             <div className="addr-text">
-              <div className="addr-k">آدرس</div>
+              <div className="addr-k">{t('address')}</div>
               <div className="addr-v">{business.address}</div>
             </div>
             <span className="chevron"><Icon name="chevronLeft" size={18} /></span>
           </a>
+        </div>
+      )}
+      {/* Withheld by the subscription policy (see LockedContact.tsx): the
+          same card, blurred — the map too when the business has a pin —
+          with the routing buttons there but switched off. */}
+      {!location && isWithheld(business, 'location') ? (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-location">
+            <LockedMap />
+            <div className="biz-address">
+              <div className="pin"><Icon name="locationOn" size={19} /></div>
+              <div className="addr-text">
+                <div className="addr-k">{t('address')}</div>
+                <div className="addr-v">
+                  {business.address ?? <LockedContact kind="address" />}
+                </div>
+              </div>
+            </div>
+            <div className="biz-route">
+              <span className="biz-route-btn is-locked" aria-disabled="true">
+                <Icon name="lock" size={16} />
+                {t('directionsWithNeshan')}</span>
+              <span className="biz-route-btn is-locked" aria-disabled="true">
+                <Icon name="lock" size={16} />
+                {t('directionsWithBalad')}</span>
+            </div>
+          </div>
+        </div>
+      ) : !location && isWithheld(business, 'address') && (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-address">
+            <div className="pin"><Icon name="locationOn" size={19} /></div>
+            <div className="addr-text">
+              <div className="addr-k">{t('address')}</div>
+              <div className="addr-v"><LockedContact kind="address" /></div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -257,12 +345,11 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             border: '1px solid var(--color-error)',
             borderRadius: 12, padding: '14px 18px',
             fontSize: 13, color: 'var(--color-error)', fontWeight: 600,
-            textAlign: 'right', lineHeight: 1.6,
+            textAlign: 'start', lineHeight: 1.6,
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <Icon name="block" size={18} />
-            ثبت نوبت در حال حاضر غیرفعال است
-          </div>
+            {t('bookingIsCurrentlyDisabled')}</div>
         </div>
       )}
 
@@ -273,23 +360,38 @@ export default function BusinessProfileClient({ business, slug }: Props) {
         <AppBanner variant="owner" />
       </div>
 
-      {/* ── Fixed Bottom Button ── */}
+      {/* ── Fixed Bottom Button ──
+          Booking needs an account, so a signed-out visitor goes to sign in /
+          sign up first (and lands on the booking page afterwards) instead of
+          browsing the owner's hours they cannot book yet. Signed-in clients
+          get "نوبت‌های من" right beside it. */}
       <div className="btn-group">
-        <button
-          className="btn-primary"
-          onClick={() => {
-            setIsNavigating(true);
-            router.push(`/b/${slug}/book`);
-          }}
-          disabled={!bookingEnabled || isNavigating}
-          style={!bookingEnabled ? { background: 'var(--color-faint)', boxShadow: 'none', cursor: 'not-allowed' } : {}}
-        >
-          {!bookingEnabled
-            ? 'ثبت نوبت غیرفعال است'
-            : isNavigating
-              ? <>در حال بارگذاری<span className="btn-spinner" /></>
-              : 'دریافت / مشاهده نوبت'}
-        </button>
+        <div className="btn-row">
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setIsNavigating(true);
+              router.push(
+                isSignedIn
+                  ? `/b/${slug}/book`
+                  : `/auth/login?redirect=${encodeURIComponent(`/b/${slug}/book`)}`
+              );
+            }}
+            disabled={!bookingEnabled || isNavigating}
+            style={!bookingEnabled ? { background: 'var(--color-faint)', boxShadow: 'none', cursor: 'not-allowed' } : {}}
+          >
+            {!bookingEnabled
+              ? t('bookingIsDisabled')
+              : isNavigating
+                ? <>{t('loading')}<span className="btn-spinner" /></>
+                : isSignedIn ? t('bookAppointment') : t('signInSignUpAnd')}
+          </button>
+          {isSignedIn && (
+            <button className="btn-secondary" onClick={() => router.push('/appointments')}>
+              <Icon name="calendar" size={18} />
+              {t('myAppointments')}</button>
+          )}
+        </div>
       </div>
 
     </div>

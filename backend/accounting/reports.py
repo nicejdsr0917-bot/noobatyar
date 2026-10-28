@@ -291,6 +291,67 @@ def plan_sales(start, end):
 
 # ── Report 3: payment conversion ────────────────────────────────────────────
 
+PAYMENT_CHANNELS = {'zibal': 'زیبال', 'myket': 'مایکت', 'manual': 'دستی (ادمین)'}
+
+
+def payment_channel(track_id, order_id):
+    """Where a successful row came from, read off the ids each path writes:
+    Myket's ``myket-<token>`` (accounting/payment/myket.py), the admin's
+    manual grant ``manual-…`` / ``MANUAL-…`` (AddOnPurchaseAdmin), and Zibal's
+    numeric trackId for everything else."""
+    if (track_id or '').lower().startswith('myket-'):
+        return 'myket'
+    if (track_id or '').lower().startswith('manual-') or (order_id or '').upper().startswith('MANUAL-'):
+        return 'manual'
+    return 'zibal'
+
+
+def payments(start, end):
+    """Every successful payment in ``[start, end)``, newest first: who paid,
+    for what, how much and through which channel — the rows behind the
+    revenue totals above them, so a total can be traced to the people in it.
+
+    Staff accounts are marked (``is_staff``) rather than dropped: their store
+    test purchases are real rows in the totals, and hiding them here would
+    make the list and the totals disagree.
+
+    Two queries, one per model, whatever the range.
+    """
+    rows = []
+    sub_qs = (
+        Transaction.objects.filter(status='success', created_at__gte=start, created_at__lt=end)
+        .select_related('user', 'plan')
+    )
+    for row in sub_qs:
+        rows.append(_payment_row(row, 'اشتراک', row.plan.name))
+    addon_qs = (
+        AddOnPurchase.objects.filter(status='success', created_at__gte=start, created_at__lt=end)
+        .select_related('user', 'pack')
+    )
+    for row in addon_qs:
+        rows.append(_payment_row(row, 'بسته', row.pack.name))
+    rows.sort(key=lambda r: r['created_at'], reverse=True)
+    return rows
+
+
+def _payment_row(row, kind, item):
+    channel = payment_channel(row.track_id, row.order_id)
+    return {
+        'created_at': row.created_at,
+        'when': jalali.format_datetime(row.created_at),
+        'user_id': row.user_id,
+        'name': row.user.name or '',
+        'phone': row.user.phone or '',
+        'is_staff': row.user.is_staff,
+        'kind': kind,
+        'item': item,
+        'amount': row.amount,
+        'channel': channel,
+        'channel_label': PAYMENT_CHANNELS[channel],
+        'track_id': row.track_id,
+    }
+
+
 def _status_counts(queryset, statuses, start, end):
     rows = (
         queryset.filter(created_at__gte=start, created_at__lt=end)
@@ -518,6 +579,7 @@ def build_report(date_from, date_to, now=None):
             'to_jalali': format_jalali_date(to_day),
         },
         'revenue': revenue,
+        'payments': payments(start, end),
         'plans': plan_sales(start, end),
         'conversion': payment_conversion(start, end),
         'mrr': mrr(now),

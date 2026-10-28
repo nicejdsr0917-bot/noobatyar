@@ -22,14 +22,23 @@ import io
 from uuid import uuid4
 
 from django.contrib import admin, messages
+from unfold.admin import ModelAdmin
 from django.core.exceptions import PermissionDenied
+from django.db.models import Exists, OuterRef, Subquery
 from django.http import HttpResponse
+from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
+from django.utils.html import format_html
+
+from api import jalali
 
 from . import reports
-from .models import Plan, Subscription, AddOnPack, AddOnPurchase, Transaction, CreditLedger
+from .models import (
+    Plan, Subscription, AddOnPack, AddOnPurchase, Transaction, CreditLedger,
+    SubscriptionReminderSettings, StorePurchase, ContactVisibilityPolicy,
+)
 from .payment.addon_payment import grant_addon_benefit
 
 
@@ -55,8 +64,8 @@ def _add_display_percentages(report):
 
 
 @admin.register(Plan)
-class PlanAdmin(admin.ModelAdmin):
-    list_display = ['name', 'price', 'duration_value', 'duration_unit', 'is_vip', 'is_active', 'feature_count']
+class PlanAdmin(ModelAdmin):
+    list_display = ['name', 'price', 'duration_value', 'duration_unit', 'is_vip', 'is_active', 'myket_sku', 'feature_count']
     list_editable = ['is_active']  # مستقیم از لیست تغییر بده
     search_fields = ['name']
 
@@ -65,17 +74,158 @@ class PlanAdmin(admin.ModelAdmin):
     feature_count.short_description = 'قابلیت‌های فعال'
 
 
+def _later_subscriptions():
+    """Subscriptions of the same owner that end after the outer row — the
+    same "renewed" test the expired-mode renewal SMS uses
+    (core.messaging.expiry_sms_audience). Cancelled ones don't count."""
+    return Subscription.objects.filter(
+        user_id=OuterRef('user_id'), ends_at__gt=OuterRef('ends_at'),
+    ).exclude(status='cancelled')
+
+
+class RenewalStateFilter(admin.SimpleListFilter):
+    """Every purchase, trial and manual grant is its own row, so one owner
+    shows up once per subscription they ever had — a renewed owner's old
+    trial still reads «منقضی». This filter tells history from the present."""
+
+    title = 'وضعیت تمدید'
+    parameter_name = 'renewal'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('current', 'فقط اشتراک فعلی هر کاربر'),
+            ('lapsed', 'تمام‌شده و تمدیدنشده'),
+            ('superseded', 'سابقه (تمدید یا جایگزین‌شده)'),
+        ]
+
+    def queryset(self, request, queryset):
+        later = Exists(_later_subscriptions())
+        if self.value() == 'current':
+            return queryset.exclude(later).exclude(status='cancelled')
+        if self.value() == 'lapsed':
+            return (
+                queryset.exclude(later)
+                .filter(status__in=('active', 'expired'), ends_at__lte=timezone.now())
+            )
+        if self.value() == 'superseded':
+            return queryset.filter(later)
+        return queryset
+
+
 @admin.register(Subscription)
-class SubscriptionAdmin(admin.ModelAdmin):
-    list_display = ['user', 'plan', 'status', 'started_at', 'ends_at', 'is_valid_display', 'reminder_sent']
-    list_filter = ['status', 'plan']
+class SubscriptionAdmin(ModelAdmin):
+    list_display = [
+        'user', 'user_phone', 'plan', 'status', 'started_at', 'ends_at',
+        'is_valid_display', 'owner_state', 'reminder_sent',
+    ]
+    list_filter = [RenewalStateFilter, 'status', 'plan']
     search_fields = ['user__phone', 'user__name']
     autocomplete_fields = ['user', 'plan']
     readonly_fields = ['started_at']
+    actions = ['send_sms_action']
+
+    def get_queryset(self, request):
+        latest_later = _later_subscriptions().order_by('-ends_at')
+        return super().get_queryset(request).select_related('user', 'plan').annotate(
+            next_plan_name=Subquery(latest_later.values('plan__name')[:1]),
+            next_ends_at=Subquery(latest_later.values('ends_at')[:1]),
+        )
+
+    @admin.display(description='موبایل', ordering='user__phone')
+    def user_phone(self, obj):
+        return obj.user.phone
 
     @admin.display(boolean=True, description='معتبر')
     def is_valid_display(self, obj):
         return obj.is_valid()
+
+    @admin.display(description='وضعیت کاربر')
+    def owner_state(self, obj):
+        """Where this owner stands now, so an old row can't pass for the
+        current one."""
+        if obj.next_plan_name:
+            return format_html(
+                '<span style="color:var(--body-quiet-color)">سابقه — الان: «{}» تا {}</span>',
+                obj.next_plan_name, jalali.format_date(obj.next_ends_at),
+            )
+        if obj.status == 'cancelled':
+            return 'لغوشده'
+        if obj.ends_at > timezone.now():
+            return format_html('<span style="color:#15803d">اشتراک فعلی</span>')
+        return format_html('<span style="color:#b91c1c">تمام‌شده، تمدید نکرده</span>')
+
+    # ── "ارسال پیامک" action ──────────────────────────────────────────────
+
+    def has_send_expiry_sms_permission(self, request):
+        return request.user.has_perm('core.send_expiry_sms')
+
+    @admin.action(
+        description='ارسال پیامک به صاحبان اشتراک‌های انتخاب‌شده',
+        permissions=['send_expiry_sms'],
+    )
+    def send_sms_action(self, request, queryset):
+        """Pick owners straight off this list (e.g. «تمام‌شده و تمدیدنشده»),
+        write the text on a confirmation page, send. Logged with the
+        campaign page's renewal SMS, in its report tab."""
+        from api.sms import SEND_WINDOW_CLOSED, within_send_window
+        from core.messaging import send_sms_to_subscriptions
+
+        from .models import REMINDER_TOKENS
+
+        message = (request.POST.get('sms_message') or '').strip()
+        error = ''
+        if request.POST.get('apply'):
+            if not message:
+                error = 'متن پیامک نمی‌تواند خالی باشد.'
+            elif not within_send_window():
+                error = SEND_WINDOW_CLOSED
+            else:
+                log = send_sms_to_subscriptions(queryset.select_related('user', 'plan'), message, actor=request.user)
+                report_url = reverse('admin:core_campaigns', current_app=self.admin_site.name) + '?tab=reports'
+                self.message_user(
+                    request,
+                    format_html(
+                        'به {} صاحب اشتراک {} پیامک ارسال شد{}. <a href="{}">گزارش ارسال</a>',
+                        log.matched_count, log.sent_count,
+                        f' ({log.failed_count} ناموفق)' if log.failed_count else '',
+                        report_url,
+                    ),
+                    level=messages.WARNING if log.failed_count else messages.SUCCESS,
+                )
+                return None
+
+        # One row per owner, the subscription ending last speaks for them —
+        # the same pick send_sms_to_subscriptions makes.
+        by_user = {}
+        for sub in queryset.select_related('user', 'plan'):
+            if sub.user_id not in by_user or sub.ends_at > by_user[sub.user_id].ends_at:
+                by_user[sub.user_id] = sub
+        now = timezone.now()
+        recipients = [
+            {
+                'name': sub.user.name or '—',
+                'phone': sub.user.phone or '',
+                'plan': sub.plan.name,
+                'ends_at': jalali.format_date(sub.ends_at),
+                'ended': sub.ends_at <= now,
+            }
+            for sub in sorted(by_user.values(), key=lambda sub: sub.ends_at, reverse=True)
+        ]
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'ارسال پیامک به صاحبان اشتراک',
+            'opts': self.model._meta,
+            'recipients': recipients,
+            'missing_phone': sum(1 for r in recipients if not r['phone']),
+            'message': message,
+            'error': error,
+            'tokens': REMINDER_TOKENS,
+            'window_open': within_send_window(),
+            'window_closed_text': SEND_WINDOW_CLOSED,
+            'action_name': request.POST.get('action'),
+            'selected': request.POST.getlist(admin.helpers.ACTION_CHECKBOX_NAME),
+        }
+        return TemplateResponse(request, 'admin/accounting/subscription/send_sms.html', context)
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -103,15 +253,15 @@ class SubscriptionAdmin(admin.ModelAdmin):
 
 
 @admin.register(AddOnPack)
-class AddOnPackAdmin(admin.ModelAdmin):
-    list_display = ['name', 'price', 'kind', 'sms_amount', 'appointment_amount', 'feature_key', 'duration_days', 'is_active']
+class AddOnPackAdmin(ModelAdmin):
+    list_display = ['name', 'price', 'kind', 'sms_amount', 'appointment_amount', 'feature_key', 'duration_days', 'is_active', 'myket_sku']
     list_editable = ['is_active']
     list_filter = ['kind', 'is_active']
     search_fields = ['name']
 
 
 @admin.register(AddOnPurchase)
-class AddOnPurchaseAdmin(admin.ModelAdmin):
+class AddOnPurchaseAdmin(ModelAdmin):
     list_display = ['order_id', 'user', 'pack', 'amount', 'status', 'expires_at', 'created_at']
     list_filter = ['status', 'pack']
     search_fields = ['order_id', 'track_id', 'user__phone', 'user__name']
@@ -149,7 +299,7 @@ class AddOnPurchaseAdmin(admin.ModelAdmin):
 
 
 @admin.register(Transaction)
-class TransactionAdmin(admin.ModelAdmin):
+class TransactionAdmin(ModelAdmin):
     """Read-only browsing of subscription payments, plus the financial report.
 
     Known gap this closes: phase 2's dashboard (``core/dashboard/panels.py``)
@@ -277,6 +427,17 @@ class TransactionAdmin(admin.ModelAdmin):
         writer.writerow(['جمع کل', report['revenue']['total']])
         writer.writerow([])
 
+        writer.writerow(['پرداخت‌کننده‌ها'])
+        writer.writerow(['زمان', 'نام', 'موبایل', 'نوع', 'خرید', 'مبلغ (تومان)', 'درگاه', 'کد پیگیری', 'حساب داخلی'])
+        for p in report['payments']:
+            writer.writerow([
+                p['when'], p['name'], p['phone'], p['kind'], p['item'], p['amount'],
+                p['channel_label'], p['track_id'], 'بله' if p['is_staff'] else '',
+            ])
+        if not report['payments']:
+            writer.writerow(['—'])
+        writer.writerow([])
+
         writer.writerow(['فروش بر اساس پلن'])
         writer.writerow(['پلن', 'تعداد فروش', 'درآمد (تومان)'])
         for row in report['plans']:
@@ -336,8 +497,94 @@ class TransactionAdmin(admin.ModelAdmin):
         return response
 
 
+@admin.register(SubscriptionReminderSettings)
+class SubscriptionReminderSettingsAdmin(ModelAdmin):
+    list_display = ('__str__', 'is_enabled', 'days_before', 'updated_at')
+    readonly_fields = ('updated_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('is_enabled', 'days_before', 'message_template', 'updated_at'),
+            'description': (
+                'اجرا هر ساعت با <code>python manage.py run_subscription_lifecycle</code> '
+                '(کرون سرور). جاهای خالی مجاز در متن پیامک: <code>{plan}</code> نام پلن، '
+                '<code>{days}</code> تعداد روز باقی‌مانده.'
+            ),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        # Singleton: the row is created on first access by
+        # SubscriptionReminderSettings.load(), a second row would just shadow it.
+        return request.user.is_superuser and not SubscriptionReminderSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        if request.user.is_superuser:
+            SubscriptionReminderSettings.load()
+        return super().changelist_view(request, extra_context)
+
+
+@admin.register(ContactVisibilityPolicy)
+class ContactVisibilityPolicyAdmin(ModelAdmin):
+    """One settings page, no list: the changelist goes straight to the row."""
+
+    readonly_fields = ('affected_businesses', 'updated_at')
+    fieldsets = (
+        (None, {
+            'fields': ('hide_when_expired', 'hide_phone', 'hide_address'),
+            'description': (
+                'برای کسب‌وکاری که صاحبش اشتراک فعال ندارد (دوره‌ی آزمایشی یا اشتراکش تمام شده و '
+                'تمدید نکرده)، موارد انتخاب‌شده از پاسخ سرور حذف می‌شوند — یعنی واقعاً به مرورگر مشتری '
+                'نمی‌رسند — و صفحه‌ی کسب‌وکار به‌جایشان یک نسخه‌ی محو و ناخوانا نشان می‌دهد. '
+                'این سیاست مستقل از تنظیم خود صاحب کسب‌وکار («نمایش اطلاعات تماس به کاربران مهمان») است '
+                'و سرور با فیلد <code>is_expired</code> این دو را از هم جدا می‌کند. '
+                'با تمدید اشتراک، اطلاعات بلافاصله دوباره نمایش داده می‌شود.'
+            ),
+        }),
+        ('وضعیت فعلی', {
+            'fields': ('affected_businesses', 'updated_at'),
+        }),
+    )
+
+    @admin.display(description='کسب‌وکارهای مشمول')
+    def affected_businesses(self, obj):
+        from business.models import Business
+        from .entitlements import owners_with_active_subscription
+
+        count = (
+            Business.objects.filter(Business.public_filter())
+            .exclude(user_id__in=owners_with_active_subscription())
+            .count()
+        )
+        state = 'پنهان شده' if obj.hide_when_expired else 'اگر روشن شود پنهان می‌شود'
+        return format_html(
+            '<b>{}</b> کسب‌وکار عمومی صاحب اشتراک فعال ندارد — اطلاعات تماسشان {}.',
+            count, state,
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        if not self.has_view_or_change_permission(request):
+            raise PermissionDenied
+        policy = ContactVisibilityPolicy.load()
+        return redirect(reverse('admin:accounting_contactvisibilitypolicy_change', args=[policy.pk]))
+
+    def response_change(self, request, obj):
+        # Back to this same page (the default goes to the changelist, which
+        # would only redirect here again) with the usual "saved" message.
+        messages.success(request, 'سیاست نمایش اطلاعات تماس ذخیره شد.')
+        return redirect(request.path)
+
+
 @admin.register(CreditLedger)
-class CreditLedgerAdmin(admin.ModelAdmin):
+class CreditLedgerAdmin(ModelAdmin):
     """Read-only browsing of the SMS/appointment wallet audit trail.
 
     This is the one piece phase 5 (CreditLedger) never actually connected to
@@ -373,3 +620,22 @@ class CreditLedgerAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
+
+
+@admin.register(StorePurchase)
+class StorePurchaseAdmin(ModelAdmin):
+    """Read-only audit of in-app store purchases (Myket), same reasoning as
+    TransactionAdmin: each row is the record of a real store payment."""
+    list_display = ['created_at', 'store', 'user', 'kind', 'sku', 'status', 'consumed_at']
+    list_filter = ['store', 'kind', 'status']
+    search_fields = ['user__phone', 'user__name', 'sku', 'purchase_token', 'order_id', 'payload']
+    readonly_fields = [f.name for f in StorePurchase._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

@@ -274,3 +274,76 @@ class MarketingPushLog(models.Model):
         if not self.reachable_count:
             return 0
         return round(self.delivered_count * 100 / self.reachable_count)
+
+
+class ExpirySmsLog(models.Model):
+    """
+    Audit trail for one batch of renewal-reminder SMS to business owners whose
+    Noobatyar subscription (accounting.Subscription) is ending soon — a
+    manual send from the admin (NobatyarAdminSite.expiry_sms_send_view), a
+    run of the automatic reminder (run_subscription_lifecycle), or a test
+    send to the operator's own number; see ``source``.
+
+    One row per send, not one row per recipient — same aggregate-log
+    reasoning as MarketingPushLog: an operator triggers this by hand a few
+    times a month at most, at a handful of recipients each time (not the
+    thousands a push campaign can reach), so ``recipients`` below holds the
+    per-person breakdown as JSON on the one row rather than needing a whole
+    separate table + joins just to answer "who did we message".
+
+    ``message`` is stored as typed, tokens and all; each recipient got it
+    filled by ``accounting.models.render_reminder_text`` — ``{full_name}``
+    the *owner's own name* (``User.name``, deliberately not the business
+    name, unlike ``core.messaging._personalize``'s ``{business_name}``),
+    ``{days}`` their days left, ``{plan}`` their plan.
+    """
+
+    SOURCE_MANUAL = 'manual'
+    SOURCE_AUTO = 'auto'
+    SOURCE_TEST = 'test'
+    SOURCE_CHOICES = [
+        (SOURCE_MANUAL, 'دستی'),
+        (SOURCE_AUTO, 'خودکار'),
+        (SOURCE_TEST, 'آزمایشی'),
+    ]
+
+    # Manual sends from the admin, the cron-run reminder (logged here too, so
+    # the report covers everything that actually went out), and test sends to
+    # the operator's own number.
+    source = models.CharField(
+        max_length=10, choices=SOURCE_CHOICES, default=SOURCE_MANUAL, verbose_name='نوع ارسال',
+    )
+    message = models.TextField(verbose_name='متن ارسال‌شده')
+    days_before = models.PositiveIntegerField(verbose_name='تا چند روز مانده به پایان اشتراک')
+    # The rest of the audience as sent: {"plans": [names], "skip_reminded": bool}.
+    filters = models.JSONField(default=dict, blank=True, verbose_name='فیلترها')
+    matched_count = models.PositiveIntegerField(verbose_name='تعداد واجد شرایط')
+    sent_count = models.PositiveIntegerField(default=0, verbose_name='ارسال‌شده')
+    failed_count = models.PositiveIntegerField(default=0, verbose_name='ناموفق')
+    # [{"name": ..., "phone": ..., "status": "SENT"|"FAILED", "error": ...}, ...]
+    # in send order. `phone` is kept in full (not masked) — this row is
+    # already gated behind the same standalone permission as the send
+    # action itself, the same trust boundary AdminMessageLog/CreditLedger
+    # phone numbers sit behind elsewhere in this admin.
+    recipients = models.JSONField(default=list, blank=True, verbose_name='گیرندگان')
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='sent_expiry_sms', verbose_name='ارسال‌شده توسط',
+    )
+    sent_at = models.DateTimeField(auto_now_add=True, verbose_name='زمان ارسال')
+
+    class Meta:
+        db_table = 'core_expiry_sms_log'
+        ordering = ['-sent_at']
+        verbose_name = 'پیامک یادآوری انقضای اشتراک'
+        verbose_name_plural = 'پیامک‌های یادآوری انقضای اشتراک'
+        permissions = [
+            # Standalone permission, same reasoning as MarketingPushLog's
+            # send_marketing_push and AdminMessageLog's send_business_message:
+            # real platform SMS budget reaching real owners, starting granted
+            # to nobody but Superadmin (see setup_admin_roles.py).
+            ('send_expiry_sms', 'می‌تواند پیامک یادآوری انقضای اشتراک ارسال کند'),
+        ]
+
+    def __str__(self):
+        return f'{self.sent_at:%Y-%m-%d %H:%M} — {self.sent_count}/{self.matched_count}'

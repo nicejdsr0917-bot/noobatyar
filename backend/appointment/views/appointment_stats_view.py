@@ -99,7 +99,14 @@ class AppointmentStatsView(APIView):
         # Single query with aggregation
         stats = Appointment.objects.filter(
             business_id=business_uuid,
-            # business__owner=user,
+            # Scoped to the caller's own businesses, same as
+            # daily_counts_view.py. This was commented out as
+            # `business__owner=user` — a field that doesn't exist (Business
+            # names it `user`), so it could only ever have raised FieldError,
+            # which is presumably why it was disabled rather than fixed.
+            # Without it any authenticated caller could read another owner's
+            # numbers by guessing a business_id.
+            business__user=user,
             **date_filter
         ).aggregate(
             total=Count('id'),

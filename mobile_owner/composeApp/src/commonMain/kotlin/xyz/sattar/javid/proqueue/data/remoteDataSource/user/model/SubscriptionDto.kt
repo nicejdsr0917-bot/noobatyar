@@ -31,7 +31,7 @@ data class PlanDto(
 
 /** آیا این پلن، پلن آزمایشی است؟ همان الگویی که در SubscriptionCard استفاده می‌شود. */
 val PlanDto.isTrialPlan: Boolean
-    get() = name.contains("آزمایشی")
+    get() = name.contains("آزمایشی") // i18n-keep: server plan name
 
 /**
  * مدت پلن بر حسب روز، برای مرتب‌سازی صعودی.
@@ -44,7 +44,7 @@ val PlanDto.isTrialPlan: Boolean
 val PlanDto.durationInDays: Int
     get() {
         val value = durationDisplay.trim().takeWhile { it.isDigit() }.toIntOrNull() ?: 0
-        return if ("ماه" in durationDisplay) value * 30 else value
+        return if ("ماه" in durationDisplay) value * 30 else value // i18n-keep: parses server text
     }
 
 /** پلن‌ها را به ترتیب مورد نظر UI مرتب می‌کند: ابتدا پلن آزمایشی، سپس بقیه به ترتیب صعودی مدت. */

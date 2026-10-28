@@ -5,7 +5,6 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import xyz.sattar.javid.proqueue.core.network.HttpClientFactory
-import xyz.sattar.javid.proqueue.data.localDataSource.AppDatabase
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApiService
 import xyz.sattar.javid.proqueue.data.repository.appointment.AppointmentRepositoryImpl
 import xyz.sattar.javid.proqueue.data.repository.business.BusinessRepositoryImpl
@@ -60,6 +59,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.GetMyEntitlementsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetAddonsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.BuyAddonUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetCurrentUserUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.user.SyncUserProfileUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetPlansUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CreatePaymentUseCase
 import xyz.sattar.javid.proqueue.feature.businessList.BusinessListViewModel
@@ -97,11 +97,11 @@ val appModule: Module = module {
     single<UserRepository> { UserRepositoryImpl(get(), get()) }
 
     // --- DAOs ---
-    single { get<AppDatabase>().businessDao() }
-    single { get<AppDatabase>().visitorDao() }
-    single { get<AppDatabase>().appointmentDao() }
-    single { get<AppDatabase>().messageDao() }
-    single { get<AppDatabase>().userDao() }
+    // The *LocalSource bindings (Room has no web target, see
+    // docs/OWNER_WEB_PLAN.md section 5) live in `roomModule` (roomMain,
+    // di/RoomKoinModule.kt) instead of here, since they need AppDatabase and
+    // commonMain cannot see roomMain. androidMain/iosMain load roomModule
+    // alongside this module.
 
     // --- Repositories ---
     single<BusinessRepository> { BusinessRepositoryImpl(get(),get()) }
@@ -124,8 +124,10 @@ val appModule: Module = module {
     factory { ResetPasswordUseCase(get()) }
     factory { GetMySubscriptionUseCase(get()) }
     factory { GetCurrentUserUseCase(get()) }
+    factory { SyncUserProfileUseCase(get()) }
     factory { GetPlansUseCase(get()) }
     factory { CreatePaymentUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase(get(), get(), get()) }
     factory { GetMyEntitlementsUseCase(get()) }
     factory { GetAddonsUseCase(get()) }
     factory { BuyAddonUseCase(get()) }
@@ -137,6 +139,7 @@ val appModule: Module = module {
     factory { BusinessUpsertUseCase(get()) }
     factory { GetSmsLogsUseCase(get()) }
     factory { GetSmsLogSummaryUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.PromoSmsUseCase(get()) }
     factory { GetPushLogsUseCase(get()) }
     factory { GetPushLogSummaryUseCase(get()) }
     factory { GetServiceCatalogUseCase(get()) }
@@ -156,6 +159,7 @@ val appModule: Module = module {
     factory { CheckAppointmentConflictUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.SyncAppointmentsUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.GetDailyCountsUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.GetRangeReportUseCase(get()) }
 
     // --- Message UseCases ---
     factory { SendMessageUseCase(get()) }
@@ -200,6 +204,7 @@ val appModule: Module = module {
             get(),
             get(),
             get(),
+            get(),
             get()
         )
     }
@@ -211,11 +216,12 @@ val appModule: Module = module {
     viewModel { VisitorDetailsViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { MessagesViewModel(get(), get(), get()) }
     viewModel { SmsReportViewModel(get(), get(), get(), get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.promo.PromoCampaignViewModel(get()) }
     viewModel { CalendarViewModel(get(), get()) }
     viewModel { RegisterViewModel(get()) }
     viewModel { SendOTPViewModel(get(), get()) }
     viewModel { ResetPasswordViewModel(get()) }
     viewModel { LoginViewModel(get()) }
     viewModel { xyz.sattar.javid.proqueue.feature.claimBusiness.ClaimBusinessViewModel(get()) }
-    viewModel { UserViewModel(get(), get(), get(), get(), get()) }
+    viewModel { UserViewModel(get(), get(), get(), get(), get(), get()) }
 }

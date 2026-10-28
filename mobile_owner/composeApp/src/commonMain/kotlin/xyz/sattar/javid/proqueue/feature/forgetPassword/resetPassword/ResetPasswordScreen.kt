@@ -1,5 +1,10 @@
 package xyz.sattar.javid.proqueue.feature.forgetPassword.resetPassword
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
+import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
+import xyz.sattar.javid.proqueue.core.ui.components.NewPasswordIllustration
+import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,19 +39,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.back
+import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
+import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.components.AppTextField
+import xyz.sattar.javid.proqueue.core.ui.components.AuthWebLayout
 import xyz.sattar.javid.proqueue.feature.forgetPassword.sendOTP.SendOTPIntent
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 
@@ -78,8 +85,31 @@ fun ResetPasswordScreen(
     )
 }
 
+/**
+ * Picks the layout by window width. Compact keeps the existing phone screen
+ * untouched; anything wider gets the web card.
+ */
 @Composable
 fun ResetPasswordScreenContent(
+    modifier: Modifier = Modifier,
+    uiState: ResetPasswordState,
+    snackbarHostState: SnackbarHostState,
+    onIntent: (ResetPasswordIntent) -> Unit
+) {
+    if (LocalWindowSize.current == WindowSize.Compact) {
+        ResetPasswordPhoneContent(modifier, uiState, snackbarHostState, onIntent)
+    } else {
+        ResetPasswordWebContent(modifier, uiState, snackbarHostState, onIntent)
+    }
+}
+
+/**
+ * Phone layout — unchanged. A Scaffold whose bottomBar pins the submit button
+ * to the bottom of the viewport. See [ResetPasswordWebContent] for the
+ * desktop case.
+ */
+@Composable
+private fun ResetPasswordPhoneContent(
     modifier: Modifier = Modifier,
     uiState: ResetPasswordState,
     snackbarHostState: SnackbarHostState,
@@ -90,7 +120,7 @@ fun ResetPasswordScreenContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "تغییر رمز عبور",
+                        text = Str.change_password,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -101,7 +131,7 @@ fun ResetPasswordScreenContent(
                     IconButton(onClick = { onIntent(ResetPasswordIntent.NavigateToLogin) }) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(Res.string.back)
+                            contentDescription = Str.back
                         )
                     }
                 },
@@ -116,7 +146,7 @@ fun ResetPasswordScreenContent(
                     shadowElevation = 8.dp
                 ) {
                     AppButton(
-                        text = "تغییر رمز عبور",
+                        text = Str.change_password,
                         onClick = { onIntent(ResetPasswordIntent.Submit) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -143,69 +173,111 @@ fun ResetPasswordScreenContent(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {Spacer(modifier = Modifier.height(24.dp))
 
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    modifier = Modifier.size(72.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-
-                Text(
-                    text = "رمز عبور جدید را وارد کنید",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                AppTextField(
-                    value = uiState.newPassword,
-                    onValueChange = { onIntent(ResetPasswordIntent.NewPasswordChanged(it)) },
-                    label = "رمز عبور جدید",
-                    isError = uiState.newPasswordError != null,
-                    errorMessage = uiState.newPasswordError,
-                    enabled = !uiState.isLoading,
-                    keyboardType = KeyboardType.Password,
-                    maxLength = 100,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
-
-                AppTextField(
-                    value = uiState.confirmPassword,
-                    onValueChange = { onIntent(ResetPasswordIntent.ConfirmPasswordChanged(it)) },
-                    label = "تکرار رمز عبور",
-                    isError = uiState.confirmPasswordError != null,
-                    errorMessage = uiState.confirmPasswordError,
-                    enabled = !uiState.isLoading,
-                    keyboardType = KeyboardType.Password,
-                    maxLength = 100,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
-
-                if (uiState.errorMessage != null) {
-                    Text(
-                        text = uiState.errorMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
+                ResetPasswordFormFields(uiState = uiState, onIntent = onIntent)
 
                 // Button moved to bottomBar
             }
+        }
+    }
+}
+
+/**
+ * The form itself — icon, heading, both password fields and the error line.
+ * Shared by [ResetPasswordPhoneContent] and [ResetPasswordWebContent] so the
+ * two layouts can differ in *chrome* without the fields themselves drifting
+ * apart.
+ */
+@Composable
+private fun ColumnScope.ResetPasswordFormFields(
+    uiState: ResetPasswordState,
+    onIntent: (ResetPasswordIntent) -> Unit
+) {
+    BrandIllustration(size = AuthHeaderIllustrationSize) {
+        NewPasswordIllustration()
+    }
+
+    Text(
+        text = Str.enter_your_new_password,
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    AppTextField(
+        value = uiState.newPassword,
+        onValueChange = { onIntent(ResetPasswordIntent.NewPasswordChanged(it)) },
+        label = Str.new_password,
+        isError = uiState.newPasswordError != null,
+        errorMessage = uiState.newPasswordError,
+        enabled = !uiState.isLoading,
+        keyboardType = KeyboardType.Password,
+        maxLength = 100,
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    )
+
+    AppTextField(
+        value = uiState.confirmPassword,
+        onValueChange = { onIntent(ResetPasswordIntent.ConfirmPasswordChanged(it)) },
+        label = Str.repeat_password,
+        isError = uiState.confirmPasswordError != null,
+        errorMessage = uiState.confirmPasswordError,
+        enabled = !uiState.isLoading,
+        keyboardType = KeyboardType.Password,
+        maxLength = 100,
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    )
+
+    if (uiState.errorMessage != null) {
+        Text(
+            text = uiState.errorMessage,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+}
+
+/** Web/desktop layout: the shared auth shell (see [AuthWebLayout]) plus this
+ *  screen's own fields and actions. The topBar's close icon (cancels back to
+ *  login) has no web equivalent app bar, so it is re-homed as a [TextButton]
+ *  at the end of the form — otherwise the only way out would be lost on
+ *  desktop. */
+@Composable
+private fun ResetPasswordWebContent(
+    modifier: Modifier = Modifier,
+    uiState: ResetPasswordState,
+    snackbarHostState: SnackbarHostState,
+    onIntent: (ResetPasswordIntent) -> Unit
+) {
+    AuthWebLayout(snackbarHostState = snackbarHostState, modifier = modifier) {
+        ResetPasswordFormFields(uiState = uiState, onIntent = onIntent)
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        AppButton(
+            text = Str.change_password,
+            onClick = { onIntent(ResetPasswordIntent.Submit) },
+            isLoading = uiState.isLoading
+        )
+        TextButton(onClick = { onIntent(ResetPasswordIntent.NavigateToLogin) }) {
+            Text(
+                text = Str.cancel,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 }
@@ -219,6 +291,6 @@ fun HandleResetPasswordEvents(
     events.collectWithLifecycleAware { event ->
         when (event) {
             ResetPasswordEvent.NavigateToLogin -> onNavigateToLogin()
-            is ResetPasswordEvent.ShowToast -> snackbarHostState.showSnackbar(event.message)}
+            is ResetPasswordEvent.ShowToast -> snackbarHostState.showToasty(event.message)}
     }
 }

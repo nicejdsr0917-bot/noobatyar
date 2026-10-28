@@ -154,8 +154,14 @@
   padding: 0;
 }
 
+/* English UI: Nunito (layout.tsx) for Latin text and digits; Yekan stays as
+   the fallback so Persian business and customer names still render in it.
+   Direction comes from <html dir>, set by the server from the language. */
+html[lang="en"] {
+  --font-base: var(--font-latin), 'YekanBakh', system-ui, sans-serif;
+}
+
 html {
-  direction: rtl;
   font-family: var(--font-base);
   font-size: 16px;
   background: var(--color-bg);
@@ -188,7 +194,7 @@ body {
 .theme-toggle {
   position: fixed;
   top: 12px;
-  left: max(12px, calc(50% - (var(--max-w) / 2) + 12px));
+  inset-inline-end: max(12px, calc(50% - (var(--max-w) / 2) + 12px));
   z-index: 200;
   width: 38px;
   height: 38px;
@@ -206,6 +212,33 @@ body {
 .theme-toggle:hover { background: var(--color-surface-variant); }
 .theme-toggle:active { transform: scale(0.94); }
 .theme-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* Language switch: same chip as the theme toggle, one slot further in. */
+.lang-toggle {
+  position: fixed;
+  top: 12px;
+  inset-inline-end: max(54px, calc(50% - (var(--max-w) / 2) + 54px));
+  z-index: 200;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.15s, transform 0.1s;
+}
+.lang-toggle:lang(fa) { font-family: 'YekanBakh', system-ui, sans-serif; }
+.lang-toggle:lang(en) { font-family: var(--font-latin), system-ui, sans-serif; }
+.lang-toggle:hover { background: var(--color-surface-variant); }
+.lang-toggle:active { transform: scale(0.94); }
+.lang-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* Arrows/chevrons are drawn for RTL; mirror them in the LTR (English) UI. */
+[dir="ltr"] .icon-dir { transform: scaleX(-1); }
 
 /* ── Typography ── */
 h1, h2, h3, p, span, label, button, input, textarea {
@@ -238,14 +271,14 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
 }
 .info-row .label {
   color: var(--color-muted);
-  text-align: right;
+  text-align: start;
   flex: 1;
 }
 .info-row .value {
   color: var(--color-text);
   font-weight: 700;
   white-space: nowrap;
-  text-align: left;
+  text-align: end;
 }
 .info-divider {
   height: 1px;
@@ -271,7 +304,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   border-radius: 16px;
   padding: 14px 16px;
   box-shadow: var(--shadow-card);
-  text-align: right;
+  text-align: start;
 }
 .biz-notice .ico {
   width: 36px;
@@ -463,6 +496,35 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   opacity: 0.7;
 }
 
+/* Two actions sharing the fixed bottom bar: the main one (booking) takes the
+   room, "نوبت‌های من" sits beside it as an outlined companion. */
+.btn-row {
+  display: flex;
+  gap: 10px;
+}
+.btn-row .btn-primary { flex: 1; min-width: 0; }
+
+.btn-secondary {
+  flex-shrink: 0;
+  height: 54px;
+  padding: 0 16px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-btn);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-base);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.btn-secondary:active { transform: scale(0.98); }
+
 /* ── Form Inputs ── */
 .form-group { margin-bottom: 16px; }
 
@@ -472,7 +534,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   font-weight: 600;
   color: var(--color-text);
   margin-bottom: 8px;
-  text-align: right;
+  text-align: start;
 }
 
 .form-input {
@@ -486,8 +548,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   color: var(--color-text);
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
-  text-align: right;
-  direction: rtl;
+  text-align: start;
   background: var(--color-surface);
 }
 .form-input::placeholder { color: var(--color-faint); }
@@ -514,7 +575,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   font-weight: 700;
   color: var(--color-text);
   margin-bottom: 14px;
-  text-align: right;
+  text-align: start;
 }
 
 /* ── Skeleton Loading ── */
@@ -595,10 +656,10 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   box-shadow: 0 2px 12px rgba(0,0,0,0.12);
 }
 
-/* ── Toolbar (RTL-correct) ──────────────────────────────────
-   In RTL layout, flex items start from the right side.
-   Structure: [spacer] [centered title] [back-button]
-   The back-button (›) sits on the RIGHT (reading-start side).
+/* ── Toolbar ─────────────────────────────────────────────────
+   Follows the document direction: [back-button] [centered title] [spacer]
+   in source order, so the back control sits on the reading-start side —
+   right in Persian, left in English.
    ─────────────────────────────────────────────────────────── */
 .toolbar {
   display: flex;
@@ -610,8 +671,6 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   top: 0;
   z-index: 50;
   border-bottom: 1px solid var(--color-border);
-  /* Use LTR so we control exact side placement */
-  direction: ltr;
 }
 
 .toolbar-title {
@@ -620,8 +679,6 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   color: var(--color-text);
   text-align: center;
   flex: 1;
-  /* Ensure Persian text renders correctly even in LTR container */
-  direction: rtl;
   font-family: var(--font-base);
 }
 
@@ -645,6 +702,12 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
 .toolbar-placeholder {
   width: 36px;
   flex-shrink: 0;
+}
+/* Both edge slots are as wide as the two floating toggles (theme + language)
+   that sit over the end slot, so the title stays centred and uncovered. */
+.toolbar-start,
+.toolbar > .toolbar-placeholder:last-child {
+  min-width: 76px;
 }
 
 /* ============================================================
@@ -888,7 +951,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   border-radius: 16px;
   padding: 15px 16px 12px;
   box-shadow: var(--shadow-card);
-  text-align: right;
+  text-align: start;
 }
 .biz-about-head {
   display: flex;
@@ -952,7 +1015,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   border-radius: 16px;
   padding: 14px 16px;
   box-shadow: var(--shadow-card);
-  text-align: right;
+  text-align: start;
   text-decoration: none;
 }
 .biz-address .pin {
@@ -987,6 +1050,146 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   flex-shrink: 0;
 }
 
+/* ── Business location: map + routing hand-off ─────────────── */
+.biz-location {
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.biz-map {
+  height: 190px;
+  /* OSM's land colour, so loading tiles fill in rather than flash white. */
+  background: #f2efe9;
+  /* Leaflet stacks its panes and controls at z-index 400–1000. Isolating
+     keeps all of that inside the map, under the fixed booking bar (100). */
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+}
+/* The address row inside the card: same layout as the stand-alone card,
+   without its own frame. */
+.biz-location .biz-address {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 14px 16px 2px;
+}
+.biz-route {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+.biz-route-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--radius-btn);
+  border: 1.5px solid transparent;
+  background: var(--color-primary-tint);
+  /* Label in the text colour, only the icon in the business colour: a
+     business colour picked for white-on-colour can be dim on the tint,
+     especially in dark mode. */
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.biz-route-btn svg { color: var(--color-primary); flex-shrink: 0; }
+.biz-route-btn:hover { border-color: var(--color-primary); }
+.biz-route-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+/* Leaflet gives a divIcon a white square and border by default. */
+.biz-map-pin {
+  background: none;
+  border: 0;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3));
+}
+.biz-map .leaflet-control-attribution {
+  font-size: 10px;
+}
+/* The tiles only come in a light style. In dark mode they are inverted
+   (hue turned back so water stays blue) instead of glaring out of the page. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .biz-map .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+  }
+  :root:not([data-theme="light"]) .biz-map { background: #2b2b2b; }
+}
+:root[data-theme="dark"] .biz-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+:root[data-theme="dark"] .biz-map { background: #2b2b2b; }
+
+/* ── Withheld contact details (LockedContact.tsx) ─────────────
+   Placeholder text blurred past reading; the real value was never sent. */
+.contact-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  cursor: default;
+}
+.contact-locked-text {
+  filter: blur(5px);
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.contact-locked-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+/* The withheld map: drawn, not tiles, and blurred past being a place. */
+.locked-map {
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.locked-map-art {
+  position: absolute;
+  inset: -12px;
+  width: calc(100% + 24px);
+  height: calc(100% + 24px);
+  filter: blur(5px);
+}
+.locked-map-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+.biz-route-btn.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.biz-route-btn.is-locked:hover { border-color: transparent; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .locked-map-art {
+    filter: blur(5px) invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+  }
+}
+:root[data-theme="dark"] .locked-map-art {
+  filter: blur(5px) invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
 /* ── Button loading spinner ──────────────────────────────────── */
 @keyframes spin {
   to { transform: rotate(360deg); }
@@ -1000,7 +1203,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   vertical-align: middle;
-  margin-left: 8px;
+  margin-inline-end: 8px;
 }
 
 /* ============================================================
@@ -1155,7 +1358,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   display: flex;
   align-items: center;
   gap: 16px;
-  text-align: right;
+  text-align: start;
   text-decoration: none;
   color: #fff;
   background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 35%, #6d28d9 65%, #8b5cf6 100%);
@@ -1329,7 +1532,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   font-weight: 700;
   color: var(--color-text);
   flex: 1;
-  text-align: right;
+  text-align: start;
 }
 .section-head .link {
   display: inline-flex;
@@ -1378,7 +1581,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   margin-top: 6px;
   font-size: 11.5px;
   line-height: 1.6;
-  text-align: right;
+  text-align: start;
 }
 .field-error {
   color: var(--color-error);
@@ -1443,7 +1646,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   color: var(--color-text);
   font-family: inherit;
   cursor: pointer;
-  text-align: right;
+  text-align: start;
   transition: border-color 0.16s, background 0.16s;
 }
 .upload-dropzone:hover {
@@ -1491,7 +1694,7 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   object-fit: cover;
   background: var(--color-surface-variant);
 }
-.receipt-preview-meta { flex: 1; min-width: 0; text-align: right; }
+.receipt-preview-meta { flex: 1; min-width: 0; text-align: start; }
 .receipt-preview-title {
   display: flex;
   align-items: center;

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
@@ -7,14 +8,21 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +30,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
+import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
+import xyz.sattar.javid.proqueue.core.ui.WindowSize
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -56,8 +67,35 @@ fun NumberPicker(
             }
     }
 
+    // A spin wheel is a touch gesture. On a desktop panel there is nothing to
+    // drag with, and a mouse wheel over a snapping LazyColumn inside a dialog
+    // is not a reliable way through either — so pointer sizes get explicit
+    // step buttons above and below. Compact is untouched: the drag is the
+    // right interaction there, and two extra buttons would only eat height.
+    val scope = rememberCoroutineScope()
+    val showSteppers = LocalWindowSize.current != WindowSize.Compact
+
+    fun stepBy(delta: Int) {
+        val target = (state.firstVisibleItemIndex + delta).coerceIn(0, count - 1)
+        scope.launch { state.animateScrollToItem(target) }
+    }
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+    if (showSteppers) {
+        IconButton(onClick = { stepBy(-1) }, modifier = Modifier.size(28.dp)) {
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowUp,
+                contentDescription = Str.previous,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+
     Box(
-        modifier = modifier.height(itemHeight * visibleItems),
+        modifier = Modifier.fillMaxWidth().height(itemHeight * visibleItems),
         contentAlignment = Alignment.Center
     ) {
         LazyColumn(
@@ -101,5 +139,16 @@ fun NumberPicker(
              )
              Box(Modifier.weight(1f))
         }
+    }
+
+    if (showSteppers) {
+        IconButton(onClick = { stepBy(1) }, modifier = Modifier.size(28.dp)) {
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowDown,
+                contentDescription = Str.next,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
     }
 }

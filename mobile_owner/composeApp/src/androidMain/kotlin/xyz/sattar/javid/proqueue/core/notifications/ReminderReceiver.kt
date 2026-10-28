@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.notifications
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -67,11 +68,11 @@ class ReminderReceiver : BroadcastReceiver() {
         // In a real app, use R.drawable.ic_notification or similar
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.main_icon)
-            .setContentTitle("یادآوری نوبت")
-            .setContentText("نوبت $customerName در $businessName تا $minutesBefore دقیقه دیگر نزدیک هست برای اطلاع رسانی نوبت اینجا را لمس کنید")
+            .setContentTitle(Str.appointment_reminder)
+            .setContentText(Str.s_appointment_at_is_in(customerName, businessName, minutesBefore))
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText("نوبت $customerName در $businessName تا $minutesBefore دقیقه دیگر نزدیک هست برای اطلاع رسانی نوبت اینجا را لمس کنید")
+                    .bigText(Str.s_appointment_at_is_in(customerName, businessName, minutesBefore))
             )
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)

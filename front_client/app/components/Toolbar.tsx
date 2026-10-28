@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Icon, { type IconName } from './Icon';
+import { t } from '@/lib/i18n';
 
 export interface ToolbarAction {
   icon: IconName;
@@ -34,11 +35,10 @@ interface ToolbarProps {
 /**
  * The shared top bar.
  *
- * `.toolbar` is `direction: ltr` on purpose (see globals.css) so the slots stay
- * where the CSS puts them regardless of content; the back control therefore
- * lands on the right, which is the reading-start side in this RTL app. The
- * left slot is intentionally left as a spacer — the floating `.theme-toggle`
- * is fixed there at z-index 200 and would swallow clicks on anything below it.
+ * Follows the document direction: the back control comes first, so it lands
+ * on the reading-start side (right in Persian, left in English). The end slot
+ * is intentionally left as a spacer — the floating theme and language toggles
+ * are fixed there at z-index 200 and would swallow clicks on anything below.
  */
 export default function Toolbar({
   title,
@@ -51,10 +51,7 @@ export default function Toolbar({
 
   return (
     <div className="toolbar">
-      <div className="toolbar-placeholder" />
-      <h1 className="toolbar-title">{title}</h1>
-
-      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+      <div className="toolbar-start" style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
         {actions.map((action) => (
           <button
             key={action.label}
@@ -72,14 +69,17 @@ export default function Toolbar({
         ) : (
           <button
             className="toolbar-back"
-            aria-label={backIcon === 'close' ? 'انصراف' : 'بازگشت'}
-            title={backIcon === 'close' ? 'انصراف' : 'بازگشت'}
+            aria-label={backIcon === 'close' ? t('cancel') : t('back')}
+            title={backIcon === 'close' ? t('cancel') : t('back')}
             onClick={onBack ?? (() => router.back())}
           >
             <Icon name={backIcon === 'close' ? 'close' : 'back'} size={20} />
           </button>
         )}
       </div>
+
+      <h1 className="toolbar-title">{title}</h1>
+      <div className="toolbar-placeholder" />
     </div>
   );
 }

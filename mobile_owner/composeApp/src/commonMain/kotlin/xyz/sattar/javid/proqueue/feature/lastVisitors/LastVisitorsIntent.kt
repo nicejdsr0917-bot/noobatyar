@@ -21,6 +21,13 @@ sealed interface LastVisitorsIntent {
     data class OnFilterChanged(val filter: AppointmentFilter) : LastVisitorsIntent
     data class ShowFilterSheet(val show: Boolean) : LastVisitorsIntent
     data object ClearFilter : LastVisitorsIntent
+    /** The shared date bar: one window for all three tabs. [to] is the last
+     *  millisecond of the last day, inclusive. */
+    data class OnDateRangeChanged(val from: Long, val to: Long) : LastVisitorsIntent
+    data object LoadMoreRangeCustomers : LastVisitorsIntent
+    data class OnCustomerOrderingChanged(
+        val ordering: xyz.sattar.javid.proqueue.domain.model.CustomerOrdering
+    ) : LastVisitorsIntent
     /** Dispatched right after a toast is shown so it can't be re-shown/deduped. */
     data object ClearMessage : LastVisitorsIntent
 }

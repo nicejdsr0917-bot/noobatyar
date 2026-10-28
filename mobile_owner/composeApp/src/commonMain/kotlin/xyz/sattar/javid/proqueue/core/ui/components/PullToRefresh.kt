@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.navigation.MainTab
+import xyz.sattar.javid.proqueue.core.navigation.OnTabRefreshRequested
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -18,8 +21,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,9 +39,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import xyz.sattar.javid.proqueue.core.ui.LocalWindowSize
+import xyz.sattar.javid.proqueue.core.ui.WindowSize
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -45,15 +53,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import xyz.sattar.javid.proqueue.ui.theme.PrimaryPurple
+import xyz.sattar.javid.proqueue.ui.theme.PrimaryPurpleDark
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import proqueue.composeapp.generated.resources.Res
-import proqueue.composeapp.generated.resources.main_icon
 
 private val PullThreshold = 72.dp
 private val MaxPull = 130.dp
-private val IndicatorSize = 44.dp
+private val IndicatorSize = 52.dp
 
 /**
  * Pull-to-refresh that pushes the whole page down as you drag, revealing a small
@@ -66,6 +87,20 @@ private val IndicatorSize = 44.dp
  *
  * Replaces the toolbar refresh buttons that used to sit next to the profile
  * avatar on the home / appointments screens.
+ *
+ * From [WindowSize.Medium] up, a small floating refresh button is layered on
+ * top of the content instead of relying on the pull gesture. The gesture
+ * itself is drag-based (see the [NestedScrollConnection] below): a mouse
+ * wheel at the top of a list doesn't produce the same overscroll deltas a
+ * touch drag does, and even where it technically could, "pull down to
+ * refresh" isn't a gesture desktop users reach for — nobody click-drags page
+ * content down the way they'd swipe a phone. The nested-scroll wiring stays
+ * active either way (harmless if unused), so nothing about the phone path
+ * changes.
+ *
+ * Pass [refreshTab] on a bottom-bar tab's root screen to have a double-tap on
+ * that tab run the same refresh, with the page sliding open and the badge
+ * showing exactly as if the user had pulled.
  */
 @Composable
 fun PullToRefreshBox(
@@ -73,6 +108,7 @@ fun PullToRefreshBox(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     indicatorTopPadding: Dp = 0.dp,
+    refreshTab: MainTab? = null,
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
@@ -92,30 +128,56 @@ fun PullToRefreshBox(
     // isRefreshing during their initial load, and reacting to that would make the
     // page slide open on its own the first time it is opened.
     var userTriggered by remember { mutableStateOf(false) }
+    // The data is back and the mark is playing its strike and check. The page
+    // stays open until the mark says it has finished.
+    var finishing by remember { mutableStateOf(false) }
 
     LaunchedEffect(isRefreshing, userTriggered) {
         if (!userTriggered) return@LaunchedEffect
         if (isRefreshing) {
             if (offset.value < restingPx) offset.animateTo(restingPx)
         } else {
+            // Finish opening first. A fast refresh (queue, profile) flips
+            // isRefreshing on and off within the opening animation, and each
+            // flip restarts this effect, cancelling the animateTo above. The
+            // page then stopped a few dp open and the mark was squeezed into
+            // that sliver — tiny — until the collapse. Not once finishing: by
+            // then the page may already be closing, and a late flip must not
+            // pull it back open.
+            if (!finishing && offset.value < restingPx) offset.animateTo(restingPx)
             // The ViewModel may not have flipped isRefreshing on yet; this effect
-            // restarts if it does, so we only collapse when it stays off.
+            // restarts if it does, so we only finish when it stays off. The
+            // collapse itself waits for the mark (onMarkFinished below).
             delay(400)
-            offset.animateTo(0f)
-            userTriggered = false
+            finishing = true
+        }
+    }
+
+    if (refreshTab != null) {
+        OnTabRefreshRequested(refreshTab) {
+            if (!isRefreshing) {
+                userTriggered = true
+                scope.launch { offset.animateTo(restingPx) }
+                currentOnRefresh()
+            }
         }
     }
 
     // Read through a snapshot so the remembered connection never sees a stale
     // value of isRefreshing.
     val refreshing by rememberUpdatedState(isRefreshing)
+    // No pull gesture on a wide window. A mouse wheel scrolled up at the top of
+    // the list arrives here as UserInput too, so it pulled the page open, and
+    // with no touch release to fling from, it then stayed open. Wide windows
+    // get DesktopRefreshButton instead.
+    val pullEnabled by rememberUpdatedState(LocalWindowSize.current == WindowSize.Compact)
 
     val connection = remember(thresholdPx, maxPullPx, restingPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 // Dragging back up first gives back whatever pull is open, so the
                 // list doesn't start scrolling while the page is still pushed down.
-                if (refreshing) return Offset.Zero
+                if (refreshing || !pullEnabled) return Offset.Zero
                 if (available.y < 0 && offset.value > 0f) {
                     val consumed = -minOf(offset.value, -available.y)
                     scope.launch { offset.snapTo((offset.value + consumed).coerceAtLeast(0f)) }
@@ -129,7 +191,7 @@ fun PullToRefreshBox(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                if (refreshing) return Offset.Zero
+                if (refreshing || !pullEnabled) return Offset.Zero
                 if (source != NestedScrollSource.UserInput || available.y <= 0f) return Offset.Zero
                 // Rubber-band: the further it is open, the less each pixel moves it.
                 val resistance = 1f - (offset.value / maxPullPx).coerceIn(0f, 0.85f)
@@ -158,7 +220,19 @@ fun PullToRefreshBox(
         PullIndicator(
             offset = offset.value,
             thresholdPx = thresholdPx,
-            isRefreshing = isRefreshing && userTriggered,
+            // userTriggered alone, not `&& isRefreshing`: the ViewModel flips
+            // its loading flag a beat after onRefresh(), and in that gap the
+            // open page used to read "رها کنید" even though it was already
+            // refreshing.
+            isRefreshing = userTriggered,
+            finishing = finishing,
+            onMarkFinished = {
+                scope.launch {
+                    offset.animateTo(0f)
+                    userTriggered = false
+                    finishing = false
+                }
+            },
             topPadding = indicatorTopPadding
         )
         Box(
@@ -168,14 +242,78 @@ fun PullToRefreshBox(
         ) {
             content()
         }
+
+        if (LocalWindowSize.current != WindowSize.Compact) {
+            DesktopRefreshButton(
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
+                topPadding = indicatorTopPadding,
+                // Bottom corner, not top: the top of every screen holds its own
+                // header content, which a floating button sat on top of. Start
+                // is the right-hand side under RTL, away from the FABs, which
+                // sit at End (the left).
+                modifier = Modifier.align(Alignment.BottomStart)
+            )
+        }
     }
 }
+
+
+/**
+ * The desktop stand-in for the pull gesture — see the class doc above for
+ * why. Positioned top-end (the left edge under the app's forced RTL) so it
+ * doesn't collide with anything a screen already puts at the visual start of
+ * its content area.
+ */
+@Composable
+private fun DesktopRefreshButton(
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    topPadding: Dp,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        // topPadding is unused now that the button sits at the bottom; kept
+        // in the signature so the call site reads the same as the indicator.
+        modifier = modifier.padding(bottom = 20.dp, start = 20.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shadowElevation = 4.dp
+    ) {
+        // Shown from the moment a refresh starts until the mark has played
+        // its strike and check, which also keeps a very fast refresh from
+        // flashing by unnoticed.
+        var showMark by remember { mutableStateOf(isRefreshing) }
+        LaunchedEffect(isRefreshing) { if (isRefreshing) showMark = true }
+        IconButton(onClick = onRefresh, enabled = !showMark) {
+            if (showMark) {
+                WaitingNoobatyarMark(
+                    waiting = isRefreshing,
+                    modifier = Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                    onFinished = { showMark = false }
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Refresh,
+                    contentDescription = Str.refresh,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+
+
 
 @Composable
 private fun PullIndicator(
     offset: Float,
     thresholdPx: Float,
     isRefreshing: Boolean,
+    finishing: Boolean,
+    onMarkFinished: () -> Unit,
     topPadding: Dp
 ) {
     if (offset <= 0.5f && !isRefreshing) return
@@ -183,11 +321,20 @@ private fun PullIndicator(
     val progress = (offset / thresholdPx).coerceIn(0f, 1f)
     val readyToRelease = offset >= thresholdPx
 
-    val spin by rememberInfiniteTransition(label = "pull-spin").animateFloat(
+    // One tick as the pull crosses the threshold, so "let go now" can be felt
+    // as well as read. Not while refreshing: the page settling at its resting
+    // height also sits past the threshold.
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(readyToRelease) {
+        if (readyToRelease && !isRefreshing) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+
+    val transition = rememberInfiniteTransition(label = "pull-neon")
+    val pulse by transition.animateFloat(
         initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart),
-        label = "spin"
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "pulse"
     )
 
     Column(
@@ -201,51 +348,53 @@ private fun PullIndicator(
         Box(
             modifier = Modifier
                 .size(IndicatorSize)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .alpha(if (isRefreshing) 1f else (0.35f + progress * 0.65f)),
+                .graphicsLayer {
+                    val s = when {
+                        isRefreshing -> 1f
+                        readyToRelease -> 1f + 0.06f * pulse
+                        else -> 0.8f + 0.2f * progress
+                    }
+                    scaleX = s
+                    scaleY = s
+                    alpha = if (isRefreshing) 1f else 0.35f + progress * 0.65f
+                },
             contentAlignment = Alignment.Center
         ) {
+            // The Noobatyar mark itself is the indicator: the pull grows the
+            // dot, the refresh tick-tocks until the data is back, then the dot
+            // strikes and the check draws in before the page closes. It is the
+            // same motion as the web loader and the login panel.
+            val markTint = MaterialTheme.colorScheme.primary
             if (isRefreshing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(IndicatorSize - 6.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
+                WaitingNoobatyarMark(
+                    waiting = !finishing,
+                    modifier = Modifier.fillMaxSize(),
+                    tint = markTint,
+                    dotAlreadyShown = true,
+                    onFinished = onMarkFinished
                 )
             } else {
-                CircularProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .size(IndicatorSize - 6.dp)
-                        .rotate(if (readyToRelease) spin else 0f),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                PullingNoobatyarMark(
+                    progress = progress,
+                    modifier = Modifier.fillMaxSize(),
+                    tint = markTint
                 )
             }
-
-            // The tiny Noobatyar mark in the middle of the ring.
-            Image(
-                painter = painterResource(Res.drawable.main_icon),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(18.dp)
-                    .scale(if (isRefreshing) 1f else 0.7f + progress * 0.3f)
-            )
         }
 
         if (offset > thresholdPx * 0.35f || isRefreshing) {
             Text(
                 text = when {
-                    isRefreshing -> "در حال بروزرسانی…"
-                    readyToRelease -> "رها کنید"
-                    else -> "برای بروزرسانی بکشید"
+                    finishing -> Str.updated
+                    isRefreshing -> Str.refreshing
+                    readyToRelease -> Str.release
+                    else -> Str.pull_to_refresh
                 },
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
+                fontWeight = if (readyToRelease || isRefreshing) FontWeight.Bold else FontWeight.Medium,
                 color = if (readyToRelease || isRefreshing) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp)
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }

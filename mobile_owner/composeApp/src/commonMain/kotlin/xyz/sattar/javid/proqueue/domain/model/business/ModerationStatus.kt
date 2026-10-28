@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.domain.model.business
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
+
+
 /**
  * Content-moderation state of a business, mirroring the backend's
  * `Business.MODERATION_STATUS_CHOICES`.
@@ -9,11 +12,13 @@ package xyz.sattar.javid.proqueue.domain.model.business
  * `is_locked` (subscription/plan limits) — the two answer different questions
  * for the owner ("not reviewed yet" vs. "your plan lapsed").
  */
-enum class ModerationStatus(val value: String, val persianName: String) {
-    PENDING("PENDING", "در انتظار تأیید"),
-    APPROVED("APPROVED", "تأیید شده"),
-    REJECTED("REJECTED", "تأیید نشده"),
-    SUSPENDED("SUSPENDED", "تعلیق شده");
+enum class ModerationStatus(val value: String, private val persianNameRef: () -> String) {
+    PENDING("PENDING", Str::pending_approval),
+    APPROVED("APPROVED", Str::approved),
+    REJECTED("REJECTED", Str::not_approved),
+    SUSPENDED("SUSPENDED", Str::suspended);
+    val persianName: String get() = persianNameRef()
+
 
     /** Whether the content review alone allows public visibility.
      *

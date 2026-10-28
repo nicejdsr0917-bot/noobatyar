@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import androidx.compose.ui.draw.clip
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -92,6 +93,7 @@ fun OTPTextField(
                                 color = MaterialTheme.colorScheme.surface,
                                 shape = RoundedCornerShape(8.dp)
                             )
+                            .clip(RoundedCornerShape(8.dp))
                             .clickable {
                                 focusedIndex = index
                                 if (isLayoutReady) {

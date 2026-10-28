@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { buildAppReturnLink, tryReturnToApp } from '@/lib/appReturn';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { PANEL_URL, buildAppReturnLink, isWebPanelReturn, tryReturnToApp } from '@/lib/appReturn';
+import { t } from '@/lib/i18n';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
@@ -20,10 +21,15 @@ function PaymentResultContent() {
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const appLink = buildAppReturnLink({
-    success: result?.success ?? false,
-    txn: trackId,
-  });
+  // A payer from the web panel has no app to jump into: send them back to the
+  // panel. Everyone else gets the noobatyar:// link of the native apps.
+  const toPanel = isWebPanelReturn(usePathname());
+  const appLink = toPanel
+    ? PANEL_URL
+    : buildAppReturnLink({
+        success: result?.success ?? false,
+        txn: trackId,
+      });
 
   // Once the outcome is known, hand the user straight back to the app. The
   // button below stays regardless: browsers often block a custom-scheme jump
@@ -31,16 +37,18 @@ function PaymentResultContent() {
   useEffect(() => {
     if (!loading && result) tryReturnToApp(appLink);
   }, [loading, result, appLink]);
+  // (tryReturnToApp is a plain navigation, so for the panel it is a normal
+  // redirect back; the visible button below stays either way.)
 
   useEffect(() => {
     if (!trackId) {
-      setResult({ success: false, message: 'شناسه پرداخت یافت نشد.' });
+      setResult({ success: false, message: t('paymentIdNotFound') });
       setLoading(false);
       return;
     }
 
     if (success === '0') {
-      setResult({ success: false, message: 'پرداخت توسط شما لغو شد یا ناموفق بود.' });
+      setResult({ success: false, message: t('paymentWasCancelledOrFailed') });
       setLoading(false);
       return;
     }
@@ -53,15 +61,15 @@ function PaymentResultContent() {
         );
         const text = await res.text();
         // backend returns HTML — check if it contains success marker
-        const isSuccess = text.includes('موفق') && !text.includes('ناموفق');
+        const isSuccess = text.includes(t('successful')) && !text.includes(t('failed'));
         setResult({
           success: isSuccess,
           message: isSuccess
-            ? 'اشتراک شما با موفقیت فعال شد!'
-            : 'پردازش پرداخت ناموفق بود. لطفاً با پشتیبانی تماس بگیرید.',
+            ? t('yourSubscriptionIsNowActive')
+            : t('processingPaymentFailedPleaseContact'),
         });
       } catch {
-        setResult({ success: false, message: 'خطا در ارتباط با سرور.' });
+        setResult({ success: false, message: t('couldntReachServer') });
       } finally {
         setLoading(false);
       }
@@ -76,7 +84,7 @@ function PaymentResultContent() {
         {loading ? (
           <>
             <div style={styles.spinner} />
-            <p style={styles.loadingText}>در حال بررسی پرداخت...</p>
+            <p style={styles.loadingText}>{t('checkingPayment')}</p>
           </>
         ) : (
           <>
@@ -84,12 +92,12 @@ function PaymentResultContent() {
               {result?.success ? '✓' : '✗'}
             </div>
             <h1 style={{ ...styles.title, color: result?.success ? '#22c55e' : '#ef4444' }}>
-              {result?.success ? 'پرداخت موفق' : 'پرداخت ناموفق'}
+              {result?.success ? t('paymentSuccessful') : t('paymentFailed')}
             </h1>
             <p style={styles.message}>{result?.message}</p>
-            {result?.success && <p style={styles.sub}>اشتراک شما فعال شد</p>}
+            {result?.success && <p style={styles.sub}>{t('yourSubscriptionIsActive')}</p>}
             <a href={appLink} style={styles.button}>
-              بازگشت به اپلیکیشن
+              {toPanel ? t('backToPanel') : t('backToApp')}
             </a>
           </>
         )}

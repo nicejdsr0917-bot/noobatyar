@@ -27,6 +27,10 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogPag
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogSummaryDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.SmsLogSummaryDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoCampaignDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoPreviewDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoSmsOverviewDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoSmsRequestDto
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 
 class BusinessApiService(private val httpClient: HttpClient) {
@@ -58,6 +62,10 @@ class BusinessApiService(private val httpClient: HttpClient) {
                 append("category", business.category)
                 append("phone", business.phone)
                 append("address", business.address)
+                // Always sent, blank when unset: DRF reads a blank multipart
+                // value as null, so removing the pin actually clears it.
+                append("latitude", business.latitude?.toString() ?: "")
+                append("longitude", business.longitude?.toString() ?: "")
                 append("default_service_duration", business.defaultServiceDuration.toString())
                 append("work_start_hour", business.workStartHour.toString())
                 append("work_end_hour", business.workEndHour.toString())
@@ -112,6 +120,7 @@ class BusinessApiService(private val httpClient: HttpClient) {
                 append("notice_message", business.noticeMessage)
                 append("enable_reminder_sms", business.enableReminderSms.toString())
                 append("reminder_delivery", business.reminderDelivery)
+                append("reminder_template", business.reminderTemplate)
 
 
                 if (business.logoBytes != null) {
@@ -208,6 +217,34 @@ class BusinessApiService(private val httpClient: HttpClient) {
             contentType(ContentType.Application.Json)
             parameter("category", category)
         }.toApiResponse()
+    }
+
+    // ── Owner promo-SMS campaigns (plain JSON, like the SMS report) ──
+
+    suspend fun getPromoSms(businessId: Long): ApiResponse<PromoSmsOverviewDto> {
+        return httpClient.get("business/$businessId/promo-sms/") {
+            contentType(ContentType.Application.Json)
+        }.toDirectApiResponse()
+    }
+
+    suspend fun previewPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoPreviewDto> {
+        return httpClient.post("business/$businessId/promo-sms/preview/") {
+            contentType(ContentType.Application.Json)
+            setBody(PromoSmsRequestDto(audience = audience, message = message))
+        }.toDirectApiResponse()
+    }
+
+    suspend fun sendPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoCampaignDto> {
+        return httpClient.post("business/$businessId/promo-sms/") {
+            contentType(ContentType.Application.Json)
+            setBody(PromoSmsRequestDto(audience = audience, message = message))
+        }.toDirectApiResponse()
+    }
+
+    suspend fun getPromoCampaign(businessId: Long, campaignId: Long): ApiResponse<PromoCampaignDto> {
+        return httpClient.get("business/$businessId/promo-sms/$campaignId/") {
+            contentType(ContentType.Application.Json)
+        }.toDirectApiResponse()
     }
 
     suspend fun addServiceCatalogItem(category: String, name: String): ApiResponse<ServiceCatalogItemDto> {

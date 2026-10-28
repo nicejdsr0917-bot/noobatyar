@@ -19,6 +19,10 @@ data class Business(
      *  ۰۹۱۲۱۲۳۴۵۶۷ shape, just more than one. */
     val extraPhones: List<String> = emptyList(),
     val address: String,
+    /** The map pin, picked on LocationPickerScreen and shown to clients with
+     *  "route there" links. Both or neither — the server rejects half a pair. */
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val logoPath: String,
     val defaultServiceDuration: Int,
     val workStartHour: Int,
@@ -78,6 +82,8 @@ data class Business(
     val enableReminderSms: Boolean = true,
     /** [ReminderDelivery] value; PANEL needs the auto_reminder_sms entitlement. */
     val reminderDelivery: String = ReminderDelivery.MANUAL.value,
+    /** Fixed wording a PANEL reminder uses — see [ReminderTemplates]. */
+    val reminderTemplate: String = ReminderTemplates.DEFAULT_KEY,
     /**
      * The services this business offers, defined once in the business screen.
      * Drives the chip picker both here (recording what a visitor received) and

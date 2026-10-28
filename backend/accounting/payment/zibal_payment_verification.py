@@ -104,53 +104,7 @@ class PaymentVerificationService:
 
     def _activate_subscription(self, verify_data: Dict) -> Dict[str, Any]:  # ✅ sync
         """Activate subscription in atomic transaction"""
-        with db_transaction.atomic():
-            # Mark transaction successful
-            self.transaction.status = 'success'
-            self.transaction.zibal_response = verify_data
-            self.transaction.save(update_fields=['status', 'zibal_response', 'updated_at'])
-
-            # بررسی اشتراک فعلی برای تمدید زمان
-            active_sub = Subscription.objects.filter(
-                user=self.transaction.user,
-                status='active'
-            ).first()
-
-            if active_sub and active_sub.is_valid():
-                start_date = active_sub.ends_at
-                active_sub.status = 'expired'
-                active_sub.save(update_fields=['status'])
-            else:
-                Subscription.objects.filter(
-                    user=self.transaction.user,
-                    status='active'
-                ).update(status='expired')
-                start_date = timezone.now()
-
-            # Create new subscription
-            subscription = Subscription.objects.create(
-                user=self.transaction.user,
-                plan=self.transaction.plan,
-                ends_at=self.transaction.plan.get_end_date(start_date=start_date)
-            )
-
-            # Upgrade user if VIP plan
-            if self.transaction.plan.is_vip and self.transaction.user.role != 'BUSINESS_OWNER':
-                self.transaction.user.role = 'BUSINESS_OWNER'
-                self.transaction.user.save(update_fields=['role'])
-
-            # Unlock businesses locked under a smaller/expired plan.
-            from business.services import sync_locks
-            sync_locks(self.transaction.user)
-
-            return {
-                'subscription_id': subscription.id,
-                'plan_name': self.transaction.plan.name,
-                'ends_at': subscription.ends_at.isoformat(),
-                'ref_number': verify_data.get('refNumber'),
-                'card_number': verify_data.get('cardNumber'),
-                'amount': str(self.transaction.amount)
-            }
+        return activate_plan_transaction(self.transaction, verify_data)
 
     def _mark_failed(self, error_data: Dict):  # ✅ sync
         """Mark transaction as failed"""
@@ -167,4 +121,59 @@ class PaymentVerificationService:
             'message': message,
             'data': data or {},
             'status_code': status_code
+        }
+
+
+def activate_plan_transaction(transaction, verify_data: Dict) -> Dict[str, Any]:
+    """Mark ``transaction`` successful and put its user on its plan.
+
+    Shared by the Zibal callback and store (Myket) in-app purchases, so a plan
+    bought either way extends the current subscription identically.
+    """
+    with db_transaction.atomic():
+        # Mark transaction successful
+        transaction.status = 'success'
+        transaction.zibal_response = verify_data
+        transaction.save(update_fields=['status', 'zibal_response', 'updated_at'])
+
+        # بررسی اشتراک فعلی برای تمدید زمان
+        active_sub = Subscription.objects.filter(
+            user=transaction.user,
+            status='active'
+        ).first()
+
+        if active_sub and active_sub.is_valid():
+            start_date = active_sub.ends_at
+            active_sub.status = 'expired'
+            active_sub.save(update_fields=['status'])
+        else:
+            Subscription.objects.filter(
+                user=transaction.user,
+                status='active'
+            ).update(status='expired')
+            start_date = timezone.now()
+
+        # Create new subscription
+        subscription = Subscription.objects.create(
+            user=transaction.user,
+            plan=transaction.plan,
+            ends_at=transaction.plan.get_end_date(start_date=start_date)
+        )
+
+        # Upgrade user if VIP plan
+        if transaction.plan.is_vip and transaction.user.role != 'BUSINESS_OWNER':
+            transaction.user.role = 'BUSINESS_OWNER'
+            transaction.user.save(update_fields=['role'])
+
+        # Unlock businesses locked under a smaller/expired plan.
+        from business.services import sync_locks
+        sync_locks(transaction.user)
+
+        return {
+            'subscription_id': subscription.id,
+            'plan_name': transaction.plan.name,
+            'ends_at': subscription.ends_at.isoformat(),
+            'ref_number': verify_data.get('refNumber'),
+            'card_number': verify_data.get('cardNumber'),
+            'amount': str(transaction.amount)
         }

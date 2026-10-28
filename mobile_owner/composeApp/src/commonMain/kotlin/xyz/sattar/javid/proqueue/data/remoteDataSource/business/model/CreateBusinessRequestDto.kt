@@ -10,6 +10,8 @@ data class CreateBusinessRequestDto(
     @SerialName("phone") val phone: String,
     @SerialName("extra_phones") val extraPhones: List<String> = emptyList(),
     @SerialName("address") val address: String,
+    @SerialName("latitude") val latitude: Double? = null,
+    @SerialName("longitude") val longitude: Double? = null,
     @SerialName("default_service_duration") val defaultServiceDuration: Int,
     @SerialName("work_start_hour") val workStartHour: Int,
     @SerialName("work_end_hour") val workEndHour: Int,
@@ -35,6 +37,7 @@ data class CreateBusinessRequestDto(
     @SerialName("notice_message") val noticeMessage: String? = null,
     @SerialName("enable_reminder_sms") val enableReminderSms: Boolean = true,
     @SerialName("reminder_delivery") val reminderDelivery: String? = null,
+    @SerialName("reminder_template") val reminderTemplate: String? = null,
     @SerialName("services") val services: List<String> = emptyList(),
     @SerialName("allow_client_add_service") val allowClientAddService: Boolean = false
 )

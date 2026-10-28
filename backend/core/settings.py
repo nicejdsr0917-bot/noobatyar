@@ -27,12 +27,26 @@ INSTALLED_APPS = [
     # @admin.register(...) decorator keeps working untouched while the panel
     # gets Persian branding and a place to hang dashboard views.
     # See core/apps.py and core/admin_site.py.
+    #
+    # django-unfold supplies the admin's look (sidebar, tables, forms, dark
+    # mode). Its apps must come before the admin config so its templates win
+    # over django.contrib.admin's; the site class itself subclasses
+    # UnfoldAdminSite (core/admin_site.py). Configured by UNFOLD at the bottom.
+    # BasicAppConfig, not plain 'unfold': the default config's ready() swaps
+    # admin.site for a bare UnfoldAdminSite, which would drop NobatyarAdminSite
+    # and every custom view on it.
+    'unfold.apps.BasicAppConfig',
+    'unfold.contrib.filters',
     'core.apps.NobatyarAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # For `intcomma` in the admin report templates. Toman amounts run to eight
+    # digits, and "15501000" is not a number anybody reads off a financial
+    # report correctly at a glance. No models, no migrations.
+    'django.contrib.humanize',
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
@@ -169,6 +183,7 @@ REST_FRAMEWORK = {
         'anon': os.getenv('THROTTLE_ANON', '60/min'),
         'user': os.getenv('THROTTLE_USER', '300/min'),
         'otp': os.getenv('THROTTLE_OTP', '5/min'),
+        'login': os.getenv('THROTTLE_LOGIN', '10/min'),
         'public_slots': os.getenv('THROTTLE_PUBLIC_SLOTS', '120/min'),
         # Abuse-report submission (business/client_views.py) — an anonymous,
         # no-account endpoint with no other rate limit on it, so a tighter
@@ -190,6 +205,9 @@ SIMPLE_JWT = {
 }
 
 LANGUAGE_CODE = 'fa-ir'
+# Project translations — currently only Persian strings for django-unfold,
+# which ships no fa catalog (locale/fa/LC_MESSAGES/django.po).
+LOCALE_PATHS = [BASE_DIR / 'locale']
 TIME_ZONE = 'Asia/Tehran'
 USE_I18N = True
 USE_TZ = True
@@ -250,6 +268,13 @@ if not DEBUG:
                 CSRF_TRUSTED_ORIGINS.append(_origin)
 
 # Zibal Payment Gateway
+# Myket in-app billing (store builds of the owner app). The access token is
+# the "X-Access-Token" from the Myket developer panel's in-app products page;
+# it authorises server-side purchase verification/consumption and must never
+# ship inside the app. Empty = Myket purchases are refused with a clear error.
+MYKET_ACCESS_TOKEN = os.getenv('MYKET_ACCESS_TOKEN', '')
+MYKET_PACKAGE_NAME = os.getenv('MYKET_PACKAGE_NAME', 'xyz.sattar.javid.proqueue')
+
 ZIBAL_MERCHANT_ID = os.getenv('ZIBAL_MERCHANT_ID')
 if not ZIBAL_MERCHANT_ID:
     ZIBAL_MERCHANT_ID = '6a0d8775dc2e6664d8adf3fd'
@@ -258,6 +283,8 @@ if not ZIBAL_MERCHANT_ID:
 # web app has an appointments screen to land on, so this is app.noobatyar.ir
 # rather than the API host.
 CLIENT_WEB_URL = os.getenv('CLIENT_WEB_URL', 'https://app.noobatyar.ir')
+# The owner web panel: where its payers are sent back to after the gateway.
+PANEL_WEB_URL = os.getenv('PANEL_WEB_URL', 'https://panel.noobatyar.ir')
 SITE_URL = os.getenv('SITE_URL', 'http://localhost:8000')  # Your site's base URL
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -270,6 +297,11 @@ MELIPAYAMAK_FROM = os.getenv('MELIPAYAMAK_FROM', '')
 # skips Melipayamak (no SMS, no credit burned) and accepts this fixed code.
 # Forced empty whenever DEBUG is off, so it can never be enabled in production.
 OTP_DEV_CODE = os.getenv('OTP_DEV_CODE', '') if DEBUG else ''
+
+# A password may be changed (forgot-password reset) once per this many hours
+# per account — api/views.py. Stops a hijacker who got hold of the phone for a
+# moment from flipping the password back and forth.
+PASSWORD_CHANGE_COOLDOWN_HOURS = int(os.getenv('PASSWORD_CHANGE_COOLDOWN_HOURS', '24'))
 
 # Dev-only SMS bypass. When on, api/sms.py logs outgoing messages instead of
 # dispatching them, so local test runs never text a real phone number. Covers
@@ -300,3 +332,131 @@ FCM_ANDROID_CHANNEL_ID = os.getenv('FCM_ANDROID_CHANNEL_ID', 'appointment_remind
 # question between panel.noobatyar.ir and app.noobatyar.ir/owner — so this is a
 # provisional default, safe to override without a code change once it is decided.
 FCM_WEBPUSH_CLICK_URL = os.getenv('FCM_WEBPUSH_CLICK_URL', 'https://panel.noobatyar.ir/')
+
+
+# ── Admin panel (django-unfold) ──────────────────────────────────────────────
+# The sidebar *is* the panel's navigation: every model and custom page, grouped
+# by what staff come to do, with Persian labels. Each entry only shows to a user
+# who may view it, so a Support or Finance role sees their own slice.
+from django.templatetags.static import static  # noqa: E402
+from django.urls import reverse_lazy  # noqa: E402
+
+
+def _can(perm):
+    return lambda request: request.user.is_superuser or request.user.has_perm(perm)
+
+
+def _item(title, icon, link, perm=None):
+    item = {'title': title, 'icon': icon, 'link': link}
+    if perm:
+        item['permission'] = _can(perm)
+    return item
+
+
+def _changelist(app, model):
+    return reverse_lazy(f'admin:{app}_{model}_changelist')
+
+
+UNFOLD = {
+    'SITE_TITLE': 'نوبت‌یار',
+    'SITE_HEADER': 'نوبت‌یار',
+    'SITE_SUBHEADER': 'پنل مدیریت',
+    'SITE_URL': None,
+    'SITE_SYMBOL': 'event_available',
+    'SHOW_VIEW_ON_SITE': False,
+    'SHOW_HISTORY': True,
+    'STYLES': [lambda request: static('admin_custom/css/unfold.css')],
+    'COLORS': {
+        # Brand violet (#8B5CF6 at 500), Tailwind's violet scale.
+        'primary': {
+            '50': 'oklch(96.9% 0.016 293.756)',
+            '100': 'oklch(94.3% 0.029 294.588)',
+            '200': 'oklch(89.4% 0.057 293.283)',
+            '300': 'oklch(81.1% 0.111 293.571)',
+            '400': 'oklch(70.2% 0.183 293.541)',
+            '500': 'oklch(60.6% 0.25 292.717)',
+            '600': 'oklch(54.1% 0.281 293.009)',
+            '700': 'oklch(49.1% 0.27 292.581)',
+            '800': 'oklch(43.2% 0.232 292.759)',
+            '900': 'oklch(38% 0.189 293.745)',
+            '950': 'oklch(28.3% 0.141 291.089)',
+        },
+    },
+    'SIDEBAR': {
+        'show_search': True,
+        'show_all_applications': False,
+        'navigation': [
+            {
+                'items': [
+                    _item('داشبورد', 'dashboard', reverse_lazy('admin:index')),
+                ],
+            },
+            {
+                'title': 'کسب‌وکارها',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('کسب‌وکارها', 'storefront', _changelist('business', 'business'), 'business.view_business'),
+                    _item('صف بررسی', 'fact_check', reverse_lazy('admin:business_business_moderation_queue'), 'business.view_business'),
+                    _item('گزارش‌های تخلف', 'flag', _changelist('business', 'contentreport'), 'business.view_contentreport'),
+                    _item('کلمات ممنوع', 'block', _changelist('business', 'bannedkeyword'), 'business.view_bannedkeyword'),
+                    _item('سوابق بررسی', 'history', _changelist('business', 'businessmoderationlog'), 'business.view_businessmoderationlog'),
+                ],
+            },
+            {
+                'title': 'کاربران و نوبت‌ها',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('کاربران', 'person', _changelist('api', 'user'), 'api.view_user'),
+                    _item('مشتریان', 'groups', _changelist('visitor', 'visitor'), 'visitor.view_visitor'),
+                    _item('نوبت‌ها', 'event', _changelist('appointment', 'appointment'), 'appointment.view_appointment'),
+                    _item('دستگاه‌ها', 'smartphone', _changelist('api', 'devicetoken'), 'api.view_devicetoken'),
+                ],
+            },
+            {
+                'title': 'مالی',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('گزارش مالی', 'monitoring', reverse_lazy('admin:accounting_financial_report'), 'accounting.view_transaction'),
+                    _item('تراکنش‌ها', 'receipt_long', _changelist('accounting', 'transaction'), 'accounting.view_transaction'),
+                    _item('اشتراک‌ها', 'card_membership', _changelist('accounting', 'subscription'), 'accounting.view_subscription'),
+                    _item('خرید بسته‌ها', 'shopping_cart', _changelist('accounting', 'addonpurchase'), 'accounting.view_addonpurchase'),
+                    _item('خریدهای مایکت', 'store', _changelist('accounting', 'storepurchase'), 'accounting.view_storepurchase'),
+                    _item('دفتر اعتبار', 'account_balance_wallet', _changelist('accounting', 'creditledger'), 'accounting.view_creditledger'),
+                    _item('پلن‌ها', 'sell', _changelist('accounting', 'plan'), 'accounting.view_plan'),
+                    _item('بسته‌های افزودنی', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
+                    _item('یادآوری تمدید اشتراک', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),
+                    _item('تماس کسب‌وکارهای بدون اشتراک', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
+                ],
+            },
+            {
+                'title': 'پیام‌رسانی و بازاریابی',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('کمپین‌ها', 'campaign', reverse_lazy('admin:core_campaigns'), 'core.view_marketingpushlog'),
+                    _item('گروه مخاطب', 'filter_alt', reverse_lazy('admin:core_segment_builder'), 'core.view_audiencesegment'),
+                    _item('گزارش پیامک', 'bar_chart', reverse_lazy('admin:visitor_smslog_report'), 'visitor.view_smslog'),
+                    _item('پیامک‌ها', 'sms', _changelist('visitor', 'smslog'), 'visitor.view_smslog'),
+                    _item('کمپین‌های پوش', 'notifications_active', _changelist('core', 'marketingpushlog'), 'core.view_marketingpushlog'),
+                    _item('پیام به کسب‌وکارها', 'forum', _changelist('core', 'adminmessagelog'), 'core.view_adminmessagelog'),
+                    _item('پیامک انقضای اشتراک', 'mark_email_unread', _changelist('core', 'expirysmslog'), 'core.view_expirysmslog'),
+                    _item('گروه‌های مخاطب ذخیره‌شده', 'bookmarks', _changelist('core', 'audiencesegment'), 'core.view_audiencesegment'),
+                    _item('خروجی‌های گروه مخاطب', 'download', _changelist('core', 'audiencesegmentexport'), 'core.view_audiencesegmentexport'),
+                ],
+            },
+            {
+                'title': 'سیستم',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('نسخه‌های اپ', 'system_update', _changelist('versions', 'appversion'), 'versions.view_appversion'),
+                    _item('ربات بله', 'smart_toy', _changelist('bale', 'balesettings'), 'bale.view_balesettings'),
+                    _item('نقش‌ها', 'admin_panel_settings', _changelist('auth', 'group'), 'auth.view_group'),
+                ],
+            },
+        ],
+    },
+}

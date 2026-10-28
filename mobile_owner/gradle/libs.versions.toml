@@ -1,7 +1,6 @@
 [versions]
 buildkonfig = "0.15.1"
 peekaboo = "0.5.2"
-easycrop = "0.1.1"
 agp = "8.13.2"
 android-compileSdk = "36"
 android-minSdk = "24"
@@ -19,6 +18,11 @@ kotlinxDatetime = "0.7.1"
 navigationCompose = "2.9.1"
 sqldelight = "1.5.5"
 ktor = "3.1.3"
+# The business-location map. Held at 0.13.2: every 1.x AAR demands
+# compileSdk 37, which AGP 8.13 can't build against. 0.13.2 is on compileSdk
+# 36 / Compose 1.11.0 and has the same API this app uses; 1.x mainly adds
+# mouse-wheel zoom, which the picker does itself (core/ui/components/map).
+mapcompose = "0.13.2"
 koin = "4.1.1"
 serialization = "1.9.0"
 room = "2.8.0"
@@ -35,6 +39,7 @@ haze = "1.7.2"
 qrose = "1.1.2"
 firebaseBom = "34.18.0"
 googleServices = "4.5.0"
+kotlinxBrowser = "0.5.0"
 
 [libraries]
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
@@ -45,7 +50,6 @@ qrose = { module = "io.github.alexzhirkevich:qrose", version.ref = "qrose" }
 haze-materials = { module = "dev.chrisbanes.haze:haze-materials", version.ref = "haze" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil3" }
 peekaboo-image-picker = { module = "io.github.onseok:peekaboo-image-picker", version.ref = "peekaboo" }
-easycrop = { module = "io.github.mr0xf00:easycrop", version.ref = "easycrop" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -72,6 +76,13 @@ ktor-client-logginig = { module = "io.ktor:ktor-client-logging", version.ref = "
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
+mapcompose-mp = { module = "ovh.plrapps:mapcompose-mp", version.ref = "mapcompose" }
+
+# kotlinx.browser (window/document/localStorage) — split out of the stdlib
+# into its own artifact for Kotlin/Wasm; see composeApp/build.gradle.kts's
+# wasmJsMain block for where it is used.
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
 
 # Chucker
 chucker-library = { module = "com.github.chuckerteam.chucker:library", version.ref = "chucker" }

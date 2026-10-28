@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.payment
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -62,7 +63,7 @@ actual fun PaymentWebViewScreen(url: String, onNavigateBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("پرداخت") },
+                title = { Text(Str.payment) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
