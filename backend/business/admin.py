@@ -29,7 +29,6 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.html import escape, format_html
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -45,7 +44,12 @@ from .models import (
 # services.apply_moderation_decision() = moderation.apply_decision() + the SMS
 # that tells the owner. Decisions made here are the ones an owner most needs to
 # hear about, so the admin goes through the wrapper rather than the bare helper.
-from .services import apply_moderation_decision
+from .services import (
+    apply_bulk_moderation_decision,
+    apply_moderation_decision,
+    reject_pending_claim_requests,
+    resolve_content_reports,
+)
 
 QUEUE_PAGE_SIZE = 20
 
@@ -153,6 +157,23 @@ class BusinessModerationLogInline(TabularInline):
         return f"{obj.from_status or '—'} ← {obj.to_status}"
 
 
+class _BulkConfirmMixin:
+    """Renders the "write a reason" confirmation page for bulk admin actions."""
+
+    def _bulk_confirm_response(self, request, queryset, title, verb, template, note_error=''):
+        context = {
+            **self.admin_site.each_context(request),
+            'title': title,
+            'opts': self.model._meta,
+            'queryset': queryset,
+            'verb': verb,
+            'action_name': request.POST.get('action'),
+            'selected': request.POST.getlist(admin.helpers.ACTION_CHECKBOX_NAME),
+            'note_error': note_error,
+        }
+        return TemplateResponse(request, template, context)
+
+
 @admin.register(Insurance)
 class InsuranceAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug', 'insurance_type', 'is_active', 'display_order')
@@ -162,7 +183,7 @@ class InsuranceAdmin(admin.ModelAdmin):
 
 
 @admin.register(Business)
-class BusinessAdmin(ModelAdmin):
+class BusinessAdmin(_BulkConfirmMixin, ModelAdmin):
     list_display = (
         'title', 'user', 'unique_code', 'category',
         'moderation_badge', 'lock_badge', 'created_at',
@@ -424,38 +445,21 @@ class BusinessAdmin(ModelAdmin):
         note = (request.POST.get('moderation_note') or '').strip()
 
         if note_required and not request.POST.get('apply'):
-            context = {
-                **self.admin_site.each_context(request),
-                'title': f'{verb} گروهی کسب‌وکارها',
-                'opts': self.model._meta,
-                'queryset': queryset,
-                'verb': verb,
-                'action_name': request.POST.get('action'),
-                'selected': request.POST.getlist(admin.helpers.ACTION_CHECKBOX_NAME),
-                'note_error': '',
-            }
-            return TemplateResponse(request, 'admin/business/moderation_bulk.html', context)
+            return self._bulk_confirm_response(
+                request, queryset, f'{verb} گروهی کسب‌وکارها', verb,
+                'admin/business/moderation_bulk.html',
+            )
 
         if note_required and not note:
             self.message_user(request, 'نوشتن دلیل الزامی است.', level=messages.ERROR)
-            context = {
-                **self.admin_site.each_context(request),
-                'title': f'{verb} گروهی کسب‌وکارها',
-                'opts': self.model._meta,
-                'queryset': queryset,
-                'verb': verb,
-                'action_name': request.POST.get('action'),
-                'selected': request.POST.getlist(admin.helpers.ACTION_CHECKBOX_NAME),
-                'note_error': 'نوشتن دلیل الزامی است.',
-            }
-            return TemplateResponse(request, 'admin/business/moderation_bulk.html', context)
+            return self._bulk_confirm_response(
+                request, queryset, f'{verb} گروهی کسب‌وکارها', verb,
+                'admin/business/moderation_bulk.html', note_error='نوشتن دلیل الزامی است.',
+            )
 
-        count = 0
-        unnotified = 0
-        for business in queryset:
-            if not apply_moderation_decision(business, to_status, actor=request.user, note=note):
-                unnotified += 1
-            count += 1
+        count, unnotified = apply_bulk_moderation_decision(
+            queryset, to_status, actor=request.user, note=note,
+        )
 
         self.message_user(request, f'{count} کسب‌وکار {verb} شد.', level=messages.SUCCESS)
         if unnotified:
@@ -583,7 +587,7 @@ class BannedKeywordAdmin(ModelAdmin):
 
 
 @admin.register(ContentReport)
-class ContentReportAdmin(ModelAdmin):
+class ContentReportAdmin(_BulkConfirmMixin, ModelAdmin):
     """Queue-style view of reports filed against businesses.
 
     Reports arrive from the public booking page, so the working order is
@@ -682,37 +686,18 @@ class ContentReportAdmin(ModelAdmin):
         note = (request.POST.get('resolution_note') or '').strip()
 
         if not request.POST.get('apply'):
-            context = {
-                **self.admin_site.each_context(request),
-                'title': f'{label} گزارش‌ها',
-                'opts': self.model._meta,
-                'queryset': queryset,
-                'verb': label,
-                'action_name': request.POST.get('action'),
-                'selected': request.POST.getlist(admin.helpers.ACTION_CHECKBOX_NAME),
-                'note_error': '',
-            }
-            return TemplateResponse(request, 'admin/business/content_report_bulk.html', context)
+            return self._bulk_confirm_response(
+                request, queryset, f'{label} گزارش‌ها', label,
+                'admin/business/content_report_bulk.html',
+            )
 
         if not note:
-            context = {
-                **self.admin_site.each_context(request),
-                'title': f'{label} گزارش‌ها',
-                'opts': self.model._meta,
-                'queryset': queryset,
-                'verb': label,
-                'action_name': request.POST.get('action'),
-                'selected': request.POST.getlist(admin.helpers.ACTION_CHECKBOX_NAME),
-                'note_error': 'نوشتن دلیل الزامی است.',
-            }
-            return TemplateResponse(request, 'admin/business/content_report_bulk.html', context)
+            return self._bulk_confirm_response(
+                request, queryset, f'{label} گزارش‌ها', label,
+                'admin/business/content_report_bulk.html', note_error='نوشتن دلیل الزامی است.',
+            )
 
-        updated = queryset.update(
-            status=status,
-            resolution_note=note,
-            resolved_by=request.user,
-            resolved_at=timezone.now(),
-        )
+        updated = resolve_content_reports(queryset, status, request.user, note)
         self.message_user(request, f'{updated} گزارش «{label}» شد.', level=messages.SUCCESS)
         return None
 
@@ -760,7 +745,5 @@ class BusinessClaimRequestAdmin(admin.ModelAdmin):
 
     @admin.action(description='رد درخواست')
     def reject_claims(self, request, queryset):
-        n = queryset.filter(status=BusinessClaimRequest.STATUS_PENDING).update(
-            status=BusinessClaimRequest.STATUS_REJECTED, resolved_at=timezone.now(),
-        )
+        n = reject_pending_claim_requests(queryset)
         self.message_user(request, f"{n} درخواست رد شد", level=messages.SUCCESS)

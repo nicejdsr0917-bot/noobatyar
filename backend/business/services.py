@@ -350,3 +350,43 @@ def save_with_moderation(serializer, business, before_snapshot):
         # under review) or SUSPENDED: the draft is saved either way, just
         # without re-stamping the queue position or lifting the suspension.
         return True
+
+
+def apply_bulk_moderation_decision(businesses, to_status, actor, note=''):
+    """Apply one decision to many businesses (admin bulk actions).
+
+    Returns ``(count, unnotified)`` — how many decisions were recorded and for
+    how many of them the owner notice was not accepted by the provider.
+    """
+    count = 0
+    unnotified = 0
+    for business in businesses:
+        if not apply_moderation_decision(business, to_status, actor=actor, note=note):
+            unnotified += 1
+        count += 1
+    return count, unnotified
+
+
+def resolve_content_reports(reports, status, actor, note):
+    """Close a queryset of content reports with a status and a recorded reason.
+
+    Returns the number of rows updated.
+    """
+    return reports.update(
+        status=status,
+        resolution_note=note,
+        resolved_by=actor,
+        resolved_at=timezone.now(),
+    )
+
+
+def reject_pending_claim_requests(claims):
+    """Mark the pending claim requests in ``claims`` as rejected.
+
+    Returns the number of rows updated.
+    """
+    from .models import BusinessClaimRequest
+
+    return claims.filter(status=BusinessClaimRequest.STATUS_PENDING).update(
+        status=BusinessClaimRequest.STATUS_REJECTED, resolved_at=timezone.now(),
+    )
