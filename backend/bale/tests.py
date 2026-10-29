@@ -161,6 +161,15 @@ class BaleWebhookTests(BaleTestBase):
         self.assertEqual(log.actor, self.reviewer)
 
     @patch('bale.client._call', side_effect=_ok)
+    def test_decision_keeps_the_review_card_and_appends_the_outcome(self, call):
+        from bale.notify import KIND_NEW, build_text
+        card = build_text(self.business, KIND_NEW)
+        self.tap(f'm:d:{self.business.pk}:A')
+        final = self.sent_texts(call)[-1]
+        self.assertTrue(final.startswith(card), final)
+        self.assertGreater(len(final), len(card))
+
+    @patch('bale.client._call', side_effect=_ok)
     def test_approved_business_becomes_publicly_visible(self, _call):
         self.tap(f'm:d:{self.business.pk}:A')
 

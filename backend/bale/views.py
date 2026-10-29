@@ -214,11 +214,17 @@ def _decide(config, query_id, message_id, business, to_status, note):
             answer_callback_query(
                 config.bot_token, query_id, 'این تصمیم قبلاً ثبت شده است', True
             )
-        _finalise_message(config, message_id, business, to_status, note, already=True)
+        _finalise_message(
+            config, message_id, business, to_status, note, already=True,
+            card=build_text(business, _kind_for(business)),
+        )
         return
 
     # notify=False: the owner's SMS is fired below on its own thread. Awaiting
     # it here is what used to leave the button spinning.
+    # Built before the decision: _kind_for() reads first_approved_at, which an
+    # approval sets, so rebuilding afterwards would pick the wrong card kind.
+    card = build_text(business, _kind_for(business))
     apply_moderation_decision(business, to_status, config.actor, note=note, notify=False)
 
     if query_id:
@@ -227,16 +233,20 @@ def _decide(config, query_id, message_id, business, to_status, note):
         )
 
     fire_owner_sms(business.pk, to_status)
-    _finalise_message(config, message_id, business, to_status, note)
+    _finalise_message(config, message_id, business, to_status, note, card=card)
 
 
-def _finalise_message(config, message_id, business, to_status, note, already=False):
+def _finalise_message(config, message_id, business, to_status, note, already=False, card=None):
     """Replace the buttons with the outcome, so the message cannot be re-tapped
-    and the chat reads as a decision log."""
+    and the chat reads as a decision log. The original review card stays on top
+    (what was decided on), the outcome is appended underneath."""
     if not message_id:
         return
 
-    lines = [f'{_STATUS_LABEL.get(to_status, to_status)} — {business.title}']
+    lines = []
+    if card:
+        lines += [card, '']
+    lines.append(f'{_STATUS_LABEL.get(to_status, to_status)} — {business.title}')
     if note:
         lines.append(f'دلیل: {note}')
     if already:
@@ -307,11 +317,14 @@ def _apply_typed_reason(config, text):
         )
         return
 
+    card = build_text(business, _kind_for(business))
     apply_moderation_decision(
         business, pending.to_status, config.actor, note=text, notify=False
     )
     fire_owner_sms(business.pk, pending.to_status)
-    _finalise_message(config, pending.message_id, business, pending.to_status, text)
+    _finalise_message(
+        config, pending.message_id, business, pending.to_status, text, card=card
+    )
 
     send_message(
         config.bot_token, config.chat_id,
