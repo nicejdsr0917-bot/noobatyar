@@ -176,7 +176,7 @@ class CallSiteTests(TestCase):
     """Each migrated call site queues the right kind, and the handler runs the old sender."""
 
     def test_booking_sms_queued_then_sent_once_by_worker(self):
-        from appointment.client_views import _fire_booking_sms
+        from appointment.services.notifications import notify_booking_created as _fire_booking_sms
         from visitor.models import SmsLog
 
         appt = _appointment()
@@ -195,7 +195,10 @@ class CallSiteTests(TestCase):
         self.assertTrue(SmsLog.objects.filter(business=appt.business, status='SENT').exists())
 
     def test_cancellation_and_deposit_use_their_own_keys(self):
-        from appointment.client_views import _fire_cancellation_sms, _fire_deposit_paid_sms
+        from appointment.services.notifications import (
+            notify_booking_cancelled_by_client as _fire_cancellation_sms,
+            notify_deposit_paid as _fire_deposit_paid_sms,
+        )
 
         appt = _appointment()
         _fire_cancellation_sms(appt)
@@ -206,7 +209,7 @@ class CallSiteTests(TestCase):
         self.assertIsNone(cancel.payload['client_phone'])  # client cancelled: no client SMS
 
     def test_owner_decision_queues_client_sms(self):
-        from appointment.views.views import _notify_client_of_decision
+        from appointment.services.notifications import notify_client_of_decision as _notify_client_of_decision
 
         appt = _appointment()
         _notify_client_of_decision(appt, 'WAITING', 'IN_PROGRESS')  # not a decision
@@ -221,7 +224,7 @@ class CallSiteTests(TestCase):
         self.assertIn('تایید شد', send.call_args[0][1])
 
     def test_decision_rolls_back_with_its_transaction(self):
-        from appointment.views.views import _notify_client_of_decision
+        from appointment.services.notifications import notify_client_of_decision as _notify_client_of_decision
 
         appt = _appointment()
         try:
@@ -248,7 +251,7 @@ class CallSiteTests(TestCase):
             notify_review_queued(appt.business, kind='edit', changed=['title'])
         msg = OutboxMessage.objects.get(kind='bale.review_card')
         self.assertEqual(msg.payload, {'business_id': appt.business.pk, 'kind': 'edit', 'changed': ['title']})
-        with patch('bale.notify._send') as send:
+        with patch('bale.notify.send_review_card') as send:
             drain()
         send.assert_called_once_with(appt.business.pk, 'edit', ['title'])
 
@@ -411,7 +414,7 @@ class SmsIdempotencyTests(TestCase):
         return send, consume
 
     def test_retry_after_crash_post_send_does_not_send_or_charge_twice(self):
-        from appointment.client_views import _fire_booking_sms
+        from appointment.services.notifications import notify_booking_created as _fire_booking_sms
 
         appt = _appointment()
         _fire_booking_sms(appt, appt.visitor.phone_number)
@@ -441,7 +444,7 @@ class SmsIdempotencyTests(TestCase):
         self.assertEqual(msg.status, OutboxMessage.DONE)
 
     def test_client_sms_retry_does_not_resend(self):
-        from appointment.views.views import _notify_client_of_decision
+        from appointment.services.notifications import notify_client_of_decision as _notify_client_of_decision
 
         appt = _appointment()
         _notify_client_of_decision(appt, 'PENDING_APPROVAL', 'WAITING')
@@ -457,7 +460,7 @@ class SmsIdempotencyTests(TestCase):
         self.assertEqual((send.call_count, consume.call_count), (1, 1))
 
     def test_failed_send_is_not_marked_and_is_refunded(self):
-        from appointment.views.views import _notify_client_of_decision
+        from appointment.services.notifications import notify_client_of_decision as _notify_client_of_decision
 
         appt = _appointment()
         _notify_client_of_decision(appt, 'PENDING_APPROVAL', 'WAITING')

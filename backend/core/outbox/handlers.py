@@ -11,20 +11,20 @@ from .service import register
 
 @register('appointment.booking_sms')
 def booking_sms(payload):
-    from appointment.client_views import _send_booking_sms
-    _send_booking_sms(**payload)
+    from appointment.services.notifications import send_booking_sms
+    send_booking_sms(**payload)
 
 
 @register('appointment.client_sms')
 def client_sms(payload):
-    from appointment.views.views import _send_client_sms
-    _send_client_sms(**payload)
+    from appointment.services.notifications import send_client_sms
+    send_client_sms(**payload)
 
 
 @register('bale.review_card')
 def bale_review_card(payload):
-    from bale.notify import _send
-    _send(payload['business_id'], payload['kind'], payload.get('changed') or [])
+    from bale.notify import send_review_card
+    send_review_card(payload['business_id'], payload['kind'], payload.get('changed') or [])
 
 
 @register('bale.owner_moderation_notify')

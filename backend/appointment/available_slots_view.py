@@ -8,15 +8,11 @@ from business.models import Business
 from .models import Appointment
 from .cache_utils import available_slots_key, SLOT_CACHE_TTL
 from .occupancy import blocking_q
+from .working_hours import LOCAL_TZ, working_window
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
-from django.conf import settings
 import logging
 
 logger = logging.getLogger(__name__)
-
-# Business working hours are wall-clock times in the project's timezone.
-LOCAL_TZ = ZoneInfo(settings.TIME_ZONE)
 
 
 class AvailableSlotsView(APIView):
@@ -74,28 +70,14 @@ class AvailableSlotsView(APIView):
             await sync_to_async(cache.set)(cache_key, data, SLOT_CACHE_TTL)
             return APIResponse.success(data=data, message="این روز تعطیل است")
 
-        # Build all slots for the day based on work hours and default_service_duration
+        # Build all slots for the day based on work hours and default_service_duration.
+        # Working hours are wall-clock times in the business's own timezone (see
+        # working_hours.py): building them as UTC shifted every slot by the UTC
+        # offset, offering slots outside working hours and judging `is_past`
+        # against the wrong wall clock.
         duration = business.default_service_duration  # minutes
-        start_hour = business.work_start_hour
-        end_hour = business.work_end_hour
-        start_minute = business.work_start_minute
-        end_minute = business.work_end_minute
-
-        # Generate all possible slots.
-        # work_start_hour/work_end_hour are wall-clock hours in the business's own
-        # timezone, so they must be anchored to LOCAL_TZ. Building them as UTC
-        # shifted every slot by the UTC offset (+03:30 for Tehran): the label said
-        # "20:30" while the instant was 00:00 the next day, so slots outside working
-        # hours were offered and `is_past` was judged against the wrong wall clock.
         all_slots = []
-        current = datetime(
-            target_date.year, target_date.month, target_date.day,
-            start_hour, start_minute, tzinfo=LOCAL_TZ
-        )
-        day_end = datetime(
-            target_date.year, target_date.month, target_date.day,
-            end_hour, end_minute, tzinfo=LOCAL_TZ
-        )
+        current, day_end = working_window(business, target_date)
 
         while current + timedelta(minutes=duration) <= day_end:
             all_slots.append(current)

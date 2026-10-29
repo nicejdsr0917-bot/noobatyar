@@ -53,7 +53,7 @@ def notify_review_queued(business, kind=KIND_NEW, changed=None):
         logger.exception('Failed to schedule Bale review notification')
 
 
-def _send(business_id, kind, changed):
+def send_review_card(business_id, kind, changed):
     """Outbox handler body (``bale.review_card``): load everything fresh, build
     the message, send it."""
     try:
