@@ -212,7 +212,7 @@ def _send_via_melipayamak(phone: str) -> str | None:
 
     Returns the code as a string on success, or None on any failure.
     """
-    import requests
+    from integrations import melipayamak
 
     otp_token = getattr(settings, "MELIPAYAMAK_OTP_TOKEN", None)
     if not otp_token:
@@ -222,17 +222,15 @@ def _send_via_melipayamak(phone: str) -> str | None:
     if phone.startswith("98"):
         phone = "0" + phone[2:]
 
-    url = f"https://console.melipayamak.com/api/send/otp/{otp_token}"
     try:
-        response = requests.post(url, json={"to": phone}, timeout=10)
-        result = response.json() if response.text.strip() else {}
+        result = melipayamak.request_otp(otp_token, phone, allow_empty=True).data
         code = result.get("code")
         if code:
             logger.info("OTP SMS delivered to %s**** (code captured)", phone[-4:])
             return str(code)
         logger.warning("Melipayamak returned no code for %s****: %s", phone[-4:], result)
         return None
-    except requests.Timeout:
+    except melipayamak.Timeout:
         logger.error("OTP SMS timeout for %s****", phone[-4:])
         return None
     except Exception as exc:

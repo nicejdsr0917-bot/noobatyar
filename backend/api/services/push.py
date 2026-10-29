@@ -26,24 +26,23 @@ import logging
 import threading
 from dataclasses import dataclass
 
-import requests
 from django.conf import settings
+
+from integrations import fcm
 
 logger = logging.getLogger(__name__)
 
 FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging'
-FCM_ENDPOINT = 'https://fcm.googleapis.com/v1/projects/{project_id}/messages:send'
+FCM_ENDPOINT = fcm.ENDPOINT
 
 # Credentials are cached process-wide: minting them re-reads the key file and
 # google-auth refreshes the access token on its own when it expires.
 _credentials = None
 _credentials_lock = threading.Lock()
 
-# One pooled HTTP session for every FCM call: a bulk campaign or the outbox
-# worker sends thousands of messages, and a fresh TLS handshake per message is
-# most of the latency. Requests are always sent with an explicit timeout.
-_session = requests.Session()
-_session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=4, pool_maxsize=16))
+# The pooled HTTP session lives in integrations.fcm (same object, kept
+# under this name so tests can patch ``api.services.push._session.post``).
+_session = fcm.session
 
 
 class PushNotConfigured(RuntimeError):
@@ -139,10 +138,7 @@ def send_to_token(
     """
     try:
         url = FCM_ENDPOINT.format(project_id=_project_id())
-        headers = {
-            'Authorization': f'Bearer {_access_token()}',
-            'Content-Type': 'application/json; UTF-8',
-        }
+        access_token = _access_token()
     except PushNotConfigured as exc:
         logger.error('%s', exc)
         return False, str(exc)
@@ -204,7 +200,7 @@ def send_to_token(
         message['message']['webpush']['notification']['image'] = image
 
     try:
-        response = _session.post(url, headers=headers, json=message, timeout=10)
+        response = fcm.post_message(url, access_token, message)
     except Exception as exc:
         logger.error('FCM request failed: %s', exc)
         return False, str(exc)

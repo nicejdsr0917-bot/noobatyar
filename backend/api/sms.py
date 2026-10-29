@@ -1,10 +1,10 @@
 # api/sms.py
 import logging
-import requests
 from typing import Optional
 
 from django.conf import settings
 
+from integrations import melipayamak
 from .phone import is_iran_phone, normalize_phone
 
 logger = logging.getLogger(__name__)
@@ -108,15 +108,14 @@ def send_otp(phone: str) -> Optional[str]:  # به جای str | None
         logger.warning('SMS dev bypass — OTP not sent to %s****', phone[-4:])
         return None
     try:
-        url = f'https://console.melipayamak.com/api/send/otp/{_token()}'
+        token = _token()
     except SmsNotConfigured as e:
         logger.error("%s", e)
         return None
     try:
-        response = requests.post(url, json={'to': phone}, timeout=10)
-        result = response.json()
-        if result.get('status') == 'عملیات موفق':
-            return result.get('code')
+        result = melipayamak.request_otp(token, phone)
+        if result.data.get('status') == 'عملیات موفق':
+            return result.code
         return None
     except Exception:
         return None
@@ -168,7 +167,7 @@ def send_sms(phone: str, message: str) -> tuple[bool, str]:
         return True, "dev mode bypass"
 
     try:
-        url = f'https://console.melipayamak.com/api/send/simple/{_token()}'
+        token = _token()
     except SmsNotConfigured as e:
         # Surfaced to the caller so it lands in SmsLog.error_detail and the
         # owner's credit is refunded, rather than raising a 500.
@@ -183,25 +182,16 @@ def send_sms(phone: str, message: str) -> tuple[bool, str]:
             phone,
         )
 
-    payload = {
-        'from': sender,  # required by Melipayamak simple-send
-        'to': phone,
-        'text': message,
-    }
-
     try:
-        response = requests.post(url, json=payload, timeout=10)
-        result = response.json()
+        result = melipayamak.send_simple(token, sender, phone, message)
         # On success simple-send returns a positive recId; some responses also
         # carry a Persian success message in `status`.
-        rec_id = result.get('recId') or result.get('recID') or 0
-        status_text = str(result.get('status', ''))
-        success = bool(rec_id) or ('موفق' in status_text)
-        
+        success = bool(result.rec_id) or ('موفق' in result.status)
+
         error_detail = ""
         if not success:
-            error_detail = str(result)
-            logger.error("SMS send failed to %s****: %s", phone[-4:], result)
+            error_detail = str(result.data)
+            logger.error("SMS send failed to %s****: %s", phone[-4:], result.data)
         return success, error_detail
     except Exception as e:
         logger.error("Error sending SMS to %s****: %s", phone[-4:], e)

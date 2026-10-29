@@ -13,7 +13,6 @@ import logging
 from datetime import timedelta
 from typing import Any, Dict, Optional
 
-import httpx
 from django.conf import settings
 from django.db import transaction as db_transaction
 from django.utils import timezone
@@ -23,10 +22,6 @@ from accounting import pricing, usage
 from accounting.payment import zibal_client
 
 logger = logging.getLogger(__name__)
-
-BASE_URL = "https://gateway.zibal.ir"
-SUCCESS_CODE = 100
-TIMEOUT = 10.0
 
 
 # Add-on packs top up a plan; they are not a plan of their own. Without an
@@ -95,44 +90,30 @@ class AddOnPaymentService:
         order_id = f"ADDON-{user.id}-{pack.id}-{int(timezone.now().timestamp())}"
         # Pack price + VAT + Zibal's fee — the total the confirm dialog showed.
         total = pricing.quote(pack.price, pricing.CHANNEL_ZIBAL)["total"]
-        payload = {
-            "merchant": settings.ZIBAL_MERCHANT_ID,
-            "amount": total * 10,  # تومان → ریال
-            "callbackUrl": callback_url,
-            "orderId": order_id,
-        }
-        try:
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{BASE_URL}/v1/request",
-                    headers={"Content-Type": "application/json"},
-                    json=payload,
-                    timeout=TIMEOUT,
-                )
-                response.raise_for_status()
-                data = response.json()
-
-            if data.get("result") != SUCCESS_CODE:
-                logger.error(f"Zibal add-on error: {data.get('message')}")
-                return {"success": False, "error": data.get("message", "خطا در ایجاد پرداخت")}
-
-            track_id = str(data["trackId"])
-            AddOnPurchase.objects.create(
-                user=user,
-                pack=pack,
-                amount=total,
-                track_id=track_id,
-                order_id=order_id,
-                status="pending",
-            )
-            return {
-                "success": True,
-                "payment_url": f"{BASE_URL}/start/{track_id}",
-                "track_id": track_id,
-            }
-        except httpx.HTTPError as e:
-            logger.error(f"Zibal add-on request failed: {e}")
+        result = zibal_client.request_payment(
+            settings.ZIBAL_MERCHANT_ID, total * 10,  # تومان → ریال
+            callback_url, order_id,
+        )
+        if result.transport_error:
             return {"success": False, "error": "خطا در اتصال به درگاه پرداخت"}
+        if not result.success:
+            logger.error(f"Zibal add-on error: {result.message}")
+            return {"success": False, "error": "خطا در ایجاد پرداخت" if result.message is None else result.message}
+
+        track_id = str(result.track_id)
+        AddOnPurchase.objects.create(
+            user=user,
+            pack=pack,
+            amount=total,
+            track_id=track_id,
+            order_id=order_id,
+            status="pending",
+        )
+        return {
+            "success": True,
+            "payment_url": zibal_client.start_url(track_id),
+            "track_id": track_id,
+        }
 
 
 class AddOnVerificationService:

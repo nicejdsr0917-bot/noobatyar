@@ -1,17 +1,14 @@
 # accounting/payment/zibal_payment.py
-import httpx
 import logging
 from django.conf import settings
 from django.utils import timezone
 from accounting.models import Transaction
 from accounting import pricing
+from accounting.payment import zibal_client
 
 logger = logging.getLogger(__name__)
 
 class ZibalPaymentService:
-    BASE_URL = "https://gateway.zibal.ir"
-    TIMEOUT = 10.0
-
     def create_payment(self, user, plan, callback_url):  # ✅ sync
         """Create payment request and return payment URL"""
         order_id = self._generate_order_id(user.id, plan.id)
@@ -19,40 +16,25 @@ class ZibalPaymentService:
         # قیمت پلن + مالیات + کارمزد زیبال؛ همان مبلغی که دیالوگ تأیید به کاربر نشان داده
         final_price = pricing.quote(pricing.plan_base(plan), pricing.CHANNEL_ZIBAL)["total"]
 
-        payload = {
-            "merchant": settings.ZIBAL_MERCHANT_ID,
-            "amount": final_price * 10, # تبدیل تومان به ریال برای زیبال
-            "callbackUrl": callback_url,
-            "orderId": order_id
-        }
-
-        try:
-            with httpx.Client() as client:  # ✅ Client به جای AsyncClient
-                response = client.post(  # ✅ بدون await
-                    f"{self.BASE_URL}/v1/request",
-                    headers={"Content-Type": "application/json"},
-                    json=payload,
-                    timeout=self.TIMEOUT
-                )
-                response.raise_for_status()
-                data = response.json()
-
-            if data.get('result') != 100:
-                logger.error(f"Zibal error: {data.get('message')}")
-                return {'success': False, 'error': data.get('message')}
-
-            track_id = data['trackId']
-            self._save_transaction(str(track_id), order_id, user, plan, final_price)  # ✅ قیمت نهایی ذخیره شود
-
-            return {
-                'success': True,
-                'payment_url': f"{self.BASE_URL}/start/{track_id}",
-                'track_id': track_id
-            }
-
-        except httpx.HTTPError as e:
-            logger.error(f"Zibal request failed: {str(e)}")
+        result = zibal_client.request_payment(
+            settings.ZIBAL_MERCHANT_ID,
+            final_price * 10,  # تبدیل تومان به ریال برای زیبال
+            callback_url, order_id,
+        )
+        if result.transport_error:
             return {'success': False, 'error': 'خطا در اتصال به درگاه پرداخت'}
+        if not result.success:
+            logger.error(f"Zibal error: {result.message}")
+            return {'success': False, 'error': result.message}
+
+        track_id = result.track_id
+        self._save_transaction(str(track_id), order_id, user, plan, final_price)  # قیمت نهایی ذخیره شود
+
+        return {
+            'success': True,
+            'payment_url': result.payment_url,
+            'track_id': track_id
+        }
 
     def _generate_order_id(self, user_id, plan_id):
         timestamp = int(timezone.now().timestamp())
