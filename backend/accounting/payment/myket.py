@@ -30,17 +30,13 @@ API docs: https://myket.ir/kb/pages/server-to-server-payment-validation-api/
 import logging
 import secrets
 
-import httpx
-from django.conf import settings
 from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from accounting.models import AddOnPack, AddOnPurchase, Plan, StorePurchase, Transaction
+from integrations import myket as myket_api
 
 logger = logging.getLogger(__name__)
-
-API_BASE = "https://developer.myket.ir/api/partners/applications"
-TIMEOUT = 15.0
 
 # The trial plan is granted at sign-up and is never for sale (same rule the
 # Zibal flow applies in the app's CreatePaymentUseCase).
@@ -56,49 +52,23 @@ class StoreError(Exception):
         self.status = status
 
 
-# ── Myket API ────────────────────────────────────────────────────────────────
-
-def _headers():
-    token = getattr(settings, "MYKET_ACCESS_TOKEN", "")
-    if not token:
-        raise StoreError("پرداخت مایکت روی سرور پیکربندی نشده است.", status=503)
-    return {"X-Access-Token": token, "Content-Type": "application/json"}
-
-
-def _product_url(sku):
-    return f"{API_BASE}/{settings.MYKET_PACKAGE_NAME}/purchases/products/{sku}"
-
+# ── Myket API (transport lives in integrations.myket) ─────────────────────────
 
 def myket_verify(sku, token):
     """Myket's verdict on one purchase token, or raise StoreError."""
     try:
-        response = httpx.post(
-            f"{_product_url(sku)}/verify", headers=_headers(),
-            json={"tokenId": token}, timeout=TIMEOUT,
-        )
-    except httpx.HTTPError as exc:
-        logger.error("Myket verify unreachable for %s: %s", sku, exc)
+        return myket_api.verify_purchase(sku, token)
+    except myket_api.MyketNotConfigured:
+        raise StoreError("پرداخت مایکت روی سرور پیکربندی نشده است.", status=503)
+    except myket_api.MyketUnreachable:
         raise StoreError("ارتباط با مایکت برقرار نشد؛ چند لحظه بعد دوباره تلاش کنید.", status=502)
-    if response.status_code != 200:
-        logger.warning("Myket verify %s -> %s %s", sku, response.status_code, response.text[:300])
+    except myket_api.MyketRejected:
         raise StoreError("مایکت این خرید را تأیید نکرد.", status=400)
-    return response.json()
 
 
 def myket_consume(sku, token):
     """Consume a verified purchase so the product can be bought again. True on success."""
-    try:
-        response = httpx.put(f"{_product_url(sku)}/tokens/{token}/consume", headers=_headers(), timeout=TIMEOUT)
-    except (httpx.HTTPError, StoreError) as exc:
-        logger.error("Myket consume failed for %s: %s", sku, exc)
-        return False
-    if response.status_code == 200:
-        return True
-    # Already consumed is the outcome we wanted anyway.
-    if response.status_code == 400 and "SkuAlreadyConsumed" in response.text:
-        return True
-    logger.warning("Myket consume %s -> %s %s", sku, response.status_code, response.text[:300])
-    return False
+    return myket_api.consume_purchase(sku, token)
 
 
 # ── Flow ─────────────────────────────────────────────────────────────────────

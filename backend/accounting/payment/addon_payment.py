@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from accounting.models import AddOnPack, AddOnPurchase
 from accounting import pricing, usage
-from accounting.payment import zibal_client
+from integrations import zibal
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ class AddOnPaymentService:
         order_id = f"ADDON-{user.id}-{pack.id}-{int(timezone.now().timestamp())}"
         # Pack price + VAT + Zibal's fee — the total the confirm dialog showed.
         total = pricing.quote(pack.price, pricing.CHANNEL_ZIBAL)["total"]
-        result = zibal_client.request_payment(
+        result = zibal.request_payment(
             settings.ZIBAL_MERCHANT_ID, total * 10,  # تومان → ریال
             callback_url, order_id,
         )
@@ -108,7 +108,7 @@ class AddOnPaymentService:
         )
         return {
             "success": True,
-            "payment_url": zibal_client.start_url(track_id),
+            "payment_url": zibal.start_url(track_id),
             "track_id": track_id,
         }
 
@@ -139,9 +139,9 @@ class AddOnVerificationService:
             if self.purchase.status == "cancelled":
                 return {"success": False, "message": "این تراکنش لغو شده است", "data": {}}
 
-            result = zibal_client.verify(self.track_id)
+            result = zibal.verify(self.track_id)
 
-            if result.paid and not zibal_client.amount_matches(result.data, self.purchase.amount):
+            if result.paid and not zibal.amount_matches(result.data, self.purchase.amount):
                 logger.error(
                     "Zibal add-on amount mismatch for %s: verified=%r expected=%s toman",
                     self.track_id, (result.data or {}).get("amount"), self.purchase.amount,
@@ -149,11 +149,11 @@ class AddOnVerificationService:
                 return {"success": False, "message": "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید",
                         "data": {}}
 
-            if result.outcome == zibal_client.Outcome.TRANSPORT_ERROR:
+            if result.outcome == zibal.Outcome.TRANSPORT_ERROR:
                 return {"success": False, "message": "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید",
                         "data": result.data}
 
-            if result.outcome == zibal_client.Outcome.FAILED:
+            if result.outcome == zibal.Outcome.FAILED:
                 AddOnPurchase.objects.filter(pk=self.purchase.pk, status="pending").update(
                     status="failed", zibal_response=result.data, updated_at=timezone.now()
                 )

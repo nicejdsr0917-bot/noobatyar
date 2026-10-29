@@ -5,7 +5,7 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from accounting.models import Transaction, Subscription
-from accounting.payment import zibal_client
+from integrations import zibal
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +39,9 @@ class PaymentVerificationService:
 
             # A 'failed' row is re-verified too: older code could mark a paid
             # transaction failed after a timeout.
-            result = zibal_client.verify(self.track_id)
+            result = zibal.verify(self.track_id)
 
-            if result.paid and not zibal_client.amount_matches(result.data, self.transaction.amount):
+            if result.paid and not zibal.amount_matches(result.data, self.transaction.amount):
                 # Paid, but not the sum we asked for: grant nothing and leave the
                 # row pending for a human; never mark it failed.
                 logger.error(
@@ -52,12 +52,12 @@ class PaymentVerificationService:
                     "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503
                 )
 
-            if result.outcome == zibal_client.Outcome.TRANSPORT_ERROR:
+            if result.outcome == zibal.Outcome.TRANSPORT_ERROR:
                 return self._error_response(
                     "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503, result.data
                 )
 
-            if result.outcome == zibal_client.Outcome.FAILED:
+            if result.outcome == zibal.Outcome.FAILED:
                 Transaction.objects.filter(pk=self.transaction.pk, status='pending').update(
                     status='failed', zibal_response=result.data, updated_at=timezone.now()
                 )

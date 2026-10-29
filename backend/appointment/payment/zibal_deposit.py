@@ -23,20 +23,11 @@ success is decided by Zibal's verify response, never by ``success=1`` in the URL
 import logging
 from typing import Any, Dict
 
-import httpx
 from django.utils import timezone
 
-from accounting.payment import zibal_client
+from integrations import zibal
 
 logger = logging.getLogger(__name__)
-
-BASE_URL = "https://gateway.zibal.ir"
-REQUEST_URL = f"{BASE_URL}/v1/request"
-SUCCESS_CODE = 100
-# Zibal returns 201 when a trackId was already verified. That is a success for
-# our purposes: the money moved, we just processed the callback twice.
-ALREADY_VERIFIED_CODE = 201
-TIMEOUT = 10.0
 
 
 def deposit_amount_rial(business) -> int:
@@ -59,42 +50,31 @@ def create_deposit_payment(appointment, callback_url: str) -> Dict[str, Any]:
     if amount <= 0:
         return {"success": False, "error": "مبلغ بیعانه برای این کسب‌وکار تعیین نشده است"}
 
-    payload = {
-        "merchant": merchant,
-        "amount": amount,
-        "callbackUrl": callback_url,
-        "orderId": f"APT-{appointment.id}-{int(timezone.now().timestamp())}",
-        "description": f"بیعانه نوبت {appointment.id} — {business.title}",
-    }
-
-    try:
-        with httpx.Client() as client:
-            response = client.post(
-                REQUEST_URL,
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=TIMEOUT,
-            )
-            response.raise_for_status()
-            data = response.json()
-    except httpx.HTTPError as exc:
-        logger.error("Zibal deposit request failed for appointment %s: %s", appointment.id, exc)
+    result = zibal.request_payment(
+        merchant,
+        amount,
+        callback_url,
+        f"APT-{appointment.id}-{int(timezone.now().timestamp())}",
+        description=f"بیعانه نوبت {appointment.id} — {business.title}",
+    )
+    if result.transport_error:
+        logger.error("Zibal deposit request failed for appointment %s: %s", appointment.id, result.message)
         return {"success": False, "error": "خطا در اتصال به درگاه پرداخت"}
 
-    if data.get("result") != SUCCESS_CODE:
+    if not result.success:
         # A wrong merchant id is the usual cause, and it is the owner's
         # misconfiguration rather than anything the client can fix.
         logger.error(
             "Zibal deposit rejected for appointment %s (business %s): %s",
-            appointment.id, business.id, data,
+            appointment.id, business.id, result.message,
         )
         return {"success": False, "error": "درگاه پرداخت این کسب‌وکار در دسترس نیست"}
 
-    track_id = str(data["trackId"])
+    track_id = str(result.track_id)
     logger.info("Zibal deposit opened for appointment %s, trackId=%s", appointment.id, track_id)
     return {
         "success": True,
-        "payment_url": f"{BASE_URL}/start/{track_id}",
+        "payment_url": zibal.start_url(track_id),
         "track_id": track_id,
     }
 
@@ -110,8 +90,8 @@ def verify_deposit_payment(appointment, track_id: str) -> Dict[str, Any]:
     if not merchant:
         return {"success": False, "error": "درگاه پرداخت این کسب‌وکار پیکربندی نشده است"}
 
-    result = zibal_client.verify(track_id, merchant=merchant)
-    if result.outcome is zibal_client.Outcome.TRANSPORT_ERROR:
+    result = zibal.verify(track_id, merchant=merchant)
+    if result.outcome is zibal.Outcome.TRANSPORT_ERROR:
         logger.error(
             "Zibal deposit verify unavailable for appointment %s, trackId=%s: %s",
             appointment.id, track_id, result.data,
