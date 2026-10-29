@@ -8,8 +8,6 @@ handler bodies run by the ``run_outbox`` worker.
 
 import logging
 
-from accounting import usage
-
 logger = logging.getLogger(__name__)
 
 
@@ -182,54 +180,23 @@ def notify_client_of_decision(appointment, old_status, new_status):
 
 def _send_metered_sms(label, owner_id, business_id, visitor_id, phone, text, step=None):
     """
-    Send one SMS charged to the owner's SMS quota and log it in SmsLog.
+    Send one SMS charged to the owner's SMS quota and log it in SmsLog
+    (see :func:`accounting.sms_billing.send_metered_sms` for the sequence and
+    the outbox ``step`` idempotency).
 
     ``label`` ("client" / "owner") only names the recipient in log lines.
     Never raises: a failure here must not take the other channels down.
-
-    ``step`` makes it idempotent per outbox message: if this step was already
-    recorded (the worker died after the provider accepted the SMS), neither the
-    send nor the quota charge is repeated; it is recorded right after the
-    provider accepted the SMS (or the quota skip was logged).
     """
-    from api.sms import send_sms
-    from core.outbox import service as outbox
-    from visitor.models import SmsLog
+    from accounting import sms_billing
 
     try:
-        if step and outbox.step_done(step):
+        status = sms_billing.send_metered_sms(owner_id, business_id, visitor_id, phone, text, step=step)
+        if status == sms_billing.ALREADY_SENT:
             logger.info(f"SMS→{label} {phone}: already sent for this outbox message, skipped")
-            return
-        receipt = usage.consume_sms(owner_id) if owner_id is not None else None
-        if owner_id is not None and not receipt:
+        elif status == sms_billing.SKIPPED_QUOTA:
             logger.warning(f"SMS→{label} skipped for business {business_id}: SMS quota exhausted")
-            SmsLog.objects.create(
-                business_id=business_id,
-                visitor_id=visitor_id,
-                message_text=text,
-                status='SKIPPED_QUOTA',
-                error_detail="اعتبار پیامک این ماه تمام شده است",
-            )
-            if step:
-                outbox.mark_step(step)
         else:
-            ok, err = send_sms(phone, text)
-            if not ok:
-                # The provider never accepted it, so the owner must not pay
-                # for it — put the credit back where it came from.
-                usage.refund_sms(receipt)
-            elif step:
-                # Committed immediately: a crash after this point must not
-                # make the retry send and charge a second time.
-                outbox.mark_step(step)
-            SmsLog.objects.create(
-                business_id=business_id,
-                visitor_id=visitor_id,
-                message_text=text,
-                status='SENT' if ok else 'FAILED',
-                error_detail=err if not ok else ""
-            )
-            logger.info(f"SMS→{label} {phone}: {'✓' if ok else '✗'}")
+            logger.info(f"SMS→{label} {phone}: {'✓' if status == sms_billing.SENT else '✗'}")
     except Exception as e:
         logger.error(f"SMS→{label} error: {e}")
 

@@ -126,7 +126,7 @@ class PromoSmsTests(TestCase):
     def test_send_bills_logs_and_refunds_rejections(self):
         campaign = self.create()
         results = {'09350000001': (True, ''), '09350000002': (False, 'rejected')}
-        with patch('business.promo_sms.send_sms', side_effect=lambda phone, text: results[phone]) as send, \
+        with patch('api.sms.send_sms', side_effect=lambda phone, text: results[phone]) as send, \
                 patch('accounting.usage.consume_sms', return_value={'owner': self.owner.id}) as consume, \
                 patch('accounting.usage.refund_sms') as refund:
             promo_sms.process_campaign(campaign.id)
@@ -140,7 +140,7 @@ class PromoSmsTests(TestCase):
 
     def test_out_of_credit_mid_send_is_skipped_not_sent(self):
         campaign = self.create()
-        with patch('business.promo_sms.send_sms', return_value=(True, '')) as send, \
+        with patch('api.sms.send_sms', return_value=(True, '')) as send, \
                 patch('accounting.usage.consume_sms', return_value=None):
             promo_sms.process_campaign(campaign.id)
         self.assertEqual(send.call_count, 0)
@@ -155,7 +155,7 @@ class PromoSmsTests(TestCase):
         PromoCampaign.objects.filter(id=campaign.id).update(
             heartbeat_at=timezone.now() - timedelta(hours=1)
         )
-        with patch('business.promo_sms.send_sms', return_value=(True, '')) as send, \
+        with patch('api.sms.send_sms', return_value=(True, '')) as send, \
                 patch('accounting.usage.consume_sms', return_value={'owner': self.owner.id}):
             self.assertEqual(promo_sms.resume_stalled(), 1)
         self.assertEqual(send.call_count, 1)
@@ -166,7 +166,7 @@ class PromoSmsTests(TestCase):
     def test_live_campaign_is_not_resumed(self):
         campaign = self.create()
         PromoCampaign.objects.filter(id=campaign.id).update(heartbeat_at=timezone.now())
-        with patch('business.promo_sms.send_sms') as send:
+        with patch('api.sms.send_sms') as send:
             self.assertEqual(promo_sms.resume_stalled(), 0)
         send.assert_not_called()
 
