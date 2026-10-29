@@ -295,6 +295,38 @@ class CreditLedger(models.Model):
         return f"{self.user_id} {self.metric} {self.delta:+d} ({self.reason})"
 
 
+class CreditBalance(models.Model):
+    """
+    Authoritative, transactional balance for one credit bucket of one user.
+
+    This is the source of truth that ``accounting/usage.py`` gates on (Redis is
+    only a mirror for legacy readers). Every mutation is a single conditional
+    ``UPDATE ... SET balance = balance +/- n WHERE <guard>`` so concurrent
+    spenders can never overdraw a wallet or overshoot a monthly quota.
+
+    ``metric`` reuses the CreditLedger metric names. ``period`` is ``''`` for the
+    two wallets and ``'YYYY-MM'`` (``usage._period()``) for the monthly buckets.
+    Wallet rows hold credit remaining; monthly rows hold the CONSUMED counter
+    (same convention as CreditLedger.balance_after).
+    """
+
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='credit_balances', verbose_name='کاربر')
+    metric = models.CharField(max_length=20, choices=CreditLedger.METRIC_CHOICES, verbose_name='نوع اعتبار')
+    period = models.CharField(max_length=7, blank=True, default='', verbose_name='دوره')
+    balance = models.BigIntegerField(default=0, verbose_name='مانده')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
+
+    class Meta:
+        verbose_name = 'موجودی اعتبار'
+        verbose_name_plural = 'موجودی‌های اعتبار'
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'metric', 'period'], name='uniq_credit_balance_bucket'),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} {self.metric} {self.period or '-'} = {self.balance}"
+
+
 class SubscriptionReminderSettings(models.Model):
     """Row ``pk=1`` and only ``pk=1`` — same singleton pattern as
     ``bale.models.BaleSettings``: an operator-tunable knob wired up from the

@@ -26,7 +26,7 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 
 from accounting import entitlements, usage
-from accounting.models import CreditLedger, Plan, Subscription
+from accounting.models import CreditBalance, CreditLedger, Plan, Subscription
 
 User = get_user_model()
 
@@ -417,13 +417,13 @@ class RebuildWalletsCommandTests(LedgerTestCase):
         user = make_user('09120000040')
         usage.add_wallet(user.id, 25)
 
-        # Corrupt Redis directly, simulating data loss.
-        cache.set(usage._wallet_key(user.id), 0, timeout=None)
+        # Corrupt the balance directly, simulating a bad manual edit.
+        CreditBalance.objects.filter(user_id=user.id, metric='sms_wallet').update(balance=0)
         self.assertEqual(usage.get_wallet(user.id), 0)
 
         output = self._run('--user-id', str(user.id), '--dry-run')
 
-        self.assertIn('redis=0 -> rebuilt=25', output)
+        self.assertIn('db=0 -> rebuilt=25', output)
         self.assertIn('dry-run', output)
         # Still corrupted — dry-run must not write.
         self.assertEqual(usage.get_wallet(user.id), 0)
@@ -431,7 +431,7 @@ class RebuildWalletsCommandTests(LedgerTestCase):
     def test_live_run_restores_correct_balance(self):
         user = make_user('09120000041')
         usage.add_wallet(user.id, 25)
-        cache.set(usage._wallet_key(user.id), 0, timeout=None)
+        CreditBalance.objects.filter(user_id=user.id, metric='sms_wallet').update(balance=0)
 
         self._run('--user-id', str(user.id))
 
@@ -477,7 +477,7 @@ class RebuildWalletsCommandTests(LedgerTestCase):
             for i in range(300)
         ]
         CreditLedger.objects.bulk_create(rows)
-        cache.set(usage._wallet_key(user.id), 0, timeout=None)
+        CreditBalance.objects.create(user_id=user.id, metric='sms_wallet', balance=0)
 
         with CaptureQueriesContext(connection) as ctx:
             call_command('rebuild_wallets_from_ledger', '--user-id', str(user.id), stdout=StringIO())
