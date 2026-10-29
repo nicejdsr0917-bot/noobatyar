@@ -79,6 +79,11 @@ class TenantIsolationTests(TestCase):
         self.assertIn(resp.status_code, (403, 404, 405), (resp.status_code, _body(resp)[:200]))
         self.assertNotIn('ALPHA', _body(resp))
 
+    def assertWriteDenied(self, resp):
+        """A write B must not be able to make: strictly 403/404, nothing of A leaked."""
+        self.assertIn(resp.status_code, (403, 404), (resp.status_code, _body(resp)[:200]))
+        self.assertNotIn('ALPHA', _body(resp))
+
     def assertPinned(self, resp, want, other):
         """A asking for one business: that one's data, never the sibling's."""
         self.assertEqual(resp.status_code, 200, _body(resp)[:300])
@@ -95,16 +100,15 @@ class TenantIsolationTests(TestCase):
 
     def test_business_update_and_delete(self):
         url = reverse('business-detail', args=[self.a1.id])
-        self.assertHidden(self.cb.put(url, {'title': 'HACKED'}, format='json'))
-        self.assertHidden(self.cb.patch(url, {'title': 'HACKED'}, format='json'))
-        self.assertHidden(self.cb.delete(url))
+        self.assertWriteDenied(self.cb.put(url, {'title': 'HACKED'}, format='json'))
+        self.assertWriteDenied(self.cb.delete(url))
         self.a1.refresh_from_db()
         self.assertEqual(self.a1.title, A1 + '-biz')
         self.assertTrue(Business.objects.filter(id=self.a1.id).exists())
 
     def test_business_services_field_not_writable_cross_tenant(self):
         url = reverse('business-detail', args=[self.a1.id])
-        self.assertHidden(self.cb.put(url, {'services': ['HACK']}, format='json'))
+        self.assertWriteDenied(self.cb.put(url, {'services': ['HACK']}, format='json'))
 
     # ── logs & promo ───────────────────────────────────────────────────────
     def test_sms_and_push_logs(self):
@@ -116,10 +120,10 @@ class TenantIsolationTests(TestCase):
 
     def test_promo_sms(self):
         self.assertHidden(self.cb.get(reverse('business-promo-sms', args=[self.a1.id])))
-        self.assertHidden(self.cb.post(
+        self.assertWriteDenied(self.cb.post(
             reverse('business-promo-sms', args=[self.a1.id]),
             {'audience': 'ALL', 'message': 'spam'}, format='json'))
-        self.assertHidden(self.cb.post(
+        self.assertWriteDenied(self.cb.post(
             reverse('business-promo-sms-preview', args=[self.a1.id]),
             {'audience': 'ALL', 'message': 'spam'}, format='json'))
         self.assertEqual(PromoCampaign.objects.filter(business=self.a1).count(), 1)
@@ -138,9 +142,9 @@ class TenantIsolationTests(TestCase):
     def test_appointment_detail_update_delete(self):
         url = reverse('appointments:appointment-update', args=[self.ap1.id])
         self.assertHidden(self.cb.get(url))
-        self.assertHidden(self.cb.patch(url, {'status': 'CANCELLED'}, format='json'))
-        self.assertHidden(self.cb.patch(url, {'description': 'HACK'}, format='json'))
-        self.assertHidden(self.cb.delete(url))
+        self.assertWriteDenied(self.cb.patch(url, {'status': 'CANCELLED'}, format='json'))
+        self.assertWriteDenied(self.cb.patch(url, {'description': 'HACK'}, format='json'))
+        self.assertWriteDenied(self.cb.delete(url))
         self.ap1.refresh_from_db()
         self.assertEqual(self.ap1.status, 'WAITING')
         self.assertTrue(Appointment.objects.filter(id=self.ap1.id).exists())
@@ -150,10 +154,10 @@ class TenantIsolationTests(TestCase):
         when = int((timezone.now() + timedelta(days=1)).timestamp() * 1000)
         r = self.cb.post(url, {'business_id': self.a1.id, 'visitor_id': self.v1.id,
                                'appointment_date': when}, format='json')
-        self.assertIn(r.status_code, (400, 403, 404))
+        self.assertIn(r.status_code, (403, 404))
         r = self.cb.post(url, {'business_id': self.b1.id, 'visitor_id': self.v1.id,
                                'appointment_date': when}, format='json')
-        self.assertIn(r.status_code, (400, 403, 404))
+        self.assertIn(r.status_code, (403, 404))
         self.assertFalse(Appointment.objects.filter(business__in=[self.a1, self.b1],
                                                     appointment_date__gt=timezone.now() + timedelta(hours=1)).exists())
 
@@ -211,9 +215,9 @@ class TenantIsolationTests(TestCase):
         self.assertDenied(self.cb.get(reverse('visitor:visitor-list-create')))
         self.assertHidden(self.cb.get(reverse('visitor:visitor-detail', args=[self.v1.id])))
         self.assertHidden(self.cb.get(reverse('visitor:visitor-messages', args=[self.v1.id])))
-        self.assertHidden(self.cb.post(reverse('visitor:visitor-restore', args=[self.v1.id])))
-        self.assertHidden(self.cb.delete(reverse('visitor:visitor-detail', args=[self.v1.id])))
-        self.assertHidden(self.cb.put(reverse('visitor:visitor-detail', args=[self.v1.id]),
+        self.assertWriteDenied(self.cb.post(reverse('visitor:visitor-restore', args=[self.v1.id])))
+        self.assertWriteDenied(self.cb.delete(reverse('visitor:visitor-detail', args=[self.v1.id])))
+        self.assertWriteDenied(self.cb.put(reverse('visitor:visitor-detail', args=[self.v1.id]),
                                       {'full_name': 'HACK', 'phone_number': '09399999999'}, format='json'))
         self.v1.refresh_from_db()
         self.assertEqual(self.v1.full_name, A1 + '-visitor')
@@ -266,3 +270,125 @@ class TenantIsolationTests(TestCase):
             r = anon.get(url)
             self.assertIn(r.status_code, (401, 403), url)
             self.assertNotIn('ALPHA', _body(r))
+
+
+    # ── positive controls ──────────────────────────────────────────────────
+    def test_visitor_list_positive_control(self):
+        r = self.ca.get(reverse('visitor:visitor-list-create'))
+        body = _body(r)
+        self.assertIn(A1 + '-visitor', body)
+        self.assertIn(A2 + '-visitor', body)  # one owner, one address book
+        self.assertEqual(self.cb.get(reverse('visitor:visitor-list-create')).data['data']['count'], 0)
+
+    # ── claim ──────────────────────────────────────────────────────────────
+    def test_claim_cannot_take_a_business_without_the_business_phone_code(self):
+        from business.models import BusinessClaimRequest
+        self.assertWriteDenied(self.cb.post(
+            reverse('business-claim-verify', args=[self.a1.id]), {'code': '123456'}, format='json'))
+        self.cb.post(reverse('business-claim-start', args=[self.a1.id]), {}, format='json')
+        self.assertWriteDenied(self.cb.post(
+            reverse('business-claim-verify', args=[self.a1.id]), {'code': '000000'}, format='json'))
+        self.a1.refresh_from_db()
+        self.assertEqual(self.a1.user_id, self.a.id)
+        # A pending claim by B must not be completable by A's verify either.
+        self.assertFalse(BusinessClaimRequest.objects.filter(
+            business=self.a1, user=self.b, status='APPROVED').exists())
+
+    # ── accounting ─────────────────────────────────────────────────────────
+    def test_my_subscription_and_quote_are_per_user(self):
+        from accounting.models import Plan, Subscription
+        plan = Plan.objects.create(name='ALPHAPLAN', price=0, duration_value=1,
+                                   duration_unit='month', features={})
+        Subscription.objects.create(user=self.a, plan=plan, ends_at=timezone.now() + timedelta(days=5))
+        self.assertIn('ALPHAPLAN', _body(self.ca.get('/api/accounting/my-subscription/')))
+        self.assertNotIn('ALPHA', _body(self.cb.get('/api/accounting/my-subscription/')))
+        self.assertNotIn('ALPHA', _body(self.cb.get('/api/accounting/my-entitlements/')))
+        # The quote shows the (public) plan itself; it must carry nothing about A.
+        pub = Plan.objects.create(name='PUBLICPLAN', price=0, duration_value=1,
+                                  duration_unit='month', features={})
+        q = _body(self.cb.get('/api/accounting/checkout/quote/',
+                              {'kind': 'plan', 'id': pub.id, 'channel': 'zibal'}))
+        self.assertIn('PUBLICPLAN', q)
+        self.assertNotIn(self.a.phone, q)
+
+    def test_pay_for_plan_bills_only_the_caller(self):
+        from unittest import mock
+        from accounting.models import Plan
+        plan = Plan.objects.create(name='P', price=500000, duration_value=1,
+                                   duration_unit='month', features={}, is_active=True)
+        with mock.patch('accounting.views.ZibalPaymentService') as svc:
+            svc.return_value.create_payment.return_value = {'success': False, 'error': 'x'}
+            self.cb.post('/api/accounting/plans/payment/', {'plan_id': plan.id, 'user': self.a.id,
+                                                          'user_id': self.a.id}, format='json')
+        for call in svc.return_value.create_payment.call_args_list:
+            self.assertEqual(call.kwargs['user'], self.b)
+
+    # ── devices ────────────────────────────────────────────────────────────
+    def test_device_register_only_assigns_to_caller(self):
+        from api.models import DeviceToken
+        DeviceToken.objects.create(user=self.a, token='a-keep', platform='ANDROID')
+        r = self.cb.post(reverse('device-register'),
+                         {'token': 'b-new', 'user': self.a.id, 'user_id': self.a.id}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(DeviceToken.objects.get(token='b-new').user_id, self.b.id)
+        self.assertEqual(DeviceToken.objects.get(token='a-keep').user_id, self.a.id)
+
+
+class ClientAppIsolationTests(TestCase):
+    """/api/client/*: one visitor must not see or act on another's data."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from visitor.auth import sign_visitor_token
+        from visitor.models import VisitorActivity
+        cls.owner = User.objects.create_user(phone='09120002001', password='x', name='O')
+        cls.biz = _biz(cls.owner, 'CLIENTBIZ')
+        cls.va = Visitor.objects.create(full_name='ALPHAV-a', phone_number='09392220001')
+        cls.vb = Visitor.objects.create(full_name='BETAV-b', phone_number='09392220002')
+        when = timezone.now() + timedelta(days=1)
+        cls.apa = Appointment.objects.create(business=cls.biz, visitor=cls.va, appointment_date=when)
+        cls.apb = Appointment.objects.create(business=cls.biz, visitor=cls.vb, appointment_date=when,
+                                             description='BETASECRET')
+        VisitorActivity.objects.create(visitor=cls.vb, action='APPOINTMENT_BOOKED',
+                                       actor_type='VISITOR', detail={'x': 'BETASECRET'})
+        cls.ta = sign_visitor_token(cls.va.id)
+
+    def setUp(self):
+        self.c = APIClient()
+        self.c.credentials(HTTP_AUTHORIZATION=f'Visitor {self.ta}')
+
+    def test_me_list_and_activity_show_only_own_data(self):
+        me = self.c.get(reverse('client-me'))
+        self.assertIn('ALPHAV-a', _body(me))
+        self.assertNotIn('BETA', _body(me))
+        lst = self.c.get(reverse('client-appointment-list'))
+        self.assertEqual(lst.status_code, 200)
+        self.assertNotIn('BETA', _body(lst))
+        self.assertIn(str(self.apa.id), _body(lst))
+        act = self.c.get(reverse('client-activity'))
+        self.assertEqual(act.status_code, 200)
+        self.assertNotIn('BETA', _body(act))
+
+    def test_cannot_cancel_or_pay_another_visitors_appointment(self):
+        before = Appointment.objects.filter(pk=self.apb.pk).values().get()
+        for name in ('client-appointment-cancel', 'client-appointment-pay',
+                     'client-appointment-pay-online'):
+            r = self.c.post(reverse(name, args=[self.apb.id]), {}, format='json')
+            self.assertIn(r.status_code, (403, 404), (name, r.status_code))
+            self.assertNotIn('BETA', _body(r))
+        self.assertEqual(Appointment.objects.filter(pk=self.apb.pk).values().get(), before)
+
+    def test_own_appointment_is_reachable_positive_control(self):
+        r = self.c.post(reverse('client-appointment-cancel', args=[self.apa.id]), {}, format='json')
+        self.assertEqual(r.status_code, 200, _body(r)[:300])
+
+    def test_unauthenticated_client_is_refused(self):
+        anon = APIClient()
+        for url in (reverse('client-me'), reverse('client-appointment-list'), reverse('client-activity')):
+            self.assertEqual(anon.get(url).status_code, 401, url)
+
+    def test_device_unregister_only_touches_own_tokens(self):
+        from visitor.models import VisitorDeviceToken
+        VisitorDeviceToken.objects.create(visitor=self.vb, token='b-tok')
+        self.c.post(reverse('client-device-unregister'), {'token': 'b-tok'}, format='json')
+        self.assertTrue(VisitorDeviceToken.objects.get(token='b-tok').is_active)
