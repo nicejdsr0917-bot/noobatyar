@@ -122,3 +122,32 @@ class AppointmentStatsDateRangeTests(TestCase):
             'date_to': 'not-a-timestamp',
         })
         self.assertEqual(response.status_code, 400)
+
+
+class AppointmentStatsTodayLocalDateTests(TestCase):
+    """'Today' is the Tehran calendar day, not the UTC one."""
+    STATS_URL = '/api/appointment/stats/'
+
+    def test_today_at_0100_tehran_uses_the_local_date(self):
+        from unittest.mock import patch
+
+        owner = User.objects.create_user(phone='09120000011', password='x', name='مالک')
+        visitor = Visitor.objects.create(full_name='م', phone_number='09350000011')
+        business = Business.objects.create(
+            user=owner, title='ب', phone='02100000000', address='تهران',
+            default_service_duration=30, work_start_hour=9, work_end_hour=17,
+        )
+        # 01:00 Tehran on 2030-06-15 == 21:30 UTC on 2030-06-14.
+        fake_now = datetime(2030, 6, 14, 21, 30, tzinfo=dt_timezone.utc)
+        in_local_today = datetime(2030, 6, 15, 9, 0, tzinfo=dt_timezone.utc)   # 12:30 Tehran Jun 15
+        in_utc_today_only = datetime(2030, 6, 14, 10, 0, tzinfo=dt_timezone.utc)  # 13:30 Tehran Jun 14
+        for when in (in_local_today, in_utc_today_only):
+            Appointment.objects.create(
+                business=business, visitor=visitor, appointment_date=when, status='WAITING',
+            )
+        client = APIClient()
+        client.force_authenticate(user=owner)
+        with patch('django.utils.timezone.now', return_value=fake_now):
+            response = client.get(self.STATS_URL, {'business_id': business.id})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['data']['total_appointments'], 1)

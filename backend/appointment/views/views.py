@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any, Tuple
 from adrf.views import APIView
 from asgiref.sync import sync_to_async
 from django.db import transaction
+from django.utils import timezone as dj_timezone
 from django.db.models import Q, Prefetch
 from django.core.exceptions import ValidationError
 from rest_framework import status
@@ -148,33 +149,10 @@ class AppointmentView(APIView):
                     code=status.HTTP_409_CONFLICT,
                 )
 
-            # Check hourly capacity
-            capacity_error = await self._check_hourly_capacity(business, appointment_datetime)
-            if capacity_error:
-                return APIResponse.error('ظرفیت این ساعت تکمیل شده است', code=status.HTTP_409_CONFLICT)
-
-            # Check for conflicts
-            # has_conflict, conflict_details = await self._check_appointment_conflicts(
-            #     business=business,
-            #     appointment_date=appointment_datetime,
-            #     service_duration=service_duration,
-            #     exclude_appointment_id=None,
-            #     request_id=request_id
-            # )
-            #
-            # if has_conflict:
-            #     logger.info(
-            #         f"[{request_id}] Appointment conflict detected",
-            #         extra={'conflict_details': conflict_details}
-            #     )
-            #     return Response(
-            #         {
-            #             'error': 'زمان انتخابی با نوبت دیگری تداخل دارد',
-            #             'conflicts': conflict_details
-            #         },
-            #         status=status.HTTP_409_CONFLICT
-            #     )
-
+            # Hourly capacity is re-checked under the business lock inside
+            # _create_appointment_atomic. The owner may deliberately overlap
+            # appointments (walk-ins, parallel chairs), so there is no
+            # time-overlap check here — only the capacity cap, when configured.
             # Create appointment within transaction
             appointment = await self._create_appointment_atomic(
                 business=business,
@@ -186,6 +164,8 @@ class AppointmentView(APIView):
                 request_id=request_id,
                 user = user
             )
+            if appointment is None:
+                return APIResponse.error('ظرفیت این ساعت تکمیل شده است', code=status.HTTP_409_CONFLICT)
 
             # Count against the owner's monthly appointment quota, remembering
             # which bucket paid so a cancellation can refund that same one.
@@ -370,76 +350,28 @@ class AppointmentView(APIView):
 
         return business, visitor, None
 
-    @sync_to_async
-    def _check_appointment_conflicts(
-            self,
-            business: Business,
-            appointment_date: datetime,
-            service_duration: int,
-            exclude_appointment_id: Optional[int],
-            request_id: str
-    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    @staticmethod
+    def _hourly_capacity_exceeded(business: Business, appointment_date: datetime) -> bool:
         """
-        Check for overlapping appointments using efficient query.
-        Returns (has_conflict, conflict_details)
-        """
-        appointment_end = appointment_date + timedelta(minutes=service_duration)
-
-        # Build conflict query
-        conflict_query = Q(
-            business=business,
-            appointment_date__lt=appointment_end,
-            appointment_date__gte=appointment_date - timedelta(minutes=120)  # Look back 2 hours
-        ) & ~Q(status__in=['CANCELLED', 'NO_SHOW'])
-
-        if exclude_appointment_id:
-            conflict_query &= ~Q(id=exclude_appointment_id)
-
-        # Check for overlapping appointments
-        conflicting = Appointment.objects.filter(conflict_query).select_related(
-            'visitor'
-        ).only('id', 'appointment_date', 'service_duration', 'visitor__name')
-
-        conflicts = []
-        for appt in conflicting:
-            appt_end = appt.appointment_date + timedelta(minutes=appt.service_duration)
-
-            # Check actual overlap
-            if not (appointment_end <= appt.appointment_date or appointment_date >= appt_end):
-                conflicts.append({
-                    'appointment_id': appt.id,
-                    'visitor_name': appt.visitor.full_name,
-                    'start_time': appt.appointment_date.isoformat(),
-                    'end_time': appt_end.isoformat(),
-                })
-
-        if conflicts:
-            logger.info(
-                f"[{request_id}] Found {len(conflicts)} conflicting appointments",
-                extra={'conflicts': conflicts}
-            )
-            return True, {'conflicting_appointments': conflicts}
-
-        return False, None
-
-    @sync_to_async
-    def _check_hourly_capacity(self, business: Business, appointment_date: datetime) -> bool:
-        """
-        Check if the business has reached its maximum appointments per hour.
-        Returns True if capacity is exceeded, False otherwise.
+        True when the business already has max_appointments_per_hour bookings
+        in the local-time hour containing ``appointment_date``. Sync: call it
+        from inside a sync_to_async/atomic block.
         """
         if business.max_appointments_per_hour is None:
             return False
-            
-        hour_start = appointment_date.replace(minute=0, second=0, microsecond=0)
+
+        # Local (Asia/Tehran, +03:30) hour boundaries, not UTC ones.
+        hour_start = dj_timezone.localtime(appointment_date).replace(
+            minute=0, second=0, microsecond=0
+        )
         hour_end = hour_start + timedelta(hours=1)
-        
+
         count = Appointment.objects.filter(
             business=business,
             appointment_date__gte=hour_start,
             appointment_date__lt=hour_end
         ).exclude(status__in=['CANCELLED', 'NO_SHOW']).count()
-        
+
         return count >= business.max_appointments_per_hour
 
     @sync_to_async
@@ -453,7 +385,16 @@ class AppointmentView(APIView):
             description: str,
             request_id: str
     , user=None, selected_services: str = '') -> Appointment:
-        """Create appointment within atomic transaction"""
+        """
+        Create appointment within atomic transaction.
+
+        Returns None when the hourly capacity is full. Locks the Business row
+        first (same lock the client booking path takes) so owner and client
+        bookings are serialised and the capacity count cannot be overtaken.
+        """
+        Business.objects.select_for_update().only('id').get(id=business.id)
+        if self._hourly_capacity_exceeded(business, appointment_date):
+            return None
         appointment = Appointment(
             business=business,
             visitor=visitor,
@@ -601,32 +542,9 @@ class AppointmentView(APIView):
                 )
                 return APIResponse.error('فرمت تاریخ نامعتبر است', code=status.HTTP_400_BAD_REQUEST)
 
-        # Determine final values for conflict check
-        check_date = new_date if new_date else appointment.appointment_date
-        check_duration = new_duration if new_duration else appointment.service_duration
-
-        # Check conflicts if date or duration changed
-        # if new_date or new_duration:
-        #     has_conflict, conflict_details = self._check_appointment_conflicts_sync(
-        #         business=appointment.business,
-        #         appointment_date=check_date,
-        #         service_duration=check_duration,
-        #         exclude_appointment_id=appointment.id,
-        #         request_id=request_id
-        #     )
-        #
-        #     if has_conflict:
-        #         logger.info(
-        #             f"[{request_id}] Update blocked due to conflict",
-        #             extra={'conflict_details': conflict_details}
-        #         )
-        #         return Response(
-        #             {
-        #                 'error': 'زمان جدید با نوبت دیگری تداخل دارد',
-        #                 'conflicts': conflict_details
-        #             },
-        #             status=status.HTTP_409_CONFLICT
-        #         )
+        # Serialise with client bookings (they lock this same row). Owners may
+        # intentionally overlap appointments, so no overlap check is made.
+        Business.objects.select_for_update().only('id').get(id=appointment.business_id)
 
         # Remember the original date so we can invalidate its cached slots too
         # if the appointment is being rescheduled to a different day.
@@ -681,45 +599,6 @@ class AppointmentView(APIView):
         )
 
         return APIResponse.success(data=serializer.data, message='جزئیات نوبت با موفقیت بروزرسانی شد')
-
-    def _check_appointment_conflicts_sync(
-            self,
-            business: Business,
-            appointment_date: datetime,
-            service_duration: int,
-            exclude_appointment_id: Optional[int],
-            request_id: str
-    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
-        """Synchronous version of conflict check for use within @sync_to_async methods"""
-        appointment_end = appointment_date + timedelta(minutes=service_duration)
-
-        conflict_query = Q(
-            business=business,
-            appointment_date__lt=appointment_end,
-            appointment_date__gte=appointment_date - timedelta(minutes=120)
-        ) & ~Q(status__in=['CANCELLED', 'NO_SHOW'])
-
-        if exclude_appointment_id:
-            conflict_query &= ~Q(id=exclude_appointment_id)
-
-        conflicting = Appointment.objects.filter(conflict_query).select_related(
-            'visitor'
-        ).only('id', 'appointment_date', 'service_duration', 'visitor__name')
-
-        conflicts = []
-        for appt in conflicting:
-            appt_end = appt.appointment_date + timedelta(minutes=appt.service_duration)
-            if not (appointment_end <= appt.appointment_date or appointment_date >= appt_end):
-                conflicts.append({
-                    'appointment_id': appt.id,
-                    'visitor_name': appt.visitor.full_name,
-                    'start_time': appt.appointment_date.isoformat(),
-                    'end_time': appt_end.isoformat(),
-                })
-
-        if conflicts:
-            return True, {'conflicting_appointments': conflicts}
-        return False, None
 
     @sync_to_async
     @transaction.atomic

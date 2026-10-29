@@ -15,6 +15,7 @@ response shapes never collide:
 from datetime import date as _date, datetime
 
 from django.core.cache import cache
+from django.utils import timezone
 
 # Short TTL: slot availability changes often, but even 30s of caching absorbs
 # the vast majority of read traffic during a booking rush.
@@ -27,6 +28,10 @@ _PUBLIC_PREFIX = "pub_slots"
 def _normalize_date(value) -> str:
     """Accept a date, datetime, or 'YYYY-MM-DD' string and return 'YYYY-MM-DD'."""
     if isinstance(value, datetime):
+        # Slot endpoints key on the *local* calendar date, so an aware
+        # datetime (stored in UTC) must be converted before taking .date().
+        if timezone.is_aware(value):
+            value = timezone.localtime(value)
         return value.date().isoformat()
     if isinstance(value, _date):
         return value.isoformat()

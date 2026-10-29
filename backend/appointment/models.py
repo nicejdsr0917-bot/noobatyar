@@ -194,6 +194,7 @@ class Appointment(models.Model):
             # infer a name for an existing index, so an implicit name here
             # constantly looks like a pending rename to makemigrations.
             models.Index(fields=['business', 'status', 'appointment_date'], name='appt_biz_status_date_idx'),
+            models.Index(fields=['payment_reference'], name='appt_payment_ref_idx'),
         ]
 
     # In appointment/models.py - Appointment.clean()

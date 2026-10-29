@@ -90,9 +90,15 @@ class AppointmentStatsView(APIView):
         else:
             # No range given — today's window, exactly as this endpoint has
             # always behaved.
-            now = timezone.now()
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            today_end = today_start + timedelta(days=1)
+            # "Today" is the local (Asia/Tehran) calendar day, not the UTC
+            # one — between 00:00 and 03:30 local they are different days.
+            local_today = timezone.localtime(timezone.now()).date()
+            today_start = timezone.make_aware(
+                datetime.combine(local_today, datetime.min.time())
+            )
+            today_end = timezone.make_aware(
+                datetime.combine(local_today + timedelta(days=1), datetime.min.time())
+            )
             date_filter['appointment_date__gte'] = today_start
             date_filter['appointment_date__lt'] = today_end
 

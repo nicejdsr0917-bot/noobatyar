@@ -48,11 +48,16 @@ class DailyCountsWindowTests(TestCase):
         self.client.force_authenticate(user=self.owner)
 
     def _appointment(self, days_from_today):
-        when = timezone.now() + timedelta(days=days_from_today)
+        # Noon on a *local* calendar day, so the fixture's date is the same
+        # one the endpoint buckets it under.
+        local_day = timezone.localdate() + timedelta(days=days_from_today)
+        when = timezone.make_aware(
+            timezone.datetime(local_day.year, local_day.month, local_day.day, 12, 0)
+        )
         return Appointment.objects.create(
             business=self.business,
             visitor=self.visitor,
-            appointment_date=when.replace(hour=12, minute=0),
+            appointment_date=when,
         )
 
     def _counts(self, **params):

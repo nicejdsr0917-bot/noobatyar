@@ -112,6 +112,29 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(summary))
 
     @staticmethod
+    def _claim(appointment, field, now):
+        """
+        Atomically claim one reminder channel for this appointment.
+
+        A conditional UPDATE (stamp only while still NULL) decides which of
+        two overlapping cron runs owns the send; the loser sees 0 rows and
+        sends nothing. Stamped *before* sending on purpose — a provider that
+        accepted the message but errored must not be retried every run.
+        """
+        claimed = Appointment.objects.filter(
+            pk=appointment.pk, **{f'{field}__isnull': True}
+        ).update(**{field: now})
+        if claimed:
+            setattr(appointment, field, now)
+        return bool(claimed)
+
+    @staticmethod
+    def _release(appointment, field, now):
+        """Give a claim back when nothing was actually sent (e.g. no SMS credit)."""
+        Appointment.objects.filter(pk=appointment.pk, **{field: now}).update(**{field: None})
+        setattr(appointment, field, None)
+
+    @staticmethod
     def _sms_due(appointment):
         """Whether this appointment still owes the *client* an SMS.
 
@@ -210,6 +233,9 @@ class Command(BaseCommand):
         from accounting.entitlements import FEATURE_PUSH_NOTIFICATIONS, has_feature
         from api.services import push
 
+        if not self._claim(appointment, 'reminder_push_sent_at', now):
+            return 0
+
         business = appointment.business
         delivered = 0
         if push.is_configured() and has_feature(business.user_id, FEATURE_PUSH_NOTIFICATIONS):
@@ -236,8 +262,6 @@ class Command(BaseCommand):
                 # actually carries the message. Never let it break the run.
                 self.stderr.write(f"#{appointment.id}: ارسال اعلان ناموفق: {exc}")
 
-        appointment.reminder_push_sent_at = now
-        appointment.save(update_fields=['reminder_push_sent_at', 'updated_at'])
         return 1 if delivered else 0
 
     def _push_visitor(self, appointment, now):
@@ -250,6 +274,9 @@ class Command(BaseCommand):
         """
         from api.services import push
         from visitor.models import PushLog
+
+        if not self._claim(appointment, 'reminder_visitor_push_sent_at', now):
+            return 0
 
         business = appointment.business
         visitor = appointment.visitor
@@ -292,8 +319,6 @@ class Command(BaseCommand):
                     error_detail=str(exc),
                 )
 
-        appointment.reminder_visitor_push_sent_at = now
-        appointment.save(update_fields=['reminder_visitor_push_sent_at', 'updated_at'])
         return 1 if delivered else 0
 
     def _send_one(self, appointment, now):
@@ -314,8 +339,16 @@ class Command(BaseCommand):
             minutes_before=business.notification_minutes_before,
         ))
 
+        # Claim before spending credit or sending: overlapping runs must not
+        # both pass the (stale) reminder_sent_at-is-None check in _sms_due.
+        if not self._claim(appointment, 'reminder_sent_at', now):
+            return 'skipped'
+
         receipt = usage.consume_sms(owner_id)
         if not receipt:
+            # Nothing was sent: free the claim so a later run (after a top-up)
+            # can still remind, as before.
+            self._release(appointment, 'reminder_sent_at', now)
             self.stderr.write(
                 f"#{appointment.id}: اعتبار پیامک کسب‌وکار {appointment.business_id} تمام شده است"
             )
@@ -341,9 +374,8 @@ class Command(BaseCommand):
             error_detail=err if not ok else ""
         )
 
-        # Stamp even on failure: the provider may still have delivered it, and
-        # retrying every few minutes would be worse than missing one reminder.
-        appointment.reminder_sent_at = now
-        appointment.save(update_fields=['reminder_sent_at', 'updated_at'])
+        # The claim above stays even on failure: the provider may still have
+        # delivered it, and retrying every few minutes would be worse than
+        # missing one reminder.
 
         return 'sent' if ok else 'failed'

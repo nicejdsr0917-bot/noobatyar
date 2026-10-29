@@ -84,7 +84,8 @@ class OtpThrottleTests(TestCase):
 
     def test_verify_per_ip_429(self):
         codes = [self.c.post("/api/auth/otp/verify/", {"phone": f"0912000{i:04d}", "code": "123456"},
-                             format="json", REMOTE_ADDR="9.9.9.9").status_code for i in range(12)]
+                             format="json", REMOTE_ADDR="9.9.9.9").status_code for i in range(32)]
+        self.assertNotIn(429, codes[:30])
         self.assertEqual(codes[-1], 429)
 
     def test_send_per_phone_429(self):

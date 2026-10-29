@@ -105,23 +105,30 @@ class AvailableSlotsView(APIView):
         day_start = datetime(target_date.year, target_date.month, target_date.day, 0, 0, tzinfo=LOCAL_TZ)
         day_end_of_day = day_start + timedelta(days=1)
 
-        booked_slots = set()
+        # Any blocking appointment that overlaps a slot marks it booked, not
+        # just one that starts exactly at the slot's start (owner bookings and
+        # longer services can start off-grid or span several slots). The scan
+        # reaches back 8h (max service length) to catch ones starting earlier.
+        busy = []
+        default_duration = business.default_service_duration
         async for appt in Appointment.objects.filter(
             blocking_q(),
             business=business,
-            appointment_date__gte=day_start,
+            appointment_date__gt=day_start - timedelta(hours=8),
             appointment_date__lt=day_end_of_day,
         ):
-            # Keep the stored instant as-is; aware datetimes hash/compare by their
-            # UTC value, so a Tehran-anchored slot still matches a UTC-stored one.
-            booked_slots.add(appt.appointment_date.replace(second=0, microsecond=0))
+            appt_end = appt.appointment_date + timedelta(
+                minutes=appt.service_duration or default_duration
+            )
+            busy.append((appt.appointment_date, appt_end))
 
         # Build response
         now = datetime.now(tz=timezone.utc)
         slots = []
         for slot in all_slots:
             slot_ts = int(slot.timestamp() * 1000)
-            is_booked = slot.replace(second=0, microsecond=0) in booked_slots
+            slot_end = slot + timedelta(minutes=duration)
+            is_booked = any(b_start < slot_end and slot < b_end for b_start, b_end in busy)
             is_past = slot < now
 
             slots.append({
