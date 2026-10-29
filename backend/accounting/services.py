@@ -127,3 +127,19 @@ def callback_context(track_id, verify) -> Dict[str, Any]:
         'message': result['message'],
         'data': result.get('data', {}),
     }
+
+
+def grant_trial(user) -> Optional[Subscription]:
+    """Give a freshly registered owner the free trial plan, if one is configured.
+
+    Call inside the same transaction that creates the user, so a failure here
+    never leaves an owner without their trial.
+    """
+    trial_plan = Plan.objects.filter(price=0, is_active=True).first()
+    if not trial_plan:
+        return None
+    return Subscription.objects.create(
+        user=user,
+        plan=trial_plan,
+        ends_at=trial_plan.get_end_date(),
+    )

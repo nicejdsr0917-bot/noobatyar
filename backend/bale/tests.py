@@ -11,6 +11,7 @@ helper in that module goes through — so nothing here touches the network.
 
 import json
 from unittest.mock import patch
+from django.utils import timezone
 
 from django.test import TestCase
 from django.urls import reverse
@@ -159,6 +160,42 @@ class BaleWebhookTests(BaleTestBase):
         # Without this the bot's decisions are indistinguishable from an
         # owner-initiated resubmission, which also logs with actor=None.
         self.assertEqual(log.actor, self.reviewer)
+
+    @patch('bale.client._call', side_effect=_ok)
+    def test_decision_keeps_the_review_card_and_appends_the_outcome(self, call):
+        from bale.notify import KIND_NEW, build_text
+        card = build_text(self.business, KIND_NEW)
+        self.tap(f'm:d:{self.business.pk}:A')
+        final = self.sent_texts(call)[-1]
+        self.assertTrue(final.startswith(card), final)
+        self.assertGreater(len(final), len(card))
+
+    @patch('bale.client._call', side_effect=_ok)
+    def test_finalised_card_keeps_changed_fields_of_an_edit(self, call):
+        Business.objects.filter(pk=self.business.pk).update(
+            first_approved_at=timezone.now(), pending_title='عنوان جدید')
+        self.tap(f'm:d:{self.business.pk}:A')
+        final = self.sent_texts(call)[-1]
+        self.assertIn('ویرایش در انتظار بررسی', final)
+        self.assertIn('تغییرات: عنوان', final)
+
+    @patch('bale.client._call', side_effect=_ok)
+    def test_replayed_tap_on_a_new_business_still_shows_a_new_card(self, call):
+        self.tap(f'm:d:{self.business.pk}:A')
+        call.reset_mock()
+        self.tap(f'm:d:{self.business.pk}:A')  # already decided
+        final = self.sent_texts(call)[-1]
+        self.assertIn('کسب‌وکار جدید در صف بررسی', final)
+        self.assertNotIn('ویرایش در انتظار بررسی', final)
+
+    @patch('bale.client._call', side_effect=_ok)
+    def test_finalised_text_respects_bale_limit(self, call):
+        Business.objects.filter(pk=self.business.pk).update(
+            first_approved_at=timezone.now(), pending_bio='ب' * 5000, pending_title='ع' * 300)
+        self.tap(f'm:d:{self.business.pk}:A')
+        final = self.sent_texts(call)[-1]
+        self.assertLessEqual(len(final), 4096)
+        self.assertIn('تأیید شد', final)
 
     @patch('bale.client._call', side_effect=_ok)
     def test_approved_business_becomes_publicly_visible(self, _call):

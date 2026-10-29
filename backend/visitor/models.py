@@ -32,6 +32,12 @@ class Visitor(models.Model):
                   "خودِ کسب‌وکار) قرار نمی‌گیرد.",
                   verbose_name='انصراف از پیام تبلیغاتی',
     )
+    # Set whenever phone_number changes: client tokens signed before this moment
+    # belong to whoever held the old number and are refused (visitor/auth.py).
+    phone_changed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # Last successful client-app OTP login/registration; proof the person uses
+    # this row themselves, so an owner may no longer re-number it.
+    last_client_login_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
@@ -264,6 +270,11 @@ class VisitorContact(models.Model):
 
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='visitor_contacts')
     visitor = models.ForeignKey(Visitor, on_delete=models.CASCADE, related_name='contacts')
+    # The name this owner gave the person. The Visitor row's full_name is global
+    # (chosen by whoever created it or by the person), so an owner who merely
+    # attached an existing person must not see it; null on older rows keeps the
+    # previous behaviour.
+    display_name = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

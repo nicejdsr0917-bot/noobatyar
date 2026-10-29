@@ -60,6 +60,17 @@ class VisitorTokenAuthentication(BaseAuthentication):
         except Visitor.DoesNotExist:
             raise AuthenticationFailed('مشتری یافت نشد')
 
+        # A re-numbered visitor: tokens issued before the change were minted for
+        # whoever held the old number. The signer's timestamp is the segment
+        # between the payload and the signature (base62, seconds).
+        if visitor.phone_changed_at is not None:
+            try:
+                issued = signing.b62_decode(token.rsplit(':', 2)[1])
+            except (IndexError, ValueError):
+                raise AuthenticationFailed('توکن نامعتبر است')
+            if issued < int(visitor.phone_changed_at.timestamp()):
+                raise AuthenticationFailed('نشست شما منقضی شده است')
+
         # DRF assigns whatever we return here to request.user — there is no
         # `User` in this flow, so request.user is a Visitor instance for any
         # view using this authentication class. IsVisitorAuthenticated below
