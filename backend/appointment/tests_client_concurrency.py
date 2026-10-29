@@ -20,6 +20,7 @@ from .client_serializers import ClientAppointmentSerializer
 from .client_views import ClientAppointmentListView
 from .services.transitions import appointment_expire_lock_if_due as _expire_lock_if_due
 from .models import Appointment
+from .tests_client_booking_rules import local_slot
 
 User = get_user_model()
 
@@ -39,7 +40,8 @@ class Base:
         self.visitor = Visitor.objects.create(full_name='v1', phone_number='09350000077')
         self.other = Visitor.objects.create(full_name='v2', phone_number='09350000078')
         self.auth = f'Visitor {sign_visitor_token(self.visitor.id)}'
-        self.when = timezone.now() + timedelta(days=1)
+        # Inside the business's 09-17 working hours (client booking enforces them).
+        self.when = local_slot(days=2, hour=10)
 
     def make(self, visitor=None, **kw):
         defaults = dict(

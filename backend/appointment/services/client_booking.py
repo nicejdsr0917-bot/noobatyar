@@ -16,6 +16,7 @@ HTTP status the view turns into the usual error response.
 """
 
 import logging
+from datetime import timedelta
 
 from django.core.files.storage import default_storage
 from django.db import transaction
@@ -32,6 +33,7 @@ from appointment.services.notifications import (
     notify_booking_created,
     notify_deposit_paid,
 )
+from appointment.working_hours import LOCAL_TZ, working_window
 from appointment.services.transitions import (
     CLIENT_CANCELLABLE_STATUSES,
     appointment_cancel_by_client,
@@ -47,6 +49,11 @@ logger = logging.getLogger(__name__)
 LOCK_EXPIRED_MESSAGE = "مهلت پرداخت این نوبت به پایان رسیده است. لطفاً دوباره نوبت بگیرید"
 
 PAYMENT_METHODS = ('CARD', 'ONLINE', 'CASH')
+
+# Services carry no durations of their own (the menu is a list of names), so a
+# client-sent duration is bounded by this instead — or by the business's own
+# default when that is longer.
+MAX_CLIENT_DURATION_MINUTES = 480
 
 
 class ClientBookingError(Exception):
@@ -98,6 +105,38 @@ def resolve_selected_services(business, raw):
     return ','.join(selected_services)
 
 
+def validate_client_booking(business, appointment_date, duration, now=None):
+    """
+    Refuse a booking the business could never honour: bookings switched off,
+    a directory listing nobody owns, a start in the past, a weekly day off,
+    outside working hours, or a nonsensical duration. ``duration`` is minutes,
+    already defaulted. Raises ``ClientBookingError`` (400).
+
+    Slot-grid alignment is deliberately not enforced: owners overlap and shift
+    appointments freely, and clients may legitimately pick an off-grid time.
+    """
+    if not business.booking_enabled:
+        raise ClientBookingError("نوبت‌دهی این کسب‌وکار در حال حاضر غیرفعال است", 400)
+    if not business.is_claimed:
+        raise ClientBookingError("این کسب‌وکار هنوز نوبت‌دهی آنلاین را فعال نکرده است", 400)
+
+    max_duration = max(MAX_CLIENT_DURATION_MINUTES, business.default_service_duration or 0)
+    if duration <= 0 or duration > max_duration:
+        raise ClientBookingError("مدت زمان نوبت نامعتبر است", 400)
+
+    if appointment_date < (now or timezone.now()):
+        raise ClientBookingError("زمان انتخاب‌شده گذشته است", 400)
+
+    local_start = appointment_date.astimezone(LOCAL_TZ)
+    local_day = local_start.date()
+    if local_day.weekday() in (business.closed_weekdays or []):
+        raise ClientBookingError("این روز تعطیل است", 400)
+
+    opens_at, closes_at = working_window(business, local_day)
+    if local_start < opens_at or local_start + timedelta(minutes=duration) > closes_at:
+        raise ClientBookingError("زمان انتخاب‌شده خارج از ساعات کاری است", 400)
+
+
 def client_book(*, business, visitor, appointment_date, duration, description='', raw_services=None):
     """
     Book ``business`` for ``visitor`` at ``appointment_date`` (aware datetime).
@@ -124,7 +163,11 @@ def client_book(*, business, visitor, appointment_date, duration, description=''
     requires_payment = selectors.business_requires_payment(business)
 
     selected_services = resolve_selected_services(business, raw_services)
-    duration = duration or business.default_service_duration
+    # Only an omitted duration falls back to the default: an explicit 0 or a
+    # negative number is a bad request, not a request for the default.
+    if duration is None:
+        duration = business.default_service_duration
+    validate_client_booking(business, appointment_date, duration)
 
     # Quota, slot conflict, row creation and quota consumption all happen in ONE
     # transaction that holds the business row lock, so two clients racing for
