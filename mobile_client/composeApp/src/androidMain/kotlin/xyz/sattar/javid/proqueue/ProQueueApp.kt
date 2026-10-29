@@ -7,7 +7,6 @@ import org.koin.core.context.startKoin
 import xyz.sattar.javid.proqueue.core.notifications.NotificationChannels
 import xyz.sattar.javid.proqueue.di.appModule
 import xyz.sattar.javid.proqueue.di.dbModuleAndroid
-import xyz.sattar.javid.proqueue.di.platformModule
 
 class ProQueueApp : Application() {
     companion object {
@@ -19,7 +18,7 @@ class ProQueueApp : Application() {
         appContext = applicationContext
         startKoin {
             androidContext(applicationContext)
-            modules(dbModuleAndroid, platformModule, appModule)
+            modules(dbModuleAndroid, appModule)
         }
         // Must happen here rather than at the point of showing a notification:
         // background pushes are posted by the FCM SDK itself, and Android drops

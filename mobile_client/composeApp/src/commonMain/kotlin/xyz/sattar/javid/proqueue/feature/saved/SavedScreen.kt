@@ -39,7 +39,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.core.ui.components.ShimmerBox
-import xyz.sattar.javid.proqueue.data.localDataSource.business.toDomain
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.toDomain
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.discovery.BusinessRow
