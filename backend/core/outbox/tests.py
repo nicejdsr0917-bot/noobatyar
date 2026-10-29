@@ -309,3 +309,161 @@ class AdminBulkSendTests(TestCase):
             drain()
         send.assert_called_once()
         self.assertEqual(AdminMessageLog.objects.filter(channel='SMS', status='SENT').count(), 1)
+
+
+BULK_CALLS = []
+
+
+@register('test.campaign_chunk')
+def _bulk(payload):
+    BULK_CALLS.append(payload)
+
+
+class LaneTests(TestCase):
+    def setUp(self):
+        CALLS.clear()
+        BULK_CALLS.clear()
+
+    def test_lane_of_routes_kinds(self):
+        for kind in ('promo.campaign', 'core.push_campaign_chunk', 'core.expiry_sms_chunk',
+                     'x.some_campaign', 'test.campaign_chunk'):
+            self.assertEqual(service.lane_of(kind), 'bulk', kind)
+        for kind in ('appointment.booking_sms', 'appointment.client_sms', 'bale.review_card',
+                     'core.admin_message'):
+            self.assertEqual(service.lane_of(kind), 'default', kind)
+
+    def test_each_lane_only_claims_its_kinds(self):
+        enqueue('test.campaign_chunk', {'b': 1})
+        enqueue('test.ok', {'d': 1})
+        d = service.claim_one('default')
+        self.assertEqual(d.kind, 'test.ok')
+        self.assertIsNone(service.claim_one('default'))
+        b = service.claim_one('bulk')
+        self.assertEqual(b.kind, 'test.campaign_chunk')
+        self.assertIsNone(service.claim_one('bulk'))
+
+    def test_bulk_backlog_does_not_delay_default_lane(self):
+        for i in range(30):
+            enqueue('test.campaign_chunk', {'i': i})
+        enqueue('test.ok', {'sms': 1})
+        call_command('run_outbox', '--once', '--lane', 'default', stdout=StringIO())
+        self.assertEqual(CALLS, [{'sms': 1}])
+        self.assertEqual(BULK_CALLS, [])
+        self.assertEqual(OutboxMessage.objects.filter(status=OutboxMessage.PENDING).count(), 30)
+        call_command('run_outbox', '--once', '--lane', 'bulk', stdout=StringIO())
+        self.assertEqual(len(BULK_CALLS), 30)
+
+    def test_all_lane_is_backward_compatible(self):
+        enqueue('test.campaign_chunk', {})
+        enqueue('test.ok', {})
+        call_command('run_outbox', '--once', stdout=StringIO())
+        self.assertEqual((len(CALLS), len(BULK_CALLS)), (1, 1))
+
+
+class ClaimAndRecoveryTests(TestCase):
+    def setUp(self):
+        CALLS.clear()
+
+    def test_locked_at_is_stamped_per_message_at_claim_time(self):
+        a, b = enqueue('test.ok', {'n': 1}), enqueue('test.ok', {'n': 2})
+        first = service.claim_one()
+        OutboxMessage.objects.filter(pk=first.pk).update(locked_at=timezone.now() - timedelta(minutes=9))
+        second = service.claim_one()
+        second.refresh_from_db()
+        self.assertGreater(second.locked_at, timezone.now() - timedelta(seconds=30))
+        self.assertEqual(service.recover_stuck(), 0)  # 9 min < 10 min threshold
+        OutboxMessage.objects.filter(pk=first.pk).update(locked_at=timezone.now() - timedelta(minutes=11))
+        self.assertEqual(service.recover_stuck(), 1)  # truly dead row
+        self.assertEqual(OutboxMessage.objects.get(pk=first.pk).status, OutboxMessage.PENDING)
+        self.assertEqual(OutboxMessage.objects.get(pk=second.pk).status, OutboxMessage.PROCESSING)
+
+    def test_heartbeat_prevents_recovery(self):
+        enqueue('test.ok', {})
+        msg = service.claim_one()
+        OutboxMessage.objects.filter(pk=msg.pk).update(locked_at=timezone.now() - timedelta(minutes=11))
+        self.assertEqual(service.heartbeat(msg.pk), 1)
+        self.assertEqual(service.recover_stuck(), 0)
+        self.assertEqual(OutboxMessage.objects.get(pk=msg.pk).status, OutboxMessage.PROCESSING)
+
+    def test_heartbeat_ignores_finished_rows(self):
+        m = enqueue('test.ok', {})
+        drain()
+        self.assertEqual(service.heartbeat(m.pk), 0)
+
+    def test_beat_loop_refreshes_while_handler_runs(self):
+        import threading
+        enqueue('test.ok', {})
+        msg = service.claim_one()
+        old = timezone.now() - timedelta(minutes=11)
+        OutboxMessage.objects.filter(pk=msg.pk).update(locked_at=old)
+        stop = threading.Event()
+        with patch('core.outbox.service.connection.close'):
+            with patch.object(stop, 'wait', side_effect=[False, True]):
+                service._beat_loop(msg.pk, stop, 0)
+        self.assertGreater(OutboxMessage.objects.get(pk=msg.pk).locked_at, old)
+
+
+class SmsIdempotencyTests(TestCase):
+    def _run(self, **kw):
+        with patch('api.sms.send_sms', return_value=(True, '')) as send, \
+                patch('accounting.usage.consume_sms', return_value=object()) as consume:
+            drain()
+        return send, consume
+
+    def test_retry_after_crash_post_send_does_not_send_or_charge_twice(self):
+        from appointment.client_views import _fire_booking_sms
+
+        appt = _appointment()
+        _fire_booking_sms(appt, appt.visitor.phone_number)
+        msg = OutboxMessage.objects.get(kind='appointment.booking_sms')
+        with patch('api.sms.send_sms', return_value=(True, '')) as send, \
+                patch('accounting.usage.consume_sms', return_value=object()) as consume:
+            # Worker dies right after the provider accepted the SMS: the row
+            # stays 'processing', never marked done.
+            claimed = service.claim_one()
+            service._current.message_id = claimed.id
+            try:
+                service.get_handler(claimed.kind)(claimed.payload)
+            finally:
+                service._current.message_id = None
+            self.assertEqual(send.call_count, 1)
+            self.assertEqual(consume.call_count, 1)
+            msg.refresh_from_db()
+            self.assertIn('client_sms', msg.done_steps)
+            self.assertEqual(msg.status, OutboxMessage.PROCESSING)
+            # Recovery resets it (dead worker) and the next worker retries.
+            OutboxMessage.objects.filter(pk=msg.pk).update(locked_at=timezone.now() - timedelta(minutes=11))
+            service.recover_stuck()
+            drain()
+        self.assertEqual(send.call_count, 1)
+        self.assertEqual(consume.call_count, 1)
+        msg.refresh_from_db()
+        self.assertEqual(msg.status, OutboxMessage.DONE)
+
+    def test_client_sms_retry_does_not_resend(self):
+        from appointment.views.views import _notify_client_of_decision
+
+        appt = _appointment()
+        _notify_client_of_decision(appt, 'PENDING_APPROVAL', 'WAITING')
+        msg = OutboxMessage.objects.get(kind='appointment.client_sms')
+        with patch('api.sms.send_sms', return_value=(True, '')) as send, \
+                patch('accounting.usage.consume_sms', return_value=object()) as consume:
+            for _ in range(2):  # second pass simulates a recovered row
+                claimed = service.claim_one()
+                self.assertIsNotNone(claimed)
+                service.process_message(claimed)
+                OutboxMessage.objects.filter(pk=msg.pk).update(
+                    status=OutboxMessage.PENDING, next_attempt_at=timezone.now() - timedelta(seconds=1))
+        self.assertEqual((send.call_count, consume.call_count), (1, 1))
+
+    def test_failed_send_is_not_marked_and_is_refunded(self):
+        from appointment.views.views import _notify_client_of_decision
+
+        appt = _appointment()
+        _notify_client_of_decision(appt, 'PENDING_APPROVAL', 'WAITING')
+        with patch('api.sms.send_sms', return_value=(False, 'down')), \
+                patch('accounting.usage.consume_sms', return_value=object()), \
+                patch('accounting.usage.refund_sms') as refund:
+            drain()
+        refund.assert_called_once()
+        self.assertEqual(OutboxMessage.objects.get(kind='appointment.client_sms').done_steps, [])

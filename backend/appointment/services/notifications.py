@@ -180,17 +180,26 @@ def notify_client_of_decision(appointment, old_status, new_status):
     )
 
 
-def _send_metered_sms(label, owner_id, business_id, visitor_id, phone, text):
+def _send_metered_sms(label, owner_id, business_id, visitor_id, phone, text, step=None):
     """
     Send one SMS charged to the owner's SMS quota and log it in SmsLog.
 
     ``label`` ("client" / "owner") only names the recipient in log lines.
     Never raises: a failure here must not take the other channels down.
+
+    ``step`` makes it idempotent per outbox message: if this step was already
+    recorded (the worker died after the provider accepted the SMS), neither the
+    send nor the quota charge is repeated; it is recorded right after the
+    provider accepted the SMS (or the quota skip was logged).
     """
     from api.sms import send_sms
+    from core.outbox import service as outbox
     from visitor.models import SmsLog
 
     try:
+        if step and outbox.step_done(step):
+            logger.info(f"SMS→{label} {phone}: already sent for this outbox message, skipped")
+            return
         receipt = usage.consume_sms(owner_id) if owner_id is not None else None
         if owner_id is not None and not receipt:
             logger.warning(f"SMS→{label} skipped for business {business_id}: SMS quota exhausted")
@@ -201,12 +210,18 @@ def _send_metered_sms(label, owner_id, business_id, visitor_id, phone, text):
                 status='SKIPPED_QUOTA',
                 error_detail="اعتبار پیامک این ماه تمام شده است",
             )
+            if step:
+                outbox.mark_step(step)
         else:
             ok, err = send_sms(phone, text)
             if not ok:
                 # The provider never accepted it, so the owner must not pay
                 # for it — put the credit back where it came from.
                 usage.refund_sms(receipt)
+            elif step:
+                # Committed immediately: a crash after this point must not
+                # make the retry send and charge a second time.
+                outbox.mark_step(step)
             SmsLog.objects.create(
                 business_id=business_id,
                 visitor_id=visitor_id,
@@ -246,7 +261,7 @@ def send_booking_sms(client_phone, client_msg, owner_msg, business_id, visitor_i
     # Callers pass client_msg=None when the client triggered the action
     # themselves and does not need to be told about it (e.g. self-cancellation).
     if client_phone and client_msg:
-        _send_metered_sms('client', owner_id, business_id, visitor_id, client_phone, client_msg)
+        _send_metered_sms('client', owner_id, business_id, visitor_id, client_phone, client_msg, step='client_sms')
 
     # Push to the client — free, plan-gated (see push.send_visitor_appointment_push),
     # sent alongside the SMS above rather than instead of it. client_push_body is
@@ -299,7 +314,7 @@ def send_booking_sms(client_phone, client_msg, owner_msg, business_id, visitor_i
         # Logged like the client message: this one is billed too, so leaving it
         # out would make the SMS report undercount every booking by one.
         # visitor is null — the recipient is the owner, not a client.
-        _send_metered_sms('owner', owner_id, business_id, None, owner_phone, owner_msg)
+        _send_metered_sms('owner', owner_id, business_id, None, owner_phone, owner_msg, step='owner_sms')
 
 
 def send_client_sms(phone, message, business_id, visitor_id, appointment_id=None, push_body=None):
@@ -311,7 +326,7 @@ def send_client_sms(phone, message, business_id, visitor_id, appointment_id=None
     except Business.DoesNotExist:
         owner_id = None
 
-    _send_metered_sms('client', owner_id, business_id, visitor_id, phone, message)
+    _send_metered_sms('client', owner_id, business_id, visitor_id, phone, message, step='client_sms')
 
     # Push — free, plan-gated, independent of the SMS quota above (still
     # fires even when the SMS itself was skipped for exhausted quota).

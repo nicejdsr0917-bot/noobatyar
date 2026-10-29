@@ -30,6 +30,9 @@ class OutboxMessage(models.Model):
     next_attempt_at = models.DateTimeField()
     # When the worker claimed the row; used to recover rows whose worker died.
     locked_at = models.DateTimeField(null=True, blank=True)
+    # Durable per-message markers for side effects that already happened
+    # (e.g. 'client_sms'), so a retry after a crash does not repeat/charge them.
+    done_steps = models.JSONField(default=list, blank=True)
     last_error = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
