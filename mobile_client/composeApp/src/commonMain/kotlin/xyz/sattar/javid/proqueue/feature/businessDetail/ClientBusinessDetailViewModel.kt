@@ -3,6 +3,8 @@ package xyz.sattar.javid.proqueue.feature.businessDetail
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,7 +13,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
-import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
+import xyz.sattar.javid.proqueue.core.prefs.ClientPreferences
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.toDomain
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.domain.model.business.Business
@@ -42,7 +44,9 @@ val reportReasons = listOf(
 )
 
 class ClientBusinessDetailViewModel(
-    private val businessRepository: BusinessRepository
+    private val businessRepository: BusinessRepository,
+    private val preferences: ClientPreferences,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ClientBusinessDetailState())
@@ -55,14 +59,14 @@ class ClientBusinessDetailViewModel(
 
     fun load(id: Long) {
         businessId = id
-        viewModelScope.launch {
-            PreferencesManager.savedBusinessIds.collect { ids -> _state.update { it.copy(isSaved = id in ids) } }
+        viewModelScope.launch(dispatcher) {
+            preferences.savedBusinessIds.collect { ids -> _state.update { it.copy(isSaved = id in ids) } }
         }
         reload()
     }
 
     fun reload() {
-        viewModelScope.launch {
+        viewModelScope.launch(dispatcher) {
             _state.update { it.copy(isLoading = true, errorMessage = null) }
             when (val res = businessRepository.getClientBusinessDetail(businessId)) {
                 is ApiResponse.Success -> {
@@ -81,12 +85,12 @@ class ClientBusinessDetailViewModel(
     }
 
     fun toggleSaved() {
-        viewModelScope.launch { PreferencesManager.toggleSavedBusiness(businessId) }
+        viewModelScope.launch(dispatcher) { preferences.toggleSavedBusiness(businessId) }
     }
 
     fun requestOnlineBooking() {
         if (_state.value.isRequestingBooking || _state.value.hasRequestedBooking) return
-        viewModelScope.launch {
+        viewModelScope.launch(dispatcher) {
             _state.update { it.copy(isRequestingBooking = true) }
             when (val res = businessRepository.requestOnlineBooking(businessId)) {
                 is ApiResponse.Success -> {
@@ -113,7 +117,7 @@ class ClientBusinessDetailViewModel(
     }
 
     fun report(reason: String, detail: String, onDone: () -> Unit) {
-        viewModelScope.launch {
+        viewModelScope.launch(dispatcher) {
             _state.update { it.copy(isReporting = true) }
             when (val res = businessRepository.reportBusiness(businessId, reason, detail)) {
                 is ApiResponse.Success -> {

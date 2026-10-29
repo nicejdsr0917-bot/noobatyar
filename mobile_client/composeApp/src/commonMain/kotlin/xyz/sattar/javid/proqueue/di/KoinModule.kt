@@ -4,7 +4,11 @@ import io.ktor.client.HttpClient
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import xyz.sattar.javid.proqueue.core.location.CityCatalog
+import xyz.sattar.javid.proqueue.core.location.IranCities
 import xyz.sattar.javid.proqueue.core.network.HttpClientFactory
+import xyz.sattar.javid.proqueue.core.prefs.ClientPreferences
+import xyz.sattar.javid.proqueue.core.prefs.PlatformClientPreferences
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.ClientBusinessApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.KtorClientBusinessApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApiService
@@ -28,6 +32,10 @@ val appModule: Module = module {
     single { DeviceApiService(get()) }
     single<ClientBusinessApi> { KtorClientBusinessApi(get()) }
 
+    // --- Platform seams ---
+    single<ClientPreferences> { PlatformClientPreferences() }
+    single<CityCatalog> { IranCities }
+
     // --- Repositories ---
     single<UserRepository> { UserRepositoryImpl(get()) }
     single<BusinessRepository> { BusinessRepositoryImpl(get()) }
@@ -38,7 +46,7 @@ val appModule: Module = module {
 
     // --- ViewModels ---
     viewModel { VersionViewModel(get()) }
-    viewModel { ExploreViewModel(get()) }
-    viewModel { ClientBusinessDetailViewModel(get()) }
-    viewModel { SavedViewModel(get()) }
+    viewModel { ExploreViewModel(get(), get(), get()) }
+    viewModel { ClientBusinessDetailViewModel(get(), get()) }
+    viewModel { SavedViewModel(get(), get()) }
 }
