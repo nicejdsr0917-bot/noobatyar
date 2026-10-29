@@ -351,9 +351,9 @@ def deliver_to_visitor(
 def send_visitor_appointment_push(business_id, visitor_id, appointment_id, title, body):
     """
     Push to a visitor for an appointment-lifecycle event — booked, confirmed,
-    or rejected by the owner (see appointment/client_views.py's
-    _fire_booking_sms/_fire_deposit_paid_sms and appointment/views/views.py's
-    _notify_client_of_decision, the SMS-only functions this complements).
+    or rejected by the owner (see appointment/services/notifications.py's
+    notify_booking_created / notify_deposit_paid / notify_client_of_decision,
+    the SMS-only functions this complements).
 
     Gated by the SAME entitlement as the reminder push
     (accounting.entitlements.FEATURE_AUTO_REMINDER_SMS — پرو/پرو پلاس and

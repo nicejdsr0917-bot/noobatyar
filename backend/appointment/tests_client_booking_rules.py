@@ -27,7 +27,7 @@ def local_slot(days=2, hour=10, minute=0):
     return datetime(day.year, day.month, day.day, hour, minute, tzinfo=LOCAL)
 
 
-class ClientBookingRulesTests(TestCase):
+class _Fixture(TestCase):
     def setUp(self):
         cache.clear()
         owner = User.objects.create_user(phone='09120000088', password='x', name='o')
@@ -65,6 +65,8 @@ class ClientBookingRulesTests(TestCase):
         self.assertEqual(body['status'], 'error')
         self.assertTrue(body['message'])
 
+
+class ClientBookingRulesTests(_Fixture):
     def test_happy_path(self):
         r = self.book()
         self.assertEqual(r.status_code, 200, r.content)
@@ -129,3 +131,53 @@ class ClientBookingRulesTests(TestCase):
         with patch('accounting.usage.record_appointment') as record:
             self.assertRejected(self.book(local_slot(hour=3)))
         record.assert_not_called()
+
+
+class ClientBookingNotificationTests(_Fixture):
+    """Side effects fire after a successful call, only after commit, never on a refusal."""
+
+    BOOKED = 'appointment.services.client_booking.notify_booking_created'
+    CANCELLED = 'appointment.services.client_booking.notify_booking_cancelled_by_client'
+
+    def test_book_notifies_after_commit_and_not_on_rejection(self):
+        with patch(self.BOOKED) as notify:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(self.book().status_code, 200)
+            notify.assert_called_once()
+            notify.reset_mock()
+            with self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(self.book(local_slot(hour=3)).status_code, 400)
+            notify.assert_not_called()
+
+    def _locked(self):
+        visitor = Visitor.objects.get(phone_number='09350000088')
+        return Appointment.objects.create(
+            business=self.business, visitor=visitor,
+            appointment_date=local_slot(), status='LOCKED',
+            locked_at=timezone.now(), expires_at=timezone.now() + timedelta(minutes=10),
+        )
+
+    def test_cancel_notifies_after_commit_and_not_on_refusal(self):
+        a = self._locked()
+        url = reverse('client-appointment-cancel', args=[a.pk])
+        with patch(self.CANCELLED) as notify:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(self.client.post(url, HTTP_AUTHORIZATION=self.auth).status_code, 200)
+            notify.assert_called_once()
+            notify.reset_mock()
+            with self.captureOnCommitCallbacks(execute=True):  # already cancelled
+                self.assertEqual(self.client.post(url, HTTP_AUTHORIZATION=self.auth).status_code, 400)
+            notify.assert_not_called()
+
+    def test_payment_submitted_notifies_after_commit_and_not_on_refusal(self):
+        a = self._locked()
+        url = reverse('client-appointment-pay', args=[a.pk])
+        with patch(self.BOOKED) as notify:
+            with self.captureOnCommitCallbacks(execute=True):  # CARD with no proof
+                r = self.client.post(url, {'method': 'CARD'}, HTTP_AUTHORIZATION=self.auth)
+            self.assertEqual(r.status_code, 400)
+            notify.assert_not_called()
+            with self.captureOnCommitCallbacks(execute=True):
+                r = self.client.post(url, {'method': 'CASH'}, HTTP_AUTHORIZATION=self.auth)
+            self.assertEqual(r.status_code, 200, r.content)
+            notify.assert_called_once()
