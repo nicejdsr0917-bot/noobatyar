@@ -2,7 +2,7 @@ package xyz.sattar.javid.proqueue.data.repository.visitor
 
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.data.localDataSource.visitor.VisitorLocalSource
-import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.model.toDomain
 import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.model.toRequestDto
 import xyz.sattar.javid.proqueue.domain.VisitorPaging
@@ -11,7 +11,7 @@ import xyz.sattar.javid.proqueue.domain.model.visitor.Visitor
 
 class VisitorRepositoryImpl(
     private val visitorDao: VisitorLocalSource,
-    private val visitorApiService: VisitorApiService
+    private val visitorApiService: VisitorApi
 ) : VisitorRepository {
 
     override suspend fun getVisitors(page: Int, pageSize: Int, query: String?): VisitorPaging {

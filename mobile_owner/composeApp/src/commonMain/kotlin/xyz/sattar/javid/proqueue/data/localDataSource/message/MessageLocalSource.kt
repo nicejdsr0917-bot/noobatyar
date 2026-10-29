@@ -19,4 +19,7 @@ interface MessageLocalSource {
     suspend fun deleteMessage(id: Long): Int
 
     suspend fun deleteMessagesByVisitorId(visitorId: Long): Int
+
+    /** Wipes every cached message (logout / account switch). */
+    suspend fun clearAll()
 }

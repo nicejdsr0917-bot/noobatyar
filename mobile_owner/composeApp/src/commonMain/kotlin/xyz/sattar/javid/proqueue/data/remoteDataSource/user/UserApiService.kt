@@ -31,16 +31,16 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.SendOT
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.VerifyOTPRequestDto
 import xyz.sattar.javid.proqueue.domain.model.VersionInfo
 
-class UserApiService(private val httpClient: HttpClient) {
+class UserApiService(private val httpClient: HttpClient) : UserApi {
 
-    suspend fun checkVersion(body: CheckVersionRequestDto): ApiResponse<VersionInfo> {
+    override suspend fun checkVersion(body: CheckVersionRequestDto): ApiResponse<VersionInfo> {
         return httpClient.post("version/check/") {
             contentType(ContentType.Application.Json)
             setBody(body)
         }.toApiResponse()
     }
 
-    suspend fun register(
+    override suspend fun register(
         body: RegisterRequestDto
     ): ApiResponse<RegisterResponseDto> {
         return httpClient.post("auth/register/") {
@@ -48,7 +48,7 @@ class UserApiService(private val httpClient: HttpClient) {
             setBody(body)
         }.toApiResponse()
     }
-    suspend fun login(
+    override suspend fun login(
         body: LoginRequestDto
     ): ApiResponse<RegisterResponseDto> {
         return httpClient.post("auth/login/") {
@@ -62,51 +62,51 @@ class UserApiService(private val httpClient: HttpClient) {
      * and the session stayed usable for the token's full 14 days — on a
      * shared desktop, by whoever had copied it.
      */
-    suspend fun logout(): ApiResponse<Unit> {
+    override suspend fun logout(): ApiResponse<Unit> {
         return httpClient.post("auth/logout/") {
             contentType(ContentType.Application.Json)
             setBody(LogoutRequestDto(refresh = TokenManager.getRefreshToken().orEmpty()))
         }.toApiResponse()
     }
 
-    suspend fun getUserProfile(id: Int): ApiResponse<UserDto> {
+    override suspend fun getUserProfile(id: Int): ApiResponse<UserDto> {
         return httpClient.get("users/$id/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
 
-    suspend fun getMySubscription(): ApiResponse<SubscriptionDto> {
+    override suspend fun getMySubscription(): ApiResponse<SubscriptionDto> {
         return httpClient.get("accounting/my-subscription/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
 
-    suspend fun getPlans(): ApiResponse<List<PlanDto>> {
+    override suspend fun getPlans(): ApiResponse<List<PlanDto>> {
         return httpClient.get("accounting/plans/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
 
-    suspend fun getMyEntitlements(): ApiResponse<EntitlementsResponseDto> {
+    override suspend fun getMyEntitlements(): ApiResponse<EntitlementsResponseDto> {
         return httpClient.get("accounting/my-entitlements/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
 
-    suspend fun getAddons(): ApiResponse<List<AddOnPackDto>> {
+    override suspend fun getAddons(): ApiResponse<List<AddOnPackDto>> {
         return httpClient.get("accounting/addons/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
 
-    suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> {
+    override suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> {
         return httpClient.post("accounting/addons/buy/") {
             contentType(ContentType.Application.Json)
             setBody(BuyAddonRequestDto(packId))
         }.toApiResponse()
     }
 
-    suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto> {
+    override suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto> {
         return httpClient.get("accounting/checkout/quote/") {
             parameter("kind", kind)
             parameter("id", id)
@@ -114,28 +114,28 @@ class UserApiService(private val httpClient: HttpClient) {
         }.toApiResponse()
     }
 
-    suspend fun storeIntent(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentDto> {
+    override suspend fun storeIntent(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentDto> {
         return httpClient.post("accounting/store/$store/intent/") {
             contentType(ContentType.Application.Json)
             setBody(body)
         }.toApiResponse()
     }
 
-    suspend fun storeVerify(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyDto> {
+    override suspend fun storeVerify(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyDto> {
         return httpClient.post("accounting/store/$store/verify/") {
             contentType(ContentType.Application.Json)
             setBody(body)
         }.toApiResponse()
     }
 
-    suspend fun createPayment(body: PaymentRequestDto): ApiResponse<PaymentResponseDto> {
+    override suspend fun createPayment(body: PaymentRequestDto): ApiResponse<PaymentResponseDto> {
         return httpClient.post("accounting/plans/payment/") {
             contentType(ContentType.Application.Json)
             setBody(body)
         }.toApiResponse()
     }
 
-    suspend fun sendOTP(
+    override suspend fun sendOTP(
         body: SendOTPRequestDto
     ): ApiResponse<SendOTPResponseDto> {
         return httpClient.post("auth/forgot-password/send/") {
@@ -143,7 +143,7 @@ class UserApiService(private val httpClient: HttpClient) {
             setBody(body)
         }.toApiResponse()
     }
-    suspend fun verifyOTP(
+    override suspend fun verifyOTP(
         body: VerifyOTPRequestDto
     ): ApiResponse<VerifyOTPResponseDto> {
         return httpClient.post("auth/forgot-password/verify/") {
@@ -152,7 +152,7 @@ class UserApiService(private val httpClient: HttpClient) {
         }.toApiResponse()
     }
 
-    suspend fun resetPassword(
+    override suspend fun resetPassword(
         body: ResetPasswordRequestDto
     ): ApiResponse<Unit> {
         return httpClient.post("auth/forgot-password/reset/") {
@@ -161,14 +161,14 @@ class UserApiService(private val httpClient: HttpClient) {
         }.toApiResponse()
     }
 
-    suspend fun updateUserProfile(id: Int, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.UpdateUserProfileRequestDto): ApiResponse<UserDto> {
+    override suspend fun updateUserProfile(id: Int, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.UpdateUserProfileRequestDto): ApiResponse<UserDto> {
         return httpClient.patch("users/$id/") {
             contentType(ContentType.Application.Json)
             setBody(body)
         }.toApiResponse()
     }
 
-    suspend fun getChangelog(): ApiResponse<List<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.ChangelogDto>> {
+    override suspend fun getChangelog(): ApiResponse<List<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.ChangelogDto>> {
         return httpClient.get("version/changelog/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()

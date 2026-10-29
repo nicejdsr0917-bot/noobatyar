@@ -58,7 +58,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.AppButton
 import xyz.sattar.javid.proqueue.core.ui.components.AppTextField
 import xyz.sattar.javid.proqueue.core.ui.components.OTPTextField
 import xyz.sattar.javid.proqueue.core.utils.toEnglishDigits
-import xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimableBusinessDto
 
 /**
@@ -87,7 +87,7 @@ data class ClaimState(
     val error: String? = null,
 )
 
-class ClaimBusinessViewModel(private val api: BusinessApiService) : ViewModel() {
+class ClaimBusinessViewModel(private val api: BusinessApi) : ViewModel() {
     private val _state = MutableStateFlow(ClaimState())
     val state: StateFlow<ClaimState> = _state.asStateFlow()
     private var searchJob: Job? = null

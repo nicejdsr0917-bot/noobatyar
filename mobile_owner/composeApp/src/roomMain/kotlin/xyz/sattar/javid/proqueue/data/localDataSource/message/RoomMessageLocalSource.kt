@@ -24,4 +24,6 @@ class RoomMessageLocalSource(
 
     override suspend fun deleteMessagesByVisitorId(visitorId: Long): Int =
         dao.deleteMessagesByVisitorId(visitorId)
+
+    override suspend fun clearAll() = dao.clearAll()
 }

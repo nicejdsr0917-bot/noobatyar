@@ -5,7 +5,7 @@ import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.data.localDataSource.appointment.AppointmentLocalSource
 import xyz.sattar.javid.proqueue.data.localDataSource.business.BusinessLocalSource
 import xyz.sattar.javid.proqueue.data.localDataSource.visitor.VisitorLocalSource
-import xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApi
 import xyz.sattar.javid.proqueue.domain.AppointmentRepository
 import xyz.sattar.javid.proqueue.domain.model.appointment.Appointment
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
@@ -19,7 +19,7 @@ class AppointmentRepositoryImpl(
     private val appointmentDao: AppointmentLocalSource,
     private val businessDao: BusinessLocalSource,
     private val visitorDao: VisitorLocalSource,
-    private val appointmentApiService: AppointmentApiService
+    private val appointmentApiService: AppointmentApi
 ) : AppointmentRepository {
     override suspend fun getRangeReport(
         businessId: Long,
@@ -210,14 +210,6 @@ class AppointmentRepositoryImpl(
         }
     }
 
-    override suspend fun getVisitorHistory(visitorId: Long): List<AppointmentWithDetails> {
-        return try {
-            appointmentDao.getVisitorHistory(visitorId) 
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
     override suspend fun getVisitorHistoryForBusiness(visitorId: Long, businessId: Long): List<AppointmentWithDetails> {
         return try {
             appointmentDao.getVisitorHistoryForBusiness(visitorId, businessId) 
@@ -308,7 +300,8 @@ class AppointmentRepositoryImpl(
         dateTo: Long?,
         ordering: AppointmentOrdering?,
         page: Int,
-        pageSize: Int
+        pageSize: Int,
+        replaceWindow: Boolean
     ): Boolean {
         return try {
             val response = appointmentApiService.queryAppointments(
@@ -360,13 +353,41 @@ class AppointmentRepositoryImpl(
                         updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                     )
                 }
-                appointmentDao.upsertAppointments(appointments)
+                val window = if (replaceWindow && visitorId == null && status == null &&
+                    response.data.next == null && (response.data.currentPage ?: page) == 1
+                ) syncWindow(date, dateFrom, dateTo) else null
+                if (window != null) {
+                    appointmentDao.replaceWindow(businessId, window.first, window.second, appointments)
+                } else {
+                    appointmentDao.upsertAppointments(appointments)
+                }
                 true
             } else {
                 false
             }
         } catch (e: Exception) {
             false
+        }
+    }
+
+    companion object {
+        private const val DAY_MS = 24L * 60 * 60 * 1000
+
+        private fun utcDayStart(millis: Long) = millis - millis.mod(DAY_MS)
+
+        /**
+         * The [from, to) window the server's date filters select. The server
+         * buckets by UTC day (appointment_query_view: `date` = that UTC day,
+         * `date_from` = start of its UTC day, `date_to` = end of its UTC day),
+         * so mirror that exactly. Null when the request has no date bound:
+         * "everything" is not a window we can safely replace.
+         */
+        internal fun syncWindow(date: Long?, dateFrom: Long?, dateTo: Long?): Pair<Long, Long>? {
+            if (date != null) return utcDayStart(date).let { it to it + DAY_MS }
+            if (dateFrom == null || dateTo == null) return null
+            val from = utcDayStart(dateFrom)
+            val to = utcDayStart(dateTo) + DAY_MS
+            return if (to > from) from to to else null
         }
     }
 }

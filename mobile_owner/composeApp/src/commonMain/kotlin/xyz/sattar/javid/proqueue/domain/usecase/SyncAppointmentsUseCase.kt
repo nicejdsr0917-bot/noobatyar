@@ -13,7 +13,8 @@ class SyncAppointmentsUseCase(private val repository: AppointmentRepository) {
         dateTo: Long? = null,
         ordering: AppointmentOrdering? = AppointmentOrdering.DATE_DESC,
         page: Int = 1,
-        pageSize: Int = 20
+        pageSize: Int = 20,
+        replaceWindow: Boolean = false
     ): Boolean {
         return repository.syncAppointments(
             businessId,
@@ -24,7 +25,8 @@ class SyncAppointmentsUseCase(private val repository: AppointmentRepository) {
             dateTo,
             ordering,
             page,
-            pageSize
+            pageSize,
+            replaceWindow
         )
     }
 }

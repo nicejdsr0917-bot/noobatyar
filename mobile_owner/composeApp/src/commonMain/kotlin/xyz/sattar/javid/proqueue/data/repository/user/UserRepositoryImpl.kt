@@ -3,12 +3,13 @@ package xyz.sattar.javid.proqueue.data.repository.user
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.data.localDataSource.LocalCacheCleaner
 import xyz.sattar.javid.proqueue.data.localDataSource.user.UserLocalSource
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.mapper.toDomain
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.CheckVersionRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.RegisterRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.RegisterResponseDto
-import xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.LoginRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SendOTPResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SubscriptionDto
@@ -24,8 +25,9 @@ import xyz.sattar.javid.proqueue.domain.UserRepository
 import xyz.sattar.javid.proqueue.domain.model.VersionInfo
 
 class UserRepositoryImpl(
-    private val userApiService: UserApiService,
-    private val userDao: UserLocalSource
+    private val userApiService: UserApi,
+    private val userDao: UserLocalSource,
+    private val cacheCleaner: LocalCacheCleaner
 ) : UserRepository {
 
     override suspend fun checkVersion(versionCode: Int): ApiResponse<VersionInfo> {
@@ -67,8 +69,7 @@ class UserRepositoryImpl(
     }
 
     override suspend fun logout(): ApiResponse<Unit> {
-        userDao.clearUser()
-        userDao.clearSubscription()
+        cacheCleaner.clearAll()
         return userApiService.logout()
     }
 

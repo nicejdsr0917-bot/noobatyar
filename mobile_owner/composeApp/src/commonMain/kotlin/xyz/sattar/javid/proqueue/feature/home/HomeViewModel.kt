@@ -197,7 +197,7 @@ class HomeViewModel(
             try {
                 @OptIn(ExperimentalTime::class)
                 val today = Clock.System.now().toEpochMilliseconds()
-                syncAppointmentsUseCase(business.id, date = today)
+                syncAppointmentsUseCase(business.id, date = today, replaceWindow = true)
 
                 val queue = getWaitingQueueUseCase(business.id, today)
                 // BaseViewModel's intent pipeline uses flatMapMerge (concurrent,

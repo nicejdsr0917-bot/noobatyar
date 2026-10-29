@@ -5,7 +5,9 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import xyz.sattar.javid.proqueue.core.network.HttpClientFactory
-import xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApiService
+import xyz.sattar.javid.proqueue.core.ui.DefaultDispatcherProvider
+import xyz.sattar.javid.proqueue.core.ui.DispatcherProvider
+import xyz.sattar.javid.proqueue.data.localDataSource.LocalCacheCleaner
 import xyz.sattar.javid.proqueue.data.repository.appointment.AppointmentRepositoryImpl
 import xyz.sattar.javid.proqueue.data.repository.business.BusinessRepositoryImpl
 import xyz.sattar.javid.proqueue.data.repository.message.MessageRepositoryImpl
@@ -45,7 +47,6 @@ import xyz.sattar.javid.proqueue.domain.usecase.VisitorUpsertUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CheckVersionUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.ClearTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetUserProfileUseCase
-import xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApiService
 import xyz.sattar.javid.proqueue.domain.usecase.push.SyncPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.push.UnregisterPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.HasTokenUseCase
@@ -88,13 +89,15 @@ import xyz.sattar.javid.proqueue.feature.visitorSelection.VisitorSelectionViewMo
 val appModule: Module = module {
 
     // --- Network ---
+    single<DispatcherProvider> { DefaultDispatcherProvider }
     single<HttpClient> { HttpClientFactory.create() }
-    single { UserApiService(get()) }
-    single { DeviceApiService(get()) }
-    single { xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApiService(get()) }
-    single { xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApiService(get()) }
-    single { xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApiService(get()) }
-    single<UserRepository> { UserRepositoryImpl(get(), get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApiService(get()) }
+    single { LocalCacheCleaner(get(), get(), get(), get(), get()) }
+    single<UserRepository> { UserRepositoryImpl(get(), get(), get()) }
 
     // --- DAOs ---
     // The *LocalSource bindings (Room has no web target, see

@@ -2,7 +2,7 @@ package xyz.sattar.javid.proqueue.domain.usecase.push
 
 import xyz.sattar.javid.proqueue.core.push.PushTokenProvider
 import xyz.sattar.javid.proqueue.core.utils.AppInfo
-import xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.device.RegisterDeviceRequestDto
 
 /**
@@ -18,7 +18,7 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.device.RegisterDeviceRequ
  * would be an actionable message.
  */
 class SyncPushTokenUseCase(
-    private val deviceApiService: DeviceApiService
+    private val deviceApiService: DeviceApi
 ) {
     suspend operator fun invoke(): Boolean {
         return try {
