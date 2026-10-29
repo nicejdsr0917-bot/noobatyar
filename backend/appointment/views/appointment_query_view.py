@@ -2,12 +2,13 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from django.utils import timezone
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import timedelta
 from appointment import selectors
 from appointment.models import Appointment
 from appointment.serializers import AppointmentQuerySerializer
+from common.params import business_id_param
 from common.responses import APIResponse
+from common.timeutils import utc_date_tehran_midnight
 
 
 
@@ -17,10 +18,7 @@ class AppointmentQueryView(StandardPagination):
     pass
 
 
-def _utc_day_start(timestamp_ms):
-    """Midnight (default timezone) of the UTC calendar day of an epoch-ms value."""
-    day = datetime.fromtimestamp(int(timestamp_ms) / 1000, tz=dt_timezone.utc)
-    return timezone.make_aware(datetime.combine(day.date(), datetime.min.time()))
+_utc_day_start = utc_date_tehran_midnight  # kept: old name (see common.timeutils)
 
 
 @api_view(['GET'])
@@ -42,14 +40,10 @@ def appointment_list(request):
     """
 
     # Validate required business_id parameter
-    business_id = request.query_params.get('business_id')
-    if not business_id:
-        return APIResponse.error('پارامتر business_id الزامی است', code=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        business_id = int(business_id)
-    except ValueError:
-        return APIResponse.error('شناسه کسب‌وکار (business_id) باید عدد صحیح معتبر باشد', code=status.HTTP_400_BAD_REQUEST)
+    business_id, error = business_id_param(
+        request, invalid_message='شناسه کسب‌وکار (business_id) باید عدد صحیح معتبر باشد')
+    if error:
+        return error
 
     user = request.user
 

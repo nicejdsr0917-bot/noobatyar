@@ -48,12 +48,11 @@ The app caps its picker too. This is the second layer: the owner panel also
 runs in a browser, where the query string is whatever the caller types.
 """
 
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import timedelta
 
 from asgiref.sync import sync_to_async
 from django.core.paginator import Paginator
 from django.db.models import Count, Max
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -61,7 +60,9 @@ from rest_framework.response import Response
 from adrf.views import APIView
 
 from appointment.models import Appointment
+from common.params import business_id_param, positive_int
 from common.responses import APIResponse
+from common.timeutils import local_date_midnight
 
 MAX_RANGE_DAYS = 31
 MAX_PAGE_SIZE = 100
@@ -80,31 +81,16 @@ def _parse_ms(value: str):
     customer list never included the last day asked for (with the default
     windows, that was always today).
     """
-    timestamp_ms = int(value)
-    instant = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-    day = timezone.localtime(instant).date()
-    return timezone.make_aware(datetime.combine(day, datetime.min.time()))
-
-
-def _positive_int(value, default: int) -> int:
-    try:
-        parsed = int(value)
-        return parsed if parsed > 0 else default
-    except (TypeError, ValueError):
-        return default
+    return local_date_midnight(value)
 
 
 class RangeVisitorsView(APIView):
     permission_classes = [IsAuthenticated]
 
     async def get(self, request: Request) -> Response:
-        business_id = request.query_params.get('business_id')
-        if not business_id:
-            return APIResponse.error('پارامتر business_id الزامی است', code=status.HTTP_400_BAD_REQUEST)
-        try:
-            business_id = int(business_id)
-        except ValueError:
-            return APIResponse.error('business_id باید عدد باشد', code=status.HTTP_400_BAD_REQUEST)
+        business_id, error = business_id_param(request)
+        if error:
+            return error
 
         raw_from = request.query_params.get('date_from')
         raw_to = request.query_params.get('date_to')
@@ -137,8 +123,8 @@ class RangeVisitorsView(APIView):
             start = earliest_allowed
             clamped = True
 
-        page = _positive_int(request.query_params.get('page'), default=1)
-        page_size = min(_positive_int(request.query_params.get('page_size'), default=20), MAX_PAGE_SIZE)
+        page = positive_int(request.query_params.get('page'), default=1)
+        page_size = min(positive_int(request.query_params.get('page_size'), default=20), MAX_PAGE_SIZE)
         ordering = ORDERINGS.get(request.query_params.get('ordering'), ORDERINGS['visits'])
 
         data = await self._range_visitors(

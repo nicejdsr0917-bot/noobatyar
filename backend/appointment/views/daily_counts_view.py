@@ -25,6 +25,7 @@ from rest_framework.response import Response
 from adrf.views import APIView
 
 from appointment.models import Appointment
+from common.params import business_id_param
 from common.responses import APIResponse
 
 # Per side, so a full window can reach ~6 months. Raised from 60 because the
@@ -37,13 +38,9 @@ class DailyCountsView(APIView):
     permission_classes = [IsAuthenticated]
 
     async def get(self, request: Request) -> Response:
-        business_id = request.query_params.get('business_id')
-        if not business_id:
-            return APIResponse.error('پارامتر business_id الزامی است', code=status.HTTP_400_BAD_REQUEST)
-        try:
-            business_id = int(business_id)
-        except ValueError:
-            return APIResponse.error('business_id باید عدد باشد', code=status.HTTP_400_BAD_REQUEST)
+        business_id, error = business_id_param(request)
+        if error:
+            return error
 
         try:
             days = int(request.query_params.get('days', 7))

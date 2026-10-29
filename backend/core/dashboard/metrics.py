@@ -42,7 +42,7 @@ Day bucketing is done in ``settings.TIME_ZONE`` (Asia/Tehran), never UTC:
     a local calendar date rather than by subtracting hours from ``now()``.
 """
 
-from datetime import datetime, time, timedelta
+from datetime import timedelta
 
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import Coalesce, TruncDate
@@ -51,7 +51,7 @@ from django.utils import timezone
 from accounting.addon_kinds import ADDON_KINDS  # noqa: F401 -- re-exported
 from accounting.models import AddOnPack, AddOnPurchase, Subscription, Transaction
 from common import jalali
-from common.timeutils import project_tz  # noqa: F401 -- re-exported
+from common.timeutils import local_midnight, project_tz  # noqa: F401 -- project_tz re-exported
 from api.models import User
 from appointment.models import Appointment
 from business.models import Business, ContentReport
@@ -92,7 +92,7 @@ def local_day_start(now=None, days_ago=0):
     """
     tz = project_tz()
     local = timezone.localtime(now or timezone.now(), tz)
-    return datetime.combine(local.date() - timedelta(days=days_ago), time.min, tzinfo=tz)
+    return local_midnight(local.date() - timedelta(days=days_ago), tz)
 
 
 def window_starts(now=None):

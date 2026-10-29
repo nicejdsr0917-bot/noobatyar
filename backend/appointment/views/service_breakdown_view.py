@@ -50,10 +50,9 @@ is left out of `services` rather than returned at 0 — nothing for the donut
 to draw.
 """
 
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import timedelta
 
 from asgiref.sync import sync_to_async
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -62,7 +61,9 @@ from adrf.views import APIView
 
 from appointment.models import Appointment
 from business.models import Business
+from common.params import business_id_param
 from common.responses import APIResponse
+from common.timeutils import utc_date_tehran_midnight
 
 
 def _split_selected_services(raw: str) -> list:
@@ -92,13 +93,9 @@ class ServiceBreakdownView(APIView):
     permission_classes = [IsAuthenticated]
 
     async def get(self, request: Request) -> Response:
-        business_id = request.query_params.get('business_id')
-        if not business_id:
-            return APIResponse.error('پارامتر business_id الزامی است', code=status.HTTP_400_BAD_REQUEST)
-        try:
-            business_id = int(business_id)
-        except ValueError:
-            return APIResponse.error('business_id باید عدد باشد', code=status.HTTP_400_BAD_REQUEST)
+        business_id, error = business_id_param(request)
+        if error:
+            return error
 
         date_from = request.query_params.get('date_from')
         date_to = request.query_params.get('date_to')
@@ -108,19 +105,13 @@ class ServiceBreakdownView(APIView):
         date_filter = {}
         if date_from:
             try:
-                timestamp_ms = int(date_from)
-                date_from_obj = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-                date_from_start = timezone.make_aware(datetime.combine(date_from_obj.date(), datetime.min.time()))
-                date_filter['appointment_date__gte'] = date_from_start
+                date_filter['appointment_date__gte'] = utc_date_tehran_midnight(date_from)
             except (ValueError, OSError):
                 return APIResponse.error('تاریخ شروع (date_from) باید یک Unix timestamp معتبر به میلی‌ثانیه باشد', code=status.HTTP_400_BAD_REQUEST)
 
         if date_to:
             try:
-                timestamp_ms = int(date_to)
-                date_to_obj = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-                date_to_end = timezone.make_aware(datetime.combine(date_to_obj.date(), datetime.min.time())) + timedelta(days=1)
-                date_filter['appointment_date__lt'] = date_to_end
+                date_filter['appointment_date__lt'] = utc_date_tehran_midnight(date_to) + timedelta(days=1)
             except (ValueError, OSError):
                 return APIResponse.error('تاریخ پایان (date_to) باید یک Unix timestamp معتبر به میلی‌ثانیه باشد', code=status.HTTP_400_BAD_REQUEST)
 
