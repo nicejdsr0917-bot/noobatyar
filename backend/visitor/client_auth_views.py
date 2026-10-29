@@ -14,7 +14,9 @@ from rest_framework.permissions import AllowAny
 from api.phone import normalize_phone
 from api.responses import APIResponse
 from api.services.otp import send_otp as otp_send, verify_otp as otp_verify
-from api.throttles import OTPRateThrottle
+from api.throttles import (
+    OTPRateThrottle, OTPSendPhoneThrottle, OTPVerifyPhoneThrottle, OTPVerifyThrottle,
+)
 
 from .auth import sign_visitor_token
 from .models import Visitor
@@ -37,7 +39,7 @@ def _clean_phone(request) -> str | None:
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([OTPRateThrottle])
+@throttle_classes([OTPRateThrottle, OTPSendPhoneThrottle])
 def client_send_otp_view(request):
     phone = _clean_phone(request)
     if not phone:
@@ -52,6 +54,7 @@ def client_send_otp_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([OTPVerifyThrottle, OTPVerifyPhoneThrottle])
 def client_verify_otp_view(request):
     phone = _clean_phone(request)
     if not phone:

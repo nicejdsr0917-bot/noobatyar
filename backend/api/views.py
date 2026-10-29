@@ -2,7 +2,10 @@
 from .responses import APIResponse
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
-from .throttles import LoginRateThrottle, OTPRateThrottle
+from .throttles import (
+    LoginRateThrottle, OTPRateThrottle, OTPSendPhoneThrottle,
+    OTPVerifyPhoneThrottle, OTPVerifyThrottle,
+)
 from .services.otp import send_otp as otp_send, verify_otp as otp_verify
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
@@ -86,7 +89,7 @@ def _extract_error(errors: dict) -> str:
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([OTPRateThrottle])
+@throttle_classes([OTPRateThrottle, OTPSendPhoneThrottle])
 def send_otp_view(request):
     serializer = SendOTPSerializer(data=request.data)
     if not serializer.is_valid():
@@ -98,7 +101,8 @@ def send_otp_view(request):
     #   - checks 3-min rate limit
     #   - checks 24-h daily ban (>= 5 failures)
     #   - generates OTP, stores in cache
-    #   - dispatches SMS in a background daemon thread (non-blocking)
+    #   - sends the SMS synchronously (blocks up to ~10 s on the provider call;
+    #     a later outbox phase will move this to a background worker)
     result = otp_send(phone)
     if not result['success']:
         return APIResponse.error(result.get('error', 'خطا در ارسال کد'))
@@ -111,6 +115,7 @@ def send_otp_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([OTPVerifyThrottle, OTPVerifyPhoneThrottle])
 def verify_otp_view(request):
     serializer = VerifyOTPSerializer(data=request.data)
     if not serializer.is_valid():

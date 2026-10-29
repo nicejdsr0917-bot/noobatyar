@@ -9,6 +9,7 @@ import logging
 import math
 
 from api.phone import is_iran_phone, normalize_phone
+from api.throttles import client_ip
 from visitor.auth import VisitorTokenAuthentication
 from visitor.models import Visitor
 
@@ -84,9 +85,7 @@ def request_fingerprint(request):
     if device_id:
         raw = f"device:{device_id}"
     else:
-        forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
-        ip = forwarded.split(',')[0].strip() if forwarded else request.META.get('REMOTE_ADDR', '')
-        raw = f"ip:{ip}"
+        raw = f"ip:{client_ip(request)}"
     return hashlib.sha256(raw.encode('utf-8')).hexdigest()
 
 

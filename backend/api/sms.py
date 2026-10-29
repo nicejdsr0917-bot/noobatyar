@@ -201,8 +201,8 @@ def send_sms(phone: str, message: str) -> tuple[bool, str]:
         error_detail = ""
         if not success:
             error_detail = str(result)
-            logger.error("SMS send failed to %s: %s", phone, result)
+            logger.error("SMS send failed to %s****: %s", phone[-4:], result)
         return success, error_detail
     except Exception as e:
-        logger.error("Error sending SMS to %s: %s", phone, e)
+        logger.error("Error sending SMS to %s****: %s", phone[-4:], e)
         return False, str(e)

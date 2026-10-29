@@ -54,7 +54,7 @@ def _key_attempts(phone: str) -> str:
 
 def send_otp(phone: str) -> dict:
     """
-    Generate an OTP and dispatch it asynchronously.
+    Generate an OTP and dispatch it (synchronously).
 
     Returns
     -------
@@ -72,38 +72,50 @@ def send_otp(phone: str) -> dict:
     #    would otherwise lock the number out for a day)
     fail_count = cache.get(_key_daily_fail(phone), 0)
     if not dev_code and fail_count >= OTP_MAX_DAILY_FAIL:
-        logger.warning("OTP daily ban active for %s (fails=%d)", phone, fail_count)
+        logger.warning("OTP daily ban active for %s**** (fails=%d)", phone[-4:], fail_count)
         return {
             "success": False,
             "error": "این شماره به دلیل تلاش‌های ناموفق مکرر تا ۲۴ ساعت مسدود شده است",
         }
 
-    # 2. Rate limit check (3-minute cooldown)
-    if not dev_code and cache.get(_key_rate(phone)):
-        return {
-            "success": False,
-            "error": "لطفاً ۳ دقیقه صبر کنید و سپس دوباره درخواست کنید",
-        }
+    # 2. Cooldown (3 min). Claimed atomically with cache.add BEFORE the slow
+    #    (up to 10 s) HTTP call: a check-then-set would let parallel requests
+    #    all pass the check and each trigger an SMS. add() succeeds for exactly one.
+    claimed = False
+    if not dev_code:
+        if not cache.add(_key_rate(phone), 1, timeout=OTP_RATE_TTL):
+            return {
+                "success": False,
+                "error": "لطفاً ۳ دقیقه صبر کنید و سپس دوباره درخواست کنید",
+            }
+        claimed = True
 
     # 3. Ask Melipayamak to send the OTP. IMPORTANT: the /api/send/otp/ endpoint
     #    GENERATES the code itself and returns it in the response — it does NOT
     #    send any text we supply. We must therefore store the code Melipayamak
     #    returns as the source of truth, otherwise every verification fails with
     #    "wrong code" (user receives Melipayamak's code, we stored our own).
-    if dev_code:
-        logger.warning("OTP dev bypass active — using fixed code for %s****", phone[-4:])
-        code = dev_code
-    else:
-        code = _send_via_melipayamak(phone)
+    try:
+        if dev_code:
+            logger.warning("OTP dev bypass active — using fixed code for %s****", phone[-4:])
+            code = dev_code
+        else:
+            code = _send_via_melipayamak(phone)
+    except Exception:
+        if claimed:
+            cache.delete(_key_rate(phone))
+        raise
     if not code:
+        if claimed:
+            # Send failed: release the claim so the user can retry right away.
+            cache.delete(_key_rate(phone))
         return {
             "success": False,
             "error": "خطا در ارسال پیامک. لطفاً کمی بعد دوباره تلاش کنید",
         }
 
-    # 4. Store the code Melipayamak actually sent, atomically with rate/attempts
+    # 4. Store the code Melipayamak actually sent; reset the attempts counter.
     cache.set(_key_code(phone),     str(code), timeout=OTP_TTL)
-    cache.set(_key_rate(phone),     True,      timeout=OTP_RATE_TTL)
     cache.set(_key_attempts(phone), 0,         timeout=OTP_TTL)
 
     logger.info("OTP sent and stored for %s****", phone[-4:])
@@ -132,22 +144,22 @@ def verify_otp(phone: str, code: str) -> dict:
 
     stored_code = cache.get(_key_code(phone))
     if not stored_code:
-        logger.warning(f"OTP Verify Failed: missing code for {phone}. Submitted: {code}")
+        logger.warning("OTP verify failed: no active code for %s****", phone[-4:])
         return {"success": False, "error": "کد منقضی شده یا ارسال نشده است"}
 
-    attempts = cache.get(_key_attempts(phone), 0)
+    # Count the attempt atomically BEFORE comparing, so parallel guesses can't
+    # exceed OTP_MAX_ATTEMPTS (a read-modify-write would let them all through).
+    attempts = _bump(_key_attempts(phone), OTP_TTL)
 
-    if attempts >= OTP_MAX_ATTEMPTS:
-        # Too many wrong tries — kill the code
+    if attempts > OTP_MAX_ATTEMPTS:
+        # Too many tries — kill the code
         _invalidate_otp(phone)
         return {"success": False, "error": "تعداد تلاش بیش از حد مجاز — لطفاً کد جدید دریافت کنید"}
 
     if stored_code != str(code):
-        logger.warning(f"OTP Verify Failed: mismatch for {phone}. Stored: {stored_code}, Submitted: {code}")
-        # Wrong code — increment counters
-        cache.set(_key_attempts(phone), attempts + 1, timeout=OTP_TTL)
+        logger.warning("OTP verify failed: mismatch for %s**** (attempt %d)", phone[-4:], attempts)
         _increment_daily_fail(phone)
-        remaining = OTP_MAX_ATTEMPTS - attempts - 1
+        remaining = OTP_MAX_ATTEMPTS - attempts
         return {
             "success": False,
             "error": f"کد اشتباه است — {remaining} تلاش باقی مانده",
@@ -156,6 +168,16 @@ def verify_otp(phone: str, code: str) -> dict:
     # ✓ Correct — clean up all related keys
     _invalidate_otp(phone)
     return {"success": True}
+
+
+def _bump(key: str, timeout: int) -> int:
+    """Atomic counter increment; returns the new value."""
+    cache.add(key, 0, timeout=timeout)
+    try:
+        return cache.incr(key)
+    except ValueError:  # expired between add and incr
+        cache.set(key, 1, timeout=timeout)
+        return 1
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
