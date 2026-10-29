@@ -231,11 +231,24 @@ def appointment_update_details_for_owner(
 
 
 def appointment_delete_for_owner(*, appointment):
-    """Hard-delete an appointment, giving its credit back to the owner first."""
+    """
+    Hard-delete an appointment, giving its credit back to the owner first.
+
+    Locks the business row then the appointment row and refunds from the LOCKED
+    row, so a retry / race cannot refund twice. A row already gone counts as
+    deleted: no refund, nothing to do.
+    """
     with transaction.atomic():
-        business_id = appointment.business_id
-        appointment_date = appointment.appointment_date
+        business_lock(appointment.business_id)
+        locked = (
+            Appointment.objects.select_for_update()
+            .select_related('business').filter(pk=appointment.pk).first()
+        )
+        if locked is None:
+            return
+        business_id = locked.business_id
+        appointment_date = locked.appointment_date
         # Refund before the row goes away, while quota_source is still readable.
-        refund_quota(appointment, appointment.business.user_id)
-        appointment.delete()
+        refund_quota(locked, locked.business.user_id)
+        locked.delete()
         invalidate_slots_cache(business_id, appointment_date)

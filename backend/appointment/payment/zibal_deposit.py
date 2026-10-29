@@ -125,6 +125,16 @@ def verify_deposit_payment(appointment, track_id: str) -> Dict[str, Any]:
         return {"success": False, "error": "پرداخت تایید نشد", "response": result.data}
     data = result.data
 
+    # Zibal confirmed the money. Stamp it on the row so a deposit whose slot is
+    # then lost (callback lands after the hold expired and someone else booked)
+    # can be found in the admin and refunded. Queryset update: touches only this
+    # column, so it cannot clobber the status flip that follows.
+    # Stamped BEFORE the amount check so an underpayment is refundable too.
+    from appointment.models import Appointment
+    now = timezone.now()
+    Appointment.objects.filter(pk=appointment.pk).update(deposit_verified_at=now)
+    appointment.deposit_verified_at = now
+
     paid = int(data.get("amount") or 0)
     expected = deposit_amount_rial(business)
     if expected and paid < expected:
@@ -133,13 +143,5 @@ def verify_deposit_payment(appointment, track_id: str) -> Dict[str, Any]:
             appointment.id, paid, expected,
         )
         return {"success": False, "error": "مبلغ پرداخت‌شده با مبلغ بیعانه مطابقت ندارد", "response": data}
-
-    # Zibal confirmed the money. Stamp it on the row so a deposit whose slot is
-    # then lost (callback lands after the hold expired and someone else booked)
-    # can be found in the admin and refunded. Queryset update: touches only this
-    # column, so it cannot clobber the status flip that follows.
-    from appointment.models import Appointment
-    Appointment.objects.filter(pk=appointment.pk).update(deposit_verified_at=timezone.now())
-    appointment.deposit_verified_at = timezone.now()
 
     return {"success": True, "response": data}

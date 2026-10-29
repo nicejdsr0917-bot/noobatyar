@@ -58,6 +58,14 @@ def deposit_settle(track_id):
             Appointment.objects.select_for_update()
             .select_related('business', 'visitor').get(pk=appointment.pk)
         )
+        if locked.status == 'CANCELLED':
+            # Cancelled / expired while we were verifying: the money was taken
+            # (verify stamped deposit_verified_at) but there is no booking.
+            logger.error(
+                "Paid deposit on CANCELLED appointment: appointment=%s trackId=%s "
+                "— needs manual refund", locked.pk, track_id,
+            )
+            return 'conflict', locked
         if locked.status != 'LOCKED':
             # Already settled / cancelled by someone else: replay, no side effects.
             return 'success', locked

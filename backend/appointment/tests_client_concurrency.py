@@ -113,7 +113,8 @@ class DepositCallbackTests(Base, TestCase):
 
         with patch(VERIFY, side_effect=cancel_meanwhile), \
                 patch('appointment.client_views._fire_deposit_paid_sms') as sms:
-            self.callback()
+            r = self.callback()
+        self.assertIn('payment=conflict', r['Location'])
         a.refresh_from_db()
         self.assertEqual(a.status, 'CANCELLED')
         sms.assert_not_called()

@@ -1,9 +1,12 @@
 """
 Appointment status transitions.
 
-Every transition is a conditional UPDATE keyed on the status the caller saw, so
-a concurrent callback / cancel / owner action that already moved the row wins
-and only one caller ever refunds the credit.
+Client / expiry transitions are a conditional UPDATE keyed on the status the
+caller saw, and the UPDATE plus its credit refund commit in ONE transaction (a
+crash between them cannot lose the credit). The owner transition instead locks
+the business row, then the appointment row, and validates against the LOCKED
+row's status, so a concurrent callback / cancel / owner action that already
+moved the row wins and only one caller ever refunds the credit.
 """
 
 import enum
@@ -20,6 +23,7 @@ from appointment.occupancy import refund_quota
 from visitor.activity import record_activity
 from visitor.models import VisitorActivity
 
+from .booking import appointment_update_details_for_owner, business_lock
 from .notifications import notify_client_of_decision
 
 # Anything still ahead of the appointment time can be dropped by the client.
@@ -63,12 +67,14 @@ def appointment_expire_lock_if_due(appointment):
     if not (appointment.expires_at and appointment.expires_at <= timezone.now()):
         return False
 
-    changed = Appointment.objects.filter(
-        pk=appointment.pk, status='LOCKED', expires_at__lte=timezone.now(),
-    ).update(status='CANCELLED', quota_source='', updated_at=timezone.now())
+    with transaction.atomic():
+        changed = Appointment.objects.filter(
+            pk=appointment.pk, status='LOCKED', expires_at__lte=timezone.now(),
+        ).update(status='CANCELLED', quota_source='', updated_at=timezone.now())
+        if changed:
+            # The client never paid, so the owner keeps the credit.
+            refund_quota(appointment, appointment.business.user_id)
     if changed:
-        # The client never paid, so the owner keeps the credit.
-        refund_quota(appointment, appointment.business.user_id)
         appointment.status = 'CANCELLED'
         invalidate_slots_cache(appointment.business_id, appointment.appointment_date)
     return True
@@ -76,16 +82,17 @@ def appointment_expire_lock_if_due(appointment):
 
 def appointment_cancel_by_client(appointment, previous_status):
     """Sync: CANCELLED only if still in ``previous_status``; refund once."""
-    changed = Appointment.objects.filter(
-        pk=appointment.pk, status=previous_status
-    ).update(
-        status='CANCELLED', locked_at=None, expires_at=None,
-        quota_source='', updated_at=timezone.now(),
-    )
-    if not changed:
-        return False
-    # A slot the owner never served should not keep costing them a credit.
-    refund_quota(appointment, appointment.business.user_id)
+    with transaction.atomic():
+        changed = Appointment.objects.filter(
+            pk=appointment.pk, status=previous_status
+        ).update(
+            status='CANCELLED', locked_at=None, expires_at=None,
+            quota_source='', updated_at=timezone.now(),
+        )
+        if not changed:
+            return False
+        # A slot the owner never served should not keep costing them a credit.
+        refund_quota(appointment, appointment.business.user_id)
     appointment.status = 'CANCELLED'
     appointment.locked_at = None
     appointment.expires_at = None
@@ -141,16 +148,29 @@ def appointment_change_status_by_owner(*, appointment, new_status):
     """
     Owner-driven status change with state-machine validation.
 
-    On success saves the row, frees its slot, records the activity and queues
-    the client's verdict SMS — all in one transaction. Cancelling refunds the
-    credit; NO_SHOW does not: the slot was held and wasted, which is what the
-    quota is meant to price.
+    Locks the business row, then the appointment row, and validates the
+    transition (and refunds) against the LOCKED row, never the caller's possibly
+    stale instance: a concurrent client cancel / owner action cannot make this
+    refund twice or resurrect a cancelled booking. On success saves the row,
+    frees its slot, records the activity and queues the client's verdict SMS —
+    all in one transaction. Cancelling refunds the credit; NO_SHOW does not: the
+    slot was held and wasted, which is what the quota is meant to price.
+
+    The passed ``appointment`` is updated in place to mirror the saved state.
+    Raises ``Appointment.DoesNotExist`` when the row was deleted meanwhile.
     """
+    valid_statuses = dict(Appointment.STATUS_CHOICES).keys()
+    if new_status not in valid_statuses:
+        return StatusChangeResult(appointment.status, StatusChangeFailure.INVALID_STATUS)
+
     with transaction.atomic():
-        valid_statuses = dict(Appointment.STATUS_CHOICES).keys()
-        old_status = appointment.status
-        if new_status not in valid_statuses:
-            return StatusChangeResult(old_status, StatusChangeFailure.INVALID_STATUS)
+        # Lock order: business row -> appointment row -> credit rows.
+        business_lock(appointment.business_id)
+        locked = (
+            Appointment.objects.select_for_update()
+            .select_related('business', 'visitor').get(pk=appointment.pk)
+        )
+        old_status = locked.status
 
         allowed = OWNER_STATUS_TRANSITIONS.get(old_status, [])
         if new_status not in allowed and new_status != old_status:
@@ -158,27 +178,58 @@ def appointment_change_status_by_owner(*, appointment, new_status):
                 old_status, StatusChangeFailure.INVALID_TRANSITION, tuple(allowed)
             )
 
-        appointment.status = new_status
+        locked.status = new_status
         updated = ['status', 'updated_at']
-        if new_status == 'CANCELLED' and refund_quota(appointment, appointment.business.user_id):
+        if new_status == 'CANCELLED' and refund_quota(locked, locked.business.user_id):
             updated.append('quota_source')
-        appointment.save(update_fields=updated)
-        invalidate_slots_cache(appointment.business_id, appointment.appointment_date)
+        locked.save(update_fields=updated)
+        invalidate_slots_cache(locked.business_id, locked.appointment_date)
 
         # The caller is already scoped to the business owner, so the owner of
         # the business is the actor.
         record_activity(
-            appointment.visitor_id,
+            locked.visitor_id,
             'APPOINTMENT_STATUS_CHANGED',
             actor_type=VisitorActivity.ACTOR_OWNER,
-            actor_user=appointment.business.user_id,
-            business=appointment.business_id,
-            appointment=appointment,
+            actor_user=locked.business.user_id,
+            business=locked.business_id,
+            appointment=locked,
             old=old_status,
             new=new_status,
         )
 
         # Tell the client the verdict — until now they were only told their
         # booking was received, never whether it was accepted or rejected.
-        notify_client_of_decision(appointment, old_status, new_status)
+        notify_client_of_decision(locked, old_status, new_status)
+
+        appointment.status = locked.status
+        appointment.quota_source = locked.quota_source
+        appointment.updated_at = locked.updated_at
     return StatusChangeResult(old_status)
+
+
+def appointment_update_details_and_status_for_owner(
+    *, appointment, status, appointment_date, service_duration, description,
+    selected_services,
+):
+    """
+    PATCH carrying ``status`` plus detail fields: apply the details, then the
+    status through the state machine (validation, refund, verdict SMS), in ONE
+    transaction. Returns ``(details_result, status_result)``; on a details
+    validation error or a rejected status nothing is saved.
+    """
+    with transaction.atomic():
+        business_lock(appointment.business_id)
+        details = appointment_update_details_for_owner(
+            appointment=appointment, status=None,
+            appointment_date=appointment_date, service_duration=service_duration,
+            description=description, selected_services=selected_services,
+        )
+        if details.validation_error is not None:
+            return details, None
+        result = appointment_change_status_by_owner(
+            appointment=appointment, new_status=status
+        )
+        if result.failure is not None:
+            transaction.set_rollback(True)
+        return details, result

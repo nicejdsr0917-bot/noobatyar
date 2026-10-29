@@ -133,13 +133,13 @@ class VerifyDepositTests(Base, TestCase):
         a.refresh_from_db()
         self.assertIsNone(a.deposit_verified_at)
 
-    def test_underpayment_is_rejected_and_not_stamped(self):
+    def test_underpayment_is_rejected_but_stamped_for_refund(self):
         a = self.make(payment_reference='111')
         low = _result(zibal_client.Outcome.SUCCESS, result=100, amount=1000)
         with patch('appointment.payment.zibal_deposit.zibal_client.verify', return_value=low):
             self.assertFalse(verify_deposit_payment(a, '111')['success'])
         a.refresh_from_db()
-        self.assertIsNone(a.deposit_verified_at)
+        self.assertIsNotNone(a.deposit_verified_at)
 
 
 class PaidWithoutSlotFilterTests(Base, TestCase):

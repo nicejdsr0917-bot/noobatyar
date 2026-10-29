@@ -25,6 +25,7 @@ from appointment.services.notifications import notify_client_of_decision, send_c
 from appointment.services.transitions import (
     StatusChangeFailure,
     appointment_change_status_by_owner,
+    appointment_update_details_and_status_for_owner,
 )
 from api.responses import APIResponse
 from api.views import _extract_error
@@ -218,6 +219,10 @@ class AppointmentView(APIView):
                 for field in ['appointment_date', 'service_duration', 'description', 'selected_services']
             )
 
+            if 'status' in update_fields and is_details_update:
+                return await self._update_details_and_status(
+                    appointment, request.data, request_id, start_time
+                )
             if is_status_only:
                 return await self._update_status_with_validation(
                     appointment, request.data['status'], request_id, start_time
@@ -343,14 +348,9 @@ class AppointmentView(APIView):
             )
             return None, APIResponse.error('نوبت یافت نشد', code=status.HTTP_404_NOT_FOUND)
 
-    async def _update_status_with_validation(
-            self, appointment: Appointment, new_status: str, request_id: str, start_time: datetime
-    ) -> Response:
-        """Update status with state machine validation"""
-        result = await sync_to_async(appointment_change_status_by_owner)(
-            appointment=appointment, new_status=new_status
-        )
-
+    @staticmethod
+    def _status_failure_response(result, appointment, new_status, request_id):
+        """The 400 for a rejected status change, or None when it went through."""
         if result.failure is StatusChangeFailure.INVALID_STATUS:
             valid_statuses = [value for value, _ in Appointment.STATUS_CHOICES]
             logger.warning(
@@ -373,6 +373,22 @@ class AppointmentView(APIView):
                 f'تغییر وضعیت از {result.old_status} به {new_status} مجاز نیست. وضعیت‌های مجاز: {", ".join(result.allowed)}',
                 code=status.HTTP_400_BAD_REQUEST
             )
+        return None
+
+    async def _update_status_with_validation(
+            self, appointment: Appointment, new_status: str, request_id: str, start_time: datetime
+    ) -> Response:
+        """Update status with state machine validation"""
+        try:
+            result = await sync_to_async(appointment_change_status_by_owner)(
+                appointment=appointment, new_status=new_status
+            )
+        except Appointment.DoesNotExist:
+            return APIResponse.error('نوبت یافت نشد', code=status.HTTP_404_NOT_FOUND)
+
+        failure_response = self._status_failure_response(result, appointment, new_status, request_id)
+        if failure_response is not None:
+            return failure_response
 
         elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
         logger.info(
@@ -431,6 +447,57 @@ class AppointmentView(APIView):
             extra={'appointment_id': appointment.id, 'elapsed_ms': elapsed_ms}
         )
 
+        return APIResponse.success(
+            data=await sync_to_async(_serialized)(appointment),
+            message='جزئیات نوبت با موفقیت بروزرسانی شد',
+        )
+
+    async def _update_details_and_status(
+            self, appointment: Appointment, data: Dict[str, Any], request_id: str, start_time: datetime
+    ) -> Response:
+        """PATCH with ``status`` AND detail fields: details + state-machine status, atomically."""
+        new_date = None
+        if data.get('appointment_date'):
+            try:
+                new_date = _parse_timestamp(data.get('appointment_date'))
+            except ValueError as e:
+                logger.warning(
+                    f"[{request_id}] Invalid timestamp: {data.get('appointment_date')}",
+                    extra={'error': str(e)}
+                )
+                return APIResponse.error('فرمت تاریخ نامعتبر است', code=status.HTTP_400_BAD_REQUEST)
+
+        new_status = data['status']
+        try:
+            details, result = await sync_to_async(appointment_update_details_and_status_for_owner)(
+                appointment=appointment,
+                status=new_status,
+                appointment_date=new_date,
+                service_duration=data.get('service_duration'),
+                description=data.get('description'),
+                selected_services=data.get('selected_services'),
+            )
+        except Appointment.DoesNotExist:
+            return APIResponse.error('نوبت یافت نشد', code=status.HTTP_404_NOT_FOUND)
+
+        if details.validation_error is not None:
+            e = details.validation_error
+            logger.error(
+                f"[{request_id}] Validation error updating appointment",
+                extra={'errors': e.message_dict}
+            )
+            error_message = _extract_error(e.message_dict) if hasattr(e, 'message_dict') else str(e)
+            return APIResponse.error(error_message, code=status.HTTP_400_BAD_REQUEST)
+
+        failure_response = self._status_failure_response(result, appointment, new_status, request_id)
+        if failure_response is not None:
+            return failure_response
+
+        elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
+        logger.info(
+            f"[{request_id}] Appointment details and status updated",
+            extra={'appointment_id': appointment.id, 'elapsed_ms': elapsed_ms}
+        )
         return APIResponse.success(
             data=await sync_to_async(_serialized)(appointment),
             message='جزئیات نوبت با موفقیت بروزرسانی شد',
