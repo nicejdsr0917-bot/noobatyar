@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.claimBusiness
 
+import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -157,10 +158,10 @@ fun ClaimBusinessScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ثبت مالکیت مرکز", style = MaterialTheme.typography.titleLarge) },
+                title = { Text(Str.claim_title, style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = { if (step is ClaimStep.Confirm || step is ClaimStep.EnterCode) viewModel.back() else onNavigateBack() }) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "بازگشت")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = Str.back)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -178,31 +179,31 @@ fun ClaimBusinessScreen(
                 is ClaimStep.Confirm -> FormStep {
                     BusinessSummary(step.business)
                     Text(
-                        "اگر شماره موبایل ثبت‌شده برای این مرکز در اختیار شماست، کد تأیید به همان شماره ارسال می‌شود. در غیر این صورت درخواست شما توسط پشتیبانی بررسی می‌شود.",
+                        Str.claim_confirm_hint,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     AppTextField(
                         value = state.note,
                         onValueChange = viewModel::updateNote,
-                        label = "توضیح برای پشتیبانی (مثلاً شماره نظام پزشکی یا پروانه)",
+                        label = Str.claim_note_label,
                         maxLine = 3,
                         maxLength = 500,
                     )
                     ErrorText(state.error)
-                    AppButton(text = "ادامه", onClick = viewModel::start, isLoading = state.isBusy, modifier = Modifier.fillMaxWidth())
+                    AppButton(text = Str.claim_continue, onClick = viewModel::start, isLoading = state.isBusy, modifier = Modifier.fillMaxWidth())
                 }
                 is ClaimStep.EnterCode -> FormStep {
                     BusinessSummary(step.business)
                     Text(
-                        "کد تأیید به شماره ${step.maskedPhone} ارسال شد.",
+                        Str.claim_code_sent(step.maskedPhone),
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OTPTextField(otp = state.code, onOTPChange = viewModel::updateCode, isError = state.error != null, errorMessage = state.error)
                     AppButton(
-                        text = "تأیید و انتقال مالکیت",
+                        text = Str.claim_verify_transfer,
                         onClick = viewModel::verify,
                         isLoading = state.isBusy,
                         enabled = state.code.length >= 4,
@@ -211,16 +212,16 @@ fun ClaimBusinessScreen(
                 }
                 is ClaimStep.ManualPending -> ResultStep(
                     icon = Icons.Rounded.HourglassTop,
-                    title = "درخواست شما ثبت شد",
-                    body = "پشتیبانی نوبت‌یار مالکیت «${step.business.title}» را بررسی می‌کند و پس از تأیید، مرکز به فهرست کسب‌وکارهای شما اضافه می‌شود.",
-                    action = "بازگشت",
+                    title = Str.claim_pending_title,
+                    body = Str.claim_pending_body(step.business.title),
+                    action = Str.back,
                     onAction = onNavigateBack,
                 )
                 is ClaimStep.Done -> ResultStep(
                     icon = Icons.Rounded.CheckCircle,
-                    title = "مرکز به حساب شما منتقل شد",
-                    body = "«${step.business.title}» حالا متعلق به شماست. اطلاعات را کامل کنید و نوبت‌دهی آنلاین را روشن کنید تا مشتریان مستقیم نوبت بگیرند.",
-                    action = "رفتن به کسب‌وکارها",
+                    title = Str.claim_done_title,
+                    body = Str.claim_done_body(step.business.title),
+                    action = Str.claim_go_to_businesses,
                     onAction = onFinished,
                 )
             }
@@ -236,7 +237,7 @@ private fun SearchStep(state: ClaimState, viewModel: ClaimBusinessViewModel) {
     ) {
         item {
             Text(
-                "مرکز شما ممکن است از قبل در فهرست نوبت‌یار باشد. نام مرکز یا شماره تلفن آن را جستجو کنید.",
+                Str.claim_search_hint,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -244,7 +245,7 @@ private fun SearchStep(state: ClaimState, viewModel: ClaimBusinessViewModel) {
             AppTextField(
                 value = state.query,
                 onValueChange = viewModel::updateQuery,
-                label = "نام مرکز یا شماره تلفن",
+                label = Str.claim_search_label,
                 keyboardType = KeyboardType.Text,
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
             )
@@ -258,7 +259,7 @@ private fun SearchStep(state: ClaimState, viewModel: ClaimBusinessViewModel) {
         if (state.searched && state.results.isEmpty() && !state.isBusy) {
             item {
                 Text(
-                    "مرکزی با این مشخصات پیدا نشد. می‌توانید کسب‌وکار جدید بسازید.",
+                    Str.claim_not_found,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 16.dp)
@@ -287,7 +288,7 @@ private fun BusinessSummary(b: ClaimableBusinessDto, modifier: Modifier = Modifi
         Column {
             Text(b.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             b.categoryDisplay?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
-            val area = listOfNotNull(b.neighborhood, b.city).filter { it.isNotBlank() }.joinToString("، ")
+            val area = listOfNotNull(b.neighborhood, b.city).filter { it.isNotBlank() }.joinToString(Str.claim_area_separator)
             if (area.isNotBlank()) Text(area, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
