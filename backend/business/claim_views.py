@@ -20,6 +20,7 @@ from rest_framework.throttling import UserRateThrottle
 from api.phone import is_iran_mobile
 from api.responses import APIResponse
 from api.services.otp import send_otp as otp_send, verify_otp as otp_verify
+from api.throttles import client_ip
 
 from .claims import ClaimError, apply_claim, check_claim_quota, mask_phone
 from .models import Business, BusinessClaimRequest
@@ -111,7 +112,7 @@ class ClaimStartView(APIView):
         business, claim = result
 
         if claim.method == BusinessClaimRequest.METHOD_OTP:
-            sent = await sync_to_async(otp_send)(business.phone)
+            sent = await sync_to_async(otp_send)(business.phone, ip=client_ip(request))
             if not sent['success']:
                 return APIResponse.error(message=sent.get('error', 'خطا در ارسال کد'), code=429)
             return APIResponse.success(

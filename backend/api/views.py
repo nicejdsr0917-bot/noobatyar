@@ -3,7 +3,7 @@ from .responses import APIResponse
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from .throttles import (
-    LoginRateThrottle, OTPRateThrottle, OTPSendPhoneThrottle,
+    LoginRateThrottle, OTPRateThrottle, client_ip, OTPSendPhoneThrottle,
     OTPVerifyPhoneThrottle, OTPVerifyThrottle,
 )
 from .services.otp import send_otp as otp_send, verify_otp as otp_verify
@@ -99,11 +99,11 @@ def send_otp_view(request):
 
     # Delegates to the Redis-backed service:
     #   - checks 3-min rate limit
-    #   - checks 24-h daily ban (>= 5 failures)
+    #   - checks the per-phone daily send cap
     #   - generates OTP, stores in cache
     #   - sends the SMS synchronously (blocks up to ~10 s on the provider call;
     #     a later outbox phase will move this to a background worker)
-    result = otp_send(phone)
+    result = otp_send(phone, ip=client_ip(request))
     if not result['success']:
         return APIResponse.error(result.get('error', 'خطا در ارسال کد'))
 
@@ -124,7 +124,7 @@ def verify_otp_view(request):
     phone = serializer.validated_data['phone']
     code  = str(serializer.validated_data['code'])
 
-    # Delegates to the service: tracks attempts, increments daily fail counter
+    # Delegates to the service: tracks per-code attempts
     result = otp_verify(phone, code)
     if not result['success']:
         return APIResponse.error(result.get('error', 'کد نامعتبر است'))
@@ -265,7 +265,7 @@ def logout_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([OTPRateThrottle])
+@throttle_classes([OTPRateThrottle, OTPSendPhoneThrottle])
 def forgot_password_send_otp(request):
     serializer = ForgotPasswordSendOTPSerializer(data=request.data)
     if not serializer.is_valid():
@@ -279,9 +279,9 @@ def forgot_password_send_otp(request):
         # Don't reveal whether the phone is registered (account enumeration).
         return APIResponse.success(message='اگر شماره ثبت شده باشد، کد ارسال می‌شود')
 
-    # Reuse the Redis-backed OTP service (rate limit + daily ban + async SMS).
+    # Reuse the Redis-backed OTP service (cooldown + send caps).
     # It stores the code internally and is verified later via otp_verify().
-    result = otp_send(phone)
+    result = otp_send(phone, ip=client_ip(request))
     if not result['success']:
         return APIResponse.error(result.get('error', 'خطا در ارسال پیامک'))
 
@@ -293,6 +293,7 @@ def forgot_password_send_otp(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([OTPVerifyThrottle, OTPVerifyPhoneThrottle])
 def forgot_password_verify_otp(request):
     serializer = ForgotPasswordVerifyOTPSerializer(data=request.data)
     if not serializer.is_valid():

@@ -73,12 +73,9 @@ class OtpThrottleTests(TestCase):
         cache.clear()
         self.c = APIClient()
 
-    def test_verify_per_phone_429(self):
-        codes = []
-        for i in range(12):
-            r = self.c.post("/api/auth/otp/verify/", {"phone": PHONE, "code": "123456"},
-                            format="json", REMOTE_ADDR=f"10.0.0.{i}")
-            codes.append(r.status_code)
+    def test_verify_per_phone_ip_429(self):
+        codes = [self.c.post("/api/auth/otp/verify/", {"phone": PHONE, "code": "123456"},
+                             format="json", REMOTE_ADDR="10.0.0.1").status_code for i in range(12)]
         self.assertEqual(codes[-1], 429)
         self.assertNotIn(429, codes[:10])
 
@@ -88,12 +85,119 @@ class OtpThrottleTests(TestCase):
         self.assertNotIn(429, codes[:30])
         self.assertEqual(codes[-1], 429)
 
-    def test_send_per_phone_429(self):
+    def test_failed_sends_do_not_count_toward_hourly_quota(self):
         with mock.patch.object(otp, "_send_via_melipayamak", return_value=None):
             codes = [self.c.post("/api/auth/otp/send/", {"phone": PHONE}, format="json",
-                                 REMOTE_ADDR=f"10.1.0.{i}").status_code for i in range(7)]
-        self.assertNotIn(429, codes[:5])
+                                 REMOTE_ADDR="10.1.0.1").status_code for _ in range(4)]
+        self.assertNotIn(429, codes)  # ip throttle 5/min is the only limit here
+
+    def test_send_per_phone_ip_hourly_429_after_successes(self):
+        with mock.patch.object(otp, "_send_via_melipayamak", return_value="111111"):
+            for _ in range(5):
+                cache.delete(otp._key_rate(PHONE))  # skip the 3-min cooldown
+                self.assertEqual(self.c.post("/api/auth/otp/send/", {"phone": PHONE},
+                                             format="json", REMOTE_ADDR="10.1.0.1").status_code, 200)
+            cache.delete(otp._key_rate(PHONE))
+            r = self.c.post("/api/auth/otp/send/", {"phone": PHONE}, format="json", REMOTE_ADDR="10.1.0.1")
+        self.assertEqual(r.status_code, 429)
+
+
+@override_settings(OTP_DEV_CODE="")
+class OtpLockoutResistanceTests(TestCase):
+    """A third party must not be able to lock a victim out."""
+    def setUp(self):
+        cache.clear()
+        self.c = APIClient()
+
+    def _post(self, path, ip, **data):
+        return self.c.post(path, {"phone": PHONE, **data}, format="json", REMOTE_ADDR=ip)
+
+    def test_attacker_cannot_block_victim_verify(self):
+        for _ in range(15):
+            self._post("/api/auth/otp/verify/", "6.6.6.6", code="000000")
+        self.assertEqual(self._post("/api/auth/otp/verify/", "6.6.6.6", code="000000").status_code, 429)
+        self.assertNotEqual(self._post("/api/auth/otp/verify/", "7.7.7.7", code="000000").status_code, 429)
+
+    def test_attacker_cannot_block_victim_send(self):
+        with mock.patch.object(otp, "_send_via_melipayamak", return_value="111111"):
+            for _ in range(5):
+                cache.delete(otp._key_rate(PHONE))
+                self._post("/api/auth/otp/send/", "6.6.6.6")
+            cache.delete(otp._key_rate(PHONE))
+            self.assertEqual(self._post("/api/auth/otp/send/", "6.6.6.6").status_code, 429)
+            self.assertEqual(self._post("/api/auth/otp/send/", "7.7.7.7").status_code, 200)
+
+    def test_daily_cap_counts_only_successful_sends(self):
+        with mock.patch.object(otp, "_send_via_melipayamak", return_value=None):
+            for _ in range(20):
+                self.assertFalse(send_otp(PHONE, ip="1.1.1.1")["success"])
+        self.assertEqual(cache.get(otp._key_sent_day(PHONE), 0), 0)
+        with mock.patch.object(otp, "_send_via_melipayamak", return_value="111111"):
+            self.assertTrue(send_otp(PHONE, ip="1.1.1.1")["success"])
+        self.assertEqual(cache.get(otp._key_sent_day(PHONE)), 1)
+
+    def test_daily_cap_blocks_after_limit_across_ips(self):
+        with mock.patch.object(otp, "_send_via_melipayamak", return_value="111111"):
+            for i in range(otp.OTP_MAX_DAILY_SENDS):
+                cache.delete(otp._key_rate(PHONE))
+                self.assertTrue(send_otp(PHONE, ip=f"2.2.2.{i}")["success"])
+            cache.delete(otp._key_rate(PHONE))
+            res = send_otp(PHONE, ip="3.3.3.3")
+        self.assertFalse(res["success"])
+        self.assertIn("سقف", res["error"])
+
+    def test_no_24h_ban_after_wrong_guesses(self):
+        with mock.patch.object(otp, "_send_via_melipayamak", return_value="654321"):
+            self.assertTrue(send_otp(PHONE)["success"])
+            for _ in range(6):
+                verify_otp(PHONE, "000000")
+            # code is dead but the cooldown stays: must wait the normal 3 min
+            res = send_otp(PHONE)
+            self.assertFalse(res["success"])
+            self.assertIn("۳ دقیقه", res["error"])
+            self.assertFalse(verify_otp(PHONE, "654321")["success"])
+            cache.delete(otp._key_rate(PHONE))  # cooldown elapsed
+            self.assertTrue(send_otp(PHONE)["success"])
+            self.assertTrue(verify_otp(PHONE, "654321")["success"])
+
+    def test_forgot_password_endpoints_throttled(self):
+        from django.contrib.auth import get_user_model
+        get_user_model().objects.create_user(phone=PHONE, password="x12345678") \
+            if hasattr(get_user_model().objects, "create_user") else None
+        codes = [self._post("/api/auth/forgot-password/verify/", "9.9.9.9", code="123456").status_code
+                 for _ in range(12)]
         self.assertEqual(codes[-1], 429)
+        with mock.patch.object(otp, "_send_via_melipayamak", return_value="111111"):
+            for _ in range(5):
+                cache.delete(otp._key_rate(PHONE))
+                self._post("/api/auth/forgot-password/send/", "8.8.8.8")
+            cache.delete(otp._key_rate(PHONE))
+            self.assertEqual(self._post("/api/auth/forgot-password/send/", "8.8.8.8").status_code, 429)
+
+
+@override_settings(OTP_DEV_CODE="")
+class OtpCacheOutageTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_send_outage_distinct_error_and_logged(self):
+        with mock.patch.object(otp.cache, "add", return_value=None), \
+             mock.patch.object(otp, "_send_via_melipayamak") as m, \
+             self.assertLogs("api.services.otp", level="ERROR") as cm:
+            res = send_otp(PHONE)
+        self.assertFalse(res["success"])
+        self.assertIn("در دسترس نیست", res["error"])
+        self.assertNotIn("۳ دقیقه", res["error"])
+        m.assert_not_called()
+        self.assertEqual(len(cm.output), 1)
+
+    def test_verify_incr_outage_no_exception(self):
+        with mock.patch.object(otp, "_send_via_melipayamak", return_value="654321"):
+            send_otp(PHONE)
+        with mock.patch.object(otp.cache, "incr", return_value=None), \
+             self.assertLogs("api.services.otp", level="ERROR"):
+            res = verify_otp(PHONE, "654321")
+        self.assertFalse(res["success"])
 
 
 class ClientIpTests(SimpleTestCase):

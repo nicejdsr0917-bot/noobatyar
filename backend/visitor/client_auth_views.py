@@ -15,7 +15,7 @@ from api.phone import normalize_phone
 from api.responses import APIResponse
 from api.services.otp import send_otp as otp_send, verify_otp as otp_verify
 from api.throttles import (
-    OTPRateThrottle, OTPSendPhoneThrottle, OTPVerifyPhoneThrottle, OTPVerifyThrottle,
+    OTPRateThrottle, OTPSendPhoneThrottle, client_ip, OTPVerifyPhoneThrottle, OTPVerifyThrottle,
 )
 
 from .auth import sign_visitor_token
@@ -45,7 +45,7 @@ def client_send_otp_view(request):
     if not phone:
         return APIResponse.error(message='شماره موبایل معتبر نیست')
 
-    result = otp_send(phone)
+    result = otp_send(phone, ip=client_ip(request))
     if not result['success']:
         return APIResponse.error(result.get('error', 'خطا در ارسال کد'))
 
