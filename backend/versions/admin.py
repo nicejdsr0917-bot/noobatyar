@@ -9,4 +9,5 @@ class ChangelogInline(StackedInline):
 @admin.register(AppVersion)
 class AppVersionAdmin(ModelAdmin):
     inlines = [ChangelogInline]
-    list_display = ['version_name', 'version_code', 'force_update', 'is_active']
+    list_display = ['app', 'version_name', 'version_code', 'force_update', 'is_active']
+    list_filter = ['app', 'is_active', 'force_update']
