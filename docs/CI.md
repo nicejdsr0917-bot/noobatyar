@@ -6,7 +6,7 @@
 |---|---|
 | backend | Python 3.11, Postgres 16 service (`POSTGRES_*` env makes settings use it), `makemigrations --check --dry-run`, `manage.py test --parallel 4` (`DEBUG=True`, cache falls back to LocMem) |
 | web | Node 20, `npm ci`, `tsc --noEmit` in `front_client` |
-| kmp | JDK 17, Gradle cache; one variant per app: owner `:composeApp:testLocalSiteDebugUnitTest`, client `:composeApp:testDebugUnitTest` (client has no flavors) |
+| kmp | JDK 17, Gradle cache; one variant per app: owner `:composeApp:testLocalSiteDebugUnitTest`, client `:composeApp:testLocalDebugUnitTest` |
 
 `android-release.yml` (tags `v*.*.*`) is unchanged and builds the owner app only.
 

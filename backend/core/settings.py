@@ -188,11 +188,15 @@ LOGGING = {
         'default': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'},
         'json': {'()': 'core.observability.JsonFormatter'},
     },
+    'filters': {
+        'request_id': {'()': 'core.observability.RequestIdFilter'},
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'stream': 'ext://sys.stdout',
             'formatter': 'json' if LOG_JSON else 'default',
+            'filters': ['request_id'],
         },
     },
     'root': {

@@ -82,7 +82,7 @@ jobs:
           - app: mobile_owner
             task: ":composeApp:testLocalSiteDebugUnitTest"
           - app: mobile_client
-            task: ":composeApp:testDebugUnitTest"
+            task: ":composeApp:testLocalDebugUnitTest"
     defaults:
       run:
         working-directory: ${{ matrix.app }}

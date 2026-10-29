@@ -34,12 +34,12 @@ class RequestLogTests(TestCase):
     @override_settings(SLOW_QUERY_LOG=True, SLOW_QUERY_MS=0)
     def test_slow_query_logged_when_enabled(self):
         with self.assertLogs('nobatyar.slowquery', 'WARNING') as cm:
-            self.client.get('/readyz')
+            self.client.get('/api/version/changelog/')
         self.assertTrue(cm.records[0].sql)
 
     def test_slow_query_off_by_default(self):
         with self.assertNoLogs('nobatyar.slowquery', 'WARNING'):
-            self.client.get('/readyz')
+            self.client.get('/api/version/changelog/')
 
     def test_json_formatter(self):
         from core.observability import JsonFormatter
@@ -94,3 +94,66 @@ class ZibalMerchantTests(TestCase):
 
     def test_env_wins(self):
         self.assertEqual(self._merchant(SECRET_KEY='x', ZIBAL_MERCHANT_ID='m1'), 'm1')
+
+
+class HardeningTests(TestCase):
+    def test_bale_secret_never_logged(self):
+        secret = 'S3CRET' * 6
+        with self.assertLogs('nobatyar.request', 'INFO') as cm:
+            self.client.post(f'/api/bale/webhook/{secret}/', {})
+            self.client.get(f'/nope/{secret}/')
+        for rec in cm.records:
+            self.assertNotIn(secret, rec.getMessage())
+            self.assertNotIn(secret, rec.path)
+
+    def test_json_formatter_drops_request_and_unsafe_extras(self):
+        from core.observability import JsonFormatter
+        rec = logging.LogRecord('x', logging.INFO, 'f', 1, 'm', (), None)
+        rec.request = object()
+        rec.blob = {'a': 1}
+        rec.status_code = 404
+        out = json.loads(JsonFormatter().format(rec))
+        self.assertNotIn('request', out)
+        self.assertNotIn('blob', out)
+        self.assertEqual(out['status_code'], 404)
+
+    def test_request_id_filter_stamps_any_record(self):
+        from core.observability import RequestIdFilter, request_id_var
+        tok = request_id_var.set('rid-9')
+        try:
+            rec = logging.LogRecord('x', logging.INFO, 'f', 1, 'm', (), None)
+            RequestIdFilter().filter(rec)
+        finally:
+            request_id_var.reset(tok)
+        self.assertEqual(rec.request_id, 'rid-9')
+
+    def test_async_middleware(self):
+        import asyncio
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from core.observability import RequestLogMiddleware
+
+        async def view(request):
+            return HttpResponse('ok')
+
+        mw = RequestLogMiddleware(view)
+        self.assertTrue(asyncio.iscoroutinefunction(mw))
+        resp = asyncio.run(mw(RequestFactory().get('/x')))
+        self.assertTrue(resp['X-Request-ID'])
+
+    def test_readyz_db_timeout(self):
+        import time
+        with mock.patch('core.health._db_ok', side_effect=lambda: time.sleep(0.5)), \
+                mock.patch('core.health.DB_TIMEOUT', 0.05):
+            r = self.client.get('/readyz')
+        self.assertEqual(r.status_code, 503)
+        self.assertEqual(r.json()['checks']['db'], 'fail')
+
+    def test_zibal_system_check(self):
+        from core.checks import zibal_merchant_check
+        with override_settings(DEBUG=False, ZIBAL_MERCHANT_ID=''):
+            self.assertEqual(zibal_merchant_check(None)[0].id, 'core.W001')
+        with override_settings(DEBUG=False, ZIBAL_MERCHANT_ID='m'):
+            self.assertEqual(zibal_merchant_check(None), [])
+        with override_settings(DEBUG=True, ZIBAL_MERCHANT_ID=''):
+            self.assertEqual(zibal_merchant_check(None), [])

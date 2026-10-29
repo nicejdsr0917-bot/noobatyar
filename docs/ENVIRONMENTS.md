@@ -255,3 +255,5 @@ Android Emulator (mobile_owner فلیور "local")
    **با پرچم `-Pbuildkonfig.flavor=local`** build/نصب کن (بالا رو ببین) —
    بدون این پرچم، ساکت به prod وصل می‌شه.
 7. فقط اگه داری یک پرداخت واقعی رو تست می‌کنی: مطمئن شو `CLIENT_WEB_URL` توی `.env.local` با مرورگر کلاینتی که واقعاً checkout رو اجرا می‌کنه هم‌خونی داره (امولاتور در برابر شبیه‌ساز در برابر دستگاه LAN — جدول هاست‌نیم بالای صفحه رو ببین).
+
+**Pre-deploy:** confirm `ZIBAL_MERCHANT_ID` in the server `.env` (otherwise `manage.py check` warns `core.W001` and payments fail).
