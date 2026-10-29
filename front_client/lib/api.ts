@@ -1,3 +1,4 @@
+import { clearVisitorToken } from '@/lib/auth';
 
 import { getLocale, t } from '@/lib/i18n';
 // API client for Noobatyar backend
@@ -159,7 +160,7 @@ function hasAuthHeader(headers: HeadersInit | undefined): boolean {
  */
 export function forceReLogin(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('visitor_token');
+  clearVisitorToken();
   // Avoid a redirect loop if we're already on the login screen.
   if (window.location.pathname.startsWith('/auth/login')) return;
   const target = encodeURIComponent(window.location.pathname + window.location.search);
@@ -192,7 +193,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     if (hasAuthHeader(extraHeaders)) {
       forceReLogin();
     } else if (typeof window !== 'undefined') {
-      localStorage.removeItem('visitor_token');
+      clearVisitorToken();
     }
     throw new UnauthorizedError(t('yourSessionHasExpiredPlease2'));
   }

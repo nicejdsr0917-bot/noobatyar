@@ -1,5 +1,6 @@
 'use client';
 
+import { getVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAppointment, cancelAppointment, businessCategoryLabel, type Appointment } from '@/lib/api';
@@ -25,7 +26,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
 
   const handleCancel = async () => {
     if (!appointment) return;
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) return;
 
     setCancelling(true);
@@ -46,7 +47,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
   useEffect(() => {
     params.then((p) => {
       const aptId = parseInt(p.id, 10);
-      const token = localStorage.getItem('visitor_token');
+      const token = getVisitorToken();
       if (!token) {
         router.replace(`/auth/login?redirect=/appointments/${aptId}`);
         return;

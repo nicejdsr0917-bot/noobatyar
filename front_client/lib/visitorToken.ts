@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { getVisitorToken } from '@/lib/auth';
 
 /**
  * The token only changes through login or logout, both of which navigate away
@@ -6,7 +7,7 @@ import { useSyncExternalStore } from 'react';
  * of one mount.
  */
 const NEVER_CHANGES = () => () => {};
-const readToken = () => localStorage.getItem('visitor_token');
+const readToken = () => getVisitorToken();
 /** `undefined` = not known yet (server render + the hydration pass). */
 const noTokenOnServer = () => undefined;
 

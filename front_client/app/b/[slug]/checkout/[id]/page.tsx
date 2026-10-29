@@ -1,5 +1,6 @@
 'use client';
 
+import { getVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -105,7 +106,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
 
   useEffect(() => {
     if (!id) return;
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) {
       router.push(`/auth/login?redirect=/b/${slug}/checkout/${id}`);
       return;
@@ -130,7 +131,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
    * the client returns straight to /appointments.
    */
   const handleGatewayRedirect = async () => {
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) return;
 
     setRedirecting(true);
@@ -171,7 +172,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
     // both land on the server.
     if (cancelling || submitting || redirecting) return;
     setCancelling(true);
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (token && id) {
       try {
         await cancelAppointment(id, token);
@@ -197,7 +198,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
       return;
     }
 
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) return;
 
     setSubmitting(true);

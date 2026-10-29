@@ -1,5 +1,6 @@
 'use client';
 
+import { getVisitorToken } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 import {
   PUSH_PROMPT_EVENT,
@@ -30,7 +31,7 @@ export default function PushPermissionPrompt() {
   useEffect(() => {
     const handler = () => {
       const visitorToken =
-        typeof window !== 'undefined' ? localStorage.getItem('visitor_token') : null;
+        getVisitorToken();
       if (!visitorToken) return;
       if (isPermissionDenied() || !canPrompt()) return;
       setVisible(true);
@@ -44,7 +45,7 @@ export default function PushPermissionPrompt() {
   const dismiss = () => setVisible(false);
 
   const allow = async () => {
-    const visitorToken = localStorage.getItem('visitor_token');
+    const visitorToken = getVisitorToken();
     if (!visitorToken) {
       dismiss();
       return;

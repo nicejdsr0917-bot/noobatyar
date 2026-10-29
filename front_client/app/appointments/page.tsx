@@ -1,5 +1,6 @@
 'use client';
 
+import { getVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getMyAppointments, type Appointment } from '@/lib/api';
@@ -38,7 +39,7 @@ export default function AppointmentsPage() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) {
       router.replace('/auth/login?redirect=/appointments');
       return;
