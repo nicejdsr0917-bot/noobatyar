@@ -23,8 +23,8 @@ def client_sms(payload):
 
 @register('bale.review_card')
 def bale_review_card(payload):
-    from bale.notify import _send
-    _send(payload['business_id'], payload['kind'], payload.get('changed') or [])
+    from bale.notify import send_review_card
+    send_review_card(payload['business_id'], payload['kind'], payload.get('changed') or [])
 
 
 @register('bale.owner_moderation_notify')

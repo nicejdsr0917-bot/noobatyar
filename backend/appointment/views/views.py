@@ -30,11 +30,6 @@ from appointment.services.transitions import (
 from api.responses import APIResponse
 from api.views import _extract_error
 
-# The logic behind these names lives in services/notifications.py; tests and the
-# outbox handler registry still reach them here.
-_notify_client_of_decision = notify_client_of_decision
-_send_client_sms = send_client_sms
-
 logger = logging.getLogger(__name__)
 
 
