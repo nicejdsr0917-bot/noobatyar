@@ -122,8 +122,8 @@ class Command(BaseCommand):
         accepted the message but errored must not be retried every run.
         """
         claimed = Appointment.objects.filter(
-            pk=appointment.pk, **{f'{field}__isnull': True}
-        ).update(**{field: now})
+            pk=appointment.pk, status__in=REMINDABLE_STATUSES, **{f'{field}__isnull': True}
+        ).update(**{field: now, 'updated_at': now})
         if claimed:
             setattr(appointment, field, now)
         return bool(claimed)
@@ -131,7 +131,9 @@ class Command(BaseCommand):
     @staticmethod
     def _release(appointment, field, now):
         """Give a claim back when nothing was actually sent (e.g. no SMS credit)."""
-        Appointment.objects.filter(pk=appointment.pk, **{field: now}).update(**{field: None})
+        Appointment.objects.filter(pk=appointment.pk, **{field: now}).update(
+            **{field: None, 'updated_at': timezone.now()}
+        )
         setattr(appointment, field, None)
 
     @staticmethod
