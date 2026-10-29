@@ -80,8 +80,11 @@ class HealthTests(TestCase):
 
 class ZibalMerchantTests(TestCase):
     def _merchant(self, **env):
-        code = ("import os\nfor k in ('ZIBAL_MERCHANT_ID','DEBUG'): os.environ.pop(k, None)\n"
-                "os.environ.update(%r)\nfrom core import settings\nprint(settings.ZIBAL_MERCHANT_ID)" % env)
+        # Set (not pop) the keys: settings loads .env.local without override, so
+        # a popped key would be refilled from a developer's local file.
+        env = {'ZIBAL_MERCHANT_ID': '', 'DEBUG': 'False', **env}
+        code = ("import os\nos.environ.update(%r)\n"
+                "from core import settings\nprint(settings.ZIBAL_MERCHANT_ID)" % env)
         out = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True,
                              cwd=str(__import__('django').conf.settings.BASE_DIR))
         return out.stdout.strip().splitlines()[-1] if out.stdout.strip() else ''
