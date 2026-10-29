@@ -17,7 +17,7 @@ Query params
 date  (required)  ISO date string, e.g. 2026-07-14
 """
 
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import datetime, timedelta
 
 from django.core.cache import cache
 from django.utils import timezone
@@ -31,6 +31,7 @@ from business.models import Business
 from ..models import Appointment
 from ..cache_utils import public_slots_key, SLOT_CACHE_TTL
 from ..occupancy import blocking_q
+from ..slots import day_bounds
 
 
 class PublicAvailableSlotsView(APIView):
@@ -96,13 +97,8 @@ class PublicAvailableSlotsView(APIView):
             return Response(cached, status=status.HTTP_200_OK)
 
         # ── 3. Build day boundaries (aware datetimes) ─────────────────────
-        tz = timezone.get_current_timezone()
-        day_start = datetime(
-            query_date.year, query_date.month, query_date.day, 0, 0, 0, tzinfo=tz
-        )
-        day_end = datetime(
-            query_date.year, query_date.month, query_date.day, 23, 59, 59, tzinfo=tz
-        )
+        day_start, next_day_start = day_bounds(query_date)
+        day_end = next_day_start - timedelta(seconds=1)  # 23:59:59, inclusive range
         now = timezone.now()
 
         # ── 4. Query only what we need — NO select_related on visitor ─────
