@@ -1,5 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor
-from django.core.exceptions import SynchronousOnlyOperation
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -117,7 +115,14 @@ def apply_contact_rules(data, instance, context):
     # An imported directory listing (is_claimed=False) belongs to the system
     # user, who never has a subscription: it is public directory data, not a
     # lapsed customer, so the subscription policy does not apply to it.
-    is_expired = instance.is_claimed and get_active_subscription(instance.user_id) is None
+    # ``has_active_subscription`` is attached for a whole page at once by
+    # business.selectors.attach_owner_state(); without it, ask per object.
+    if not instance.is_claimed:
+        is_expired = False
+    elif hasattr(instance, 'has_active_subscription'):
+        is_expired = not instance.has_active_subscription
+    else:
+        is_expired = get_active_subscription(instance.user_id) is None
     data['is_expired'] = is_expired
     if is_expired:
         # Once per response, not once per business in a listing: a
@@ -160,8 +165,16 @@ def apply_notice_rules(data, instance):
         if 'notice_enabled' in data:
             data['notice_enabled'] = False
 
-    from accounting.usage import can_book_appointment
-    if data.get('booking_enabled') and not can_book_appointment(instance.user_id):
+    if data.get('booking_enabled'):
+        # ``can_book`` is attached in one batch per page (selectors.py).
+        if hasattr(instance, 'can_book'):
+            blocked = not instance.can_book
+        else:
+            from accounting.usage import can_book_appointment
+            blocked = not can_book_appointment(instance.user_id)
+    else:
+        blocked = False
+    if blocked:
         data['booking_enabled'] = False
         if not data.get('notice_message'):
             data['notice_message'] = BOOKING_BLOCKED_NOTICE
@@ -393,13 +406,6 @@ class BusinessSerializer(serializers.ModelSerializer):
                 
         return ret
 
-    def to_representation(self, instance):
-        try:
-            return super().to_representation(instance)
-        except SynchronousOnlyOperation:
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(super().to_representation, instance).result()
-
     def validate(self, data):
         # Effective value after this write: partial updates (every PUT here is
         # partial=True) keep whatever the rest of the row already had, so a
@@ -611,11 +617,9 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
         return apply_notice_rules(data, instance)
 
     def to_representation(self, instance):
-        try:
-            return self._build_public_representation(instance)
-        except SynchronousOnlyOperation:
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(self._build_public_representation, instance).result()
+        # Sync-only: async views must call this inside sync_to_async (one hop
+        # for the whole payload) with insurances prefetched.
+        return self._build_public_representation(instance)
 
 
 class ClientBusinessSerializer(serializers.ModelSerializer):
@@ -674,8 +678,6 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
         return apply_notice_rules(data, instance)
 
     def to_representation(self, instance):
-        try:
-            return self._build_public_representation(instance)
-        except SynchronousOnlyOperation:
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(self._build_public_representation, instance).result()
+        # Sync-only: async views must call this inside sync_to_async (one hop
+        # for the whole payload) with insurances prefetched.
+        return self._build_public_representation(instance)

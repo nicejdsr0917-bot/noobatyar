@@ -19,6 +19,9 @@ SMS add-on packs are NOT entitlements — they top up a wallet handled in
 ``accounting/usage.py``.
 """
 
+import time
+
+from django.core.cache import cache
 from django.utils import timezone
 
 
@@ -226,6 +229,11 @@ def owners_with_active_subscription():
 
 def _active_feature_addons(user_id):
     """Set of feature keys temporarily unlocked by active feature add-ons."""
+    return set(_active_feature_addon_rows(user_id))
+
+
+def _active_feature_addon_rows(user_id):
+    """{feature_key: soonest expires_at} for the user's active feature add-ons."""
     from accounting.models import AddOnPurchase, AddOnPack
     now = timezone.now()
     rows = AddOnPurchase.objects.filter(
@@ -233,23 +241,101 @@ def _active_feature_addons(user_id):
         status="success",
         pack__kind=AddOnPack.KIND_FEATURE,
         expires_at__gt=now,
-    ).values_list("pack__feature_key", flat=True)
-    return {key for key in rows if key}
+    ).values_list("pack__feature_key", "expires_at")
+    out = {}
+    for key, expires_at in rows:
+        if key and (key not in out or expires_at < out[key]):
+            out[key] = expires_at
+    return out
+
+
+# ── Per-user entitlements cache ───────────────────────────────────────────────
+#
+# get_entitlements() is called from hot paths (every booking-capacity check,
+# every permission gate) and costs 2 queries. The result is cached per user for
+# ENTITLEMENTS_CACHE_TTL seconds under a *versioned* key:
+#
+#   ent:{version}:{user_id}
+#
+# Invalidation (accounting/signals.py): a Subscription / AddOnPurchase write
+# drops that user's key; a Plan / AddOnPack write bumps the global version,
+# which orphans every user's entry at once (a plan's features are shared by all
+# of its subscribers). Time-based expiry is handled by capping the TTL at the
+# moment the subscription / add-on that produced the entry stops being valid.
+ENTITLEMENTS_CACHE_TTL = 60
+_VERSION_KEY = "ent:version"
+
+
+def _cache_version():
+    try:
+        version = cache.get(_VERSION_KEY)
+        if version is None:
+            version = 1
+            cache.add(_VERSION_KEY, version, timeout=None)
+            version = cache.get(_VERSION_KEY) or 1
+        return version
+    except Exception:
+        return 1
+
+
+def _cache_key(user_id):
+    return f"ent:{_cache_version()}:{user_id}"
+
+
+def invalidate_entitlements(user_or_id):
+    """Forget one user's cached entitlements (their next read recomputes)."""
+    try:
+        cache.delete(_cache_key(_user_id(user_or_id)))
+    except Exception:
+        pass
+
+
+def invalidate_all_entitlements():
+    """Orphan every user's cached entitlements (plan / pack definitions changed)."""
+    try:
+        cache.set(_VERSION_KEY, time.time_ns(), timeout=None)
+    except Exception:
+        pass
+
+
+def _compute_entitlements(user_id):
+    """Returns (entitlements, valid_until) — valid_until is the earliest moment
+    the result stops being true on its own (None = no time-based change)."""
+    sub = get_active_subscription(user_id)
+    ent = resolve_entitlements(sub.plan.features if sub else None)
+    deadlines = [sub.ends_at] if sub else []
+
+    for feature_key, expires_at in _active_feature_addon_rows(user_id).items():
+        ent[feature_key] = True
+        deadlines.append(expires_at)
+
+    return ent, (min(deadlines) if deadlines else None)
 
 
 def get_entitlements(user_or_id):
     """
     Effective entitlements for a user: plan features overlaid on the baseline,
-    then any active feature add-ons forced on.
+    then any active feature add-ons forced on. Cached per user (see above).
     """
     user_id = _user_id(user_or_id)
-    sub = get_active_subscription(user_id)
-    ent = resolve_entitlements(sub.plan.features if sub else None)
+    key = _cache_key(user_id)
+    try:
+        hit = cache.get(key)
+    except Exception:
+        hit = None
+    if hit is not None:
+        return dict(hit)
 
-    for feature_key in _active_feature_addons(user_id):
-        ent[feature_key] = True
-
-    return ent
+    ent, valid_until = _compute_entitlements(user_id)
+    ttl = ENTITLEMENTS_CACHE_TTL
+    if valid_until is not None:
+        ttl = min(ttl, int((valid_until - timezone.now()).total_seconds()))
+    if ttl > 0:
+        try:
+            cache.set(key, ent, timeout=ttl)
+        except Exception:
+            pass
+    return dict(ent)
 
 
 def has_feature(user_or_id, key):
