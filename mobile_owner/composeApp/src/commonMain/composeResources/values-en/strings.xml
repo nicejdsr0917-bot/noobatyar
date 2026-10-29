@@ -339,6 +339,10 @@
     <string name="characters">characters</string>
     <string name="characters_until_next_sms">%1$s characters until the next SMS</string>
     <string name="location_on_map">Location on map</string>
+    <string name="city">City</string>
+    <string name="pick_city">Choose city</string>
+    <string name="search_cities">Search Iran's cities</string>
+    <string name="city_is_required">Choose your business's city</string>
     <string name="optional_customers_see_your_business">Optional; customers see your business on the map and get directions with Neshan or Balad.</string>
     <string name="pick_location_on_map">Pick location on map</string>
     <string name="put_pin_on_your_businesss">Put the pin on your business's door</string>

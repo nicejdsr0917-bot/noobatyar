@@ -238,6 +238,9 @@ class Business(models.Model):
     province = models.CharField(max_length=100, blank=True, default='', db_index=True, help_text="استان")
     city = models.CharField(max_length=100, blank=True, default='', db_index=True, help_text="شهر")
     neighborhood = models.CharField(max_length=100, blank=True, default='', help_text="محله / منطقه")
+    # Divar's city id (business/iran_cities.py). Setting it fills `city` and
+    # `province` from the list; the client app filters by it.
+    city_code = models.PositiveIntegerField(null=True, blank=True, db_index=True, verbose_name='کد شهر')
     is_claimed = models.BooleanField(default=True, db_index=True, help_text="True if registered/claimed by an owner on Noobatyar; False if imported directory listing.")
     external_source = models.CharField(max_length=100, blank=True, default='', help_text="Source dataset identifier for imported listings")
     online_booking_requests_count = models.PositiveIntegerField(default=0, help_text="Number of client requests to enable online booking for an unclaimed business")

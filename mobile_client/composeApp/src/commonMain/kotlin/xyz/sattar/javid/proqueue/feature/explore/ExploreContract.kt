@@ -14,8 +14,15 @@ sealed interface SearchArea {
         override val label = "نزدیک من"
     }
 
-    /** A city centre picked by hand — for a denied permission, or browsing another city. */
-    data class City(override val label: String, val latitude: Double, val longitude: Double) : SearchArea
+    /** A city from Divar's list ([CityPickerSheet]). Results are the businesses the
+     *  owner put in it ([code]); the centre only places the map. */
+    data class City(
+        val code: Int,
+        override val label: String,
+        val latitude: Double,
+        val longitude: Double,
+        val radiusKm: Double,
+    ) : SearchArea
 
     /** A point the user chose on the map ("search this area", a long press, or the centre pin). */
     data class Picked(val latitude: Double, val longitude: Double) : SearchArea {
@@ -44,18 +51,6 @@ val SearchArea.longitude: Double?
         SearchArea.Anywhere -> null
     }
 
-val majorCities = listOf(
-    SearchArea.City("تهران", 35.6997, 51.3380),
-    SearchArea.City("مشهد", 36.2972, 59.6067),
-    SearchArea.City("اصفهان", 32.6539, 51.6660),
-    SearchArea.City("کرج", 35.8327, 50.9915),
-    SearchArea.City("شیراز", 29.5918, 52.5837),
-    SearchArea.City("تبریز", 38.0800, 46.2919),
-    SearchArea.City("قم", 34.6416, 50.8746),
-    SearchArea.City("اهواز", 31.3183, 48.6706),
-    SearchArea.City("رشت", 37.2808, 49.5832),
-    SearchArea.City("کرمانشاه", 34.3142, 47.0650),
-)
 
 val radiusOptionsKm = listOf(3.0, 10.0, 25.0, 50.0)
 
@@ -89,6 +84,10 @@ data class ExploreState(
     val errorMessage: String? = null,
     val savedIds: Set<Long> = emptySet(),
     val recentSearches: List<String> = emptyList(),
+    /** Newest first, Divar ids or ALL_IRAN; empty until the first pick. */
+    val recentCityCodes: List<Int> = emptyList(),
+    /** First launch: no city picked yet, so the picker opens by itself. */
+    val needsCityPick: Boolean = false,
 ) {
     val hasLocation: Boolean get() = area !is SearchArea.Anywhere
     val selectedInsurance: Insurance? get() = insurances.firstOrNull { it.slug == insuranceSlug }

@@ -2,6 +2,8 @@ package xyz.sattar.javid.proqueue.feature.createBusiness
 
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.location.GeoPoint
+import xyz.sattar.javid.proqueue.core.ui.components.city.BusinessCityField
+import xyz.sattar.javid.proqueue.core.ui.components.city.PickedCity
 import xyz.sattar.javid.proqueue.core.ui.components.map.BusinessLocationField
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import androidx.compose.foundation.layout.widthIn
@@ -125,6 +127,8 @@ fun CreateBusinessRoute(
     var address by remember { mutableStateOf("") }
     // The map pin; optional, unlike the written address.
     var location by remember { mutableStateOf<GeoPoint?>(null) }
+    // Required: the client app's city filter matches on it.
+    var city by remember { mutableStateOf<PickedCity?>(null) }
     var defaultProgress by remember { mutableStateOf("") }
     var workStartHour by remember { mutableStateOf("9") }
     var workEndHour by remember { mutableStateOf("21") }
@@ -157,6 +161,7 @@ fun CreateBusinessRoute(
     var phoneError by remember { mutableStateOf<String?>(null) }
     var defaultProgressError by remember { mutableStateOf<String?>(null) }
     var addressError by remember { mutableStateOf<String?>(null) }
+    var cityError by remember { mutableStateOf<String?>(null) }
     var workHoursError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(businessId) {
@@ -183,6 +188,7 @@ fun CreateBusinessRoute(
             extraPhones = it.extraPhones
             address = it.address
             location = it.latitude?.let { lat -> it.longitude?.let { lng -> GeoPoint(lat, lng) } }
+            city = it.cityCode?.let { code -> PickedCity(code, it.city, it.province) }
             defaultProgress = it.defaultServiceDuration.toString()
             workStartHour = it.workStartHour.toString()
             workEndHour = it.workEndHour.toString()
@@ -225,6 +231,13 @@ fun CreateBusinessRoute(
         address = address,
         location = location,
         onLocation = { location = it },
+        city = city,
+        onCity = {
+            city = it
+            cityError = null
+        },
+        cityError = cityError,
+        onCityErrorUpdate = { cityError = it },
         defaultProgress = defaultProgress,
         workStartHour = workStartHour,
         workEndHour = workEndHour,
@@ -327,6 +340,10 @@ fun CreateBusinessScreen(
     address: String,
     location: GeoPoint?,
     onLocation: (GeoPoint?) -> Unit,
+    city: PickedCity?,
+    onCity: (PickedCity) -> Unit,
+    cityError: String?,
+    onCityErrorUpdate: (String?) -> Unit,
     defaultProgress: String,
     workStartHour: String,
     workEndHour: String,
@@ -453,7 +470,8 @@ fun CreateBusinessScreen(
                     else -> null
                 }
             )
-            !phoneInvalid && !addressInvalid
+            onCityErrorUpdate(if (city == null) Str.city_is_required else null)
+            !phoneInvalid && !addressInvalid && city != null
         }
     }
     var showServicesSheet by remember { mutableStateOf(false) }
@@ -615,8 +633,9 @@ fun CreateBusinessScreen(
                             onAddressErrorUpdate(if (a.isEmpty()) Str.address_is_required else if (a.length > 300) Str.address_cant_be_longer_than else null)
                             onDefaultProgressErrorUpdate(if (defaultInvalid) Str.choose_service_duration else null)
                             onWorkHoursErrorUpdate(if (hoursInvalid) Str.opening_hours_arent_valid else null)
+                            onCityErrorUpdate(if (city == null) Str.city_is_required else null)
 
-                            if (!titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid) {
+                            if (!titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid && city != null) {
                                 val intent =
                                     CreateBusinessIntent.CreateBusiness(
                                         title = t,
@@ -626,6 +645,7 @@ fun CreateBusinessScreen(
                                         address = a,
                                         latitude = location?.latitude,
                                         longitude = location?.longitude,
+                                        cityCode = city?.code,
                                         defaultProgress = d,
                                         workStartHour = wsInt!!,
                                         workEndHour = weInt!!,
@@ -1070,6 +1090,15 @@ fun CreateBusinessScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            BusinessCityField(
+                city = city,
+                onCity = onCity,
+                enabled = !uiState.isLoading,
+                error = cityError,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             BusinessLocationField(
                 location = location,
                 onLocation = onLocation,
@@ -1341,6 +1370,10 @@ fun PreviewDashboardScreen() {
             address = "",
             location = null,
             onLocation = {},
+            city = null,
+            onCity = {},
+            cityError = null,
+            onCityErrorUpdate = {},
             defaultProgress = "",
             workStartHour = "9",
             workEndHour = "21",

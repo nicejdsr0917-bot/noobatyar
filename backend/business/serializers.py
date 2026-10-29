@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from api.phone import is_iran_phone, normalize_phone
 from visitor.models import PushLog, SmsLog
 
+from .iran_cities import get_city
 from .models import BIO_MAX_LENGTH, Business, Insurance, ServiceCatalogItem
 
 # Shown to clients when the owner still has booking_enabled=True but their plan
@@ -217,7 +218,7 @@ class BusinessSerializer(serializers.ModelSerializer):
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
             'address', 'logo', 'theme_color',
             # Location & Discovery
-            'latitude', 'longitude', 'province', 'city', 'neighborhood',
+            'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
             'is_claimed', 'online_booking_requests_count', 'insurances', 'insurance_ids',
             # Schedule
             'default_service_duration', 'work_start_hour', 'work_end_hour',
@@ -374,6 +375,11 @@ class BusinessSerializer(serializers.ModelSerializer):
         # owner should be shown an error for.
         return sorted(set(value))
 
+    def validate_city_code(self, value):
+        if value is not None and get_city(value) is None:
+            raise serializers.ValidationError("شهر انتخاب‌شده در فهرست شهرها نیست")
+        return value
+
     def to_internal_value(self, data):
         ret = super().to_internal_value(data)
         
@@ -441,6 +447,13 @@ class BusinessSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'deposit_amount': 'برای دریافت بیعانه، مبلغ آن باید بیشتر از صفر باشد'
             })
+
+        # The city's names come from the list, never from the client, so the
+        # code and the text shown beside it cannot disagree.
+        if 'city_code' in data:
+            city = get_city(data['city_code']) if data['city_code'] is not None else None
+            data['city'] = city['name'] if city else ''
+            data['province'] = city['province'] if city else ''
 
         # A map pin is a pair: half of one would put the business on the
         # equator or the prime meridian. Clearing sends both empty.
@@ -552,6 +565,7 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             'longitude',
             'province',
             'city',
+            'city_code',
             'neighborhood',
             'is_claimed',
             'online_booking_requests_count',
@@ -633,7 +647,7 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
         model = Business
         fields = [
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
-            'address', 'latitude', 'longitude', 'province', 'city', 'neighborhood',
+            'address', 'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
             'is_claimed', 'online_booking_requests_count', 'insurances', 'distance_km',
             'logo', 'theme_color',
             'default_service_duration', 'work_start_hour', 'work_end_hour',

@@ -71,6 +71,8 @@ interface BusinessRepository {
         lat: Double? = null,
         lng: Double? = null,
         radiusKm: Double? = null,
+        /** Divar city id: businesses the owner put in that city. */
+        cityCode: Int? = null,
         onlyClaimed: Boolean = false,
         sort: String? = null
     ): ApiResponse<PaginatedResponseDto<BusinessDto>>

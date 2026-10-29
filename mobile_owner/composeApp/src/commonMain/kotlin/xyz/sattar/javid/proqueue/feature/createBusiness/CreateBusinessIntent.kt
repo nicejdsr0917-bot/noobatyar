@@ -14,6 +14,7 @@ sealed class CreateBusinessIntent {
         // site that forgot these would erase the business's map pin.
         val latitude: Double?,
         val longitude: Double?,
+        val cityCode: Int?,
         val defaultProgress: String,
         val workStartHour: Int,
         val workEndHour: Int,

@@ -17,6 +17,10 @@ data class BusinessDto(
     @SerialName("address") val address: String,
     @SerialName("latitude") val latitude: Double? = null,
     @SerialName("longitude") val longitude: Double? = null,
+    // Divar's city id; the server fills `city`/`province` from it.
+    @SerialName("city_code") val cityCode: Int? = null,
+    @SerialName("city") val city: String? = null,
+    @SerialName("province") val province: String? = null,
     @SerialName("logo") val logo: String? = null,
     @SerialName("default_service_duration") val defaultServiceDuration: Int,
     @SerialName("work_start_hour") val workStartHour: Int,

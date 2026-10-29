@@ -19,6 +19,7 @@ actual object PreferencesManager {
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_RECENT_SEARCHES = "recent_searches"
     private const val KEY_WELCOME_SEEN = "welcome_seen"
+    private const val KEY_RECENT_CITIES = "recent_city_codes"
 
     private val _themeMode = MutableStateFlow(
         AppThemeMode.values()[defaults.integerForKey(KEY_THEME_MODE).toInt().coerceIn(0, 2)]
@@ -129,6 +130,15 @@ actual object PreferencesManager {
     actual suspend fun clearRecentSearches() {
         defaults.removeObjectForKey(KEY_RECENT_SEARCHES)
         _recentSearches.value = emptyList()
+    }
+
+    private val _recentCityCodes = MutableStateFlow(defaults.stringForKey(KEY_RECENT_CITIES).toCityCodes())
+    actual val recentCityCodes: Flow<List<Int>> = _recentCityCodes
+
+    actual suspend fun selectCity(code: Int) {
+        val updated = _recentCityCodes.value.withRecentCity(code)
+        defaults.setObject(updated.joinToString(","), KEY_RECENT_CITIES)
+        _recentCityCodes.value = updated
     }
 
     actual fun hasSeenWelcome(): Boolean = defaults.boolForKey(KEY_WELCOME_SEEN)

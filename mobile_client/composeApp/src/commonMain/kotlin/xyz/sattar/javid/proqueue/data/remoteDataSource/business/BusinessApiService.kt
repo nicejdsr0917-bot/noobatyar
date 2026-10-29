@@ -240,6 +240,7 @@ class BusinessApiService(private val httpClient: HttpClient) {
         lat: Double? = null,
         lng: Double? = null,
         radiusKm: Double? = null,
+        cityCode: Int? = null,
         onlyClaimed: Boolean = false,
         sort: String? = null
     ): ApiResponse<PaginatedResponseDto<BusinessDto>> = safeApiCall {
@@ -253,6 +254,7 @@ class BusinessApiService(private val httpClient: HttpClient) {
             if (lat != null) parameter("lat", lat)
             if (lng != null) parameter("lng", lng)
             if (radiusKm != null) parameter("radius_km", radiusKm)
+            if (cityCode != null) parameter("city_code", cityCode)
             if (onlyClaimed) parameter("only_claimed", true)
             if (!sort.isNullOrBlank()) parameter("sort", sort)
         }.toApiResponse()

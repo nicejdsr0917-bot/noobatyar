@@ -219,6 +219,7 @@ class BusinessRepositoryImpl(
         lat: Double?,
         lng: Double?,
         radiusKm: Double?,
+        cityCode: Int?,
         onlyClaimed: Boolean,
         sort: String?
     ): ApiResponse<PaginatedResponseDto<BusinessDto>> {
@@ -233,6 +234,7 @@ class BusinessRepositoryImpl(
             lat = lat,
             lng = lng,
             radiusKm = radiusKm,
+            cityCode = cityCode,
             onlyClaimed = onlyClaimed,
             sort = sort
         )

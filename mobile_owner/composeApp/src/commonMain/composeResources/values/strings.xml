@@ -388,6 +388,10 @@
     <string name="characters">کاراکتر</string>
     <string name="characters_until_next_sms">%1$s کاراکتر تا پیامک بعدی</string>
     <string name="location_on_map">موقعیت روی نقشه</string>
+    <string name="city">شهر</string>
+    <string name="pick_city">انتخاب شهر</string>
+    <string name="search_cities">جستجو در شهرهای ایران</string>
+    <string name="city_is_required">شهر کسب‌وکار را انتخاب کنید</string>
     <string name="optional_customers_see_your_business">اختیاری؛ مشتری‌ها کسب‌وکار شما را روی نقشه می‌بینند و با نشان یا بلد مسیریابی می‌کنند.</string>
     <string name="pick_location_on_map">انتخاب موقعیت روی نقشه</string>
     <string name="put_pin_on_your_businesss">پین را روی در کسب‌وکارتان بگذارید</string>

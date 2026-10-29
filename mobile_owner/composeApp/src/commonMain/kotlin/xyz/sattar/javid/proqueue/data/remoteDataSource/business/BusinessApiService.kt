@@ -66,6 +66,7 @@ class BusinessApiService(private val httpClient: HttpClient) {
                 // value as null, so removing the pin actually clears it.
                 append("latitude", business.latitude?.toString() ?: "")
                 append("longitude", business.longitude?.toString() ?: "")
+                append("city_code", business.cityCode?.toString() ?: "")
                 append("default_service_duration", business.defaultServiceDuration.toString())
                 append("work_start_hour", business.workStartHour.toString())
                 append("work_end_hour", business.workEndHour.toString())

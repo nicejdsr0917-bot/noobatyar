@@ -752,6 +752,7 @@ private fun saveCardIntent(
     address = business.address,
     latitude = business.latitude,
     longitude = business.longitude,
+    cityCode = business.cityCode,
     defaultProgress = business.defaultServiceDuration.toString(),
     workStartHour = business.workStartHour,
     workEndHour = business.workEndHour,

@@ -8,10 +8,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import xyz.sattar.javid.proqueue.core.location.IranCities
 import xyz.sattar.javid.proqueue.core.location.LocationResult
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.core.prefs.ALL_IRAN
 import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.data.localDataSource.business.toDomain
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
@@ -50,7 +53,28 @@ class ExploreViewModel(
                 is ApiResponse.Error -> Unit
             }
         }
-        search()
+        // City first, like Divar: the last pick is where the app reopens; with
+        // none yet, the screen asks before showing the whole country.
+        viewModelScope.launch {
+            val codes = PreferencesManager.recentCityCodes.first()
+            val area = codes.firstOrNull()?.takeIf { it != ALL_IRAN }
+                ?.let { IranCities.city(it)?.first?.toArea() }
+                ?: SearchArea.Anywhere
+            _state.update { it.copy(area = area, recentCityCodes = codes, needsCityPick = codes.isEmpty()) }
+            search()
+        }
+        viewModelScope.launch {
+            PreferencesManager.recentCityCodes.collect { c -> _state.update { it.copy(recentCityCodes = c) } }
+        }
+    }
+
+    /** A pick from [CityPickerSheet]: a city, or [SearchArea.Anywhere] for "کل ایران". */
+    fun selectCity(area: SearchArea) {
+        viewModelScope.launch {
+            PreferencesManager.selectCity((area as? SearchArea.City)?.code ?: ALL_IRAN)
+        }
+        _state.update { it.copy(needsCityPick = false) }
+        selectArea(area)
     }
 
     // ── Location ─────────────────────────────────────────────────────────────
@@ -80,7 +104,7 @@ class ExploreViewModel(
             it.copy(
                 area = area,
                 sort = when (area) {
-                    SearchArea.Anywhere -> SortMode.RECOMMENDED
+                    SearchArea.Anywhere, is SearchArea.City -> SortMode.RECOMMENDED
                     // A spot picked on the map is a "what's around here" question.
                     is SearchArea.Picked -> SortMode.DISTANCE
                     else -> it.sort
@@ -246,9 +270,11 @@ class ExploreViewModel(
         search = if (ignoreQuery) null else s.query.trim().takeIf { it.isNotEmpty() },
         category = s.category.key,
         insuranceSlug = s.insuranceSlug,
-        lat = s.area.latitude,
-        lng = s.area.longitude,
-        radiusKm = if (s.hasLocation) s.radiusKm else null,
+        // A city is matched by code, not by distance from its centre.
+        lat = s.area.takeIf { it !is SearchArea.City }?.latitude,
+        lng = s.area.takeIf { it !is SearchArea.City }?.longitude,
+        radiusKm = if (s.hasLocation && s.area !is SearchArea.City) s.radiusKm else null,
+        cityCode = (s.area as? SearchArea.City)?.code,
         onlyClaimed = onlyClaimed,
         sort = s.sort.apiValue,
     )

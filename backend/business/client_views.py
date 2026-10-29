@@ -12,6 +12,7 @@ from api.phone import is_iran_phone, normalize_phone
 from visitor.auth import VisitorTokenAuthentication
 from visitor.models import Visitor
 
+from .iran_cities import city_filter
 from .models import Business, ContentReport, Insurance, OnlineBookingRequest
 from .serializers import PublicBusinessSerializer, InsuranceSerializer
 from api.responses import APIResponse
@@ -118,6 +119,7 @@ class ClientBusinessListView(APIView):
         category_query = request.query_params.get('category', '').strip()
         insurance_query = request.query_params.get('insurance', '').strip()
         city_query = request.query_params.get('city', '').strip()
+        city_code_query = request.query_params.get('city_code', '').strip()
         only_claimed_query = request.query_params.get('only_claimed', '').strip().lower()
 
         lat_param = request.query_params.get('lat')
@@ -181,6 +183,9 @@ class ClientBusinessListView(APIView):
 
         if city_query:
             filters &= Q(city__icontains=city_query)
+
+        if city_code_query.isdigit():
+            filters &= city_filter(int(city_code_query))
 
         if only_claimed_query in ('true', '1'):
             filters &= Q(is_claimed=True)

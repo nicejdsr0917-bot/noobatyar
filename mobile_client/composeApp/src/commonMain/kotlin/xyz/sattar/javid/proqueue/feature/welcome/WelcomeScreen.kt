@@ -22,12 +22,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.HealthAndSafety
-import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,25 +37,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.painterResource
 import proqueue.composeapp.generated.resources.Res
 import proqueue.composeapp.generated.resources.main_icon
-import xyz.sattar.javid.proqueue.core.location.rememberLocationRequester
 import xyz.sattar.javid.proqueue.feature.discovery.Radius
 import xyz.sattar.javid.proqueue.feature.discovery.Space
 
 /**
- * One-time introduction. Asks for location here, with the reason on screen,
- * rather than as a cold system dialog on the explore screen — a permission
- * asked in context is granted far more often.
+ * One-time introduction. The app is city-first, like Divar: "انتخاب شهر" leads
+ * to the explore screen, which opens the city picker by itself on first launch.
  */
 @Composable
 fun WelcomeScreen(onDone: () -> Unit) {
-    // Explore re-checks the permission and locates on its own, so the result
-    // itself isn't needed here — only that the dialog has closed.
-    val locator = rememberLocationRequester { onDone() }
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
 
@@ -86,7 +79,7 @@ fun WelcomeScreen(onDone: () -> Unit) {
                 )
                 Spacer(Modifier.height(40.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(Space.xl)) {
-                    Feature(Icons.Outlined.NearMe, "نزدیک‌ترین‌ها", "مراکز اطراف شما، به ترتیب فاصله")
+                    Feature(Icons.Outlined.LocationCity, "شهر شما", "مراکز نوبت‌یار در شهری که انتخاب می‌کنید")
                     Feature(Icons.Outlined.HealthAndSafety, "بیمه تکمیلی", "مراکزی که بیمه شما را می‌پذیرند")
                     Feature(Icons.Outlined.Bolt, "رزرو آنلاین", "در مراکز نوبت‌یار، بدون تماس تلفنی")
                 }
@@ -95,23 +88,12 @@ fun WelcomeScreen(onDone: () -> Unit) {
         Spacer(Modifier.weight(1.4f))
 
         Button(
-            onClick = { locator.request() },
+            onClick = onDone,
             shape = Radius.md,
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
-            Text("استفاده از موقعیت من", fontWeight = FontWeight.Bold)
+            Text("انتخاب شهر", fontWeight = FontWeight.Bold)
         }
-        Spacer(Modifier.height(Space.sm))
-        TextButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
-            Text("بعداً", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Text(
-            "موقعیت فقط برای همان جستجو استفاده می‌شود و ذخیره نمی‌شود.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = Space.sm)
-        )
     }
 }
 

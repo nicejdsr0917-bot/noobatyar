@@ -89,7 +89,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import xyz.sattar.javid.proqueue.core.location.LocationResult
+import xyz.sattar.javid.proqueue.core.prefs.ALL_IRAN
 import xyz.sattar.javid.proqueue.core.location.rememberLocationRequester
+import xyz.sattar.javid.proqueue.core.ui.components.PullToRefreshBox
 import xyz.sattar.javid.proqueue.core.ui.components.ShimmerBox
 import xyz.sattar.javid.proqueue.core.ui.components.map.mapBackground
 import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
@@ -121,6 +123,13 @@ private val SHEET_CORNER = 24.dp
 
 /** How far below the toolbar the sheet starts merging into it. */
 private val MERGE_DISTANCE = 56.dp
+
+/**
+ * Off gives a plain list instead: no map, no location picker and no GPS — the
+ * area stays [SearchArea.Anywhere], so every public business is listed, newest
+ * first, with pull to refresh.
+ */
+private const val MAP_ENABLED = true
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -154,16 +163,6 @@ fun ExploreScreen(
     val locate = {
         viewModel.onLocating()
         locator.request()
-    }
-
-    // Already-permitted users get "near me" straight away; others see the notice
-    // row instead of a cold permission dialog.
-    var autoLocated by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (!autoLocated && locator.isPermissionGranted()) {
-            autoLocated = true
-            locate()
-        }
     }
 
     val listState = rememberLazyListState()
@@ -224,7 +223,8 @@ fun ExploreScreen(
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Header(
             state = state,
-            merged = merge,
+            merged = if (MAP_ENABLED) merge else 1f,
+            showLocation = MAP_ENABLED,
             onLocationClick = { showLocationSheet = true },
             onQueryChange = viewModel::updateQuery,
             onSubmit = submit,
@@ -233,7 +233,35 @@ fun ExploreScreen(
             onSelectCategory = viewModel::selectCategory,
         )
 
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+        if (!MAP_ENABLED) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                // Pull to refresh: the way to pick up a business just added in the owner app.
+                PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = viewModel::refresh) {
+                ResultsList(
+                    state = state,
+                    listState = listState,
+                    showFeatured = false,
+                    showLocationNotice = false,
+                    selectedId = null,
+                    bottomPadding = bottomPadding,
+                    onLocate = locate,
+                    onOpenSettings = locator::openSettings,
+                    onOpenDetail = openDetail,
+                    onClearFilters = viewModel::clearFilters,
+                    onRetry = viewModel::refresh,
+                    onWiden = {},
+                    onToggleSaved = viewModel::toggleSaved,
+                )
+                }
+                if (searchFocused && state.query.isBlank()) {
+                    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            SearchSuggestions(state.recentSearches, onPick = submit, onClearRecent = viewModel::clearRecentSearches)
+                        }
+                    }
+                }
+            }
+        } else BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val peek = maxHeight * SHEET_PEEK_FRACTION
             val hiddenSheetHeight = maxHeight - peek
             val corner = SHEET_CORNER * (1f - merge)
@@ -249,6 +277,8 @@ fun ExploreScreen(
                         state = state,
                         listState = listState,
                         showFeatured = showFeatured,
+                        // City first: no GPS nudge above the list.
+                        showLocationNotice = false,
                         selectedId = selectedId.value,
                         // The list is as tall as the expanded sheet but only `peek` of it
                         // shows when collapsed: the extra room lets a pin's row (even the
@@ -300,16 +330,22 @@ fun ExploreScreen(
         }
     }
 
-    if (showLocationSheet) {
-        LocationSheet(
-            state = state,
-            onDismiss = { showLocationSheet = false },
-            onUseMyLocation = locate,
-            onSelectArea = {
-                viewModel.selectArea(it)
+    // City first, like Divar: on first launch the picker opens by itself, and
+    // closing it without a pick settles on "کل ایران" so it doesn't nag again.
+    if (showLocationSheet || state.needsCityPick) {
+        CityPickerSheet(
+            selectedCode = (state.area as? SearchArea.City)?.code
+                ?: ALL_IRAN.takeIf { state.area is SearchArea.Anywhere && !state.needsCityPick },
+            recentCodes = state.recentCityCodes,
+            onDismiss = {
                 showLocationSheet = false
+                if (state.needsCityPick) viewModel.selectCity(SearchArea.Anywhere)
             },
-            onSelectRadius = viewModel::selectRadius,
+            onPick = {
+                viewModel.selectCity(it)
+                showLocationSheet = false
+                scope.launch { listState.scrollToItem(0) }
+            },
         )
     }
     if (showFilterSheet) {
@@ -359,6 +395,7 @@ private fun ResultsList(
     state: ExploreState,
     listState: LazyListState,
     showFeatured: Boolean,
+    showLocationNotice: Boolean,
     selectedId: Long?,
     bottomPadding: Dp,
     onLocate: () -> Unit,
@@ -375,7 +412,7 @@ private fun ResultsList(
         modifier = Modifier.fillMaxSize()
     ) {
         // Keep this prefix in step with `before` in ExploreScreen's selectFromMap.
-        if (!state.hasLocation) {
+        if (showLocationNotice && !state.hasLocation) {
             item(key = "location-notice") {
                 LocationNotice(status = state.locationStatus, onLocate = onLocate, onOpenSettings = onOpenSettings)
             }
@@ -427,7 +464,9 @@ private fun ResultsList(
             }
 
             state.results.isEmpty() -> item(key = "empty") {
-                val canWiden = state.hasLocation && state.radiusKm < radiusOptionsKm.last()
+                // Only a radius search can be widened; a city is a city.
+                val canWiden = (state.area is SearchArea.NearMe || state.area is SearchArea.Picked) &&
+                    state.radiusKm < radiusOptionsKm.last()
                 StateMessage(
                     icon = Icons.Outlined.SearchOff,
                     title = "نتیجه‌ای پیدا نشد",
@@ -479,6 +518,7 @@ private fun Header(
     state: ExploreState,
     /** 0..1: how far the results sheet has merged into this toolbar. */
     merged: Float,
+    showLocation: Boolean,
     onLocationClick: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSubmit: (String) -> Unit,
@@ -492,7 +532,7 @@ private fun Header(
             .background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        Surface(
+        if (showLocation) Surface(
             onClick = onLocationClick,
             color = Color.Transparent,
             modifier = Modifier.padding(start = Space.sm, top = Space.sm)
@@ -731,96 +771,6 @@ private fun SuggestionRow(icon: ImageVector, text: String, onClick: () -> Unit) 
 }
 
 // ── Sheets ───────────────────────────────────────────────────────────────────
-
-@Composable
-private fun LocationSheet(
-    state: ExploreState,
-    onDismiss: () -> Unit,
-    onUseMyLocation: () -> Unit,
-    onSelectArea: (SearchArea) -> Unit,
-    onSelectRadius: (Double) -> Unit,
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface
-    ) {
-        Column(Modifier.navigationBarsPadding().padding(bottom = Space.lg)) {
-            Text(
-                "محدوده جستجو",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = Space.page, vertical = Space.sm)
-            )
-            SheetOption(
-                icon = Icons.Outlined.MyLocation,
-                title = "موقعیت فعلی من",
-                subtitle = when (state.locationStatus) {
-                    LocationStatus.Locating -> "در حال یافتن…"
-                    LocationStatus.Denied -> "دسترسی داده نشده"
-                    LocationStatus.Disabled -> "GPS خاموش است"
-                    LocationStatus.Unavailable -> "پیدا نشد؛ دوباره امتحان کنید"
-                    else -> "مرتب‌سازی بر اساس فاصله"
-                },
-                selected = state.area is SearchArea.NearMe,
-                onClick = onUseMyLocation
-            )
-            if (state.hasLocation) {
-                Text(
-                    "شعاع",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = Space.page, top = Space.lg, bottom = Space.sm)
-                )
-                Row(Modifier.padding(horizontal = Space.page), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                    radiusOptionsKm.forEach { km ->
-                        FilterChip(
-                            label = "${km.toInt().toPersianDigits()} کیلومتر",
-                            selected = state.radiusKm == km,
-                            onClick = { onSelectRadius(km) }
-                        )
-                    }
-                }
-            }
-            Text(
-                "شهر",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = Space.page, top = Space.xl, bottom = Space.sm)
-            )
-            FlowRow(
-                Modifier.padding(horizontal = Space.page),
-                horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                verticalArrangement = Arrangement.spacedBy(Space.sm)
-            ) {
-                majorCities.forEach { city ->
-                    FilterChip(label = city.label, selected = state.area == city, onClick = { onSelectArea(city) })
-                }
-                FilterChip(
-                    label = "همه شهرها",
-                    icon = Icons.Outlined.Public,
-                    selected = state.area is SearchArea.Anywhere,
-                    onClick = { onSelectArea(SearchArea.Anywhere) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SheetOption(icon: ImageVector, title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(horizontal = Space.page, vertical = Space.md), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(Space.lg))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        }
-    }
-}
 
 /**
  * Everything beyond the category row. Each choice applies at once — the list and

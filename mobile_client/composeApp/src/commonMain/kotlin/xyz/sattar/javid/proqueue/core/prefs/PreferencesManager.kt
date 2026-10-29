@@ -34,12 +34,30 @@ expect object PreferencesManager {
     suspend fun addRecentSearch(query: String)
     suspend fun clearRecentSearches()
 
+    /**
+     * The city browsed in, as Divar's city id ([ALL_IRAN] for "کل ایران"),
+     * newest first; empty until the user has picked once. The first entry is
+     * the current choice, the rest are "انتخاب‌های قبلی".
+     */
+    val recentCityCodes: Flow<List<Int>>
+    suspend fun selectCity(code: Int)
+
     /** First-launch welcome screen shown once per install. */
     fun hasSeenWelcome(): Boolean
     suspend fun setWelcomeSeen()
 }
 
 const val MAX_RECENT_SEARCHES = 8
+const val MAX_RECENT_CITIES = 4
+
+/** [PreferencesManager.recentCityCodes] entry meaning no city filter. */
+const val ALL_IRAN = 0
+
+internal fun List<Int>.withRecentCity(code: Int): List<Int> =
+    (listOf(code) + filterNot { it == code }).take(MAX_RECENT_CITIES)
+
+internal fun String?.toCityCodes(): List<Int> =
+    orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() }
 
 /** Shared by both platforms: newest first, de-duplicated, capped. */
 internal fun List<String>.withRecent(query: String): List<String> =

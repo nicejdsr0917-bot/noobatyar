@@ -23,6 +23,10 @@ data class Business(
      *  "route there" links. Both or neither — the server rejects half a pair. */
     val latitude: Double? = null,
     val longitude: Double? = null,
+    /** Divar's city id (core/ui/components/city); [city]/[province] are its names. */
+    val cityCode: Int? = null,
+    val city: String = "",
+    val province: String = "",
     val logoPath: String,
     val defaultServiceDuration: Int,
     val workStartHour: Int,
