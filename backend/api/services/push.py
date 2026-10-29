@@ -39,6 +39,12 @@ FCM_ENDPOINT = 'https://fcm.googleapis.com/v1/projects/{project_id}/messages:sen
 _credentials = None
 _credentials_lock = threading.Lock()
 
+# One pooled HTTP session for every FCM call: a bulk campaign or the outbox
+# worker sends thousands of messages, and a fresh TLS handshake per message is
+# most of the latency. Requests are always sent with an explicit timeout.
+_session = requests.Session()
+_session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=4, pool_maxsize=16))
+
 
 class PushNotConfigured(RuntimeError):
     """Raised when no FCM service account is configured."""
@@ -198,7 +204,7 @@ def send_to_token(
         message['message']['webpush']['notification']['image'] = image
 
     try:
-        response = requests.post(url, headers=headers, json=message, timeout=10)
+        response = _session.post(url, headers=headers, json=message, timeout=10)
     except Exception as exc:
         logger.error('FCM request failed: %s', exc)
         return False, str(exc)

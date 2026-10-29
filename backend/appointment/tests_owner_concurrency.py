@@ -77,6 +77,16 @@ class OwnerBookingTests(_Base, TestCase):
         self.assertEqual(self._post(when).status_code, 201)
         self.assertEqual(self._post(when).status_code, 201)
 
+    def test_lost_credit_race_creates_nothing(self):
+        # The pre-check passed but the last credit went to another booking:
+        # the create transaction rolls back and the owner gets the quota 409.
+        before = Appointment.objects.count()
+        with patch('accounting.usage.can_book_appointment', return_value=True), \
+                patch('accounting.usage.record_appointment', return_value=''):
+            r = self._post(_tehran(2030, 1, 5, 10))
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(Appointment.objects.count(), before)
+
     def test_create_takes_the_business_row_lock(self):
         when = timezone.now() + timedelta(days=1)
         with patch('django.db.models.query.QuerySet.select_for_update',

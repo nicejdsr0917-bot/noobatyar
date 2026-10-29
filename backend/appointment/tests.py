@@ -246,9 +246,8 @@ class ClientOwnAppointmentReadTests(ClientGateTestCaseMixin, TestCase):
         business.moderation_status = Business.MODERATION_SUSPENDED
         business.save(update_fields=['moderation_status'])
 
-        # Cancelling notifies the owner from a detached daemon thread with its
-        # own DB connection, which cannot see this test's transaction — patched
-        # out so the assertion below is about the cancellation, not about SMS.
+        # Cancelling queues the owner's notification in the outbox; the handler
+        # is patched so the assertion below is about the cancellation, not SMS.
         with patch('appointment.client_views._send_booking_sms'):
             response = self.client.post(
                 reverse('client-appointment-cancel', args=[appointment.id]),

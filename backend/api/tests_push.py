@@ -21,7 +21,7 @@ class WebpushBlockTests(TestCase):
         fake_response = MagicMock(status_code=200)
         with patch.object(push, '_project_id', return_value='test-project'), \
                 patch.object(push, '_access_token', return_value='fake-token'), \
-                patch('api.services.push.requests.post', return_value=fake_response) as post:
+                patch('api.services.push._session.post', return_value=fake_response) as post:
             ok, detail = push.send_to_token('tok-1', 'عنوان', 'متن', {'appointment_id': 5})
         self.assertTrue(ok, detail)
         return post.call_args.kwargs['json']['message']

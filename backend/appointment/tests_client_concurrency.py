@@ -245,9 +245,19 @@ class BookingGuardTests(Base, TestCase):
         self.assertTrue(seen['in_atomic'])
         self.assertEqual(Appointment.objects.get().quota_source, 'monthly')
 
-    def test_second_booking_same_slot_conflicts(self):
+    def test_lost_credit_race_creates_nothing(self):
+        # can_book_appointment said yes, but another booking took the last
+        # credit before record_appointment ran: refused, no appointment row.
+        before = Appointment.objects.count()
         with patch('accounting.usage.can_book_appointment', return_value=True), \
                 patch('accounting.usage.record_appointment', return_value=''), \
+                patch('appointment.client_views._fire_booking_sms'):
+            self.assertEqual(self.book().status_code, 409)
+        self.assertEqual(Appointment.objects.count(), before)
+
+    def test_second_booking_same_slot_conflicts(self):
+        with patch('accounting.usage.can_book_appointment', return_value=True), \
+                patch('accounting.usage.record_appointment', return_value='monthly'), \
                 patch('appointment.client_views._fire_booking_sms'):
             self.assertEqual(self.book().status_code, 200)
             self.assertEqual(self.book().status_code, 409)

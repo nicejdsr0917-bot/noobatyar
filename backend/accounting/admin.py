@@ -185,12 +185,10 @@ class SubscriptionAdmin(ModelAdmin):
                 self.message_user(
                     request,
                     format_html(
-                        'به {} صاحب اشتراک {} پیامک ارسال شد{}. <a href="{}">گزارش ارسال</a>',
-                        log.matched_count, log.sent_count,
-                        f' ({log.failed_count} ناموفق)' if log.failed_count else '',
-                        report_url,
+                        'ارسال پیامک برای {} صاحب اشتراک در صف قرار گرفت. <a href="{}">گزارش ارسال</a>',
+                        log.matched_count, report_url,
                     ),
-                    level=messages.WARNING if log.failed_count else messages.SUCCESS,
+                    level=messages.SUCCESS,
                 )
                 return None
 

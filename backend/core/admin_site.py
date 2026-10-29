@@ -287,14 +287,20 @@ class NobatyarAdminSite(UnfoldAdminSite):
             return
 
         logs = send_admin_message(business, title, body, channels, actor=request.user)
+        # `logs` holds only the channels that failed before they could be
+        # queued; the rest are delivered by the outbox worker, which writes
+        # their own log rows (visible in the message log panel).
         failed = [log for log in logs if log.status == 'FAILED']
+        queued = len([c for c in ('PUSH', 'SMS') if c in channels]) - len(logs)
         if not failed:
-            messages.success(request, 'پیام با موفقیت ارسال شد.')
-        elif len(failed) == len(logs):
+            messages.success(request, 'پیام در صف ارسال قرار گرفت.')
+        elif queued <= 0:
             messages.error(request, f'ارسال پیام ناموفق بود: {failed[0].error_detail}')
         else:
-            ok_channels = ', '.join(dict(logs[0].CHANNEL_CHOICES).get(l.channel, l.channel) for l in logs if l.status == 'SENT')
-            messages.warning(request, f'فقط از طریق {ok_channels} ارسال شد؛ کانال دیگر ناموفق بود.')
+            messages.warning(
+                request,
+                f'پیام برای یکی از کانال‌ها در صف ارسال قرار گرفت؛ کانال دیگر ناموفق بود: {failed[0].error_detail}',
+            )
 
     def business_customers_view(self, request, business_id):
         """The full, paginated customer list for one business — the standalone
@@ -618,7 +624,7 @@ class NobatyarAdminSite(UnfoldAdminSite):
                 messages.success(
                     request,
                     f'از {log.recipient_count} مخاطب واجد شرایط، {log.reachable_count} نفر اعلان '
-                    f'فعال داشتند و {log.delivered_count} مورد توسط فایربیس پذیرفته شد.',
+                    f'فعال داشتند؛ ارسال در صف قرار گرفت و نتیجه در گزارش‌ها ثبت می‌شود.',
                 )
 
         base = reverse('admin:core_segment_builder', current_app=self.name)
@@ -881,9 +887,8 @@ class NobatyarAdminSite(UnfoldAdminSite):
                 messages.success(
                     request,
                     f'{label}: از {log.recipient_count} نفر واجد شرایط، '
-                    f'{log.reachable_count} نفر اعلان فعال داشتند و '
-                    f'{log.delivered_count} مورد توسط فایربیس پذیرفته شد'
-                    + (f' ({log.failed_count} ناموفق).' if log.failed_count else '.'),
+                    f'{log.reachable_count} نفر اعلان فعال داشتند؛ '
+                    f'ارسال در صف قرار گرفت و نتیجه در گزارش‌ها ثبت می‌شود.',
                 )
 
         return HttpResponseRedirect(self._campaigns_url('reports'))
@@ -984,8 +989,8 @@ class NobatyarAdminSite(UnfoldAdminSite):
             return HttpResponseRedirect(self._campaigns_url('sms'))
         messages.success(
             request,
-            f'از {log.matched_count} صاحب اشتراک واجد شرایط، {log.sent_count} پیامک ارسال شد'
-            + (f' ({log.failed_count} ناموفق).' if log.failed_count else '.'),
+            f'برای {log.matched_count} صاحب اشتراک واجد شرایط، ارسال پیامک در صف قرار گرفت؛ '
+            f'نتیجه در گزارش ارسال ثبت می‌شود.',
         )
         return HttpResponseRedirect(self._campaigns_url('reports'))
 

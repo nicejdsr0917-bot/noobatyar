@@ -26,6 +26,10 @@ from visitor.activity import record_activity
 from visitor.models import VisitorActivity
 
 
+class _QuotaExhausted(Exception):
+    """Raised inside the create transaction when no credit is left, to roll it back."""
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -154,25 +158,24 @@ class AppointmentView(APIView):
             # appointments (walk-ins, parallel chairs), so there is no
             # time-overlap check here — only the capacity cap, when configured.
             # Create appointment within transaction
-            appointment = await self._create_appointment_atomic(
-                business=business,
-                visitor=visitor,
-                appointment_date=appointment_datetime,
-                service_duration=service_duration,
-                description=description,
-                selected_services=selected_services,
-                request_id=request_id,
-                user = user
-            )
+            try:
+                appointment = await self._create_appointment_atomic(
+                    business=business,
+                    visitor=visitor,
+                    appointment_date=appointment_datetime,
+                    service_duration=service_duration,
+                    description=description,
+                    selected_services=selected_services,
+                    request_id=request_id,
+                    user = user
+                )
+            except _QuotaExhausted:
+                return APIResponse.error(
+                    'ظرفیت نوبت‌های این ماه بر اساس پلن شما تکمیل شده است',
+                    code=status.HTTP_409_CONFLICT,
+                )
             if appointment is None:
                 return APIResponse.error('ظرفیت این ساعت تکمیل شده است', code=status.HTTP_409_CONFLICT)
-
-            # Count against the owner's monthly appointment quota, remembering
-            # which bucket paid so a cancellation can refund that same one.
-            quota_source = await sync_to_async(usage.record_appointment)(business.user_id)
-            if quota_source:
-                appointment.quota_source = quota_source
-                await sync_to_async(appointment.save)(update_fields=['quota_source'])
 
             # Serialize response
             serializer = await sync_to_async(AppointmentQuerySerializer)(appointment)
@@ -395,7 +398,13 @@ class AppointmentView(APIView):
         Business.objects.select_for_update().only('id').get(id=business.id)
         if self._hourly_capacity_exceeded(business, appointment_date):
             return None
+        # Binding credit decision, in this transaction (can_book_appointment in
+        # post() is only a fast pre-check that can lose a race).
+        quota_source = usage.record_appointment(business.user_id)
+        if not quota_source:
+            raise _QuotaExhausted()
         appointment = Appointment(
+            quota_source=quota_source,
             business=business,
             visitor=visitor,
             appointment_date=appointment_date,
@@ -622,11 +631,9 @@ def _notify_client_of_decision(appointment, old_status, new_status):
     SMS the client when the owner accepts or rejects a pending booking.
 
     Only fires on the pending → decided transitions; ordinary queue movement
-    (WAITING → IN_PROGRESS → COMPLETED) is not worth an SMS credit. Runs on a
-    daemon thread with its own DB connection, like the booking SMS.
+    (WAITING → IN_PROGRESS → COMPLETED) is not worth an SMS credit. Queued in
+    the DB outbox and sent by the run_outbox worker, like the booking SMS.
     """
-    import threading
-
     from api.jalali import format_datetime
     from api.sms import signed
 
@@ -659,9 +666,13 @@ def _notify_client_of_decision(appointment, old_status, new_status):
         )
         push_body = f"نوبت شما در {business_title} تایید شد — تاریخ: {time_str}"
 
-    threading.Thread(
-        target=_send_client_sms,
-        kwargs=dict(
+    from core.outbox.service import safe_enqueue
+
+    # Inside the status-update transaction (see _update_status_with_validation),
+    # so the notification commits — or rolls back — together with the decision.
+    safe_enqueue(
+        'appointment.client_sms',
+        dict(
             phone=client_phone,
             message=message,
             push_body=push_body,
@@ -669,13 +680,12 @@ def _notify_client_of_decision(appointment, old_status, new_status):
             visitor_id=appointment.visitor_id,
             appointment_id=appointment.id,
         ),
-        daemon=True,
-        name=f"decision-sms-{appointment.id}",
-    ).start()
+        dedupe_key=f'decision_sms:{appointment.id}:{new_status}',
+    )
 
 
 def _send_client_sms(phone, message, business_id, visitor_id, appointment_id=None, push_body=None):
-    """Background target: send one SMS to a client and log it against the business."""
+    """Outbox handler body (``appointment.client_sms``): send one SMS to a client and log it against the business."""
     from api.sms import send_sms
     from visitor.models import SmsLog
     from business.models import Business

@@ -10,9 +10,10 @@ exact final text. Sending then happens off the request in
 :func:`process_campaign` — a salon's customer list can be a few hundred people
 and the provider takes one HTTP call per message, far past a request timeout.
 
-It runs on a background thread started after the campaign commits. Recipients
-are claimed one row at a time (PENDING -> SENDING via a conditional UPDATE), so
-if a deploy kills that thread mid-send, ``python manage.py send_promo_campaigns``
+It runs in the outbox worker: one ``promo.campaign`` row is queued in the same
+transaction that creates the campaign. Recipients are claimed one row at a time
+(PENDING -> SENDING via a conditional UPDATE), so if a deploy kills the worker
+mid-send (the outbox also re-delivers a stuck row), ``python manage.py send_promo_campaigns``
 picks up exactly the rows that are still PENDING and nobody is texted twice.
 
 Billing and line rules are the same as every other message an owner chooses to
@@ -25,10 +26,9 @@ outside that window instead of being charged for messages that never arrive.
 
 import logging
 import math
-import threading
 from datetime import timedelta
 
-from django.db import close_old_connections, transaction
+from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
@@ -247,26 +247,17 @@ def create_campaign(business, audience, message, actor):
             )
             for name, phone, visitor, text, parts in rows
         ])
-        transaction.on_commit(lambda: start_background_send(campaign.id))
+        start_background_send(campaign.id)
     return campaign
 
 
 # ── Sending ───────────────────────────────────────────────────────────────────
 
 def start_background_send(campaign_id):
-    thread = threading.Thread(
-        target=_thread_entry, args=(campaign_id,), name=f'promo-sms-{campaign_id}', daemon=True,
-    )
-    thread.start()
+    """Queue the campaign for the outbox worker (``promo.campaign``)."""
+    from core.outbox.service import enqueue
 
-
-def _thread_entry(campaign_id):
-    try:
-        process_campaign(campaign_id)
-    except Exception:  # noqa: BLE001 — a crash must not take the worker with it
-        logger.exception('Promo campaign %s crashed; resume with send_promo_campaigns', campaign_id)
-    finally:
-        close_old_connections()
+    enqueue('promo.campaign', {'campaign_id': campaign_id}, dedupe_key=f'promo_campaign:{campaign_id}')
 
 
 def process_campaign(campaign_id):

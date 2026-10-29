@@ -52,6 +52,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     # No models — installed so Django discovers core/management/commands/.
     'core',
+    # DB-backed outbox + run_outbox worker (core/outbox/).
+    'core.outbox',
     'api',
     'accounting',
     'versions',

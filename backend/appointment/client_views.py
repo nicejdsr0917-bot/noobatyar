@@ -163,7 +163,7 @@ class ClientAppointmentListView(APIView):
         # No payment needed → confirm the booking and notify client + owner now.
         appointment.business = business
         appointment.visitor = visitor
-        _fire_booking_sms(appointment, visitor.phone_number)
+        await sync_to_async(_fire_booking_sms)(appointment, visitor.phone_number)
         return APIResponse.success(
             data={'id': appointment.id, 'requires_payment': False},
             message="نوبت شما با موفقیت ثبت شد و در انتظار تایید کسب‌وکار است."
@@ -195,6 +195,13 @@ class ClientAppointmentListView(APIView):
             if conflict is not None:
                 return None, 'conflict'
 
+            # Take the credit first, in this same transaction: record_appointment
+            # is the binding decision (can_book_appointment above is advisory),
+            # so a booking that loses the race for the last credit creates nothing.
+            quota_source = usage.record_appointment(business.user_id)
+            if not quota_source:
+                return None, 'quota'
+
             now = timezone.now()
             appointment = Appointment.objects.create(
                 # No `User` involved in a self-booked appointment — only the
@@ -211,16 +218,9 @@ class ClientAppointmentListView(APIView):
                 # lock expires on its own and frees the slot (see occupancy.py).
                 locked_at=now if requires_payment else None,
                 expires_at=lock_expiry(now) if requires_payment else None,
+                # Which bucket paid, so a cancellation can refund that same one.
+                quota_source=quota_source,
             )
-
-            # Count this booking against the owner's monthly appointment quota,
-            # and remember which bucket paid so a cancellation can refund it.
-            quota_source = usage.record_appointment(business.user_id)
-            if quota_source:
-                appointment.quota_source = quota_source
-                Appointment.objects.filter(pk=appointment.pk).update(
-                    quota_source=quota_source
-                )
             return appointment, None
 
 
@@ -359,7 +359,7 @@ class ClientAppointmentPaymentView(APIView):
         )
 
         # ── SMS Notifications via Melipayamak ─────────────────────────
-        _fire_booking_sms(appointment, request.user.phone_number)
+        await sync_to_async(_fire_booking_sms)(appointment, request.user.phone_number)
         # ─────────────────────────────────────────────────────────────
 
         return APIResponse.success(
@@ -461,7 +461,7 @@ class ClientDepositCallbackView(APIView):
             await sync_to_async(invalidate_slots_cache)(
                 appointment.business_id, appointment.appointment_date
             )
-            _fire_deposit_paid_sms(appointment)
+            await sync_to_async(_fire_deposit_paid_sms)(appointment)
             state = 'success'
         return _back(state, appointment.id if appointment else None)
 
@@ -602,7 +602,7 @@ class ClientAppointmentCancelView(APIView):
             new='CANCELLED',
         )
 
-        _fire_cancellation_sms(appointment)
+        await sync_to_async(_fire_cancellation_sms)(appointment)
 
         return APIResponse.success(
             data={'id': appointment.id},
@@ -630,8 +630,6 @@ def _cancel_transition(appointment, previous_status):
 
 def _fire_cancellation_sms(appointment):
     """Tell the owner their client cancelled, so the freed slot is not a surprise."""
-    import threading
-
     from api.jalali import format_datetime
     from api.sms import signed
 
@@ -643,28 +641,22 @@ def _fire_cancellation_sms(appointment):
         f"تاریخ: {time_str}"
     )
 
-    threading.Thread(
-        target=_send_booking_sms,
-        kwargs=dict(
-            client_phone=None,     # the client initiated this; no confirmation SMS
-            client_msg=None,
-            client_push_body=None,
-            owner_msg=owner_msg,
-            business_id=appointment.business_id,
-            visitor_id=appointment.visitor_id,
-            appointment_id=appointment.id,
-        ),
-        daemon=True,
-        name=f"cancel-sms-{appointment.id}",
-    ).start()
+    _enqueue_booking_sms(
+        client_phone=None,     # the client initiated this; no confirmation SMS
+        client_msg=None,
+        client_push_body=None,
+        owner_msg=owner_msg,
+        business_id=appointment.business_id,
+        visitor_id=appointment.visitor_id,
+        appointment_id=appointment.id,
+        dedupe_key=f'cancel_sms:{appointment.id}',
+    )
 
 
 def _fire_booking_sms(appointment, client_phone):
     """Build the client/owner confirmation messages for a booked appointment and
-    dispatch the fire-and-forget SMS thread. ``appointment.business`` and
+    queue the notification in the outbox. ``appointment.business`` and
     ``appointment.visitor`` must already be loaded (no DB access here)."""
-    import threading
-
     from api.jalali import format_datetime
     from api.sms import signed
 
@@ -684,23 +676,19 @@ def _fire_booking_sms(appointment, client_phone):
     # (لغو11 etc.) — that text belongs on an SMS, not a push notification.
     client_push_body = f"نوبت شما در {appointment.business.title} ثبت شد — تاریخ: {time_str} — در انتظار تایید کسب‌وکار"
 
-    # Fire-and-forget on a daemon thread so it is independent of the request's
-    # event loop (an asyncio task tied to the request loop can be dropped once
-    # the response is returned). Pass only primitive ids/values into the thread.
-    threading.Thread(
-        target=_send_booking_sms,
-        kwargs=dict(
-            client_phone=client_phone,
-            client_msg=client_msg,
-            client_push_body=client_push_body,
-            owner_msg=owner_msg,
-            business_id=appointment.business_id,
-            visitor_id=appointment.visitor_id,
-            appointment_id=appointment.id,
-        ),
-        daemon=True,
-        name=f"booking-sms-{appointment.id}",
-    ).start()
+    # Queued in the DB outbox (core.outbox) and sent by the run_outbox worker:
+    # independent of the request's event loop and of process restarts. Only
+    # primitive ids/values go in the payload.
+    _enqueue_booking_sms(
+        client_phone=client_phone,
+        client_msg=client_msg,
+        client_push_body=client_push_body,
+        owner_msg=owner_msg,
+        business_id=appointment.business_id,
+        visitor_id=appointment.visitor_id,
+        appointment_id=appointment.id,
+        dedupe_key=f'booking_sms:{appointment.id}',
+    )
 
 
 def _fire_deposit_paid_sms(appointment):
@@ -711,8 +699,6 @@ def _fire_deposit_paid_sms(appointment):
     confirmed the deposit and the appointment goes straight into the queue.
     ``appointment.business`` and ``appointment.visitor`` must already be loaded.
     """
-    import threading
-
     from api.jalali import format_datetime
     from api.sms import signed
 
@@ -730,29 +716,33 @@ def _fire_deposit_paid_sms(appointment):
     )
     client_push_body = f"نوبت شما در {appointment.business.title} قطعی شد — تاریخ: {time_str} — بیعانه پرداخت شد"
 
-    threading.Thread(
-        target=_send_booking_sms,
-        kwargs=dict(
-            client_phone=appointment.visitor.phone_number,
-            client_msg=client_msg,
-            client_push_body=client_push_body,
-            owner_msg=owner_msg,
-            business_id=appointment.business_id,
-            visitor_id=appointment.visitor_id,
-            appointment_id=appointment.id,
-        ),
-        daemon=True,
-        name=f"deposit-sms-{appointment.id}",
-    ).start()
+    _enqueue_booking_sms(
+        client_phone=appointment.visitor.phone_number,
+        client_msg=client_msg,
+        client_push_body=client_push_body,
+        owner_msg=owner_msg,
+        business_id=appointment.business_id,
+        visitor_id=appointment.visitor_id,
+        appointment_id=appointment.id,
+        dedupe_key=f'deposit_sms:{appointment.id}',
+    )
+
+
+def _enqueue_booking_sms(dedupe_key, **payload):
+    """Queue one booking/cancellation/deposit notification (kind
+    ``appointment.booking_sms``); never raises — a queue hiccup must not fail
+    the booking that already committed."""
+    from core.outbox.service import safe_enqueue
+
+    safe_enqueue('appointment.booking_sms', payload, dedupe_key=dedupe_key)
 
 
 def _send_booking_sms(client_phone, client_msg, owner_msg, business_id, visitor_id, appointment_id=None, client_push_body=None):
     """
-    Background daemon-thread target: sends SMS to client and business owner via
-    Melipayamak and logs the client SMS result in SmsLog.
+    Outbox handler body (``appointment.booking_sms``): sends SMS to client and
+    business owner via Melipayamak and logs the SMS results in SmsLog.
 
-    Runs fully synchronously in its own thread (own DB connection), so it never
-    depends on the request's asyncio event loop still being alive.
+    Runs fully synchronously inside the run_outbox worker.
     """
     from api.sms import send_sms
     from visitor.models import SmsLog

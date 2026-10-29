@@ -11,12 +11,17 @@ then
     echo "PostgreSQL started"
 fi
 
-# Run migrations
-echo "Running migrations..."
-python manage.py migrate --noinput
+# Only the web service migrates and collects static. Other services built from
+# this image (the outbox worker) set SKIP_MIGRATE=1, so two containers never
+# run migrate at the same time.
+if [ "$SKIP_MIGRATE" != "1" ]; then
+    # Run migrations
+    echo "Running migrations..."
+    python manage.py migrate --noinput
 
-# Collect static files
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
+    # Collect static files
+    echo "Collecting static files..."
+    python manage.py collectstatic --noinput
+fi
 
 exec "$@"
