@@ -133,7 +133,7 @@ class DepositCallbackTests(Base, TestCase):
                           payment_reference=None, expires_at=None, locked_at=None)
         with patch(VERIFY, return_value={'success': True}), \
                 patch('appointment.client_views._fire_deposit_paid_sms') as sms, \
-                self.assertLogs('appointment.client_views', level='ERROR'):
+                self.assertLogs('appointment.services.deposits', level='ERROR'):
             r = self.callback()
         self.assertIn('payment=conflict', r['Location'])
         a.refresh_from_db()
@@ -203,7 +203,7 @@ class CancelAndPayTests(Base, TestCase):
         a = self.make(expires_at=timezone.now() - timedelta(minutes=1), quota_source='monthly')
         stale1 = Appointment.objects.select_related('business').get(pk=a.pk)
         stale2 = Appointment.objects.select_related('business').get(pk=a.pk)
-        with patch('appointment.client_views.refund_quota') as refund:
+        with patch('appointment.services.transitions.refund_quota') as refund:
             self.assertTrue(_expire_lock_if_due(stale1))
             self.assertTrue(_expire_lock_if_due(stale2))
         self.assertEqual(refund.call_count, 1)
