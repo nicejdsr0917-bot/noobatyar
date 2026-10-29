@@ -22,6 +22,8 @@ from .models import User
 from .permissions import HasActiveSubscription
 from django.core.cache import cache
 from accounting.models import Plan, Subscription # اضافه شد
+from accounting.services import grant_trial
+from django.db import IntegrityError, transaction
 import secrets
 
 
@@ -176,20 +178,19 @@ def register_view(request):
             return APIResponse.error('توکن تأیید شماره نامعتبر یا منقضی شده است')
         cache.delete(f'register_token:{phone}')
 
-    user = User.objects.create_user(
-        phone=phone,
-        password=password or None,  # None → رمز غیرقابل استفاده (ورود فقط با OTP)
-        name=name
-    )
-
-    # فعال‌سازی خودکار پلن آزمایشی برای کاربر جدید
-    trial_plan = Plan.objects.filter(price=0, is_active=True).first()
-    if trial_plan:
-        Subscription.objects.create(
-            user=user,
-            plan=trial_plan,
-            ends_at=trial_plan.get_end_date()
-        )
+    # User + trial in one transaction. The serializer's exists() check can lose
+    # a race with a concurrent register for the same phone; the unique index
+    # then raises, which is reported like the normal duplicate error.
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                phone=phone,
+                password=password or None,  # None → رمز غیرقابل استفاده (ورود فقط با OTP)
+                name=name
+            )
+            grant_trial(user)
+    except IntegrityError:
+        return APIResponse.error(message='این شماره قبلاً ثبت شده')
 
     return APIResponse.success(
         data={
