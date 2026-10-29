@@ -64,6 +64,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # First, so the request id/duration cover every other middleware.
+    'core.observability.RequestLogMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     # NOTE: django.middleware.locale.LocaleMiddleware is deliberately NOT here.
@@ -174,17 +176,23 @@ else:
 DJANGO_REDIS_IGNORE_EXCEPTIONS = True
 
 # ── Logging ───────────────────────────────────────────────────────────────────
+# JSON lines on stdout outside DEBUG (or LOG_JSON=1); readable text in DEBUG.
+LOG_JSON = os.getenv('LOG_JSON', 'False' if DEBUG else 'True') == 'True'
+# Opt-in slow-query logging (SLOW_QUERY_LOG=True, threshold SLOW_QUERY_MS).
+SLOW_QUERY_LOG = os.getenv('SLOW_QUERY_LOG', 'False') == 'True'
+SLOW_QUERY_MS = int(os.getenv('SLOW_QUERY_MS', '200'))
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'default': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'},
+        'json': {'()': 'core.observability.JsonFormatter'},
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'stream': 'ext://sys.stdout',
-            'formatter': 'default',
+            'formatter': 'json' if LOG_JSON else 'default',
         },
     },
     'root': {
@@ -317,16 +325,16 @@ if not DEBUG:
 MYKET_ACCESS_TOKEN = os.getenv('MYKET_ACCESS_TOKEN', '')
 MYKET_PACKAGE_NAME = os.getenv('MYKET_PACKAGE_NAME', 'xyz.sattar.javid.proqueue')
 
-ZIBAL_MERCHANT_ID = os.getenv('ZIBAL_MERCHANT_ID')
+ZIBAL_MERCHANT_ID = os.getenv('ZIBAL_MERCHANT_ID') or ''
 if not ZIBAL_MERCHANT_ID:
     if DEBUG:
         ZIBAL_MERCHANT_ID = 'zibal'  # Zibal sandbox merchant
     else:
-        # Kept for backward compatibility (prod may rely on it) — set the env var.
-        ZIBAL_MERCHANT_ID = '6a0d8775dc2e6664d8adf3fd'
+        # No real merchant id is hard-coded: payments will be rejected by the
+        # gateway until the env var is set. Fail loudly in the logs.
         import logging as _logging
-        _logging.getLogger(__name__).warning(
-            'ZIBAL_MERCHANT_ID is not set; falling back to the built-in merchant id. '
+        _logging.getLogger(__name__).error(
+            'ZIBAL_MERCHANT_ID is not set; Zibal payments will fail. '
             'Set it via the environment.')
 
 # Where the deposit gateway sends the client's browser back to. Only the client
