@@ -41,6 +41,17 @@ class PaymentVerificationService:
             # transaction failed after a timeout.
             result = zibal_client.verify(self.track_id)
 
+            if result.paid and not zibal_client.amount_matches(result.data, self.transaction.amount):
+                # Paid, but not the sum we asked for: grant nothing and leave the
+                # row pending for a human; never mark it failed.
+                logger.error(
+                    "Zibal amount mismatch for %s: verified=%r expected=%s toman",
+                    self.track_id, (result.data or {}).get('amount'), self.transaction.amount,
+                )
+                return self._error_response(
+                    "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503
+                )
+
             if result.outcome == zibal_client.Outcome.TRANSPORT_ERROR:
                 return self._error_response(
                     "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503, result.data

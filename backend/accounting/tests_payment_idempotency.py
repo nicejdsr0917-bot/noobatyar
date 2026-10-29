@@ -18,7 +18,9 @@ Outcome = zibal_client.Outcome
 
 
 def result(outcome, code=None, data=None):
-    return zibal_client.VerifyResult(outcome, code, "m", data or {"result": code, "refNumber": "R1"})
+    # amount: Zibal reports Rial; every fixture row below costs 1000 Toman.
+    return zibal_client.VerifyResult(
+        outcome, code, "m", data or {"result": code, "refNumber": "R1", "amount": 10000})
 
 
 OK = result(Outcome.SUCCESS, 100)
@@ -38,8 +40,8 @@ class Base:
         self.plan = Plan.objects.create(name="پرو", price=1000, duration_value=1, duration_unit="month")
         self.txn = Transaction.objects.create(user=self.user, plan=self.plan, amount=1000,
                                               track_id=phone, order_id="o" + phone, status="pending")
-        self.pack = AddOnPack.objects.create(name="sms", price=100, kind=AddOnPack.KIND_SMS, sms_amount=50)
-        self.purchase = AddOnPurchase.objects.create(user=self.user, pack=self.pack, amount=100,
+        self.pack = AddOnPack.objects.create(name="sms", price=1000, kind=AddOnPack.KIND_SMS, sms_amount=50)
+        self.purchase = AddOnPurchase.objects.create(user=self.user, pack=self.pack, amount=1000,
                                                      track_id="a" + phone, order_id="ao" + phone, status="pending")
 
     def subs(self):
@@ -124,6 +126,22 @@ class PlanVerificationTests(Base, TestCase):
         self.assertTrue(r["success"])
         self.assertEqual(self.subs(), 1)
 
+    def test_amount_mismatch_grants_nothing_and_stays_pending(self):
+        wrong = result(Outcome.SUCCESS, 100, {"result": 100, "refNumber": "R1", "amount": 1000})
+        with patch_verify(wrong), self.assertLogs("accounting.payment.zibal_payment_verification", "ERROR"):
+            r = self.run_cb()
+        self.assertFalse(r["success"])
+        self.assertEqual(r["status_code"], 503)
+        self.txn.refresh_from_db()
+        self.assertEqual(self.txn.status, "pending")
+        self.assertEqual(self.subs(), 0)
+
+    def test_missing_amount_is_a_mismatch(self):
+        nothing = result(Outcome.SUCCESS, 100, {"result": 100})
+        with patch_verify(nothing), self.assertLogs("accounting.payment.zibal_payment_verification", "ERROR"):
+            self.assertFalse(self.run_cb()["success"])
+        self.assertEqual(self.subs(), 0)
+
     def test_unknown_track_id(self):
         self.assertEqual(PaymentVerificationService("nope").verify_and_activate()["status_code"], 404)
 
@@ -137,9 +155,9 @@ class AddOnVerificationTests(Base, TestCase):
         return AddOnVerificationService(self.purchase.track_id).verify_and_grant()
 
     def test_replay_returns_success_and_credits_once(self):
-        with patch_verify(OK) as v, self.captureOnCommitCallbacks(execute=True):
+        with patch_verify(OK) as v:
             first = self.run_cb()
-        with patch_verify(OK) as v2, self.captureOnCommitCallbacks(execute=True):
+        with patch_verify(OK) as v2:
             second = self.run_cb()
         self.assertTrue(first["success"] and second["success"])
         self.assertEqual(second["data"], first["data"])
@@ -147,13 +165,13 @@ class AddOnVerificationTests(Base, TestCase):
         self.assertEqual(usage.get_wallet(self.user.id), 50)
 
     def test_201_is_success(self):
-        with patch_verify(DUP), self.captureOnCommitCallbacks(execute=True):
+        with patch_verify(DUP):
             r = self.run_cb()
         self.assertTrue(r["success"])
         self.assertEqual(usage.get_wallet(self.user.id), 50)
 
     def test_timeout_leaves_pending_then_retry_succeeds(self):
-        with patch_verify(TIMEOUT, OK), self.captureOnCommitCallbacks(execute=True):
+        with patch_verify(TIMEOUT, OK):
             r1 = self.run_cb()
             self.purchase.refresh_from_db()
             self.assertFalse(r1["success"])
@@ -173,23 +191,40 @@ class AddOnVerificationTests(Base, TestCase):
         self.purchase.refresh_from_db()
         self.assertEqual(self.purchase.status, "success")
 
-    def test_redis_credit_not_applied_when_db_rolls_back(self):
-        class Boom(Exception):
-            pass
-        with self.assertRaises(Boom):
-            with self.captureOnCommitCallbacks(execute=True):
-                from django.db import transaction
-                with transaction.atomic():
-                    grant_addon_benefit(self.purchase)
-                    raise Boom()
+    def test_amount_mismatch_grants_nothing_and_stays_pending(self):
+        wrong = result(Outcome.SUCCESS, 100, {"result": 100, "refNumber": "R1", "amount": 1000})
+        with patch_verify(wrong), self.assertLogs("accounting.payment.addon_payment", "ERROR"):
+            r = self.run_cb()
+        self.assertFalse(r["success"])
+        self.purchase.refresh_from_db()
+        self.assertEqual(self.purchase.status, "pending")
         self.assertEqual(usage.get_wallet(self.user.id), 0)
 
-    def test_credit_applied_after_commit(self):
-        with self.captureOnCommitCallbacks(execute=False) as cbs:
-            grant_addon_benefit(self.purchase)
-        self.assertEqual(usage.get_wallet(self.user.id), 0)  # not before commit
-        for cb in cbs:
-            cb()
+    def test_credit_applied_in_the_same_transaction(self):
+        grant_addon_benefit(self.purchase)  # no on-commit callbacks involved
+        self.assertEqual(usage.get_wallet(self.user.id), 50)
+
+    def test_credit_rolls_back_with_the_transaction(self):
+        class Boom(Exception):
+            pass
+        from django.db import transaction
+        with self.assertRaises(Boom):
+            with transaction.atomic():
+                grant_addon_benefit(self.purchase)
+                raise Boom()
+        self.assertEqual(usage.get_wallet(self.user.id), 0)
+
+    def test_failing_credit_leaves_purchase_retryable(self):
+        with patch_verify(OK, OK), patch("accounting.usage.add_wallet", side_effect=RuntimeError("db")):
+            r1 = self.run_cb()
+        self.assertFalse(r1["success"])
+        self.purchase.refresh_from_db()
+        self.assertEqual(self.purchase.status, "pending")
+        self.assertIsNone(self.purchase.activated_at)
+        self.assertEqual(usage.get_wallet(self.user.id), 0)
+        with patch_verify(OK):
+            r2 = self.run_cb()
+        self.assertTrue(r2["success"])
         self.assertEqual(usage.get_wallet(self.user.id), 50)
 
 

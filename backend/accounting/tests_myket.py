@@ -73,8 +73,7 @@ class MyketBillingTests(TestCase):
     def test_addon_purchase_uses_the_zibal_grant_path(self):
         self.subscribe()
         intent = myket.create_intent(self.user, StorePurchase.KIND_ADDON, self.pack.id)
-        with self.verify(), patch("accounting.usage.add_wallet") as add_wallet, \
-                self.captureOnCommitCallbacks(execute=True):
+        with self.verify(), patch("accounting.usage.add_wallet") as add_wallet:
             myket.verify_and_grant(self.user, intent["payload"], "sms_100", "tok-2")
         add_wallet.assert_called_once()
         self.assertEqual(AddOnPurchase.objects.get(user=self.user).status, "success")

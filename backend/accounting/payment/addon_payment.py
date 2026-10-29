@@ -36,14 +36,6 @@ def can_buy_addon(user) -> bool:
     return get_active_subscription(user) is not None
 
 
-def _credit_after_commit(credit, user_id, amount, purchase_id):
-    """The wallet lives in Redis, which a DB rollback cannot undo — so it is only
-    credited once the transaction that marks the purchase paid has committed."""
-    db_transaction.on_commit(lambda: credit(
-        user_id, amount, reason="addon_purchase", ref_type="AddOnPurchase", ref_id=purchase_id,
-    ))
-
-
 def grant_addon_benefit(purchase: AddOnPurchase, response_data: Optional[Dict] = None) -> Dict[str, Any]:
     """
     Mark ``purchase`` as successful and apply its benefit:
@@ -56,15 +48,20 @@ def grant_addon_benefit(purchase: AddOnPurchase, response_data: Optional[Dict] =
     flow, so a staff member can grant a pack to a user without a real payment.
     """
     pack = purchase.pack
+    # The wallet is a DB row, so the credit joins this transaction: it commits
+    # with the success status or rolls back with it (the purchase then stays
+    # retryable) — never "paid" without the credit.
     with db_transaction.atomic():
         purchase.status = "success"
         purchase.zibal_response = response_data if response_data is not None else purchase.zibal_response
         purchase.activated_at = timezone.now()
 
         if pack.kind == AddOnPack.KIND_SMS:
-            _credit_after_commit(usage.add_wallet, purchase.user_id, pack.sms_amount, purchase.id)
+            usage.add_wallet(purchase.user_id, pack.sms_amount, reason="addon_purchase",
+                             ref_type="AddOnPurchase", ref_id=purchase.id)
         elif pack.kind == AddOnPack.KIND_APPOINTMENT:
-            _credit_after_commit(usage.add_appt_wallet, purchase.user_id, pack.appointment_amount, purchase.id)
+            usage.add_appt_wallet(purchase.user_id, pack.appointment_amount, reason="addon_purchase",
+                                  ref_type="AddOnPurchase", ref_id=purchase.id)
         elif pack.kind == AddOnPack.KIND_FEATURE:
             purchase.expires_at = timezone.now() + timedelta(days=pack.duration_days)
 
@@ -143,6 +140,14 @@ class AddOnVerificationService:
                 return {"success": False, "message": "این تراکنش لغو شده است", "data": {}}
 
             result = zibal_client.verify(self.track_id)
+
+            if result.paid and not zibal_client.amount_matches(result.data, self.purchase.amount):
+                logger.error(
+                    "Zibal add-on amount mismatch for %s: verified=%r expected=%s toman",
+                    self.track_id, (result.data or {}).get("amount"), self.purchase.amount,
+                )
+                return {"success": False, "message": "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید",
+                        "data": {}}
 
             if result.outcome == zibal_client.Outcome.TRANSPORT_ERROR:
                 return {"success": False, "message": "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید",

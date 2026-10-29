@@ -50,6 +50,15 @@ class VerifyResult:
         return self.outcome in (Outcome.SUCCESS, Outcome.ALREADY_VERIFIED)
 
 
+def amount_matches(verify_data, expected_toman) -> bool:
+    """Zibal reports the verified amount in Rial; requests are sent as
+    ``toman * 10``. A missing or different amount is a mismatch."""
+    try:
+        return int(verify_data["amount"]) == int(expected_toman) * 10
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 def verify(track_id, merchant=None) -> VerifyResult:
     """``merchant`` defaults to the platform's own; the client-deposit flow passes
     the business owner's merchant id, since that is whose account was paid."""
