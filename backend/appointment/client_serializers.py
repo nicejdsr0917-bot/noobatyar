@@ -1,6 +1,32 @@
 from rest_framework import serializers
 from .models import Appointment
+from business.selectors import attach_owner_state
 from business.serializers import ClientBusinessSerializer
+
+
+class ClientAppointmentListSerializer(serializers.ListSerializer):
+    """Resolves the owners' subscription / booking-quota state for the whole
+    page in a constant number of queries (see business.selectors) before the
+    rows are serialised, instead of once per row."""
+
+    def to_representation(self, data):
+        items = data.all() if hasattr(data, 'all') else data
+        items = list(items)
+        businesses = {}
+        for a in items:
+            b = a.business
+            if not hasattr(b, 'has_active_subscription'):
+                businesses.setdefault(b.id, []).append(b)
+        # One state lookup per distinct business, attached to every row's copy.
+        if businesses:
+            firsts = [group[0] for group in businesses.values()]
+            attach_owner_state(firsts)
+            for group in businesses.values():
+                for b in group[1:]:
+                    b.has_active_subscription = group[0].has_active_subscription
+                    b.can_book = group[0].can_book
+        return super().to_representation(items)
+
 
 class ClientAppointmentSerializer(serializers.ModelSerializer):
     business = ClientBusinessSerializer(read_only=True)
@@ -23,6 +49,7 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Appointment
+        list_serializer_class = ClientAppointmentListSerializer
         fields = [
             'id',
             'business',
@@ -76,6 +103,11 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
         cached = getattr(obj, '_queue_position_cache', None)
         if cached is not None:
             return cached
+        # List endpoint: counted in SQL together with the page rows.
+        annotated = getattr(obj, 'queue_ahead', None)
+        if annotated is not None:
+            obj._queue_position_cache = annotated
+            return annotated
         
         # Count appointments on the same day with an earlier time
         start_of_day = obj.appointment_date.replace(hour=0, minute=0, second=0, microsecond=0)
