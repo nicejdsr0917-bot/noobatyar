@@ -25,7 +25,7 @@ from rest_framework.response import Response
 from adrf.views import APIView
 
 from appointment.models import Appointment
-from api.responses import APIResponse
+from common.responses import APIResponse
 
 # Per side, so a full window can reach ~6 months. Raised from 60 because the
 # home month card asks for a whole Jalali month either side of today, and on

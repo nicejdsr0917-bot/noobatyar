@@ -62,7 +62,7 @@ from adrf.views import APIView
 
 from appointment.models import Appointment
 from business.models import Business
-from api.responses import APIResponse
+from common.responses import APIResponse
 
 
 def _split_selected_services(raw: str) -> list:

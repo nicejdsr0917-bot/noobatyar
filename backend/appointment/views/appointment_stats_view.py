@@ -10,7 +10,7 @@ import logging
 from adrf.views import APIView
 
 from appointment.models import Appointment
-from api.responses import APIResponse
+from common.responses import APIResponse
 
 logger = logging.getLogger(__name__)
 

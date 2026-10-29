@@ -42,7 +42,8 @@ from accounting.management.commands.run_subscription_lifecycle import (
 )
 from accounting.models import AddOnPack, AddOnPurchase, Subscription, Transaction
 from api import jalali
-from core.dashboard.metrics import ADDON_KINDS, project_tz
+from accounting.addon_kinds import ADDON_KINDS
+from common.timeutils import project_tz
 
 DEFAULT_RANGE_DAYS = 30
 

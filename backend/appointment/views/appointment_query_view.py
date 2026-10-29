@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone as dt_timezone
 from appointment import selectors
 from appointment.models import Appointment
 from appointment.serializers import AppointmentQuerySerializer
-from api.responses import APIResponse
+from common.responses import APIResponse
 
 
 

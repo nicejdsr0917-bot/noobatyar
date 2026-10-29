@@ -61,7 +61,7 @@ from rest_framework.response import Response
 from adrf.views import APIView
 
 from appointment.models import Appointment
-from api.responses import APIResponse
+from common.responses import APIResponse
 
 MAX_RANGE_DAYS = 31
 MAX_PAGE_SIZE = 100
