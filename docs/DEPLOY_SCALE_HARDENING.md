@@ -12,6 +12,9 @@
    `psql -U postgres -d <db> -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"`
 5. اختیاری ولی توصیه‌شده (به‌جای statement_timeout در کد، که pgbouncer رد می‌کند):
    `ALTER ROLE <db_user> SET statement_timeout = '15s'; ALTER ROLE <db_user> SET idle_in_transaction_session_timeout = '30s';`
+6. **`ZIBAL_MERCHANT_ID` در `.env` سرور باشد** (موج ۱): merchant واقعی دیگر در کد نیست؛ بدون آن همهٔ پرداخت‌ها شکست می‌خورند. `manage.py check` در این حالت هشدار `core.W001` می‌دهد.
+7. migrationهای موج ۱: `versions/0003_appversion_app` (unique روی `(app, version_code)`) و `visitor/0013` (سه فیلد nullable). هر دو افزایشی‌اند.
+8. بعد از دیپلوی: توکن کلاینت مشتری‌هایی که شماره‌شان عوض شود باطل می‌شود (عمدی). health check: `/api/healthz` و `/api/readyz`.
 
 ## ترتیب دیپلوی
 ```bash
