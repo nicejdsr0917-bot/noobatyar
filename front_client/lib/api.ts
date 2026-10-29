@@ -51,12 +51,11 @@ export interface Business {
    *  server, meaning :00 — the same as an explicit 0. */
   work_start_minute?: number;
   work_end_minute?: number;
-  /** Weekly recurring days off, as JS's `Date.getDay()` ints (Sun=0..Sat=6) —
-   *  NOT the backend's own Mon=0..Sun=6 convention. Converted once at the API
-   *  boundary (see `closedWeekdaysJs` in the booking page) so every caller in
-   *  this app can compare directly against `Date.getDay()` without repeating
-   *  the +1 mod 7 shift themselves. Absent/undefined on an older server,
-   *  meaning "open every day". */
+  /** Weekly recurring days off, in the backend's (and owner app's) Python
+   *  `date.weekday()` convention: Mon=0..Sun=6 — NOT JS's `Date.getDay()`.
+   *  Read it through `closedWeekdaysJs()` below rather than shifting it at
+   *  each call site. Absent/undefined on an older server, meaning "open every
+   *  day". */
   closed_weekdays?: number[];
   allow_anonymous_view: boolean;
   /** Owner-posted advisory (closure, emergency, running late) is live.
@@ -88,6 +87,12 @@ export interface Business {
    *  the owner turned it on in their business settings — the backend rejects
    *  off-menu names either way, so this only decides whether we offer the box. */
   allow_client_add_service?: boolean;
+}
+
+/** `closed_weekdays` as JS `Date.getDay()` ints (Sun=0..Sat=6), so callers can
+ *  compare against a `Date` directly. The +1 mod 7 shift lives only here. */
+export function closedWeekdaysJs(business: Pick<Business, 'closed_weekdays'>): Set<number> {
+  return new Set((business.closed_weekdays ?? []).map((pyWeekday) => (pyWeekday + 1) % 7));
 }
 
 export interface TimeSlot {

@@ -1,41 +1,39 @@
 ---
-updated: 2026-10-28 21:44
+updated: 2026-10-29 10:39
 tags: [gf, current]
 ---
 # وضعیت فعلی
 
 ## هدف
-یکپارچه‌سازی: صفحهٔ کسب‌وکار در وب مشتری داده‌های ساختاریافته (خدمات، روزهای کاری) را نشان دهد، و اپ مشتری موبایل (برنچ `mobile-client`) با بک‌اند به‌روز develop کنار اپ owner تست سرتاسری شود.
+اپ کلاینت (برنچ `mobile-client`) و اپ اونر با یک بک‌اند مشترک کار کنند و تست سرتاسری روی امولاتور ممکن باشد. کارهای بعدی در `docs/PLAN_NEXT.md` به ترتیب اولویت نوشته شده‌اند.
 
 ## وضعیت
-- Knowledge base ساخته شد (`knowledge/`).
-- وب مشتری `b/[slug]`: کارت خدمات، کارت روزهای کاری و آیکون جدای بیعانه پیاده و روی localhost (fa/en، روشن/تیره) تست شد — **روی develop commit نشده، deploy نشده**.
-- برنچ `mobile-client` با develop merge شد (`5852659`، محلی، **push نشده**)؛ ۵۳۴ تست بک‌اند پاس. DB worktree بازسازی و داده برگردانده شد.
-- هر سه بالا هستند: بک‌اند worktree روی :8000 (preview `backend_mobile_client_mac`، با OTP آزمایشی)، اپ owner و اپ مشتری روی AVD `Pixel_6a` نصب و به بک‌اند وصل.
+- برنچ `mobile-client` با develop merge شده و در worktree `../Noobatyar-mobile-client` است؛ کار یکپارچه همین‌جاست.
+- **انتخاب شهر با لیست دیوار** پیاده شده: بک‌اند (`city_code` + فیلتر)، اپ اونر (فیلد اجباری شهر)، اپ کلاینت (خوشامد «انتخاب شهر» + انتخابگر). ۵۴۱ تست بک‌اند پاس. سمت کلاینت روی امولاتور تست شده؛ فرم اونر روی امولاتور تست نشده.
+- وب کلاینت (develop): کارت خدمات و روزهای کاری در `b/[slug]`.
+- دیتای محلی worktree تمیز است: فقط کسب‌وکاری که در اونر ساخته شده («ارز نو») + کاربرها و پلن‌ها.
+- اجرای محلی: بک‌اند preview `backend_mobile_client_mac` (:8000)، `front_client` (:3000)، `mobile_owner_web_mac` (:8080، از develop، بدون فیلد شهر)، امولاتور `Pixel_6a` با `adb reverse` برای 8000 و 3000.
 
 ## قدم‌های بعدی
-1. تست سرتاسری روی AVD: رزرو در اپ مشتری (شهر «تهران») → دیده‌شدن در اپ owner (ورود با seed در `backend/seed_demo_data.py`)
-2. commit تغییرات وب مشتری روی develop و deploy (`front_client`)
-3. تصمیم دربارهٔ push برنچ `mobile-client`
-4. اصلاح باگ timezone در `appointment_stats_view.py` + fixture `tests_daily_counts.py`
-5. حذف `card_number`/`card_owner_name` از API عمومی لیست کسب‌وکار
+1. تست فرم شهر در اپ اونر روی امولاتور (ورود با حساب کاربر).
+2. اجرای `docs/PLAN_NEXT.md` در سشن جدید، از P0.
 
 ## مسائل باز
-- 🐞 آمار «امروز» با UTC حساب می‌شود (`backend/appointment/views/appointment_stats_view.py:93`) → ۳ تست بین ۰۰:۰۰–۰۳:۳۰ تهران fail.
-- 🔒 شماره کارت و نام صاحب کارت در `api/client/business/` بدون ورود.
-- فایل‌های `.exp` با رمز سرور در ریشه (gitignore‌شده)؛ `backend/backend_deploy.zip` در git؛ zip/tar و `db.sqlite3.bak-*` اضافه.
-- یک commit روی develop (`a5bd697`) push نشده؛ تغییر iOS baseUrl در `mobile_owner/composeApp/build.gradle.kts` commit نشده.
-- فایل untracked جدید: `mobile_owner/composeApp/src/wasmJsMain/.../InMemoryUserLocalSource.kt` (منشأ نامعلوم در این سشن).
-- lint: سه خطای قدیمی `set-state-in-effect` در `front_client/app/b/[slug]/book/page.tsx`.
-- محیط: launch.json پیکربندی ویندوزی دارد؛ `head` در zsh alias است.
+- 🐞 تب پیام‌های پروفایل مشتری در اپ اونر پیام‌های همهٔ کسب‌وکارها را نشان می‌دهد (جزئیات در PLAN_NEXT، P0).
+- 🔒 شماره کارت در API عمومی؛ 🐞 آمار «امروز» با UTC؛ 🐞 بله مشخصات را بعد از تصمیم پاک می‌کند.
+- کیفیت کاشی نقشه (OSM ۲۵۶px) تار است؛ تصمیم دربارهٔ سرویس نقشه گرفته نشده.
+- پنل وب اونر از develop اجرا می‌شود و تغییرات برنچ `mobile-client` را ندارد.
+- امولاتور ممکن است از snapshot قدیمی بالا بیاید → APKها را دوباره نصب کن.
+- فایل‌های commit‌نشدهٔ قدیمی در repo اصلی: `mobile_owner/composeApp/build.gradle.kts` (baseUrl iOS)، `InMemoryUserLocalSource.kt`، `.claude/*`، `.mcp.json`، `SALES_PLAYBOOK.md`، `docs/SERVER_DISK_CLEANUP.md`.
 
 ## فایل‌های کلیدی
-- `front_client/app/b/[slug]/BusinessProfileClient.tsx` — صفحهٔ کسب‌وکار (تغییرات جدید)
-- `front_client/lib/api.ts` — `closedWeekdaysJs()`
-- `../Noobatyar-mobile-client/backend/business/serializers.py` — `apply_contact_rules` با استثنای unclaimed
-- `.claude/launch.json` — پیکربندی `backend_mobile_client_mac`
+- `docs/PLAN_NEXT.md` — پلن اولویت‌دار کار بعدی
+- `../Noobatyar-mobile-client/backend/business/iran_cities.py` — لیست شهرها و فیلتر
+- `../Noobatyar-mobile-client/mobile_client/.../feature/explore/CityPickerSheet.kt` — انتخابگر شهر کلاینت
+- `../Noobatyar-mobile-client/mobile_owner/.../core/ui/components/city/CityPicker.kt` — انتخابگر شهر اونر
 
 ## سشن‌های اخیر
+- [[sessions/2026-10-29-1039]] — انتخاب شهر با لیست دیوار، تمیز کردن دیتای محلی، رفع بازگشت درگاه، پلن کار بعدی
 - [[sessions/2026-10-28-2144]] — بررسی پروژه، خدمات/روزهای کاری در وب، merge mobile-client، ساخت knowledge base
 
 ببین: [نقشهٔ پروژه](../knowledge/INDEX.md)

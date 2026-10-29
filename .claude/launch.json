@@ -49,6 +49,15 @@
       "port": 8000
     },
     {
+      "name": "backend_mobile_client_mac",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "cd ../Noobatyar-mobile-client/backend && ../../Noobatyar-automation/backend/.venv/bin/python manage.py runserver 8000"
+      ],
+      "port": 8000
+    },
+    {
       "name": "mobile_owner_web_mac",
       "runtimeExecutable": "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java",
       "runtimeArgs": [

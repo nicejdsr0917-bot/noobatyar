@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { businessCategoryLabel, type Business } from '@/lib/api';
+import { businessCategoryLabel, closedWeekdaysJs, type Business } from '@/lib/api';
 import BusinessNotice from '@/app/components/BusinessNotice';
 import Icon, { type IconName } from '@/app/components/Icon';
 import CategoryArt, { CategoryGlyph } from '@/app/components/CategoryArt';
@@ -12,7 +12,17 @@ import LockedContact, { LockedMap, isWithheld } from '@/app/components/LockedCon
 import { baladUrl, businessLocation, neshanUrl } from '@/lib/maps';
 import { toPersianDigits as toFa } from '@/lib/validation';
 import { useVisitorToken } from '@/lib/visitorToken';
-import { t } from '@/lib/i18n';
+import { getLocale, intlLocale, t } from '@/lib/i18n';
+
+// Iranian week order, Saturday first, as JS Date.getDay() ints.
+const WEEK_ORDER = [6, 0, 1, 2, 3, 4, 5];
+// Collapsed services list: enough for a typical salon menu to show whole,
+// short enough that a 30-item menu does not push the map off the page.
+const SERVICES_PREVIEW = 8;
+
+/** Weekday name from a JS getDay() int, via a fixed week (7 Jan 2024 = Sunday). */
+const weekdayName = (day: number, style: 'narrow' | 'short' | 'long') =>
+  new Date(2024, 0, 7 + day).toLocaleDateString(intlLocale(), { weekday: style });
 
 interface Props {
   business: Business;
@@ -41,6 +51,31 @@ export default function BusinessProfileClient({ business, slug }: Props) {
   // the same thing a business with no logo at all already shows.
   const [logoFailed, setLogoFailed] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [servicesExpanded, setServicesExpanded] = useState(false);
+
+  // ── Services and week: the structured versions of what owners otherwise
+  // hand-type into the bio ("رنگ مو • کراتین") and the notice ("پنجشنبه و
+  // جمعه تعطیل"), so they stay right when the owner edits them in the app. ──
+  const services = business.services ?? [];
+  const visibleServices = servicesExpanded ? services : services.slice(0, SERVICES_PREVIEW);
+  const hiddenServiceCount = services.length - visibleServices.length;
+
+  // Absent on an older server — no week card then, rather than a wrong
+  // "open every day".
+  const hasWeek = Array.isArray(business.closed_weekdays);
+  const closedDays = closedWeekdaysJs(business);
+  // Persian narrow names are distinct single letters (ش ی د …); English
+  // narrow ones repeat (S M T W T F S), so English gets the short form.
+  const dayLabelStyle = getLocale() === 'fa' ? 'narrow' : 'short';
+  const closedNames = WEEK_ORDER.filter((d) => closedDays.has(d)).map((d) => weekdayName(d, 'long'));
+  // Intl's fa-IR list keeps the English serial comma ("شنبه، یکشنبه، و
+  // دوشنبه"), which Persian does not use — so Persian is joined by hand.
+  const closedList = getLocale() === 'fa'
+    ? closedNames.length > 1
+      ? `${closedNames.slice(0, -1).join('، ')} و ${closedNames[closedNames.length - 1]}`
+      : closedNames.join('')
+    : new Intl.ListFormat(intlLocale(), { type: 'conjunction' }).format(closedNames);
+  const closedText = closedNames.length ? t('closedOn', closedList) : t('openEveryDay');
 
   /**
    * Where the bio goes depends on how many *lines* it is — not how many
@@ -201,7 +236,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             <div className="v">{workHours}</div>
           </div>
           <div className="stat-card">
-            <div className="ico"><Icon name="creditCard" size={20} /></div>
+            <div className="ico"><Icon name="deposit" size={20} /></div>
             <div className="k">{t('deposit')}</div>
             <div className="v">{depositText}</div>
           </div>
@@ -212,6 +247,63 @@ export default function BusinessProfileClient({ business, slug }: Props) {
           </div>
         </div>
       </div>
+
+      {/* ── Services ── what the visitor would come for, right after the
+          practical facts and before the prose. */}
+      {services.length > 0 && (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-about">
+            <div className="biz-about-head">
+              <span className="ico"><CategoryGlyph category={business.category} size={17} /></span>
+              <h2>{t('services')}</h2>
+            </div>
+            <ul className="biz-services">
+              {visibleServices.map((service) => (
+                <li key={service} className="biz-service-chip">{service}</li>
+              ))}
+            </ul>
+            {(hiddenServiceCount > 0 || servicesExpanded) && (
+              <button
+                type="button"
+                className="biz-about-toggle"
+                onClick={() => setServicesExpanded((v) => !v)}
+                aria-expanded={servicesExpanded}
+              >
+                {servicesExpanded ? t('less') : t('moreServices', toFa(hiddenServiceCount))}
+                <Icon name={servicesExpanded ? 'chevronUp' : 'chevronDown'} size={15} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Working days ── the week at a glance, closed days struck through,
+          plus the same fact in words for anyone who does not read the strip. */}
+      {hasWeek && (
+        <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <div className="biz-about">
+            <div className="biz-about-head">
+              <span className="ico"><Icon name="calendar" size={17} /></span>
+              <h2>{t('workingDays')}</h2>
+            </div>
+            <ul className="biz-week">
+              {WEEK_ORDER.map((day) => {
+                const closed = closedDays.has(day);
+                return (
+                  <li
+                    key={day}
+                    className={closed ? 'biz-week-day is-closed' : 'biz-week-day'}
+                    title={weekdayName(day, 'long')}
+                  >
+                    {weekdayName(day, dayLabelStyle)}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="biz-week-note">{closedText}</p>
+          </div>
+        </div>
+      )}
 
       {/* ── About ──
           Sits after the stats, not before them: hours, deposit and payment

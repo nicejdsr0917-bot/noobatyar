@@ -8,6 +8,7 @@ import {
   bookAppointment,
   isNotFound,
   UnauthorizedError,
+  closedWeekdaysJs,
   type Business,
   type TimeSlot,
 } from '@/lib/api';
@@ -304,13 +305,8 @@ export default function BookingPage({ params }: Props) {
   // Check if booking is enabled for this business
   const bookingEnabled = business.booking_enabled !== false;
 
-  // `business.closed_weekdays` is Python's date.weekday() convention
-  // (Mon=0..Sun=6, matching the backend and the owner app exactly); JS's
-  // Date.getDay() is Sun=0..Sat=6. Converted once here rather than asking
-  // every reader of this set to remember the shift.
-  const closedWeekdaysJs = new Set(
-    (business.closed_weekdays ?? []).map((pyWeekday) => (pyWeekday + 1) % 7)
-  );
+  // Python's Mon=0..Sun=6 shifted to JS's Date.getDay() — see closedWeekdaysJs.
+  const closedWeekdays = closedWeekdaysJs(business);
 
   if (!bookingEnabled) {
     return (
@@ -421,7 +417,7 @@ export default function BookingPage({ params }: Props) {
                 : new Intl.DateTimeFormat(intlLocale(), { weekday: 'long' }).format(day).replace('‌', ' ');
             const dayNum = new Intl.DateTimeFormat(intlLocale(), { day: 'numeric' }).format(day);
             const isSelected = toDateString(day) === toDateString(selectedDay);
-            const isClosed = closedWeekdaysJs.has(day.getDay());
+            const isClosed = closedWeekdays.has(day.getDay());
             return (
               <button
                 key={day.toISOString()}

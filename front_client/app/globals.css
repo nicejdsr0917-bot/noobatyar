@@ -1006,6 +1006,58 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   border-radius: 6px;
 }
 
+/* ── Services & working days ── both live in a .biz-about card. */
+.biz-services {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.biz-service-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  /* Plain text colour, not --color-primary-dark: in dark mode the tint goes
+     transparent and a darkened brand colour on it is unreadable. */
+  color: var(--color-text);
+  background: var(--color-primary-tint);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+.biz-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.biz-week-day {
+  display: grid;
+  place-items: center;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+  background: var(--color-primary-tint);
+}
+/* Struck through, not just greyed: "closed" must not rest on colour alone. */
+.biz-week-day.is-closed {
+  color: var(--color-faint);
+  background: transparent;
+  border: 1.5px dashed var(--color-border);
+  text-decoration: line-through;
+}
+.biz-week-note {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+
 .biz-address {
   display: flex;
   align-items: center;

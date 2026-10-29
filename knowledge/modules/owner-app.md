@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-28
+updated: 2026-10-29
 tags: [gf]
 ---
 # اپ صاحب کسب‌وکار (mobile_owner)
@@ -13,6 +13,11 @@ tags: [gf]
 - `di/KoinModule.kt`، `core/navigation/` (`MainNavHost`، `AuthNavHost`)
 - i18n: `composeResources/values/strings.xml` (fa) + `values-en/` → task `generateI18nStrings` کلاس `Str` را می‌سازد؛ کلید جدید را در **هر دو** اضافه کن
 - `composeApp/build.gradle.kts` — flavorها (env × store: `LocalSite` …)، `-PlocalBaseUrl`؛ iOS: `ios.baseUrl` در `local.properties` (تغییر commit‌نشده)
+
+## شهر کسب‌وکار (روی برنچ `mobile-client`)
+- `core/ui/components/city/CityPicker.kt`: `BusinessCityField` + `CityPickerSheet` (استان → شهر، جستجو) از `composeResources/files/iran_cities.json`.
+- فیلد اجباری در مرحلهٔ «اطلاعات تماس» `CreateBusinessRoute.kt`؛ `Business.cityCode/city/province`؛ multipart `city_code`.
+- این تغییرات در develop نیست؛ پنل وب (:8080 از repo اصلی) فیلد شهر ندارد.
 
 ## اجرا
 `./gradlew :composeApp:installLocalSiteDebug -PlocalBaseUrl=http://127.0.0.1:8000` (بدون آن، flavor local به **production** وصل می‌شود). پکیج: `xyz.sattar.javid.proqueue.local`. در worktree، gradlew اجرایی نیست → `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain` با `JAVA_HOME` = jbr اندروید استودیو و `ANDROID_HOME`.

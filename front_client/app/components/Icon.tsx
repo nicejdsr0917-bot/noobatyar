@@ -37,6 +37,7 @@ import {
   IconChevronUp,
   IconCircleCheck,
   IconClock,
+  IconCoins,
   IconCopy,
   IconCreditCard,
   IconCrop,
@@ -127,6 +128,9 @@ const ICONS = {
   // ── Money ──
   creditCard: IconCreditCard,
   payments: IconWallet,
+  // The deposit, kept apart from creditCard/payments: on the profile it sits
+  // beside the payment-method card, and one glyph on both read as one fact.
+  deposit: IconCoins,
   receipt: IconReceipt,
 
   // ── Places ──
