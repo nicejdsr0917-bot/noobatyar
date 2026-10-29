@@ -13,6 +13,7 @@ from .cache_utils import invalidate_slots_cache
 from .occupancy import find_conflict, lock_expiry, refund_quota
 from api.pagination import StandardPagination
 from accounting import usage
+from django.db.models import Q
 from django.utils import timezone
 import logging
 
@@ -81,13 +82,6 @@ class ClientAppointmentListView(APIView):
                 code=403,
             )
 
-        # Monthly appointment quota belongs to the business owner's plan.
-        if not await sync_to_async(usage.can_book_appointment)(business.user_id):
-            return APIResponse.error(
-                message="ظرفیت نوبت‌های این کسب‌وکار برای این ماه تکمیل شده است",
-                code=409,
-            )
-
         # request.user is the Visitor resolved by VisitorTokenAuthentication —
         # already exists, no account/get_or_create needed here.
         visitor = request.user
@@ -128,25 +122,24 @@ class ClientAppointmentListView(APIView):
         while selected_services and len(','.join(selected_services)) > 500:
             selected_services.pop()
 
-        # Create the row inside a transaction that first re-checks the slot, so
-        # two clients racing for the same time cannot both win.
-        appointment, conflict = await sync_to_async(self._create_if_free)(
+        # Quota, slot conflict, row creation and quota consumption all happen
+        # in ONE transaction that holds the business row lock, so two clients
+        # racing for the last credit / the same time cannot both win.
+        appointment, failure = await sync_to_async(self._create_if_free)(
             business, visitor, app_date, duration,
             serializer.validated_data.get('description', ''), requires_payment,
             ','.join(selected_services),
         )
-        if conflict:
+        if failure == 'quota':
+            return APIResponse.error(
+                message="ظرفیت نوبت‌های این کسب‌وکار برای این ماه تکمیل شده است",
+                code=409,
+            )
+        if failure is not None:
             return APIResponse.error(
                 message="این زمان به‌تازگی رزرو شد. لطفاً زمان دیگری انتخاب کنید",
                 code=409,
             )
-
-        # Count this booking against the owner's monthly appointment quota, and
-        # remember which bucket paid so a cancellation can refund that one.
-        quota_source = await sync_to_async(usage.record_appointment)(business.user_id)
-        if quota_source:
-            appointment.quota_source = quota_source
-            await appointment.asave(update_fields=['quota_source'])
 
         # Slot occupancy changed → drop cached slot views for this business/date.
         await sync_to_async(invalidate_slots_cache)(business_id, app_date)
@@ -180,11 +173,12 @@ class ClientAppointmentListView(APIView):
     def _create_if_free(business, visitor, app_date, duration, description,
                         requires_payment, selected_services=''):
         """
-        Re-check the slot and create the appointment atomically.
+        Check quota + slot and create the appointment atomically.
 
-        Returns ``(appointment, conflict)``. The row-level lock on the business
-        serialises concurrent bookings for the same business, so the conflict
-        check cannot be overtaken between the SELECT and the INSERT.
+        Returns ``(appointment, failure)`` where ``failure`` is ``None`` on
+        success, ``'quota'`` or ``'conflict'``. The row-level lock on the
+        business serialises concurrent bookings for the same business, so the
+        checks cannot be overtaken between the SELECT and the INSERT.
         """
         from django.db import transaction
         from business.models import Business as _Business
@@ -193,9 +187,13 @@ class ClientAppointmentListView(APIView):
             # Serialise bookings per business.
             _Business.objects.select_for_update().only('id').get(id=business.id)
 
+            # Monthly appointment quota belongs to the business owner's plan.
+            if not usage.can_book_appointment(business.user_id):
+                return None, 'quota'
+
             conflict = find_conflict(business.id, app_date, duration)
             if conflict is not None:
-                return None, conflict
+                return None, 'conflict'
 
             now = timezone.now()
             appointment = Appointment.objects.create(
@@ -214,6 +212,15 @@ class ClientAppointmentListView(APIView):
                 locked_at=now if requires_payment else None,
                 expires_at=lock_expiry(now) if requires_payment else None,
             )
+
+            # Count this booking against the owner's monthly appointment quota,
+            # and remember which bucket paid so a cancellation can refund it.
+            quota_source = usage.record_appointment(business.user_id)
+            if quota_source:
+                appointment.quota_source = quota_source
+                Appointment.objects.filter(pk=appointment.pk).update(
+                    quota_source=quota_source
+                )
             return appointment, None
 
 
@@ -243,6 +250,32 @@ def _requires_payment(business):
     return False
 
 
+def _expire_lock_if_due(appointment):
+    """
+    Lazy lock expiry (sync). If ``appointment`` is a LOCKED hold whose payment
+    window has passed, close it out as CANCELLED and give the quota back.
+
+    Returns True when the hold is (now) expired. The transition is a
+    conditional update, so a concurrent callback/cancel that already moved the
+    row wins and only one caller ever refunds the credit.
+    """
+    if not (appointment.expires_at and appointment.expires_at <= timezone.now()):
+        return False
+
+    changed = Appointment.objects.filter(
+        pk=appointment.pk, status='LOCKED', expires_at__lte=timezone.now(),
+    ).update(status='CANCELLED', quota_source='', updated_at=timezone.now())
+    if changed:
+        # The client never paid, so the owner keeps the credit.
+        refund_quota(appointment, appointment.business.user_id)
+        appointment.status = 'CANCELLED'
+        invalidate_slots_cache(appointment.business_id, appointment.appointment_date)
+    return True
+
+
+_LOCK_EXPIRED_MESSAGE = "مهلت پرداخت این نوبت به پایان رسیده است. لطفاً دوباره نوبت بگیرید"
+
+
 class ClientAppointmentPaymentView(APIView):
     authentication_classes = [VisitorTokenAuthentication]
     permission_classes = [IsVisitorAuthenticated]
@@ -258,21 +291,9 @@ class ClientAppointmentPaymentView(APIView):
         if appointment.status != 'LOCKED':
             return APIResponse.error(message="این نوبت قابل پرداخت نیست", code=400)
 
-        # Lazy lock expiry — no cleanup job needed. Once the payment window has
-        # passed the hold is released (the slot already reads as free via
-        # occupancy.blocking_q) and the row is closed out as cancelled.
-        if appointment.expires_at and appointment.expires_at <= timezone.now():
-            appointment.status = 'CANCELLED'
-            # The client never paid, so the owner keeps the credit.
-            await sync_to_async(refund_quota)(appointment, appointment.business.user_id)
-            await appointment.asave(update_fields=['status', 'quota_source', 'updated_at'])
-            await sync_to_async(invalidate_slots_cache)(
-                appointment.business_id, appointment.appointment_date
-            )
-            return APIResponse.error(
-                message="مهلت پرداخت این نوبت به پایان رسیده است. لطفاً دوباره نوبت بگیرید",
-                code=400,
-            )
+        # Lazy lock expiry — no cleanup job needed.
+        if await sync_to_async(_expire_lock_if_due)(appointment):
+            return APIResponse.error(message=_LOCK_EXPIRED_MESSAGE, code=400)
 
         payment_reference = (request.data.get('payment_reference') or '').strip()
         payment_receipt = request.FILES.get('payment_receipt', None)
@@ -293,8 +314,7 @@ class ClientAppointmentPaymentView(APIView):
                     message="پرداخت بیعانه برای این کسب‌وکار الزامی است",
                     code=400,
                 )
-            appointment.status = 'PENDING_APPROVAL'
-            appointment.deposit_payment_method = 'NONE'
+            changes = {'status': 'PENDING_APPROVAL', 'deposit_payment_method': 'NONE'}
             success_message = "نوبت شما ثبت شد و در انتظار تایید کسب‌وکار است"
         else:
             # Card / online transfers must come with proof, otherwise the owner
@@ -304,18 +324,34 @@ class ClientAppointmentPaymentView(APIView):
                     message="لطفاً شماره پیگیری را وارد کنید یا تصویر فیش را آپلود نمایید",
                     code=400,
                 )
-            appointment.status = 'PENDING_VERIFICATION'
-            appointment.payment_reference = payment_reference
-            appointment.deposit_payment_method = 'CARD'
+            changes = {
+                'status': 'PENDING_VERIFICATION',
+                'payment_reference': payment_reference,
+                'deposit_payment_method': 'CARD',
+            }
             if payment_receipt:
-                appointment.payment_receipt = payment_receipt
+                # Store the file now; only the resulting name goes in the update.
+                await sync_to_async(appointment.payment_receipt.save)(
+                    payment_receipt.name, payment_receipt, save=False
+                )
+                changes['payment_receipt'] = appointment.payment_receipt.name
             success_message = "پرداخت با موفقیت ثبت شد و نوبت در انتظار تایید است"
 
         # The payment window is over once payment is submitted: the slot is now
         # held by the status itself, so the lock timestamps are cleared.
+        # Conditional + field-limited: only a still-live LOCKED hold moves, and
+        # concurrent owner edits to other columns are not overwritten.
+        now = timezone.now()
+        changed = await Appointment.objects.filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=now),
+            pk=appointment.pk, status='LOCKED',
+        ).aupdate(locked_at=None, expires_at=None, updated_at=now, **changes)
+        if not changed:
+            return APIResponse.error(message="این نوبت قابل پرداخت نیست", code=400)
+        for field, value in changes.items():
+            setattr(appointment, field, value)
         appointment.locked_at = None
         appointment.expires_at = None
-        await appointment.asave()
 
         # Slot occupancy changed → drop cached slot views for this business/date.
         await sync_to_async(invalidate_slots_cache)(
@@ -361,17 +397,8 @@ class ClientAppointmentOnlinePaymentView(APIView):
 
         # Same lazy lock expiry as the manual payment path: an abandoned hold is
         # released rather than sending the client to a gateway for a dead slot.
-        if appointment.expires_at and appointment.expires_at <= timezone.now():
-            appointment.status = 'CANCELLED'
-            await sync_to_async(refund_quota)(appointment, appointment.business.user_id)
-            await appointment.asave(update_fields=['status', 'quota_source', 'updated_at'])
-            await sync_to_async(invalidate_slots_cache)(
-                appointment.business_id, appointment.appointment_date
-            )
-            return APIResponse.error(
-                message="مهلت پرداخت این نوبت به پایان رسیده است. لطفاً دوباره نوبت بگیرید",
-                code=400,
-            )
+        if await sync_to_async(_expire_lock_if_due)(appointment):
+            return APIResponse.error(message=_LOCK_EXPIRED_MESSAGE, code=400)
 
         business = appointment.business
         if 'ONLINE' not in (business.accepted_payment_methods or []):
@@ -392,8 +419,11 @@ class ClientAppointmentOnlinePaymentView(APIView):
 
         # The trackId is how the callback finds this appointment again; the query
         # string it arrives with is not trusted for identification.
-        appointment.payment_reference = result['track_id']
-        await appointment.asave(update_fields=['payment_reference', 'updated_at'])
+        changed = await Appointment.objects.filter(
+            pk=appointment.pk, status='LOCKED'
+        ).aupdate(payment_reference=result['track_id'], updated_at=timezone.now())
+        if not changed:
+            return APIResponse.error(message="این نوبت قابل پرداخت نیست", code=400)
 
         return APIResponse.success(
             data={'payment_url': result['payment_url'], 'track_id': result['track_id']},
@@ -416,8 +446,6 @@ class ClientDepositCallbackView(APIView):
         from django.conf import settings
         from django.shortcuts import redirect
 
-        from .payment.zibal_deposit import verify_deposit_payment
-
         client_web = getattr(settings, 'CLIENT_WEB_URL', '').rstrip('/')
         track_id = (request.GET.get('trackId') or '').strip()
 
@@ -428,41 +456,97 @@ class ClientDepositCallbackView(APIView):
         if not track_id:
             return _back('failed')
 
-        try:
-            appointment = await Appointment.objects.select_related('business', 'visitor').aget(
-                payment_reference=track_id
+        state, appointment = await sync_to_async(_settle_deposit)(track_id)
+        if appointment is not None and state == 'success_new':
+            await sync_to_async(invalidate_slots_cache)(
+                appointment.business_id, appointment.appointment_date
             )
-        except Appointment.DoesNotExist:
-            logger.warning("Deposit callback for unknown trackId %s", track_id)
-            return _back('failed')
+            _fire_deposit_paid_sms(appointment)
+            state = 'success'
+        return _back(state, appointment.id if appointment else None)
 
-        # Replayed callback for an appointment already settled — treat as success
-        # rather than re-running the side effects.
-        if appointment.status != 'LOCKED':
-            return _back('success', appointment.id)
 
-        result = await sync_to_async(verify_deposit_payment)(appointment, track_id)
-        if not result['success']:
-            return _back('failed', appointment.id)
+def _settle_deposit(track_id):
+    """
+    Sync body of the Zibal deposit callback. Returns ``(state, appointment)``
+    where state is ``success_new`` (just confirmed — caller fires side
+    effects), ``success`` (replay, nothing to do), ``failed`` or ``conflict``.
 
-        # Verified by the bank, so there is no receipt for the owner to eyeball:
-        # the booking is confirmed outright instead of queueing for approval.
-        appointment.status = 'WAITING'
-        appointment.locked_at = None
-        appointment.expires_at = None
-        appointment.deposit_payment_method = 'GATEWAY'
-        await appointment.asave(
-            update_fields=[
-                'status', 'locked_at', 'expires_at',
-                'deposit_payment_method', 'updated_at',
-            ]
+    Lookup is limited to gateway holds: ``payment_reference`` is free text on
+    the CARD path, so only LOCKED rows (the online view stores the trackId
+    while the row is LOCKED) are candidates for settlement. Zibal is verified
+    OUTSIDE any DB lock; the status flip then re-checks everything under the
+    business + appointment row locks.
+    """
+    from django.db import transaction
+    from business.models import Business
+
+    from .payment.zibal_deposit import verify_deposit_payment
+
+    candidates = list(
+        Appointment.objects.select_related('business', 'visitor')
+        .filter(payment_reference=track_id, status='LOCKED')[:2]
+    )
+    if len(candidates) > 1:
+        logger.error("Deposit callback trackId %s matches several LOCKED appointments", track_id)
+        return 'failed', None
+    if not candidates:
+        # Replay of a callback we already settled?
+        settled = (
+            Appointment.objects.filter(
+                payment_reference=track_id, deposit_payment_method='GATEWAY',
+            ).exclude(status='CANCELLED').order_by('-id').first()
         )
-        await sync_to_async(invalidate_slots_cache)(
-            appointment.business_id, appointment.appointment_date
-        )
+        if settled is not None:
+            return 'success', settled
+        logger.warning("Deposit callback for unknown trackId %s", track_id)
+        return 'failed', None
 
-        _fire_deposit_paid_sms(appointment)
-        return _back('success', appointment.id)
+    appointment = candidates[0]
+    result = verify_deposit_payment(appointment, track_id)
+    if not result['success']:
+        return 'failed', appointment
+
+    with transaction.atomic():
+        # Same lock order as the booking path: business first, then the row.
+        Business.objects.select_for_update().only('id').get(id=appointment.business_id)
+        locked = (
+            Appointment.objects.select_for_update()
+            .select_related('business', 'visitor').get(pk=appointment.pk)
+        )
+        if locked.status != 'LOCKED':
+            # Already settled / cancelled by someone else: replay, no side effects.
+            return 'success', locked
+
+        now = timezone.now()
+        if locked.expires_at and locked.expires_at <= now:
+            # The hold lapsed, so the slot may have been rebooked meanwhile.
+            duration = locked.service_duration or locked.business.default_service_duration
+            clash = find_conflict(
+                locked.business_id, locked.appointment_date, duration,
+                exclude_id=locked.pk, now=now,
+            )
+            if clash is not None:
+                # No status fits "paid but slot lost", so the row is left LOCKED
+                # (expired, non-blocking) for manual refund handling.
+                logger.error(
+                    "Paid deposit on EXPIRED lock lost its slot: appointment=%s "
+                    "trackId=%s conflicts_with=%s — needs manual refund",
+                    locked.pk, track_id, clash.pk,
+                )
+                return 'conflict', locked
+
+        changed = Appointment.objects.filter(pk=locked.pk, status='LOCKED').update(
+            status='WAITING', locked_at=None, expires_at=None,
+            deposit_payment_method='GATEWAY', updated_at=now,
+        )
+        if not changed:
+            return 'success', locked
+        locked.status = 'WAITING'
+        locked.locked_at = None
+        locked.expires_at = None
+        locked.deposit_payment_method = 'GATEWAY'
+    return 'success_new', locked
 
 
 class ClientAppointmentCancelView(APIView):
@@ -498,14 +582,10 @@ class ClientAppointmentCancelView(APIView):
             )
 
         previous_status = appointment.status
-        appointment.status = 'CANCELLED'
-        appointment.locked_at = None
-        appointment.expires_at = None
-        # A slot the owner never served should not keep costing them a credit.
-        await sync_to_async(refund_quota)(appointment, appointment.business.user_id)
-        await appointment.asave(
-            update_fields=['status', 'locked_at', 'expires_at', 'quota_source', 'updated_at']
-        )
+        # Conditional transition: if a callback/owner action moved the row since
+        # we read it, nothing is cancelled and no credit is refunded.
+        if not await sync_to_async(_cancel_transition)(appointment, previous_status):
+            return APIResponse.error(message="این نوبت قابل لغو نیست", code=400)
 
         # Freeing the slot changes availability for everyone.
         await sync_to_async(invalidate_slots_cache)(
@@ -528,6 +608,24 @@ class ClientAppointmentCancelView(APIView):
             data={'id': appointment.id},
             message="نوبت شما لغو شد",
         )
+
+
+def _cancel_transition(appointment, previous_status):
+    """Sync: CANCELLED only if still in ``previous_status``; refund once."""
+    changed = Appointment.objects.filter(
+        pk=appointment.pk, status=previous_status
+    ).update(
+        status='CANCELLED', locked_at=None, expires_at=None,
+        quota_source='', updated_at=timezone.now(),
+    )
+    if not changed:
+        return False
+    # A slot the owner never served should not keep costing them a credit.
+    refund_quota(appointment, appointment.business.user_id)
+    appointment.status = 'CANCELLED'
+    appointment.locked_at = None
+    appointment.expires_at = None
+    return True
 
 
 def _fire_cancellation_sms(appointment):

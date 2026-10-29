@@ -46,6 +46,10 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
         """
         if obj.status not in ['WAITING', 'IN_PROGRESS']:
             return 0
+        # Computed once per row: estimated_turn_time asks for it again.
+        cached = getattr(obj, '_queue_position_cache', None)
+        if cached is not None:
+            return cached
         
         # Count appointments on the same day with an earlier time
         start_of_day = obj.appointment_date.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -57,6 +61,7 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
             appointment_date__lt=obj.appointment_date,
             status__in=['WAITING', 'IN_PROGRESS']
         ).count()
+        obj._queue_position_cache = ahead
         return ahead
 
     def get_estimated_turn_time(self, obj):
