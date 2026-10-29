@@ -191,7 +191,7 @@ class BaleWebhookTests(BaleTestBase):
     @patch('bale.client._call', side_effect=_ok)
     def test_finalised_text_respects_bale_limit(self, call):
         Business.objects.filter(pk=self.business.pk).update(
-            first_approved_at=timezone.now(), pending_bio='ب' * 5000, pending_title='ع' * 300)
+            first_approved_at=timezone.now(), pending_bio='ب' * 5000, pending_title='ع' * 255)
         self.tap(f'm:d:{self.business.pk}:A')
         final = self.sent_texts(call)[-1]
         self.assertLessEqual(len(final), 4096)

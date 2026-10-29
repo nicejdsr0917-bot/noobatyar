@@ -53,7 +53,9 @@ jobs:
       - name: Check for missing migrations
         run: python manage.py makemigrations --check --dry-run
       - name: Tests
-        run: python manage.py test --parallel 4
+        # Serial on Postgres: --parallel clones test DBs and the race tests then
+        # hit "connection already closed" / missing test_postgres_N.
+        run: python manage.py test --noinput
 
   web:
     runs-on: ubuntu-latest
