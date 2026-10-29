@@ -1,6 +1,5 @@
 from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Count, Q
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,7 +8,7 @@ from asgiref.sync import sync_to_async
 import logging
 from adrf.views import APIView
 
-from appointment.models import Appointment
+from appointment import selectors_stats
 from common.params import parse_business_id
 from common.responses import APIResponse
 from common.timeutils import local_midnight, utc_date_tehran_midnight
@@ -94,28 +93,4 @@ class AppointmentStatsView(APIView):
             date_filter['appointment_date__gte'] = today_start
             date_filter['appointment_date__lt'] = today_end
 
-        # Single query with aggregation
-        stats = Appointment.objects.filter(
-            business_id=business_uuid,
-            # Scoped to the caller's own businesses, same as
-            # daily_counts_view.py. This was commented out as
-            # `business__owner=user` — a field that doesn't exist (Business
-            # names it `user`), so it could only ever have raised FieldError,
-            # which is presumably why it was disabled rather than fixed.
-            # Without it any authenticated caller could read another owner's
-            # numbers by guessing a business_id.
-            business__user=user,
-            **date_filter
-        ).aggregate(
-            total=Count('id'),
-            completed=Count('id', filter=Q(status='COMPLETED')),
-            no_show=Count('id', filter=Q(status='NO_SHOW')),
-            unique_visitors=Count('visitor_id', distinct=True)
-        )
-
-        return {
-            'total_appointments': stats['total'] or 0,
-            'completed_appointments': stats['completed'] or 0,
-            'no_show_appointments': stats['no_show'] or 0,
-            'total_visitors': stats['unique_visitors'] or 0
-        }
+        return selectors_stats.business_stats(user, business_uuid, date_filter)

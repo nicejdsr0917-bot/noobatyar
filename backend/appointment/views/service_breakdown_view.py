@@ -59,34 +59,13 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from adrf.views import APIView
 
-from appointment.models import Appointment
-from business.models import Business
+from appointment import selectors_stats
 from common.params import business_id_param
 from common.responses import APIResponse
 from common.timeutils import utc_date_tehran_midnight
 
 
-def _split_selected_services(raw: str) -> list:
-    """Parse a stored Appointment.selected_services value into ordered,
-    de-duplicated names.
-
-    Deliberately not business.serializers.normalize_service_names: that
-    function *validates* (raises on a >100-char name or a non-string/list
-    input) because it runs on fresh client input before it is stored. This
-    runs on data already in the database — AppointmentView.post
-    (appointment/views/views.py) writes selected_services straight from
-    request.data without ever calling normalize_service_names, so a raising
-    parser here would let one odd historical row 500 the whole dashboard
-    instead of just quietly landing in no_service_count/removed_service_count.
-    """
-    if not raw:
-        return []
-    names = []
-    for part in raw.split(','):
-        name = part.strip()
-        if name and name not in names:
-            names.append(name)
-    return names
+_split_selected_services = selectors_stats.split_selected_services  # kept: old name
 
 
 class ServiceBreakdownView(APIView):
@@ -120,46 +99,4 @@ class ServiceBreakdownView(APIView):
 
     @sync_to_async
     def _breakdown(self, user, business_id: int, date_filter: dict) -> dict:
-        # Scoped to business__user=user, same as daily_counts_view.py — a
-        # business_id the caller does not own resolves to an all-zero
-        # response rather than a 403/404, so this endpoint gives no signal
-        # about whether the id exists at all.
-        appointments = Appointment.objects.filter(
-            business_id=business_id, business__user=user, **date_filter
-        ).values_list('selected_services', flat=True)
-
-        catalog = set(
-            Business.objects.filter(id=business_id, user=user)
-            .values_list('services', flat=True)
-            .first() or []
-        )
-
-        counts: dict[str, int] = {}
-        no_service_count = 0
-        removed_service_count = 0
-        total = 0
-
-        for raw in appointments:
-            total += 1
-            names = _split_selected_services(raw)
-            if not names:
-                no_service_count += 1
-                continue
-            primary = names[0]
-            if primary in catalog:
-                counts[primary] = counts.get(primary, 0) + 1
-            else:
-                removed_service_count += 1
-
-        services = [
-            {'name': name, 'count': count}
-            for name, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-        ]
-
-        return {
-            'business_id': business_id,
-            'total_appointments': total,
-            'services': services,
-            'no_service_count': no_service_count,
-            'removed_service_count': removed_service_count,
-        }
+        return selectors_stats.service_breakdown(user, business_id, date_filter)

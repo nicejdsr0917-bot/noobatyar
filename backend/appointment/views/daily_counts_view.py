@@ -12,19 +12,14 @@ looking at "next month" is asking about bookings that have not happened yet —
 while the 7-day trend chart keeps calling this with `days` alone.
 """
 
-from datetime import timedelta
-
 from asgiref.sync import sync_to_async
-from django.db.models import Count
-from django.db.models.functions import TruncDate
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from adrf.views import APIView
 
-from appointment.models import Appointment
+from appointment import selectors_stats
 from common.params import business_id_param
 from common.responses import APIResponse
 
@@ -59,34 +54,4 @@ class DailyCountsView(APIView):
 
     @sync_to_async
     def _daily_counts(self, user, business_id: int, days: int, days_ahead: int = 0):
-        tz = timezone.get_current_timezone()
-        today = timezone.localdate()
-        start_date = today - timedelta(days=days - 1)
-        # Exclusive upper bound on the query so a forward window does not pull
-        # in every future booking the business has ever taken.
-        end_date = today + timedelta(days=days_ahead)
-        start_dt = timezone.make_aware(
-            timezone.datetime(start_date.year, start_date.month, start_date.day, 0, 0), tz
-        )
-        end_dt = timezone.make_aware(
-            timezone.datetime(end_date.year, end_date.month, end_date.day, 0, 0), tz
-        ) + timedelta(days=1)
-
-        rows = (
-            Appointment.objects
-            .filter(
-                business_id=business_id, business__user=user,
-                appointment_date__gte=start_dt, appointment_date__lt=end_dt,
-            )
-            .annotate(day=TruncDate('appointment_date'))
-            .values('day')
-            .annotate(count=Count('id'))
-        )
-        counts = {row['day'].isoformat(): row['count'] for row in rows if row['day']}
-
-        # Gap-fill every day in the window so the chart always has a point per day.
-        result = []
-        for i in range(days + days_ahead):
-            d = (start_date + timedelta(days=i)).isoformat()
-            result.append({'date': d, 'count': counts.get(d, 0)})
-        return result
+        return selectors_stats.daily_counts(user, business_id, days, days_ahead)
