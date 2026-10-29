@@ -12,7 +12,14 @@ import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
 import xyz.sattar.javid.proqueue.domain.model.DashboardStats
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentOrdering
 import xyz.sattar.javid.proqueue.domain.model.visitor.Visitor
+import kotlinx.coroutines.CancellationException
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlin.time.ExperimentalTime
 
 class AppointmentRepositoryImpl(
@@ -365,28 +372,43 @@ class AppointmentRepositoryImpl(
             } else {
                 false
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             false
         }
     }
 
     companion object {
-        private const val DAY_MS = 24L * 60 * 60 * 1000
-
-        private fun utcDayStart(millis: Long) = millis - millis.mod(DAY_MS)
+        private val SERVER_ZONE = TimeZone.of("Asia/Tehran")
 
         /**
-         * The [from, to) window the server's date filters select. The server
-         * buckets by UTC day (appointment_query_view: `date` = that UTC day,
-         * `date_from` = start of its UTC day, `date_to` = end of its UTC day),
-         * so mirror that exactly. Null when the request has no date bound:
-         * "everything" is not a window we can safely replace.
+         * Mirrors the backend's `_utc_day_start` (appointment_query_view.py),
+         * which the `date`, `date_from` and `date_to` filters use: it takes
+         * the UTC calendar date D of the epoch-ms it is sent, then returns
+         * D 00:00 *in the server's TIME_ZONE (Asia/Tehran)*. So `date=X`
+         * selects [D 00:00 Tehran, D+1 00:00 Tehran), which is NOT the UTC day
+         * and not the Tehran day of X. Must stay in step with the server;
+         * the server cannot change while old app versions are in the field.
+         */
+        @OptIn(ExperimentalTime::class)
+        internal fun serverDayWindow(epochMillis: Long): Pair<Long, Long> {
+            val d = Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(TimeZone.UTC).date
+            val from = d.atStartOfDayIn(SERVER_ZONE).toEpochMilliseconds()
+            val to = d.plus(1, DateTimeUnit.DAY).atStartOfDayIn(SERVER_ZONE).toEpochMilliseconds()
+            return from to to
+        }
+
+        /**
+         * The [from, to) window the server's date filters select, or null
+         * when the request has no date bound ("everything" is not a window
+         * we can safely replace).
          */
         internal fun syncWindow(date: Long?, dateFrom: Long?, dateTo: Long?): Pair<Long, Long>? {
-            if (date != null) return utcDayStart(date).let { it to it + DAY_MS }
+            if (date != null) return serverDayWindow(date)
             if (dateFrom == null || dateTo == null) return null
-            val from = utcDayStart(dateFrom)
-            val to = utcDayStart(dateTo) + DAY_MS
+            val from = serverDayWindow(dateFrom).first
+            val to = serverDayWindow(dateTo).second
             return if (to > from) from to to else null
         }
     }

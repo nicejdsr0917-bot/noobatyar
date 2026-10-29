@@ -3,6 +3,7 @@ package xyz.sattar.javid.proqueue.feature.visitorDetails
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
@@ -35,8 +36,12 @@ class VisitorDetailsViewModel(
      */
     private val remoteMessages = mutableMapOf<Pair<Long, Long>, List<Message>>()
 
-    /** The (visitorId, businessId) of the most recent load; older loads are stale. */
-    private var latestLoad: Pair<Long, Long>? = null
+    /**
+     * Bumped by every load; a load whose generation is no longer current is
+     * stale and must not touch state. A generation (not the key) because
+     * A -> B -> A would otherwise let the first A load pass as current.
+     */
+    private var loadGeneration = 0
 
     private suspend fun mergedMessages(visitorId: Long, businessId: Long): List<Message> =
         (messageRepository.getMessagesForVisitorAndBusiness(visitorId, businessId) +
@@ -139,6 +144,8 @@ class VisitorDetailsViewModel(
     override fun createErrorState(message: String): PartialState = PartialState.ShowMessage(message)
 
     private fun loadVisitorDetails(visitorId: Long): Flow<PartialState> = flow {
+        val generation = ++loadGeneration
+        val isStale = { generation != loadGeneration }
         emit(PartialState.IsLoading(true))
         try {
             val business = BusinessStateHolder.selectedBusiness.value
@@ -148,7 +155,6 @@ class VisitorDetailsViewModel(
             }
 
             val key = visitorId to business.id
-            latestLoad = key
 
             // Sync first: for a visitor who booked online (linked to their own
             // account, not this owner's), the direct visitor fetch below can
@@ -159,30 +165,36 @@ class VisitorDetailsViewModel(
 
             // SMS history is a nice-to-have next to the visitor's own data —
             // never let it take the whole screen down with it.
-            remoteMessages[key] = try {
+            val remote = try {
                 messageRepository.getRemoteMessages(
                     visitorId = visitorId,
                     businessId = business.id,
                     businessTitle = business.title
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 emptyList()
             }
-
-            // A newer load started while this one was waiting on the network:
-            // drop this one rather than overwrite the newer visitor's screen.
-            if (latestLoad != key) return@flow
+            // A newer load started while this one waited on the network: drop
+            // it rather than overwrite the newer visitor's screen or cache.
+            if (isStale()) return@flow
+            remoteMessages[key] = remote
 
             val visitor = visitorRepository.getVisitorById(visitorId)
             if (visitor != null) {
                 val appointments = appointmentRepository.getVisitorHistoryForBusiness(visitorId, business.id)
                 val messages = mergedMessages(visitorId, business.id)
-                if (latestLoad != key) return@flow
+                if (isStale()) return@flow
                 emit(PartialState.DetailsLoaded(visitor, appointments, messages))
             } else {
+                if (isStale()) return@flow
                 emit(PartialState.ShowMessage(Str.information_not_found))
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (isStale()) return@flow
             emit(PartialState.ShowMessage(e.message ?: Str.couldnt_load_information))
         }
     }

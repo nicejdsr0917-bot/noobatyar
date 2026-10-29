@@ -16,18 +16,28 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
+/**
+ * The backend (appointment_query_view._utc_day_start) takes the UTC calendar
+ * date D of the epoch-ms it is sent and returns [D 00:00, D+1 00:00) in
+ * Asia/Tehran (UTC+3:30, no DST): [D-1 20:30Z, D 20:30Z).
+ */
 class SyncAppointmentsReplaceWindowTest {
-    private val day = 86_400_000L
-    private val day0 = 20_000 * day          // a UTC midnight
+    private val hour = 3_600_000L
+    private val day = 24 * hour
+    private val tehran = 3 * hour + hour / 2
     private val iso = "2026-10-29T10:00:00Z"
 
-    private val local = FakeAppointmentLocalSource()
-    private var page: PaginatedResponseDto<AppointmentDto> = page(listOf(dto(1), dto(5)))
+    private val dayD = 20_000 * day                 // UTC midnight of date D
+    private val winFrom = dayD - tehran             // D 00:00 Tehran
+    private val winTo = winFrom + day               // D+1 00:00 Tehran
 
-    private fun dto(id: Long, status: String = "WAITING") = AppointmentDto(
+    private val local = FakeAppointmentLocalSource()
+    private var page: PaginatedResponseDto<AppointmentDto> = page(listOf(dto(1, winFrom + hour), dto(5, winFrom + 2 * hour)))
+
+    private fun dto(id: Long, at: Long, status: String = "WAITING") = AppointmentDto(
         id = id,
         visitor = VisitorDto(id = 10, fullName = "V", phoneNumber = "0912", createdAt = iso),
-        appointmentDate = day0 + 3_600_000L * id,
+        appointmentDate = at,
         serviceDuration = 30, status = status, description = null,
         createdAt = iso, updatedAt = iso,
     )
@@ -49,54 +59,75 @@ class SyncAppointmentsReplaceWindowTest {
 
     private fun seed() {
         listOf(
-            appt(1, 1, day0 + 3_600_000L),       // in window, still on the server
-            appt(2, 1, day0 + 7_200_000L),       // in window, gone from the server -> stale
-            appt(3, 1, day0 - 3_600_000L),       // previous day -> untouched
-            appt(4, 2, day0 + 3_600_000L),       // other business -> untouched
+            appt(1, 1, winFrom + hour),          // in server window, still returned
+            appt(2, 1, winFrom + 5 * hour),      // in server window, gone from response -> deleted
+            appt(3, 1, winFrom - hour),          // just before the window -> kept
+            appt(4, 2, winFrom + hour),          // other business -> kept
+            appt(6, 1, winTo + 2 * hour),        // next Tehran day 02:00 -> kept
+            appt(7, 1, winTo - hour),            // last hour of the window, missing -> deleted
         ).forEach { local.rows[it.id] = it }
     }
 
     @Test
-    fun replaceWindowDropsStaleRowsOfThatBusinessAndWindowOnly() = runTest {
+    fun windowIsTheTehranDayOfTheUtcDateSent() = runTest {
         seed()
-        assertEquals(true, repo.syncAppointments(businessId = 1, date = day0 + 5_000, replaceWindow = true))
-        assertEquals(setOf(1L, 3L, 4L, 5L), local.rows.keys)
-        assertEquals(day0 to day0 + day, local.lastWindow)   // UTC day, as the server buckets it
+        assertEquals(true, repo.syncAppointments(businessId = 1, date = dayD + 5_000, replaceWindow = true))
+        assertEquals(winFrom to winTo, local.lastWindow)
+        assertEquals(setOf(1L, 3L, 4L, 5L, 6L), local.rows.keys)
+    }
+
+    @Test
+    fun tehranOneAmIsThePreviousUtcDate() = runTest {
+        // Tehran 01:00 of the day after D = D+1 00:00 Tehran + 1h = UTC date D (20:30Z + 1h = 21:30Z on D).
+        val sent = winTo + hour
+        assertEquals(dayD, sent - sent.mod(day), "sanity: same UTC date D")
+        seed()
+        repo.syncAppointments(businessId = 1, date = sent, replaceWindow = true)
+        assertEquals(winFrom to winTo, local.lastWindow)
+        assertEquals(setOf(1L, 3L, 4L, 5L, 6L), local.rows.keys)   // next-day 02:00 survives
+    }
+
+    @Test
+    fun tehranMidnightSentByTheDatePickerSelectsThatUtcDateNotTheNextTehranDay() = runTest {
+        // Picker sends D 00:00 Tehran = (D-1) 20:30Z, UTC date D-1 -> server window is the Tehran day of D-1.
+        val sent = winFrom
+        seed()
+        repo.syncAppointments(businessId = 1, date = sent, replaceWindow = true)
+        assertEquals(winFrom - day to winFrom, local.lastWindow)
     }
 
     @Test
     fun defaultStaysUpsertOnly() = runTest {
         seed()
-        repo.syncAppointments(businessId = 1, date = day0)
-        assertEquals(setOf(1L, 2L, 3L, 4L, 5L), local.rows.keys)
+        repo.syncAppointments(businessId = 1, date = dayD)
+        assertEquals(setOf(1L, 2L, 3L, 4L, 5L, 6L, 7L), local.rows.keys)
         assertEquals(0, local.replaceCalls)
     }
 
     @Test
     fun filteredRequestIsNeverTreatedAsAWindow() = runTest {
         seed()
-        repo.syncAppointments(businessId = 1, date = day0, status = "WAITING", replaceWindow = true)
-        repo.syncAppointments(businessId = 1, visitorId = 10, date = day0, replaceWindow = true)
+        repo.syncAppointments(businessId = 1, date = dayD, status = "WAITING", replaceWindow = true)
+        repo.syncAppointments(businessId = 1, visitorId = 10, date = dayD, replaceWindow = true)
         assertEquals(0, local.replaceCalls)
-        assertEquals(setOf(1L, 2L, 3L, 4L, 5L), local.rows.keys)
     }
 
     @Test
     fun incompletePageOrUnboundedRequestFallsBackToUpsert() = runTest {
         seed()
-        page = page(listOf(dto(1)), next = "page=2")
-        repo.syncAppointments(businessId = 1, date = day0, replaceWindow = true)
-        page = page(listOf(dto(1)))
-        repo.syncAppointments(businessId = 1, replaceWindow = true)   // no date bound at all
+        page = page(listOf(dto(1, winFrom + hour)), next = "page=2")
+        repo.syncAppointments(businessId = 1, date = dayD, replaceWindow = true)
+        page = page(listOf(dto(1, winFrom + hour)))
+        repo.syncAppointments(businessId = 1, replaceWindow = true)
         assertEquals(0, local.replaceCalls)
-        assertEquals(setOf(1L, 2L, 3L, 4L), local.rows.keys)
+        assertEquals(setOf(1L, 2L, 3L, 4L, 6L, 7L), local.rows.keys)
     }
 
     @Test
-    fun dateRangeWindowCoversWholeUtcDays() = runTest {
+    fun dateRangeWindowSpansFromStartDayToEndDayInTehran() = runTest {
         seed()
-        repo.syncAppointments(businessId = 1, dateFrom = day0 + 1_000, dateTo = day0 + day + 1_000, replaceWindow = true)
-        assertEquals(day0 to day0 + 2 * day, local.lastWindow)
+        repo.syncAppointments(businessId = 1, dateFrom = dayD + 1_000, dateTo = dayD + day + 1_000, replaceWindow = true)
+        assertEquals(winFrom to winTo + day, local.lastWindow)
         assertNull(local.rows[2])
     }
 }

@@ -39,7 +39,7 @@ class LogoutWipesLocalDataTest {
     @Test
     fun logoutWipesEveryLocalSource() = runTest {
         seed()
-        val repo = UserRepositoryImpl(api(ApiResponse.Success(Unit)), users, cleaner)
+        val repo = UserRepositoryImpl(api(ApiResponse.Success(Unit)), users, cleaner, {})
 
         repo.logout()
 
@@ -54,7 +54,7 @@ class LogoutWipesLocalDataTest {
     @Test
     fun logoutWipesEvenWhenTheServerCallFails() = runTest {
         seed()
-        val repo = UserRepositoryImpl(api(ApiResponse.Error("down", 500)), users, cleaner)
+        val repo = UserRepositoryImpl(api(ApiResponse.Error("down", 500)), users, cleaner, {})
 
         repo.logout()
 
@@ -76,5 +76,46 @@ class LogoutWipesLocalDataTest {
         assertTrue(appointments.rows.isEmpty())
         assertTrue(visitors.rows.isEmpty())
         assertEquals(1, users.userCleared)
+    }
+
+    @Test
+    fun serverLogoutRunsFirst_thenTokensCleared_thenWipe() = runTest {
+        seed()
+        val log = mutableListOf<String>()
+        val api = object : StubUserApi() {
+            override suspend fun logout(): ApiResponse<Unit> {
+                log += "api"; assertEquals(1, appointments.rows.size, "wipe must not precede api"); return ApiResponse.Success(Unit)
+            }
+        }
+        val c = LocalCacheCleaner(appointments, visitors, messages, businesses, users)
+        UserRepositoryImpl(api, users, c, { log += "tokens"; assertEquals(1, appointments.rows.size) }).logout()
+        assertEquals(listOf("api", "tokens"), log)
+        assertTrue(appointments.rows.isEmpty())
+    }
+
+    @Test
+    fun aThrowingWipeDoesNotSkipServerLogout() = runTest {
+        seed()
+        var called = false
+        val api = object : StubUserApi() {
+            override suspend fun logout(): ApiResponse<Unit> { called = true; return ApiResponse.Success(Unit) }
+        }
+        val failing = object : FakeMessageLocalSource() {
+            override suspend fun clearAll() = throw IllegalStateException("disk")
+        }
+        val c = LocalCacheCleaner(appointments, visitors, failing, businesses, users)
+        runCatching { UserRepositoryImpl(api, users, c, {}).logout() }
+        assertTrue(called)
+        assertTrue(appointments.rows.isEmpty())
+    }
+
+    @Test
+    fun serverLogoutThrowingStillWipes() = runTest {
+        seed()
+        val api = object : StubUserApi() {
+            override suspend fun logout(): ApiResponse<Unit> = throw IllegalStateException("net")
+        }
+        UserRepositoryImpl(api, users, cleaner, {}).logout()
+        assertTrue(appointments.rows.isEmpty())
     }
 }

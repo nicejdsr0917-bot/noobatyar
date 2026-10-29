@@ -48,7 +48,8 @@ class VisitorDetailsViewModelTest {
         businessTitle = "Shop", remote = true
     )
 
-    private val gates = mutableMapOf<Long, CompletableDeferred<List<Message>>>()
+    private val gates = mutableMapOf<Long, ArrayDeque<CompletableDeferred<List<Message>>>>()
+    private fun gate(visitor: Long) = CompletableDeferred<List<Message>>().also { gates.getOrPut(visitor) { ArrayDeque() }.addLast(it) }
 
     private val messages = object : MessageRepository {
         override suspend fun insertMessage(message: Message) = true
@@ -57,7 +58,7 @@ class VisitorDetailsViewModelTest {
         override suspend fun deleteMessage(id: Long) = true
         override suspend fun deleteMessagesByVisitorId(visitorId: Long) = true
         override suspend fun getRemoteMessages(visitorId: Long, businessId: Long, businessTitle: String) =
-            gates.getValue(visitorId).await()
+            gates.getValue(visitorId).removeFirst().await()
     }
 
     private val visitors = object : VisitorRepository {
@@ -90,8 +91,8 @@ class VisitorDetailsViewModelTest {
     @Test
     fun lateRemoteMessagesForVisitorANeverLeakIntoVisitorB() = runTest {
         BusinessStateHolder.selectBusiness(business)
-        gates[1] = CompletableDeferred()   // A: slow
-        gates[2] = CompletableDeferred()   // B: fast
+        val gateA = gate(1)   // A: slow
+        val gateB = gate(2)   // B: fast
         val vm = viewModel()
 
         vm.uiState.test {
@@ -102,9 +103,9 @@ class VisitorDetailsViewModelTest {
             vm.sendIntent(VisitorDetailsIntent.LoadVisitorDetails(2))
             advanceUntilIdle()
 
-            gates.getValue(2).complete(listOf(sms("for-B")))
+            gateB.complete(listOf(sms("for-B")))
             advanceUntilIdle()
-            gates.getValue(1).complete(listOf(sms("for-A")))   // arrives after B is on screen
+            gateA.complete(listOf(sms("for-A")))   // arrives after B is on screen
             advanceUntilIdle()
 
             val seen = cancelAndConsumeRemainingEvents()
@@ -114,6 +115,31 @@ class VisitorDetailsViewModelTest {
             assertEquals(listOf("for-B"), final.messages.map { it.content })
             // and A's stale load never produced a state that shows A's data
             assertEquals(emptyList(), seen.filter { it.visitor?.id == 1L })
+        }
+    }
+
+    @Test
+    fun aThenBThenAAgainDropsTheFirstALoad() = runTest {
+        BusinessStateHolder.selectBusiness(business)
+        val a1 = gate(1)
+        val b = gate(2)
+        val a2 = gate(1)
+        val vm = viewModel()
+
+        vm.uiState.test {
+            awaitItem()
+            vm.sendIntent(VisitorDetailsIntent.LoadVisitorDetails(1)); advanceUntilIdle()
+            vm.sendIntent(VisitorDetailsIntent.LoadVisitorDetails(2)); advanceUntilIdle()
+            vm.sendIntent(VisitorDetailsIntent.LoadVisitorDetails(1)); advanceUntilIdle()
+
+            b.complete(listOf(sms("B")))
+            a2.complete(listOf(sms("A-new"))); advanceUntilIdle()
+            a1.complete(listOf(sms("A-old"))); advanceUntilIdle()
+
+            val seen = cancelAndConsumeRemainingEvents()
+                .filterIsInstance<app.cash.turbine.Event.Item<VisitorDetailsState>>().map { it.value }
+            assertEquals(listOf("A-new"), seen.last().messages.map { it.content })
+            assertEquals(emptyList(), seen.filter { s -> s.messages.any { it.content == "A-old" || it.content == "B" } })
         }
     }
 }
