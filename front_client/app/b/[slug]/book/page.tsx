@@ -131,6 +131,8 @@ export default function BookingPage({ params }: Props) {
   }, [business]);
 
   useEffect(() => {
+    // loadSlots flips the loading flag before its fetch; that is the intended sync.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (business) loadSlots(selectedDay);
   }, [business, selectedDay, loadSlots]);
 
@@ -152,6 +154,7 @@ export default function BookingPage({ params }: Props) {
       if (intent.slug !== slug || intent.businessId !== business.id || !intent.slot) {
         return;
       }
+      /* eslint-disable react-hooks/set-state-in-effect -- restoring a saved intent from localStorage, only possible client-side */
       if (intent.description) setDescription(intent.description);
       if (intent.selectedServices?.length) setSelectedServices(intent.selectedServices);
       const slotDay = days.find(
@@ -161,6 +164,7 @@ export default function BookingPage({ params }: Props) {
         setSelectedDay(slotDay);
       }
       setPendingSlot(intent.slot);
+      /* eslint-enable react-hooks/set-state-in-effect */
     } catch {
       localStorage.removeItem('booking_intent');
     }
@@ -176,6 +180,7 @@ export default function BookingPage({ params }: Props) {
     const match = slots.find(
       (s) => s.timestamp === pendingSlot.timestamp && s.status === 'AVAILABLE'
     );
+    /* eslint-disable react-hooks/set-state-in-effect -- applying the restored slot once its day has loaded */
     if (match) {
       setSelectedSlot(match);
       showToast(t('yourSelectedTimeWasRestored'));
@@ -183,6 +188,7 @@ export default function BookingPage({ params }: Props) {
       showToast(t('yourSelectedTimeIsNo'));
     }
     setPendingSlot(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
     localStorage.removeItem('booking_intent');
   }, [pendingSlot, slotsLoading, slots, selectedDay]);
 

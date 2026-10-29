@@ -17,6 +17,8 @@ const CANCELLABLE = ['LOCKED', 'PENDING_APPROVAL', 'PENDING_VERIFICATION', 'WAIT
 
 export default function AppointmentDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  // Captured once at mount: "is it still ahead of us" does not need a live clock.
+  const [now] = useState(() => Date.now());
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -209,7 +211,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
           {t('viewBusinessProfile')}</button>
 
         {/* ── Cancel (only while the appointment is still ahead of us) ── */}
-        {CANCELLABLE.includes(appointment.status) && appointment.appointment_date > Date.now() && (
+        {CANCELLABLE.includes(appointment.status) && appointment.appointment_date > now && (
           confirmCancel ? (
             <div style={{ marginTop: 12, padding: 16, borderRadius: 14, border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
               <div style={{ fontSize: 14, color: 'var(--color-text)', textAlign: 'center', marginBottom: 14, lineHeight: 1.8 }}>
