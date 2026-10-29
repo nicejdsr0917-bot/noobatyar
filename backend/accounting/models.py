@@ -82,6 +82,9 @@ class Subscription(models.Model):
         verbose_name = 'اشتراک'
         verbose_name_plural = 'اشتراک‌ها'
         ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['user', 'status'], name='sub_user_status_idx'),
+        ]
 
     def __str__(self):
         return f"{self.user.name} → {self.plan.name}"

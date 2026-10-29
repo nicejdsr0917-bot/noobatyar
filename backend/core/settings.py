@@ -114,6 +114,19 @@ if os.getenv('POSTGRES_DB'):
             # you connect straight to Postgres without a pooler.
             'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '0')),
             'CONN_HEALTH_CHECKS': True,
+            # PgBouncer in transaction mode hands a different server connection
+            # to each transaction, so a server-side cursor (named cursor used
+            # by .iterator()) would vanish between fetches. Must be True.
+            'DISABLE_SERVER_SIDE_CURSORS': True,
+            # TODO(statement_timeout): deliberately NOT set. Passing
+            # `-c statement_timeout=...` through OPTIONS sends it as a startup
+            # parameter, which PgBouncer rejects ("unsupported startup
+            # parameter: options") unless IGNORE_STARTUP_PARAMETERS includes
+            # `options`; and a session-level SET is unreliable under
+            # transaction pooling. Safest fix once verified on prod: set it
+            # per-role in Postgres instead:
+            #   ALTER ROLE <user> SET statement_timeout = '15s';
+            #   ALTER ROLE <user> SET idle_in_transaction_session_timeout = '30s';
         }
     }
 else:
@@ -149,11 +162,34 @@ else:
             'OPTIONS': {
                 'CLIENT_CLASS': 'django_redis.client.DefaultClient',
                 'IGNORE_EXCEPTIONS': True,  # cache outage must not take down the API
+                # A hung Redis must not hang workers.
+                'SOCKET_CONNECT_TIMEOUT': 2,
+                'SOCKET_TIMEOUT': 3,
             },
             'KEY_PREFIX': 'nobatyar',
         }
     }
 DJANGO_REDIS_IGNORE_EXCEPTIONS = True
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'},
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stdout',
+            'formatter': 'default',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': os.getenv('LOG_LEVEL', 'INFO'),
+    },
+}
 
 # مدل کاربر سفارشی
 AUTH_USER_MODEL = 'api.User'
@@ -173,6 +209,9 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'EXCEPTION_HANDLER': 'api.exceptions.custom_exception_handler',
+    # Behind nginx: trust the (overwritten) X-Forwarded-For so throttles key on
+    # the real client IP instead of nginx's. 0 in DEBUG (no proxy).
+    'NUM_PROXIES': int(os.getenv('NUM_PROXIES', '0' if DEBUG else '1')),
     # Throttling is backed by the Redis cache above, so counters are shared
     # across workers. Scoped rates (otp, public_slots) are enforced per-view.
     'DEFAULT_THROTTLE_CLASSES': (
@@ -183,6 +222,7 @@ REST_FRAMEWORK = {
         'anon': os.getenv('THROTTLE_ANON', '60/min'),
         'user': os.getenv('THROTTLE_USER', '300/min'),
         'otp': os.getenv('THROTTLE_OTP', '5/min'),
+        'otp_verify': os.getenv('THROTTLE_OTP_VERIFY', '30/min'),
         'login': os.getenv('THROTTLE_LOGIN', '10/min'),
         'public_slots': os.getenv('THROTTLE_PUBLIC_SLOTS', '120/min'),
         # Abuse-report submission (business/client_views.py) — an anonymous,
@@ -277,7 +317,15 @@ MYKET_PACKAGE_NAME = os.getenv('MYKET_PACKAGE_NAME', 'xyz.sattar.javid.proqueue'
 
 ZIBAL_MERCHANT_ID = os.getenv('ZIBAL_MERCHANT_ID')
 if not ZIBAL_MERCHANT_ID:
-    ZIBAL_MERCHANT_ID = '6a0d8775dc2e6664d8adf3fd'
+    if DEBUG:
+        ZIBAL_MERCHANT_ID = 'zibal'  # Zibal sandbox merchant
+    else:
+        # Kept for backward compatibility (prod may rely on it) — set the env var.
+        ZIBAL_MERCHANT_ID = '6a0d8775dc2e6664d8adf3fd'
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            'ZIBAL_MERCHANT_ID is not set; falling back to the built-in merchant id. '
+            'Set it via the environment.')
 
 # Where the deposit gateway sends the client's browser back to. Only the client
 # web app has an appointments screen to land on, so this is app.noobatyar.ir

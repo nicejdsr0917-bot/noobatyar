@@ -125,6 +125,9 @@ class SmsLog(models.Model):
         verbose_name_plural = 'پیامک‌ها'
         db_table = 'sms_log'
         ordering = ['-sent_at']
+        indexes = [
+            models.Index(fields=['business', '-sent_at'], name='smslog_biz_sent_idx'),
+        ]
 
     def __str__(self):
         recipient = self.visitor.phone_number if self.visitor_id else "owner"
