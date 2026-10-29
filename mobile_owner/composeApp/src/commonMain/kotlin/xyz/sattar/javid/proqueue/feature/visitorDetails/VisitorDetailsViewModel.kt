@@ -28,13 +28,19 @@ class VisitorDetailsViewModel(
 ) {
 
     /**
-     * Server SMS history for the visitor currently on screen. Held here so the
+     * Server SMS history, keyed by (visitorId, businessId). Held here so the
      * local-only refreshes after send/delete don't drop it from the list.
+     * Keyed because a response that lands late for visitor A must never be
+     * merged into visitor B's list.
      */
-    private var remoteMessages: List<Message> = emptyList()
+    private val remoteMessages = mutableMapOf<Pair<Long, Long>, List<Message>>()
+
+    /** The (visitorId, businessId) of the most recent load; older loads are stale. */
+    private var latestLoad: Pair<Long, Long>? = null
 
     private suspend fun mergedMessages(visitorId: Long, businessId: Long): List<Message> =
-        (messageRepository.getMessagesForVisitorAndBusiness(visitorId, businessId) + remoteMessages)
+        (messageRepository.getMessagesForVisitorAndBusiness(visitorId, businessId) +
+            remoteMessages[visitorId to businessId].orEmpty())
             .sortedByDescending { it.sentAt }
 
     override fun handleIntent(intent: VisitorDetailsIntent): Flow<PartialState> {
@@ -141,6 +147,9 @@ class VisitorDetailsViewModel(
                 return@flow
             }
 
+            val key = visitorId to business.id
+            latestLoad = key
+
             // Sync first: for a visitor who booked online (linked to their own
             // account, not this owner's), the direct visitor fetch below can
             // still 404 on a stale cache, but the nested visitor data riding
@@ -150,7 +159,7 @@ class VisitorDetailsViewModel(
 
             // SMS history is a nice-to-have next to the visitor's own data —
             // never let it take the whole screen down with it.
-            remoteMessages = try {
+            remoteMessages[key] = try {
                 messageRepository.getRemoteMessages(
                     visitorId = visitorId,
                     businessId = business.id,
@@ -160,10 +169,15 @@ class VisitorDetailsViewModel(
                 emptyList()
             }
 
+            // A newer load started while this one was waiting on the network:
+            // drop this one rather than overwrite the newer visitor's screen.
+            if (latestLoad != key) return@flow
+
             val visitor = visitorRepository.getVisitorById(visitorId)
             if (visitor != null) {
                 val appointments = appointmentRepository.getVisitorHistoryForBusiness(visitorId, business.id)
                 val messages = mergedMessages(visitorId, business.id)
+                if (latestLoad != key) return@flow
                 emit(PartialState.DetailsLoaded(visitor, appointments, messages))
             } else {
                 emit(PartialState.ShowMessage(Str.information_not_found))
