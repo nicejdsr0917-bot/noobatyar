@@ -181,16 +181,19 @@ def register_view(request):
     # User + trial in one transaction. The serializer's exists() check can lose
     # a race with a concurrent register for the same phone; the unique index
     # then raises, which is reported like the normal duplicate error.
-    try:
-        with transaction.atomic():
-            user = User.objects.create_user(
-                phone=phone,
-                password=password or None,  # None → رمز غیرقابل استفاده (ورود فقط با OTP)
-                name=name
-            )
-            grant_trial(user)
-    except IntegrityError:
-        return APIResponse.error(message='این شماره قبلاً ثبت شده')
+    with transaction.atomic():
+        try:
+            # Inner savepoint so only the user insert's IntegrityError (the
+            # exists()->create race) is read as "already registered".
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    phone=phone,
+                    password=password or None,  # None → رمز غیرقابل استفاده (ورود فقط با OTP)
+                    name=name
+                )
+        except IntegrityError:
+            return APIResponse.error(message='این شماره قبلاً ثبت شده')
+        grant_trial(user)
 
     return APIResponse.success(
         data={

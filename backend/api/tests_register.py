@@ -43,3 +43,11 @@ class RegisterTests(TestCase):
                 'phone': PHONE, 'name': 'علی', 'password': 'Str0ng-pass-123'}, format='json')
         self.assertEqual(r.status_code, 500)
         self.assertFalse(User.objects.filter(phone=PHONE).exists())
+
+    def test_trial_integrity_error_is_not_reported_as_duplicate_phone(self):
+        api = APIClient(raise_request_exception=False)
+        with mock.patch('api.views.grant_trial', side_effect=IntegrityError):
+            r = api.post(reverse('register'), {
+                'phone': PHONE, 'name': 'علی', 'password': 'Str0ng-pass-123'}, format='json')
+        self.assertEqual(r.status_code, 500)
+        self.assertFalse(User.objects.filter(phone=PHONE).exists())

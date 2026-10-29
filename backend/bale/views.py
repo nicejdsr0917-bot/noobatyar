@@ -41,7 +41,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from business.models import Business
+from business.models import Business, BusinessModerationLog
 from business.services import apply_moderation_decision
 
 from .client import answer_callback_query, edit_message_text, send_message
@@ -52,7 +52,9 @@ from .keyboards import (
     reason_keyboard,
 )
 from .models import BaleSettings, PendingReason
-from .notify import KIND_EDIT, KIND_NEW, build_text, fire_owner_sms, send_card
+from .notify import (
+    KIND_EDIT, KIND_NEW, _STAGED_LABELS, build_text, fire_owner_sms, send_card,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +171,7 @@ def _show_reasons(config, query_id, message_id, business, letter):
     if message_id:
         edit_message_text(
             config.bot_token, config.chat_id, message_id,
-            build_text(business, _kind_for(business)) + '\n\nدلیل را انتخاب کن:',
+            _cap(_card(business) + '\n\nدلیل را انتخاب کن:'),
             reply_markup=reason_keyboard(business.pk, letter),
         )
 
@@ -184,7 +186,7 @@ def _show_main(config, query_id, message_id, business):
     if message_id:
         edit_message_text(
             config.bot_token, config.chat_id, message_id,
-            build_text(business, _kind_for(business)),
+            _cap(_card(business)),
             reply_markup=main_keyboard(business.pk),
         )
 
@@ -216,7 +218,7 @@ def _decide(config, query_id, message_id, business, to_status, note):
             )
         _finalise_message(
             config, message_id, business, to_status, note, already=True,
-            card=build_text(business, _kind_for(business)),
+            card=_card(business, already=True),
         )
         return
 
@@ -224,7 +226,7 @@ def _decide(config, query_id, message_id, business, to_status, note):
     # it here is what used to leave the button spinning.
     # Built before the decision: _kind_for() reads first_approved_at, which an
     # approval sets, so rebuilding afterwards would pick the wrong card kind.
-    card = build_text(business, _kind_for(business))
+    card = _card(business)
     apply_moderation_decision(business, to_status, config.actor, note=note, notify=False)
 
     if query_id:
@@ -243,18 +245,20 @@ def _finalise_message(config, message_id, business, to_status, note, already=Fal
     if not message_id:
         return
 
-    lines = []
-    if card:
-        lines += [card, '']
-    lines.append(f'{_STATUS_LABEL.get(to_status, to_status)} — {business.title}')
+    outcome = [f'{_STATUS_LABEL.get(to_status, to_status)} — {business.title}']
     if note:
-        lines.append(f'دلیل: {note}')
+        outcome.append(f'دلیل: {note}')
     if already:
-        lines.append('(این تصمیم قبلاً ثبت شده بود)')
+        outcome.append('(این تصمیم قبلاً ثبت شده بود)')
+    tail = '\n'.join(outcome)
+    if len(tail) > _BALE_MAX_CHARS - 200:
+        tail = _cap(tail, _BALE_MAX_CHARS - 200)
+    # The outcome is what must survive: shrink the card to fit beside it.
+    lines = [_cap(card, _BALE_MAX_CHARS - len(tail) - 2), '', tail] if card else [tail]
 
     edit_message_text(
         config.bot_token, config.chat_id, message_id,
-        '\n'.join(lines),
+        _cap('\n'.join(lines)),
         reply_markup=no_keyboard(),
     )
 
@@ -317,7 +321,7 @@ def _apply_typed_reason(config, text):
         )
         return
 
-    card = build_text(business, _kind_for(business))
+    card = _card(business)
     apply_moderation_decision(
         business, pending.to_status, config.actor, note=text, notify=False
     )
@@ -359,8 +363,34 @@ def _send_pending_list(config):
         send_card(config, business, _kind_for(business))
 
 
-def _kind_for(business):
+_BALE_MAX_CHARS = 4096
+
+
+def _cap(text, limit=_BALE_MAX_CHARS):
+    """Bale rejects messages over 4096 characters (the edit would then fail and
+    leave live buttons on a decided card)."""
+    if len(text) <= limit:
+        return text
+    return text[:max(limit - 1, 0)].rstrip() + '…'
+
+
+def _kind_for(business, already=False):
     """Rebuilding the original text needs the same kind it was sent with, which
     is not stored. ``first_approved_at`` is the closest honest proxy: a business
-    that has cleared review before can only be here because of an edit."""
-    return KIND_EDIT if business.first_approved_at else KIND_NEW
+    that has cleared review before can only be here because of an edit — except
+    on a replay after the decision itself was an approval, where that approval
+    is the one that set it; then only a second approval log means "edit"."""
+    if not business.first_approved_at:
+        return KIND_NEW
+    if already and business.moderation_status == Business.MODERATION_APPROVED:
+        approvals = BusinessModerationLog.objects.filter(
+            business=business, to_status=Business.MODERATION_APPROVED).count()
+        return KIND_EDIT if approvals > 1 else KIND_NEW
+    return KIND_EDIT
+
+
+def _card(business, already=False):
+    """The review card as originally sent. The changed-field list is not stored,
+    but staged (pending_*) values are exactly the fields under review."""
+    changed = [f[len('pending_'):] for f in _STAGED_LABELS if getattr(business, f, None)]
+    return build_text(business, _kind_for(business, already), changed)
