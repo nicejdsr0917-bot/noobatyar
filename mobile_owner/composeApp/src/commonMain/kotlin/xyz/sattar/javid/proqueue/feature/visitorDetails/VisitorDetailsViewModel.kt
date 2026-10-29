@@ -1,12 +1,13 @@
 package xyz.sattar.javid.proqueue.feature.visitorDetails
 
+import xyz.sattar.javid.proqueue.core.state.SelectedBusinessStore
+
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
 import xyz.sattar.javid.proqueue.domain.AppointmentRepository
 import xyz.sattar.javid.proqueue.domain.MessageRepository
@@ -23,7 +24,8 @@ class VisitorDetailsViewModel(
     private val messageRepository: MessageRepository,
     private val sendMessageUseCase: SendMessageUseCase,
     private val generateReminderMessageUseCase: GenerateReminderMessageUseCase,
-    private val syncAppointmentsUseCase: SyncAppointmentsUseCase
+    private val syncAppointmentsUseCase: SyncAppointmentsUseCase,
+    private val businessStore: SelectedBusinessStore
 ) : BaseViewModel<VisitorDetailsState, PartialState, VisitorDetailsEvent, VisitorDetailsIntent>(
     initialState = VisitorDetailsState()
 ) {
@@ -65,7 +67,7 @@ class VisitorDetailsViewModel(
                     if (!success) emit(PartialState.ShowMessage(Str.couldnt_save_message))
 
                     val visitor = uiState.value.visitor
-                    val business = BusinessStateHolder.selectedBusiness.value
+                    val business = businessStore.selectedBusiness.value
                     if (visitor != null && business != null) {
                         val updatedMessages = mergedMessages(visitor.id, business.id)
                         emit(
@@ -87,7 +89,7 @@ class VisitorDetailsViewModel(
                         emit(PartialState.ShowMessage(Str.couldnt_delete_message))
                     }
                     val visitor = uiState.value.visitor
-                    val business = BusinessStateHolder.selectedBusiness.value
+                    val business = businessStore.selectedBusiness.value
                     if (visitor != null && business != null) {
                         val updatedMessages = mergedMessages(visitor.id, business.id)
                         emit(
@@ -148,7 +150,7 @@ class VisitorDetailsViewModel(
         val isStale = { generation != loadGeneration }
         emit(PartialState.IsLoading(true))
         try {
-            val business = BusinessStateHolder.selectedBusiness.value
+            val business = businessStore.selectedBusiness.value
             if (business == null) {
                 emit(PartialState.ShowMessage(Str.no_business_selected_2, ToastyType.Warning))
                 return@flow

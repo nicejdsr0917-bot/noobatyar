@@ -1,9 +1,9 @@
 package xyz.sattar.javid.proqueue.domain.usecase.user
 
-import xyz.sattar.javid.proqueue.core.network.TokenManager
+import xyz.sattar.javid.proqueue.core.network.TokenStore
 
-class ClearTokenUseCase {
+class ClearTokenUseCase(private val tokens: TokenStore) {
     operator fun invoke() {
-        TokenManager.clearTokens()
+        tokens.clearTokens()
     }
 }

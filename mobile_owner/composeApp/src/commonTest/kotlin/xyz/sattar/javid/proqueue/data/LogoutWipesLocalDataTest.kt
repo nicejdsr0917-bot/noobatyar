@@ -12,6 +12,7 @@ import xyz.sattar.javid.proqueue.testsupport.FakeBusinessLocalSource
 import xyz.sattar.javid.proqueue.testsupport.FakeMessageLocalSource
 import xyz.sattar.javid.proqueue.testsupport.FakeUserLocalSource
 import xyz.sattar.javid.proqueue.testsupport.FakeVisitorLocalSource
+import xyz.sattar.javid.proqueue.testsupport.FakeTokenStore
 import xyz.sattar.javid.proqueue.testsupport.StubUserApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -39,7 +40,7 @@ class LogoutWipesLocalDataTest {
     @Test
     fun logoutWipesEveryLocalSource() = runTest {
         seed()
-        val repo = UserRepositoryImpl(api(ApiResponse.Success(Unit)), users, cleaner, {})
+        val repo = UserRepositoryImpl(api(ApiResponse.Success(Unit)), users, cleaner, FakeTokenStore())
 
         repo.logout()
 
@@ -54,7 +55,7 @@ class LogoutWipesLocalDataTest {
     @Test
     fun logoutWipesEvenWhenTheServerCallFails() = runTest {
         seed()
-        val repo = UserRepositoryImpl(api(ApiResponse.Error("down", 500)), users, cleaner, {})
+        val repo = UserRepositoryImpl(api(ApiResponse.Error("down", 500)), users, cleaner, FakeTokenStore())
 
         repo.logout()
 
@@ -88,7 +89,7 @@ class LogoutWipesLocalDataTest {
             }
         }
         val c = LocalCacheCleaner(appointments, visitors, messages, businesses, users)
-        UserRepositoryImpl(api, users, c, { log += "tokens"; assertEquals(1, appointments.rows.size) }).logout()
+        UserRepositoryImpl(api, users, c, object : xyz.sattar.javid.proqueue.core.network.TokenStore by FakeTokenStore() { override fun clearTokens() { log += "tokens"; assertEquals(1, appointments.rows.size) } }).logout()
         assertEquals(listOf("api", "tokens"), log)
         assertTrue(appointments.rows.isEmpty())
     }
@@ -104,7 +105,7 @@ class LogoutWipesLocalDataTest {
             override suspend fun clearAll() = throw IllegalStateException("disk")
         }
         val c = LocalCacheCleaner(appointments, visitors, failing, businesses, users)
-        runCatching { UserRepositoryImpl(api, users, c, {}).logout() }
+        runCatching { UserRepositoryImpl(api, users, c, FakeTokenStore()).logout() }
         assertTrue(called)
         assertTrue(appointments.rows.isEmpty())
     }
@@ -115,7 +116,7 @@ class LogoutWipesLocalDataTest {
         val api = object : StubUserApi() {
             override suspend fun logout(): ApiResponse<Unit> = throw IllegalStateException("net")
         }
-        UserRepositoryImpl(api, users, cleaner, {}).logout()
+        UserRepositoryImpl(api, users, cleaner, FakeTokenStore()).logout()
         assertTrue(appointments.rows.isEmpty())
     }
 }

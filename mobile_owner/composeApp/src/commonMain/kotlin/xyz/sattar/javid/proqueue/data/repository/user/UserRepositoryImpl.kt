@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.map
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
-import xyz.sattar.javid.proqueue.core.network.TokenManager
+import xyz.sattar.javid.proqueue.core.network.TokenStore
 import xyz.sattar.javid.proqueue.data.localDataSource.LocalCacheCleaner
 import xyz.sattar.javid.proqueue.data.localDataSource.user.UserLocalSource
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.mapper.toDomain
@@ -32,7 +32,7 @@ class UserRepositoryImpl(
     private val userApiService: UserApi,
     private val userDao: UserLocalSource,
     private val cacheCleaner: LocalCacheCleaner,
-    private val clearTokens: () -> Unit = { TokenManager.clearTokens() }
+    private val tokens: TokenStore
 ) : UserRepository {
 
     override suspend fun checkVersion(versionCode: Int): ApiResponse<VersionInfo> {
@@ -90,7 +90,7 @@ class UserRepositoryImpl(
         } finally {
             withContext(NonCancellable) {
                 try {
-                    clearTokens()
+                    tokens.clearTokens()
                 } finally {
                     cacheCleaner.clearAll()
                 }

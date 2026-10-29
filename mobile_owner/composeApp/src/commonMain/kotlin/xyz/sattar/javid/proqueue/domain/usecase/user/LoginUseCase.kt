@@ -1,13 +1,14 @@
 package xyz.sattar.javid.proqueue.domain.usecase.user
 
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
-import xyz.sattar.javid.proqueue.core.network.TokenManager
+import xyz.sattar.javid.proqueue.core.network.TokenStore
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.mapper.toDomain
 import xyz.sattar.javid.proqueue.domain.UserRepository
 import xyz.sattar.javid.proqueue.domain.model.user.User
 
 class LoginUseCase(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val tokens: TokenStore
 ) {
     suspend operator fun invoke(
         phone: String,
@@ -15,7 +16,7 @@ class LoginUseCase(
     ): ApiResponse<User> {
         return when (val response = userRepository.login(phone, password)) {
             is ApiResponse.Success -> {
-                TokenManager.saveTokens(
+                tokens.saveTokens(
                     accessToken = response.data.tokens.access,
                     refreshToken = response.data.tokens.refresh
                 )

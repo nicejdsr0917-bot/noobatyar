@@ -1,7 +1,7 @@
 package xyz.sattar.javid.proqueue.domain.usecase.user
 
 import kotlinx.coroutines.flow.first
-import xyz.sattar.javid.proqueue.core.network.TokenManager
+import xyz.sattar.javid.proqueue.core.network.TokenStore
 import xyz.sattar.javid.proqueue.core.network.userIdFromJwt
 import xyz.sattar.javid.proqueue.domain.UserRepository
 
@@ -11,10 +11,13 @@ import xyz.sattar.javid.proqueue.domain.UserRepository
  * there is none, as on the web panel after a reload — from the access token.
  * Returns false when there is no session to sync.
  */
-class SyncUserProfileUseCase(private val repository: UserRepository) {
+class SyncUserProfileUseCase(
+    private val repository: UserRepository,
+    private val tokens: TokenStore,
+) {
     suspend operator fun invoke(): Boolean {
         val id = repository.getCurrentUser().first()?.id
-            ?: TokenManager.getAccessToken()?.let(::userIdFromJwt)
+            ?: tokens.getAccessToken()?.let(::userIdFromJwt)
             ?: return false
         repository.syncUserProfile(id)
         return true
