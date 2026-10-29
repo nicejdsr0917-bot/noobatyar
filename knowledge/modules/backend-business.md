@@ -27,3 +27,9 @@ tags: [gf]
 ## نکته‌ها
 - ⚠ API عمومی لیست کسب‌وکار بدون ورود `card_number` و `card_owner_name` را برمی‌گرداند (۱۳ از ۳۵ کسب‌وکار prod، ۲۰۲۶-۱۰-۲۸) — باید فقط بعد از رزرو در checkout داده شود.
 - روی برنچ `mobile-client`: فیلدهای کشف (`province/city/neighborhood`، `is_claimed`، `insurances`)، claim و `OnlineBookingRequest` — [[modules/mobile-client]].
+
+## روی برنچ mobile-client (۲۰۲۶-۱۰-۲۹، هنوز در develop نیست)
+- `business/models/` پکیج شد (core، moderation، catalog، booking، promo) با re-export کامل؛ schema بدون تغییر.
+- لیست/جزئیات عمومی: `business/selectors.py` (`public_businesses`، `attach_owner_state`) → تعداد کوئری ثابت (صفحهٔ ۱۰۰تایی ۱۰ کوئری). geo در SQL. migration `0031` (فقط Postgres، CONCURRENTLY): ایندکس trigram روی `UPPER(col)` چون Django `icontains` را `UPPER(col) LIKE` می‌سازد.
+- `card_number`/`card_owner_name` از `PublicBusinessSerializer` و `ClientBusinessSerializer` حذف؛ فقط روی نوبت LOCKED خود مشتری (`ClientAppointmentSerializer`).
+- اکشن‌های گروهی ادمین از طریق `business/services.py`.

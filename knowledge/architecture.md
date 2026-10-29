@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-28
+updated: 2026-10-29
 tags: [gf]
 ---
 # معماری
@@ -10,7 +10,8 @@ client web (Next.js SSR+CSR) ───────┼──> Django/DRF (ASGI) �
 client mobile (KMP, branch) ────────┘        │   ├─ Redis (cache/throttle)
                                              │   ├─ Zibal (درگاه)، Myket (پرداخت درون‌برنامه)
                                              │   ├─ پیامک (خط تبلیغاتی)، FCM (پوش)، ربات بله
-                                             └─ crontab → management commands (نه celery)
+                                             ├─ crontab → management commands (نه celery)
+                                             └─ (mobile-client) worker/worker_bulk ← core/outbox (صف در Postgres)
 ```
 
 ## لایه‌ها
@@ -25,7 +26,9 @@ client mobile (KMP, branch) ────────┘        │   ├─ Redi
 - **پیامک تبلیغاتی**: preview → moderation (`BannedKeyword`) → `send_promo_campaigns`.
 
 ## تصمیم‌های مهم
-- زمان: `TIME_ZONE='Asia/Tehran'`، `USE_TZ=True` — «امروز» را همیشه با `timezone.localdate()/localtime()` حساب کن (یک باگ باز در آمار، [CURRENT](../hand-off/CURRENT.md)).
+- زمان: `TIME_ZONE='Asia/Tehran'`، `USE_TZ=True` — «امروز» را همیشه با `timezone.localdate()/localtime()` حساب کن (باگ آمار روی mobile-client رفع شد).
 - روزهای هفته در API به قرارداد پایتون (Mon=0..Sun=6)؛ وب با `closedWeekdaysJs()` تبدیل می‌کند.
 - فیلدهای پنهان‌شده null فرستاده می‌شوند (نه blur سمت کلاینت) + `is_expired`/`has_location` برای نمایش درست.
 - رنگ صفحهٔ کسب‌وکار از لوگو سمت سرور (`theme_color`) و در وب با کلاس `.themed` اعمال می‌شود.
+- (برنچ mobile-client) لایه‌بندی بک‌اند: view → `services/` (نوشتن، صاحب تراکنش) / `selectors` (خواندن) → `integrations/` (زیبال، ملی‌پیامک، FCM، بله). پول و سهمیه در `CreditBalance` (نه Redis). اعلان‌ها از Outbox، نه thread. ترتیب قفل: business → appointment → اعتبار.
+- دیتابیس production Postgres می‌ماند (تصمیم ۲۰۲۶-۱۰-۲۹).

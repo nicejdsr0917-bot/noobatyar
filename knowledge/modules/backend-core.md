@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-28
+updated: 2026-10-29
 tags: [gf]
 ---
 # backend: core، bale، versions
@@ -19,3 +19,8 @@ tags: [gf]
 
 ## وابستگی‌ها
 همهٔ ماژول‌های backend؛ [[modules/ops-deploy]].
+
+## روی برنچ mobile-client (۲۰۲۶-۱۰-۲۹، هنوز در develop نیست)
+- `core/outbox/`: `OutboxMessage` + `enqueue` (داخل تراکنش، `dedupe_key`) + `manage.py run_outbox --lane default|bulk|all`؛ claim تک‌پیام با SKIP LOCKED، heartbeat، `done_steps` برای جلوگیری از ارسال/کسر دوباره. جای همهٔ threadها و ارسال‌های گروهی ادمین.
+- `admin_site.py` فقط جدول route است؛ viewها در `core/admin_views/`. `core/messaging/` پکیج شد (re-export).
+- settings: `NUM_PROXIES`، `DISABLE_SERVER_SIDE_CURSORS` (pgbouncer)، timeout سوکت Redis، LOGGING به stdout، merchant پیش‌فرض DEBUG = `zibal`.

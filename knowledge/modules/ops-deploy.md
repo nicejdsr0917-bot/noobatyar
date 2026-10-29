@@ -30,3 +30,10 @@ tags: [gf]
 - `.claude/launch.json` پیکربندی‌های ویندوزی (`cmd /c`، `.bat`) دارد؛ روی مک از `_mac`ها استفاده کن.
 - در ریشه ~۲۳ فایل `.exp` با **رمز سرور به‌صورت متن ساده** (gitignore‌شده، IP قدیمی) + zip/tar دیپلوی موقت؛ `backend/backend_deploy.zip` داخل git ثبت شده. چند `db.sqlite3.bak-*` در `backend/`.
 - اسکریپت‌های `backend/*.sh` و `*.exp` فرض bash/expect دارند.
+
+## روی برنچ mobile-client (۲۰۲۶-۱۰-۲۹، هنوز در develop نیست)
+- compose: سرویس‌های `worker` (`--lane default`) و `worker_bulk` (`--lane bulk`) با `SKIP_MIGRATE=1` (فقط web migrate می‌زند). بدون آن‌ها پیامک/کمپین ارسال نمی‌شود.
+- nginx: XFF با `$remote_addr` بازنویسی؛ `limit_req` auth 120r/m (به‌جز `token/refresh`) و api 30r/s؛ keepalive، gzip، timeout. اگر CDN جلوست `set_real_ip_from` لازم است.
+- gunicorn: `--max-requests 2000 --max-requests-jitter 200 --keep-alive 5 --worker-tmp-dir /dev/shm`. `backend/.dockerignore` اضافه شد؛ `check_db.py` و `backend_deploy.zip` حذف شدند.
+- چک‌لیست: `docs/DEPLOY_SCALE_HARDENING.md` (در worktree). تست روی Postgres: Docker Desktop + `postgres:16-alpine` روی پورت 55432.
+- وب worktree: preview `front_client_mobile_mac` روی :3010 (3000 دست کانتینر Docker کاربر است).

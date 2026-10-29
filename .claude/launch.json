@@ -70,6 +70,15 @@
         "--console=plain"
       ],
       "port": 8080
+    },
+    {
+      "name": "front_client_mobile_mac",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "cd ../Noobatyar-mobile-client/front_client && npm run dev -- -p 3010"
+      ],
+      "port": 3010
     }
   ]
 }

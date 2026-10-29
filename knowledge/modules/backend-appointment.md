@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-28
+updated: 2026-10-29
 tags: [gf]
 ---
 # backend: appointment
@@ -20,3 +20,9 @@ tags: [gf]
 ## نکته‌ها / باگ‌های باز
 - 🐞 `appointment_stats_view.py:93-95`: پنجرهٔ «امروز» با `timezone.now()` (UTC) ساخته می‌شود → ۳:۳۰ ساعت جابه‌جا. اصلاح: `timezone.localtime(now)`. تست `tests_stats.test_no_params_still_returns_todays_stats` بین ۰۰:۰۰ تا ۰۳:۳۰ تهران fail می‌شود.
 - `tests_daily_counts.py`: fixture `_appointment` با `timezone.now()` تاریخ می‌سازد → همان بازه fail (ایراد تست، view درست است).
+
+## روی برنچ mobile-client (۲۰۲۶-۱۰-۲۹، هنوز در develop نیست)
+- منطق در `appointment/services/`: `booking.py` (`appointment_create_for_client/owner`، `business_lock`)، `transitions.py` (همهٔ تغییر وضعیت‌ها UPDATE شرطی روی ردیف قفل‌شده)، `deposits.py` (`deposit_settle`)، `notifications.py` (handlerهای Outbox، `_send_metered_sms`)؛ خواندن‌ها در `selectors.py`. viewها فقط parse/پاسخ.
+- ترتیب قفل همه‌جا: business → appointment → اعتبار. اعتبار (`record_appointment`) داخل همان تراکنش ساخت نوبت؛ بدون اعتبار هیچ نوبتی ساخته نمی‌شود.
+- callback بیعانه: تأیید زیبال خارج از قفل؛ نوبت منقضی‌شده‌ای که اسلاتش رفته → `?payment=conflict` و `deposit_verified_at` → فیلتر ادمین «پرداخت‌شده بدون نوبت».
+- رزرو هم‌پوشان اونر عمداً مجاز است. ظرفیت ساعتی و آمار «امروز» به ساعت تهران. یادآوری‌ها با claim شرطی (یک بار ارسال).
