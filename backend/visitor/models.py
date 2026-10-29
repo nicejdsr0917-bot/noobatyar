@@ -65,11 +65,15 @@ class Visitor(models.Model):
         with me" must not grant the right to rename or re-number them for
         everyone else.
         """
+        # EXISTS subqueries instead of joins + DISTINCT: the appointments join
+        # multiplied rows (one per appointment) and DISTINCT then had to sort
+        # and de-dupe the whole set before any LIMIT could apply.
+        from appointment.models import Appointment
         return cls.objects.filter(
             models.Q(user=user)
-            | models.Q(contacts__owner=user)
-            | models.Q(appointments__business__user=user)
-        ).distinct()
+            | models.Exists(VisitorContact.objects.filter(visitor=models.OuterRef('pk'), owner=user))
+            | models.Exists(Appointment.objects.filter(visitor=models.OuterRef('pk'), business__user=user))
+        )
 
     def __str__(self):
         return f"{self.full_name} ({self.phone_number})"

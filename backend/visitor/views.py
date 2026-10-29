@@ -7,11 +7,12 @@ from rest_framework import status
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 import logging
 
 from .models import Visitor, SmsLog, VisitorArchive, VisitorActivity, VisitorContact
 from .serializers import VisitorSerializer, VisitorAttachSerializer, SmsLogSerializer
+from business.models import Business
 from .activity import record_activity
 from api.responses import APIResponse  # اضافه کردن import
 
@@ -103,16 +104,21 @@ class VisitorView(APIView):
             # created directly. Visitors this owner archived are hidden from
             # their list only — the row itself is untouched and still visible to
             # every other business the person books at.
-            visitors = [
-                b async for b in Visitor.readable_by(user)
-                .exclude(archives__owner=user).order_by('-created_at')
-            ]
+            visitors = (
+                Visitor.readable_by(user)
+                .filter(~Exists(VisitorArchive.objects.filter(
+                    visitor=OuterRef('pk'), owner=user)))
+                .order_by('-created_at', '-id')
+            )
 
-            # Paginate
-            paginator = Paginator(visitors, page_size)
-            page_obj = paginator.get_page(page)
+            # Paginate in the database (COUNT + LIMIT/OFFSET); only the page's
+            # rows are ever loaded.
+            def _paginate():
+                paginator = Paginator(visitors, page_size)
+                page_obj = paginator.get_page(page)
+                return paginator, page_obj, VisitorSerializer(list(page_obj.object_list), many=True).data
 
-            serializer = VisitorSerializer(page_obj.object_list, many=True)
+            paginator, page_obj, serialized = await sync_to_async(_paginate)()
 
             return APIResponse.success(
                 data={
@@ -121,7 +127,7 @@ class VisitorView(APIView):
                     'current_page': page_obj.number,
                     'next': page_obj.next_page_number() if page_obj.has_next() else None,
                     'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
-                    'results': serializer.data
+                    'results': serialized
                 },
                 message="لیست مشتریان با موفقیت دریافت شد"
             )
@@ -367,7 +373,14 @@ class VisitorMessageHistoryView(APIView):
         logs = SmsLog.objects.filter(visitor=visitor, business__user=request.user)
         business_id = request.query_params.get('business_id')
         if business_id:
-            logs = logs.filter(business_id=business_id)
+            # Only the caller's own businesses. Anything else (another owner's,
+            # nonexistent, malformed, or the 0 an app sends before its business
+            # has loaded) yields an empty page rather than a 404: the owner app
+            # shows any error as a failure, and old versions are in the field.
+            try:
+                logs = logs.filter(business_id=int(business_id))
+            except (TypeError, ValueError):
+                logs = logs.none()
 
         # Kept as a queryset (not a list) so Paginator slices at the DB instead
         # of pulling the visitor's entire SMS history into memory.
