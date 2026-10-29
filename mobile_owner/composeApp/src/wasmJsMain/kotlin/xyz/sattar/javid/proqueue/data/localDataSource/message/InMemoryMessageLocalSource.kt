@@ -34,4 +34,8 @@ class InMemoryMessageLocalSource : MessageLocalSource {
     }
 
     override suspend fun deleteMessagesByVisitorId(visitorId: Long): Int = 0
+
+    override suspend fun clearAll() {
+        state.value = emptyMap()
+    }
 }

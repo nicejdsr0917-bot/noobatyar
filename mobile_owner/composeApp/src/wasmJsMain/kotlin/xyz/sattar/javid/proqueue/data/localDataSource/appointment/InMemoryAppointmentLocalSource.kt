@@ -88,14 +88,11 @@ class InMemoryAppointmentLocalSource(
         // AppointmentDao.getAllAppointmentsForBusiness caps at LIMIT 100.
         allWithDetails(businessId).sortedByDescending { it.appointment.appointmentDate }.take(100)
 
-    override suspend fun getVisitorHistory(visitorId: Long): List<AppointmentWithDetails> =
+    override suspend fun getVisitorHistoryForBusiness(visitorId: Long, businessId: Long): List<AppointmentWithDetails> =
         state.value.values
-            .filter { it.visitorId == visitorId }
+            .filter { it.visitorId == visitorId && it.businessId == businessId }
             .mapNotNull { withDetails(it) }
             .sortedByDescending { it.appointment.appointmentDate }
-
-    override suspend fun getVisitorHistoryForBusiness(visitorId: Long, businessId: Long): List<AppointmentWithDetails> =
-        getVisitorHistory(visitorId).filter { it.appointment.businessId == businessId }
 
     override suspend fun upsertAppointment(appointment: Appointment): Long {
         val id = if (appointment.id != 0L) appointment.id else nextId++
@@ -182,5 +179,26 @@ class InMemoryAppointmentLocalSource(
 
     override suspend fun deleteAppointmentsByVisitorId(visitorId: Long) {
         state.value = state.value.filterValues { it.visitorId != visitorId }
+    }
+
+    override suspend fun clearAll() {
+        state.value = emptyMap()
+    }
+
+    override suspend fun replaceWindow(
+        businessId: Long,
+        fromInclusive: Long,
+        toExclusive: Long,
+        appointments: List<Appointment>
+    ) {
+        val keep = appointments.mapTo(HashSet()) { it.id }
+        // Single assignment, so readers never observe a half-replaced window.
+        val retained = state.value.filterValues {
+            !(it.businessId == businessId &&
+                it.appointmentDate >= fromInclusive && it.appointmentDate < toExclusive &&
+                it.id !in keep)
+        }
+        state.value = retained
+        upsertAppointments(appointments)
     }
 }

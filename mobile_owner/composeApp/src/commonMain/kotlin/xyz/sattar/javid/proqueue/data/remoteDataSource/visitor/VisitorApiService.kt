@@ -15,12 +15,12 @@ import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.model.CreateVisitorRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.model.VisitorDto
 
-class VisitorApiService(private val httpClient: HttpClient) {
+class VisitorApiService(private val httpClient: HttpClient) : VisitorApi {
 
-    suspend fun getVisitors(
+    override suspend fun getVisitors(
         page: Int, 
         pageSize: Int, 
-        query: String? = null
+        query: String?
     ): ApiResponse<PaginatedResponseDto<VisitorDto>> {
         return httpClient.get("visitor/") {
             contentType(ContentType.Application.Json)
@@ -32,37 +32,37 @@ class VisitorApiService(private val httpClient: HttpClient) {
         }.toApiResponse()
     }
 
-    suspend fun getVisitorById(id: Long): ApiResponse<VisitorDto> {
+    override suspend fun getVisitorById(id: Long): ApiResponse<VisitorDto> {
         return httpClient.get("visitor/$id/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
 
-    suspend fun createVisitor(request: CreateVisitorRequestDto): ApiResponse<VisitorDto> {
+    override suspend fun createVisitor(request: CreateVisitorRequestDto): ApiResponse<VisitorDto> {
         return httpClient.post("visitor/") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }.toApiResponse()
     }
 
-    suspend fun updateVisitor(id: Long, request: CreateVisitorRequestDto): ApiResponse<VisitorDto> {
+    override suspend fun updateVisitor(id: Long, request: CreateVisitorRequestDto): ApiResponse<VisitorDto> {
         return httpClient.put("visitor/$id/") {
             contentType(ContentType.Application.Json)
             setBody(request)
         }.toApiResponse()
     }
 
-    suspend fun deleteVisitor(id: Long): ApiResponse<Unit> {
+    override suspend fun deleteVisitor(id: Long): ApiResponse<Unit> {
         return httpClient.delete("visitor/$id/") {
 //            contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
 
-    suspend fun getVisitorMessages(
+    override suspend fun getVisitorMessages(
         visitorId: Long,
         businessId: Long,
-        page: Int = 1,
-        pageSize: Int = 20
+        page: Int,
+        pageSize: Int
     ): ApiResponse<PaginatedResponseDto<xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.model.MessageDto>> {
         return httpClient.get("visitor/$visitorId/messages/") {
             contentType(ContentType.Application.Json)

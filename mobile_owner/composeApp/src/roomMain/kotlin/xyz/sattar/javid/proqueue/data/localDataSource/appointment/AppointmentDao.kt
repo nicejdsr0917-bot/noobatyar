@@ -55,14 +55,6 @@ interface AppointmentDao {
     @Transaction
     @Query("""
         SELECT * FROM Appointment 
-        WHERE visitorId = :visitorId 
-        ORDER BY appointmentDate DESC
-    """)
-    suspend fun getVisitorHistory(visitorId: Long): List<AppointmentWithDetailsEntity>
-
-    @Transaction
-    @Query("""
-        SELECT * FROM Appointment 
         WHERE visitorId = :visitorId AND businessId = :businessId
         ORDER BY appointmentDate DESC
     """)
@@ -187,4 +179,32 @@ interface AppointmentDao {
 
     @Query("DELETE FROM Appointment WHERE visitorId = :visitorId")
     suspend fun deleteAppointmentsByVisitorId(visitorId: Long)
+
+    @Query("DELETE FROM Appointment")
+    suspend fun clearAll()
+
+    @Query("""
+        SELECT id FROM Appointment
+        WHERE businessId = :businessId
+        AND appointmentDate >= :fromInclusive AND appointmentDate < :toExclusive
+    """)
+    suspend fun getIdsInWindow(businessId: Long, fromInclusive: Long, toExclusive: Long): List<Long>
+
+    @Query("DELETE FROM Appointment WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
+
+    /** Delete-the-stale-then-upsert in one transaction, so readers never see a half-replaced window. */
+    @Transaction
+    suspend fun replaceWindow(
+        businessId: Long,
+        fromInclusive: Long,
+        toExclusive: Long,
+        appointments: List<AppointmentEntity>
+    ) {
+        val keep = appointments.mapTo(HashSet()) { it.id }
+        val stale = getIdsInWindow(businessId, fromInclusive, toExclusive).filter { it !in keep }
+        // Chunked: SQLite caps bound variables per statement.
+        stale.chunked(500).forEach { deleteByIds(it) }
+        upsertAppointments(appointments)
+    }
 }

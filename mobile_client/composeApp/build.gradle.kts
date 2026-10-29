@@ -67,6 +67,12 @@ kotlin {
            implementation(project.dependencies.platform(libs.firebase.bom))
            implementation(libs.firebase.messaging)
        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
+            implementation(libs.turbine)
+        }
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)

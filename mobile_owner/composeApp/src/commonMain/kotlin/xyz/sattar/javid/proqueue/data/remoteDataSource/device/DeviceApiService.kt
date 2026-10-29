@@ -26,16 +26,16 @@ data class UnregisterDeviceRequestDto(
  * Registration of this installation's push token with the backend, which is what
  * lets the server address a notification to *this* owner's phone.
  */
-class DeviceApiService(private val httpClient: HttpClient) {
+class DeviceApiService(private val httpClient: HttpClient) : DeviceApi {
 
-    suspend fun register(body: RegisterDeviceRequestDto): ApiResponse<Unit> {
+    override suspend fun register(body: RegisterDeviceRequestDto): ApiResponse<Unit> {
         return httpClient.post("devices/register/") {
             contentType(ContentType.Application.Json)
             setBody(body)
         }.toApiResponse()
     }
 
-    suspend fun unregister(body: UnregisterDeviceRequestDto): ApiResponse<Unit> {
+    override suspend fun unregister(body: UnregisterDeviceRequestDto): ApiResponse<Unit> {
         return httpClient.post("devices/unregister/") {
             contentType(ContentType.Application.Json)
             setBody(body)

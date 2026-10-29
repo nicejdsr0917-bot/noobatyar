@@ -66,7 +66,7 @@ class CalendarViewModel(
             val business = BusinessStateHolder.selectedBusiness.value
             if (business != null) {
                 // Sync Data
-                syncAppointmentsUseCase(business.id, date = date)
+                syncAppointmentsUseCase(business.id, date = date, replaceWindow = true)
 
                 val appointments = getAppointmentsForDateUseCase(business.id, date)
                 emit(PartialState.LoadAppointments(appointments))

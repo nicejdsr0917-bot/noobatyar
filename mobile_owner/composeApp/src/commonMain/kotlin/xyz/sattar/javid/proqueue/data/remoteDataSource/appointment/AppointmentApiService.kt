@@ -15,18 +15,18 @@ import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.model.AppointmentDto
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentOrdering
 
-class AppointmentApiService(private val httpClient: HttpClient) {
+class AppointmentApiService(private val httpClient: HttpClient) : AppointmentApi {
 
-    suspend fun queryAppointments(
+    override suspend fun queryAppointments(
             businessId: Long,
-            visitorId: Long? = null,
-            status: String? = null,
-            date: Long? = null,
-            dateFrom: Long? = null,
-            dateTo: Long? = null,
-            ordering: AppointmentOrdering? = AppointmentOrdering.DATE_DESC,
-            page: Int = 1,
-            pageSize: Int = 20
+            visitorId: Long?,
+            status: String?,
+            date: Long?,
+            dateFrom: Long?,
+            dateTo: Long?,
+            ordering: AppointmentOrdering?,
+            page: Int,
+            pageSize: Int
     ): ApiResponse<PaginatedResponseDto<AppointmentDto>> {
         return httpClient
                 .get("appointment/query") {
@@ -44,13 +44,13 @@ class AppointmentApiService(private val httpClient: HttpClient) {
                 .toApiResponse()
     }
 
-    suspend fun getAppointmentById(id: Long): ApiResponse<AppointmentDto> {
+    override suspend fun getAppointmentById(id: Long): ApiResponse<AppointmentDto> {
         return httpClient
                 .get("appointment/$id/") { contentType(ContentType.Application.Json) }
                 .toApiResponse()
     }
 
-    suspend fun createAppointment(
+    override suspend fun createAppointment(
             request:
                     xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.model.request.CreateAppointmentRequestDto
     ): ApiResponse<AppointmentDto> {
@@ -62,7 +62,7 @@ class AppointmentApiService(private val httpClient: HttpClient) {
                 .toApiResponse()
     }
 
-    suspend fun updateAppointment(
+    override suspend fun updateAppointment(
             id: Long,
             request:
                     xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.model.request.UpdateAppointmentRequestDto
@@ -75,7 +75,7 @@ class AppointmentApiService(private val httpClient: HttpClient) {
                 .toApiResponse()
     }
 
-    suspend fun deleteAppointment(id: Long): ApiResponse<Unit> {
+    override suspend fun deleteAppointment(id: Long): ApiResponse<Unit> {
         return httpClient.delete("appointment/$id/") {}.toApiResponse()
     }
 
@@ -84,10 +84,10 @@ class AppointmentApiService(private val httpClient: HttpClient) {
      * long-standing "today" window — so existing callers are unaffected. The
      * range report passes them to get the same numbers over its own window.
      */
-    suspend fun getAppointmentStats(
+    override suspend fun getAppointmentStats(
             businessId: Long,
-            dateFrom: Long? = null,
-            dateTo: Long? = null
+            dateFrom: Long?,
+            dateTo: Long?
     ): ApiResponse<
             xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.model.AppointmentStatsDto> {
         return httpClient
@@ -100,13 +100,13 @@ class AppointmentApiService(private val httpClient: HttpClient) {
                 .toApiResponse()
     }
 
-    suspend fun getRangeVisitors(
+    override suspend fun getRangeVisitors(
             businessId: Long,
             dateFrom: Long,
             dateTo: Long,
-            ordering: String = "visits",
-            page: Int = 1,
-            pageSize: Int = 20
+            ordering: String,
+            page: Int,
+            pageSize: Int
     ): ApiResponse<
             xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.model.RangeVisitorsPageDto> {
         return httpClient
@@ -122,10 +122,10 @@ class AppointmentApiService(private val httpClient: HttpClient) {
                 .toApiResponse()
     }
 
-    suspend fun getDailyCounts(
+    override suspend fun getDailyCounts(
             businessId: Long,
             days: Int,
-            daysAhead: Int = 0
+            daysAhead: Int
     ): ApiResponse<List<xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.DailyCountDto>> {
         return httpClient
                 .get("appointment/daily-counts/") {

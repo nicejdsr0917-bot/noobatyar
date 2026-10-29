@@ -8,7 +8,7 @@ import xyz.sattar.javid.proqueue.domain.model.business.CategoryGroup
 import xyz.sattar.javid.proqueue.domain.model.business.CategoryOption
 import xyz.sattar.javid.proqueue.domain.model.business.fallbackCategoryGroups
 
-import xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import xyz.sattar.javid.proqueue.core.network.ApiException
@@ -24,7 +24,7 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoSmsOv
 
 class BusinessRepositoryImpl(
     private val businessDao: BusinessLocalSource,
-    private val businessApiService: BusinessApiService
+    private val businessApiService: BusinessApi
 ) : BusinessRepository {
     override suspend fun upsertBusiness(business: Business): Boolean {
         return try {

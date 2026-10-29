@@ -25,9 +25,6 @@ class RoomAppointmentLocalSource(
     override suspend fun getAllAppointmentsForBusiness(businessId: Long): List<AppointmentWithDetails> =
         dao.getAllAppointmentsForBusiness(businessId).map { it.toDomain() }
 
-    override suspend fun getVisitorHistory(visitorId: Long): List<AppointmentWithDetails> =
-        dao.getVisitorHistory(visitorId).map { it.toDomain() }
-
     override suspend fun getVisitorHistoryForBusiness(visitorId: Long, businessId: Long): List<AppointmentWithDetails> =
         dao.getVisitorHistoryForBusiness(visitorId, businessId).map { it.toDomain() }
 
@@ -71,4 +68,13 @@ class RoomAppointmentLocalSource(
 
     override suspend fun deleteAppointmentsByVisitorId(visitorId: Long) =
         dao.deleteAppointmentsByVisitorId(visitorId)
+
+    override suspend fun clearAll() = dao.clearAll()
+
+    override suspend fun replaceWindow(
+        businessId: Long,
+        fromInclusive: Long,
+        toExclusive: Long,
+        appointments: List<Appointment>
+    ) = dao.replaceWindow(businessId, fromInclusive, toExclusive, appointments.map { it.toEntity() })
 }

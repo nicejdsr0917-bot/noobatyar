@@ -1,7 +1,7 @@
 package xyz.sattar.javid.proqueue.domain.usecase.push
 
 import xyz.sattar.javid.proqueue.core.push.PushTokenProvider
-import xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.device.UnregisterDeviceRequestDto
 
 /**
@@ -10,7 +10,7 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.device.UnregisterDeviceRe
  * previous one's appointments until FCM happened to rotate the token.
  */
 class UnregisterPushTokenUseCase(
-    private val deviceApiService: DeviceApiService
+    private val deviceApiService: DeviceApi
 ) {
     suspend operator fun invoke() {
         try {
