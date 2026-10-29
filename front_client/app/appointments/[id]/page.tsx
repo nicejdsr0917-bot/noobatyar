@@ -1,5 +1,6 @@
 'use client';
 
+import { googleMapsSearchUrl } from '@/lib/maps';
 import { getVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -163,7 +164,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
             <div style={{ fontSize: 12, color: 'var(--color-muted)', flexShrink: 0 }}>{t('address')}</div>
             {biz.address ? (
               <a
-                href={`https://maps.google.com/?q=${encodeURIComponent(biz.address)}`}
+                href={googleMapsSearchUrl(biz.address)}
                 target="_blank" rel="noopener noreferrer"
                 style={{ fontSize: 13, color: 'var(--color-primary)', lineHeight: 1.7, textAlign: 'end', textDecoration: 'none', fontWeight: 600 }}
               >

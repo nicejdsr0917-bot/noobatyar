@@ -43,3 +43,8 @@ export function neshanUrl({ lat, lng }: LatLng): string {
 export function baladUrl({ lat, lng }: LatLng): string {
   return `https://balad.ir/location?latitude=${lat}&longitude=${lng}&zoom=16`;
 }
+
+/** Google Maps search link for a free-text address. */
+export function googleMapsSearchUrl(address: string): string {
+  return `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+}
