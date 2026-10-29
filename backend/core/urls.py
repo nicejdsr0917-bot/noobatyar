@@ -3,9 +3,15 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from api.exceptions import custom_404_handler
+from core.health import healthz, readyz
 
 
 urlpatterns = [
+    # Probes. /api/ aliases exist because nginx only proxies /api, /admin, ...
+    path('healthz', healthz),
+    path('readyz', readyz),
+    path('api/healthz', healthz),
+    path('api/readyz', readyz),
     # Path comes from settings.ADMIN_URL (env: ADMIN_URL), already normalised to
     # a single trailing slash there. nginx must be taught the new prefix too —
     # see the note in core/settings.py.

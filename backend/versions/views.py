@@ -6,10 +6,18 @@ from .models import AppVersion
 from .serializers import AppVersionSerializer
 
 
+def _requested_app(raw):
+    """Missing/blank -> OWNER (old clients). Unknown value -> None."""
+    if raw in (None, ''):
+        return AppVersion.App.OWNER
+    value = str(raw).strip().upper()
+    return value if value in AppVersion.App.values else None
+
+
 class CheckVersionView(APIView):
     """
     POST /api/version/check/
-    body: {"version_code": 100}
+    body: {"version_code": 100, "app": "OWNER"|"CLIENT"}  (app optional, default OWNER)
     """
     permission_classes = [AllowAny] 
 
@@ -24,8 +32,15 @@ class CheckVersionView(APIView):
                 "data": None
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        app = _requested_app(request.data.get('app'))
+        if app is None:
+            return Response({
+                "status": "error", "code": 400,
+                "message": "app نامعتبر است", "data": None
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         # آخرین نسخه فعال
-        latest = AppVersion.objects.filter(is_active=True).first()
+        latest = AppVersion.objects.filter(is_active=True, app=app).first()
 
         if not latest:
             return Response({
@@ -66,7 +81,10 @@ class ChangelogListView(APIView):
     permission_classes = [AllowAny] 
 
     def get(self, request):
-        versions = AppVersion.objects.filter(is_active=True)
+        app = _requested_app(request.query_params.get('app'))
+        if app is None:
+            app = AppVersion.App.OWNER
+        versions = AppVersion.objects.filter(is_active=True, app=app)
 
         changelog = [
             {
