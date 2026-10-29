@@ -248,7 +248,7 @@ class ClientOwnAppointmentReadTests(ClientGateTestCaseMixin, TestCase):
 
         # Cancelling queues the owner's notification in the outbox; the handler
         # is patched so the assertion below is about the cancellation, not SMS.
-        with patch('appointment.client_views._send_booking_sms'):
+        with patch('appointment.services.notifications.send_booking_sms'):
             response = self.client.post(
                 reverse('client-appointment-cancel', args=[appointment.id]),
                 HTTP_AUTHORIZATION=self.visitor_auth,

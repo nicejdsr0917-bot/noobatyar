@@ -17,7 +17,8 @@ from visitor.auth import sign_visitor_token
 from visitor.models import Visitor
 
 from .client_serializers import ClientAppointmentSerializer
-from .client_views import ClientAppointmentListView, _expire_lock_if_due
+from .client_views import ClientAppointmentListView
+from .services.transitions import appointment_expire_lock_if_due as _expire_lock_if_due
 from .models import Appointment
 
 User = get_user_model()
@@ -58,7 +59,8 @@ class DepositCallbackTests(Base, TestCase):
     def test_happy_path_confirms(self):
         a = self.make()
         with patch(VERIFY, return_value={'success': True}), \
-                patch('appointment.client_views._fire_deposit_paid_sms') as sms:
+                patch('appointment.services.client_booking.notify_deposit_paid') as sms, \
+                self.captureOnCommitCallbacks(execute=True):
             r = self.callback()
         self.assertIn('payment=success', r['Location'])
         a.refresh_from_db()
@@ -69,7 +71,8 @@ class DepositCallbackTests(Base, TestCase):
     def test_replay_has_no_side_effects(self):
         self.make()
         with patch(VERIFY, return_value={'success': True}), \
-                patch('appointment.client_views._fire_deposit_paid_sms') as sms:
+                patch('appointment.services.client_booking.notify_deposit_paid') as sms, \
+                self.captureOnCommitCallbacks(execute=True):
             self.callback()
             r = self.callback()
         self.assertIn('payment=success', r['Location'])
@@ -83,7 +86,7 @@ class DepositCallbackTests(Base, TestCase):
                   deposit_payment_method='CARD', expires_at=None, locked_at=None)
         locked = self.make()
         with patch(VERIFY, return_value={'success': True}), \
-                patch('appointment.client_views._fire_deposit_paid_sms'):
+                patch('appointment.services.client_booking.notify_deposit_paid'):
             r = self.callback()
         self.assertEqual(r.status_code, 302)
         locked.refresh_from_db()
@@ -112,7 +115,7 @@ class DepositCallbackTests(Base, TestCase):
             return {'success': True}
 
         with patch(VERIFY, side_effect=cancel_meanwhile), \
-                patch('appointment.client_views._fire_deposit_paid_sms') as sms:
+                patch('appointment.services.client_booking.notify_deposit_paid') as sms:
             r = self.callback()
         self.assertIn('payment=conflict', r['Location'])
         a.refresh_from_db()
@@ -122,7 +125,7 @@ class DepositCallbackTests(Base, TestCase):
     def test_expired_lock_without_conflict_still_confirms(self):
         a = self.make(expires_at=timezone.now() - timedelta(minutes=1))
         with patch(VERIFY, return_value={'success': True}), \
-                patch('appointment.client_views._fire_deposit_paid_sms'):
+                patch('appointment.services.client_booking.notify_deposit_paid'):
             r = self.callback()
         self.assertIn('payment=success', r['Location'])
         a.refresh_from_db()
@@ -133,7 +136,7 @@ class DepositCallbackTests(Base, TestCase):
         taken = self.make(visitor=self.other, status='PENDING_APPROVAL',
                           payment_reference=None, expires_at=None, locked_at=None)
         with patch(VERIFY, return_value={'success': True}), \
-                patch('appointment.client_views._fire_deposit_paid_sms') as sms, \
+                patch('appointment.services.client_booking.notify_deposit_paid') as sms, \
                 self.assertLogs('appointment.services.deposits', level='ERROR'):
             r = self.callback()
         self.assertIn('payment=conflict', r['Location'])
@@ -147,7 +150,7 @@ class DepositCallbackTests(Base, TestCase):
 class CancelAndPayTests(Base, TestCase):
     def test_cancel_loses_to_concurrent_transition(self):
         a = self.make(status='PENDING_APPROVAL', expires_at=None, locked_at=None)
-        from .client_views import _cancel_transition
+        from .services.transitions import appointment_cancel_by_client as _cancel_transition
         stale = Appointment.objects.select_related('business').get(pk=a.pk)
         Appointment.objects.filter(pk=a.pk).update(status='IN_PROGRESS')
         self.assertFalse(_cancel_transition(stale, 'PENDING_APPROVAL'))
@@ -156,7 +159,7 @@ class CancelAndPayTests(Base, TestCase):
 
     def test_cancel_view_cancels(self):
         a = self.make()
-        with patch('appointment.client_views._fire_cancellation_sms'):
+        with patch('appointment.services.client_booking.notify_booking_cancelled_by_client'):
             r = self.client.post(reverse('client-appointment-cancel', args=[a.pk]),
                                  HTTP_AUTHORIZATION=self.auth)
         self.assertEqual(r.status_code, 200)
@@ -181,7 +184,7 @@ class CancelAndPayTests(Base, TestCase):
 
         r = None
         Appointment.objects.filter(pk=a.pk).update(description='owner note')
-        with patch('appointment.client_views._fire_booking_sms'):
+        with patch('appointment.services.client_booking.notify_booking_created'):
             r = self.client.post(
                 reverse('client-appointment-pay', args=[a.pk]),
                 {'method': 'CASH'}, HTTP_AUTHORIZATION=self.auth,
@@ -216,6 +219,47 @@ class CancelAndPayTests(Base, TestCase):
         self.assertFalse(_expire_lock_if_due(a))
 
 
+class ReceiptOrphanTests(Base, TestCase):
+    def setUp(self):
+        super().setUp()
+        import shutil
+        import tempfile
+        from django.test import override_settings
+        self.media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=self.media)
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def _files(self):
+        import os
+        return [f for _, _, fs in os.walk(self.media) for f in fs]
+
+    def _pay(self, a):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return self.client.post(
+            reverse('client-appointment-pay', args=[a.pk]),
+            {'method': 'CARD', 'payment_receipt': SimpleUploadedFile(
+                'r.png', b'\x89PNG\r\n\x1a\n' + b'0' * 20, content_type='image/png')},
+            HTTP_AUTHORIZATION=self.auth,
+        )
+
+    def test_receipt_kept_when_payment_wins(self):
+        a = self.make()
+        self.assertEqual(self._pay(a).status_code, 200)
+        self.assertEqual(len(self._files()), 1)
+        a.refresh_from_db()
+        self.assertTrue(a.payment_receipt.name)
+
+    def test_receipt_removed_when_update_loses_race(self):
+        a = self.make()
+        with patch('appointment.services.client_booking.appointment_submit_payment',
+                   return_value=False):
+            r = self._pay(a)
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self._files(), [])
+
+
 class BookingGuardTests(Base, TestCase):
     def book(self, ts=None):
         return self.client.post(
@@ -240,7 +284,7 @@ class BookingGuardTests(Base, TestCase):
 
         with patch('accounting.usage.can_book_appointment', side_effect=check), \
                 patch('accounting.usage.record_appointment', return_value='monthly'), \
-                patch('appointment.client_views._fire_booking_sms'):
+                patch('appointment.services.client_booking.notify_booking_created'):
             r = self.book()
         self.assertEqual(r.status_code, 200, r.content)
         self.assertTrue(seen['in_atomic'])
@@ -252,14 +296,14 @@ class BookingGuardTests(Base, TestCase):
         before = Appointment.objects.count()
         with patch('accounting.usage.can_book_appointment', return_value=True), \
                 patch('accounting.usage.record_appointment', return_value=''), \
-                patch('appointment.client_views._fire_booking_sms'):
+                patch('appointment.services.client_booking.notify_booking_created'):
             self.assertEqual(self.book().status_code, 409)
         self.assertEqual(Appointment.objects.count(), before)
 
     def test_second_booking_same_slot_conflicts(self):
         with patch('accounting.usage.can_book_appointment', return_value=True), \
                 patch('accounting.usage.record_appointment', return_value='monthly'), \
-                patch('appointment.client_views._fire_booking_sms'):
+                patch('appointment.services.client_booking.notify_booking_created'):
             self.assertEqual(self.book().status_code, 200)
             self.assertEqual(self.book().status_code, 409)
         self.assertEqual(Appointment.objects.count(), 1)
@@ -282,7 +326,7 @@ class CallbackRaceTests(Base, TransactionTestCase):
         results = []
 
         def go():
-            from .client_views import _settle_deposit
+            from .services.deposits import deposit_settle as _settle_deposit
             try:
                 results.append(_settle_deposit('TRK1')[0])
             finally:

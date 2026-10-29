@@ -176,7 +176,7 @@ class CallSiteTests(TestCase):
     """Each migrated call site queues the right kind, and the handler runs the old sender."""
 
     def test_booking_sms_queued_then_sent_once_by_worker(self):
-        from appointment.client_views import _fire_booking_sms
+        from appointment.services.notifications import notify_booking_created as _fire_booking_sms
         from visitor.models import SmsLog
 
         appt = _appointment()
@@ -195,7 +195,10 @@ class CallSiteTests(TestCase):
         self.assertTrue(SmsLog.objects.filter(business=appt.business, status='SENT').exists())
 
     def test_cancellation_and_deposit_use_their_own_keys(self):
-        from appointment.client_views import _fire_cancellation_sms, _fire_deposit_paid_sms
+        from appointment.services.notifications import (
+            notify_booking_cancelled_by_client as _fire_cancellation_sms,
+            notify_deposit_paid as _fire_deposit_paid_sms,
+        )
 
         appt = _appointment()
         _fire_cancellation_sms(appt)
@@ -411,7 +414,7 @@ class SmsIdempotencyTests(TestCase):
         return send, consume
 
     def test_retry_after_crash_post_send_does_not_send_or_charge_twice(self):
-        from appointment.client_views import _fire_booking_sms
+        from appointment.services.notifications import notify_booking_created as _fire_booking_sms
 
         appt = _appointment()
         _fire_booking_sms(appt, appt.visitor.phone_number)
