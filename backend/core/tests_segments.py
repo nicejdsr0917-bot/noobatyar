@@ -22,7 +22,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounting.models import Plan, Subscription
-from accounting.usage import _wallet_key
+from accounting import usage
 from appointment.models import Appointment
 from business.models import Business
 from core import segments
@@ -257,36 +257,41 @@ class OwnerFilterTests(TestCase):
         self.assertIn(multi.id, ids)
         self.assertNotIn(single.id, ids)
 
-    def test_low_wallet_filter_batches_a_single_redis_read(self):
-        cache.clear()
+    def test_low_wallet_filter_reads_credit_balance_in_one_query(self):
         low = make_user('09140000010')
         make_business(low)
         high = make_user('09140000011')
         make_business(high)
-        cache.set(_wallet_key(low.id), 2, timeout=None)
-        cache.set(_wallet_key(high.id), 50, timeout=None)
+        empty = make_user('09140000015')  # never bought credit: no row == balance 0
+        make_business(empty)
+        usage.add_wallet(low.id, 2)
+        usage.add_wallet(high.id, 50)
+        # A stale/absent Redis mirror must not matter any more.
+        cache.clear()
 
-        ids = set(segments.owner_ids_for_segment({'low_wallet_below': 5}))
+        with self.assertNumQueries(1):
+            ids = set(segments.owner_ids_for_segment({'low_wallet_below': 5}))
         self.assertIn(low.id, ids)
+        self.assertIn(empty.id, ids)
         self.assertNotIn(high.id, ids)
 
-    def test_low_wallet_filter_fails_closed_when_cache_is_unreachable(self):
-        """Regression: cache.get_many() on a Redis outage returns {} — the
-        exact same value a genuinely-empty batch of wallet keys produces
-        (django-redis's IGNORE_EXCEPTIONS swallows the connection error).
-        Reading that {} as "balance 0 for everyone" used to make a "low
-        wallet" filter silently match the entire owner base during an
-        outage, with a plausible row count and no warning in the export or
-        its audit row. It must raise instead of guessing.
-        """
-        cache.clear()
-        make_business(make_user('09140000013'))
-        make_business(make_user('09140000014'))
+    def test_low_wallet_threshold_is_exclusive_and_ignores_other_buckets(self):
+        at = make_user('09140000016')
+        make_business(at)
+        usage.add_wallet(at.id, 5)
+        usage.add_appt_wallet(at.id, 1)  # a different bucket must not count
+        ids = set(segments.owner_ids_for_segment({'low_wallet_below': 5}))
+        self.assertNotIn(at.id, ids)
+        ids = set(segments.owner_ids_for_segment({'low_wallet_below': 6}))
+        self.assertIn(at.id, ids)
 
+    def test_low_wallet_filter_is_unaffected_by_a_cache_outage(self):
+        low = make_user('09140000013')
+        make_business(low)
+        usage.add_wallet(low.id, 1)
         from unittest.mock import patch
-        with patch.object(segments.cache, 'get', return_value=None):
-            with self.assertRaises(segments.SegmentFilterError):
-                segments.owner_ids_for_segment({'low_wallet_below': 5})
+        with patch.object(cache, 'get', return_value=None), patch.object(cache, 'get_many', return_value={}):
+            self.assertIn(low.id, segments.owner_ids_for_segment({'low_wallet_below': 5}))
 
     def test_export_owner_rows_has_no_email_column(self):
         owner = make_user('09140000012', name='مالک تست')
@@ -435,22 +440,20 @@ class SegmentExportPermissionAndAuditTests(TestCase):
         self.assertIn(self.v1.phone_number, body)
         self.assertNotIn(self.v2.phone_number, body)
 
-    def test_export_fails_closed_not_500_when_wallet_cache_unreachable(self):
-        """The low-wallet filter's cache.get() raises SegmentFilterError on an
-        unreachable cache (see tests_segments' low-wallet fail-closed test);
-        the export view has to catch it and return a clean 400 with no
-        AudienceSegmentExport row, not let it become an unhandled 500 with a
-        stack trace in the response.
-        """
+    def test_low_wallet_export_does_not_depend_on_the_cache(self):
+        """The wallet filter reads CreditBalance (SQL), so an unreachable cache
+        can no longer fail the export or make it match everyone."""
         from unittest.mock import patch
+
+        from django.core.cache import cache
         grant(self.staff, 'api.view_user', 'core.export_pii')
-        with patch.object(segments.cache, 'get', return_value=None):
+        with patch.object(cache, 'get', return_value=None), patch.object(cache, 'get_many', return_value={}):
             response = self.client.get(
                 reverse('admin:core_segment_export'),
                 {'kind': 'owner', 'low_wallet_below': '5'},
             )
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(AudienceSegmentExport.objects.count(), 0)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AudienceSegmentExport.objects.count(), 1)
 
 
 class SegmentSaveAndRunTests(TestCase):
