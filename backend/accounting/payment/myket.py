@@ -213,9 +213,11 @@ def _consume_if_needed(purchase):
 
 
 def _fail(purchase, message):
-    purchase.status = "failed"
-    purchase.error_detail = message
-    purchase.save()
+    # Conditional: a replayed/forged call must never downgrade a granted purchase.
+    StorePurchase.objects.filter(pk=purchase.pk).exclude(status="success").update(
+        status="failed", error_detail=message, store_response=purchase.store_response,
+        updated_at=timezone.now(),
+    )
     raise StoreError(message)
 
 

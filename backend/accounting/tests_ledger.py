@@ -120,7 +120,8 @@ class WalletLedgerTests(LedgerTestCase):
             user=user, pack=pack, amount=5000, track_id='t1', order_id='o1', status='pending',
         )
 
-        grant_addon_benefit(purchase)
+        with self.captureOnCommitCallbacks(execute=True):  # wallet credit runs on commit
+            grant_addon_benefit(purchase)
 
         self.assertEqual(usage.get_wallet(user.id), 20)
         row = CreditLedger.objects.get(user_id=user.id, metric='sms_wallet')
@@ -142,7 +143,8 @@ class WalletLedgerTests(LedgerTestCase):
             user=user, pack=pack, amount=5000, track_id='t2', order_id='o2', status='pending',
         )
 
-        grant_addon_benefit(purchase)
+        with self.captureOnCommitCallbacks(execute=True):  # wallet credit runs on commit
+            grant_addon_benefit(purchase)
 
         self.assertEqual(usage.get_appt_wallet(user.id), 7)
         row = CreditLedger.objects.get(user_id=user.id, metric='appointment_wallet')

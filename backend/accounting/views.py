@@ -1,8 +1,6 @@
-from asgiref.sync import sync_to_async
 from django.shortcuts import render
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from adrf.decorators import api_view
 
 from api.responses import APIResponse
 from api.views import _extract_error

@@ -20,11 +20,11 @@ from django.utils import timezone
 
 from accounting.models import AddOnPack, AddOnPurchase
 from accounting import pricing, usage
+from accounting.payment import zibal_client
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://gateway.zibal.ir"
-VERIFY_URL = "https://gateway.zibal.ir/v1/verify"
 SUCCESS_CODE = 100
 TIMEOUT = 10.0
 
@@ -39,6 +39,14 @@ NO_SUBSCRIPTION_MESSAGE = "برای خرید بسته‌ی افزودنی ابت
 def can_buy_addon(user) -> bool:
     from accounting.entitlements import get_active_subscription
     return get_active_subscription(user) is not None
+
+
+def _credit_after_commit(credit, user_id, amount, purchase_id):
+    """The wallet lives in Redis, which a DB rollback cannot undo — so it is only
+    credited once the transaction that marks the purchase paid has committed."""
+    db_transaction.on_commit(lambda: credit(
+        user_id, amount, reason="addon_purchase", ref_type="AddOnPurchase", ref_id=purchase_id,
+    ))
 
 
 def grant_addon_benefit(purchase: AddOnPurchase, response_data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -59,15 +67,9 @@ def grant_addon_benefit(purchase: AddOnPurchase, response_data: Optional[Dict] =
         purchase.activated_at = timezone.now()
 
         if pack.kind == AddOnPack.KIND_SMS:
-            usage.add_wallet(
-                purchase.user_id, pack.sms_amount,
-                reason="addon_purchase", ref_type="AddOnPurchase", ref_id=purchase.id,
-            )
+            _credit_after_commit(usage.add_wallet, purchase.user_id, pack.sms_amount, purchase.id)
         elif pack.kind == AddOnPack.KIND_APPOINTMENT:
-            usage.add_appt_wallet(
-                purchase.user_id, pack.appointment_amount,
-                reason="addon_purchase", ref_type="AddOnPurchase", ref_id=purchase.id,
-            )
+            _credit_after_commit(usage.add_appt_wallet, purchase.user_id, pack.appointment_amount, purchase.id)
         elif pack.kind == AddOnPack.KIND_FEATURE:
             purchase.expires_at = timezone.now() + timedelta(days=pack.duration_days)
 
@@ -134,7 +136,12 @@ class AddOnPaymentService:
 
 
 class AddOnVerificationService:
-    """Verify an add-on payment and grant the benefit (idempotent)."""
+    """Verify an add-on payment and grant the benefit (idempotent, crash-safe).
+
+    Same contract as ``PaymentVerificationService``: Zibal is asked outside the
+    DB lock, the row is re-checked under ``select_for_update``, a replay answers
+    success without granting twice, and a network error leaves it pending.
+    """
 
     def __init__(self, track_id: str):
         self.track_id = track_id
@@ -148,38 +155,48 @@ class AddOnVerificationService:
         except AddOnPurchase.DoesNotExist:
             return {"success": False, "message": "تراکنش یافت نشد", "data": {}}
 
-        if self.purchase.status in ("success", "failed"):
-            return {"success": False, "message": "این تراکنش قبلاً پردازش شده است", "data": {}}
+        try:
+            if self.purchase.status == "success":
+                return self._already_granted(self.purchase)
+            if self.purchase.status == "cancelled":
+                return {"success": False, "message": "این تراکنش لغو شده است", "data": {}}
 
-        verify = self._verify_with_zibal()
-        if not verify["success"]:
-            self._mark_failed(verify.get("data", {}))
-            return {"success": False, "message": verify.get("message", "پرداخت ناموفق بود"), "data": verify.get("data", {})}
+            result = zibal_client.verify(self.track_id)
 
-        return self._grant(verify["data"])
+            if result.outcome == zibal_client.Outcome.TRANSPORT_ERROR:
+                return {"success": False, "message": "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید",
+                        "data": result.data}
 
-    def _verify_with_zibal(self) -> Dict[str, Any]:
-        with httpx.Client(timeout=TIMEOUT) as client:
-            try:
-                response = client.post(
-                    VERIFY_URL,
-                    headers={"Content-Type": "application/json"},
-                    json={"merchant": settings.ZIBAL_MERCHANT_ID, "trackId": int(self.track_id)},
+            if result.outcome == zibal_client.Outcome.FAILED:
+                AddOnPurchase.objects.filter(pk=self.purchase.pk, status="pending").update(
+                    status="failed", zibal_response=result.data, updated_at=timezone.now()
                 )
-                response.raise_for_status()
-                data = response.json()
-                if data.get("result") == SUCCESS_CODE:
-                    return {"success": True, "data": data}
-                return {"success": False, "message": data.get("message", "پرداخت تایید نشد"), "data": data}
-            except httpx.HTTPError as e:
-                logger.error(f"Zibal add-on verify error {self.track_id}: {e}")
-                return {"success": False, "message": "خطا در ارتباط با درگاه پرداخت", "data": {"error": str(e)}}
+                return {"success": False, "message": result.message, "data": result.data}
 
-    def _grant(self, verify_data: Dict) -> Dict[str, Any]:
-        return grant_addon_benefit(self.purchase, response_data=verify_data)
+            with db_transaction.atomic():
+                locked = AddOnPurchase.objects.select_for_update().select_related(
+                    "user", "pack"
+                ).get(pk=self.purchase.pk)
+                if locked.status == "success":
+                    return self._already_granted(locked)
+                if locked.status == "cancelled":
+                    return {"success": False, "message": "این تراکنش لغو شده است", "data": {}}
+                return grant_addon_benefit(locked, response_data=result.data)
+        except Exception:
+            logger.exception("Unexpected error verifying add-on payment %s", self.track_id)
+            return {"success": False, "message": "خطای سیستمی در پردازش پرداخت", "data": {}}
 
-    def _mark_failed(self, error_data: Dict):
-        if self.purchase:
-            self.purchase.status = "failed"
-            self.purchase.zibal_response = error_data
-            self.purchase.save(update_fields=["status", "zibal_response", "updated_at"])
+    @staticmethod
+    def _already_granted(purchase: AddOnPurchase) -> Dict[str, Any]:
+        pack = purchase.pack
+        return {
+            "success": True,
+            "message": f"بسته‌ی «{pack.name}» با موفقیت فعال شد",
+            "data": {
+                "pack": pack.name,
+                "kind": pack.kind,
+                "sms_amount": pack.sms_amount,
+                "appointment_amount": pack.appointment_amount,
+                "expires_at": purchase.expires_at.isoformat() if purchase.expires_at else None,
+            },
+        }
