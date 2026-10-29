@@ -26,11 +26,12 @@ from typing import Any, Dict
 import httpx
 from django.utils import timezone
 
+from accounting.payment import zibal_client
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://gateway.zibal.ir"
 REQUEST_URL = f"{BASE_URL}/v1/request"
-VERIFY_URL = f"{BASE_URL}/v1/verify"
 SUCCESS_CODE = 100
 # Zibal returns 201 when a trackId was already verified. That is a success for
 # our purposes: the money moved, we just processed the callback twice.
@@ -109,27 +110,20 @@ def verify_deposit_payment(appointment, track_id: str) -> Dict[str, Any]:
     if not merchant:
         return {"success": False, "error": "درگاه پرداخت این کسب‌وکار پیکربندی نشده است"}
 
-    try:
-        with httpx.Client() as client:
-            response = client.post(
-                VERIFY_URL,
-                headers={"Content-Type": "application/json"},
-                json={"merchant": merchant, "trackId": track_id},
-                timeout=TIMEOUT,
-            )
-            response.raise_for_status()
-            data = response.json()
-    except httpx.HTTPError as exc:
-        logger.error("Zibal deposit verify failed for appointment %s: %s", appointment.id, exc)
+    result = zibal_client.verify(track_id, merchant=merchant)
+    if result.outcome is zibal_client.Outcome.TRANSPORT_ERROR:
+        logger.error(
+            "Zibal deposit verify unavailable for appointment %s, trackId=%s: %s",
+            appointment.id, track_id, result.data,
+        )
         return {"success": False, "error": "خطا در تایید پرداخت"}
-
-    result = data.get("result")
-    if result not in (SUCCESS_CODE, ALREADY_VERIFIED_CODE):
+    if not result.paid:
         logger.warning(
             "Zibal deposit not verified for appointment %s, trackId=%s: %s",
-            appointment.id, track_id, data,
+            appointment.id, track_id, result.data,
         )
-        return {"success": False, "error": "پرداخت تایید نشد", "response": data}
+        return {"success": False, "error": "پرداخت تایید نشد", "response": result.data}
+    data = result.data
 
     paid = int(data.get("amount") or 0)
     expected = deposit_amount_rial(business)
@@ -139,5 +133,13 @@ def verify_deposit_payment(appointment, track_id: str) -> Dict[str, Any]:
             appointment.id, paid, expected,
         )
         return {"success": False, "error": "مبلغ پرداخت‌شده با مبلغ بیعانه مطابقت ندارد", "response": data}
+
+    # Zibal confirmed the money. Stamp it on the row so a deposit whose slot is
+    # then lost (callback lands after the hold expired and someone else booked)
+    # can be found in the admin and refunded. Queryset update: touches only this
+    # column, so it cannot clobber the status flip that follows.
+    from appointment.models import Appointment
+    Appointment.objects.filter(pk=appointment.pk).update(deposit_verified_at=timezone.now())
+    appointment.deposit_verified_at = timezone.now()
 
     return {"success": True, "response": data}

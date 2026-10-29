@@ -75,7 +75,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   const refRequired = method !== 'CASH' && !file;
   const refError = validatePaymentRef(paymentRef, { required: refRequired });
 
-  const rawCard = biz?.card_number ?? '';
+  const rawCard = appointment?.card_number ?? '';
   const cardDigits = digitsOnly(rawCard);
   const cardLooksWrong = cardDigits.length > 0 && !isValidCardChecksum(cardDigits);
   const cardBank = detectBank(cardDigits);
@@ -399,7 +399,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                   marginBottom: 14,
                 }}
               >
-                {t('name')}{biz?.card_owner_name || t('businessOwner')}
+                {t('name')}{appointment?.card_owner_name || t('businessOwner')}
               </div>
 
               {biz?.deposit_amount ? (

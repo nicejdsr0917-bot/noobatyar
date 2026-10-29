@@ -527,7 +527,8 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
 
     Explicitly whitelisted fields — any new field added to the model
     must be CONSCIOUSLY added here. It must NEVER include:
-      - phone, merchant_id, card_owner_name, card_number (shown separately via logic)
+      - merchant_id, card_owner_name, card_number (the card is shown only on the
+        visitor's own LOCKED appointment — see ClientAppointmentSerializer)
       - notification_*, enable_*_sms, allow_anonymous_view
       - created_at, updated_at, unique_code (internal)
       - moderation_* — editorial state is internal. A business only reaches a
@@ -585,8 +586,9 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             'accepted_payment_methods',
             'deposit_mode',
             'deposit_amount',
-            'card_number',
-            'card_owner_name',
+            # card_number / card_owner_name are deliberately absent: the
+            # booking page is anonymous, and the card is only revealed to the
+            # visitor who owns a LOCKED appointment (ClientAppointmentSerializer).
             'payment_link',
             'bio',
             'booking_enabled',
@@ -621,11 +623,10 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
     Kept for backward compatibility with appointment/client_serializers.py.
     Used to display business info inside a client's own appointment record.
 
-    Includes the payment fields the checkout screen needs (card number, owner
-    name, deposit, accepted methods). Without them the client was shown
-    «شماره کارت ثبت نشده» and «مبلغ را با کسب‌وکار هماهنگ کنید» and had no way to
-    pay at all. These are the same fields PublicBusinessSerializer already
-    returns on the public booking page, so nothing new is exposed here.
+    Includes the payment fields the checkout screen needs (deposit, accepted
+    methods). The card number and owner name are NOT here: they come on the
+    appointment itself (ClientAppointmentSerializer), and only while the
+    client's own hold is waiting for a card payment.
 
     Still excluded: merchant_id, notification_*, enable_*_sms, created_at/updated_at,
     and moderation_* (internal editorial state — see PublicBusinessSerializer).
@@ -656,7 +657,7 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
             'notice_message', 'notice_enabled', 'booking_enabled',
             'payment_method', 'accepted_payment_methods',
             'deposit_mode', 'deposit_amount',
-            'card_number', 'card_owner_name', 'payment_link',
+            'payment_link',
             'online_gateway_enabled',
             'services', 'allow_client_add_service',
         ]

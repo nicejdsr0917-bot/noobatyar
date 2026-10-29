@@ -14,6 +14,12 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
     # deliberately not exposed here — it's about the owner, not this visitor).
     reminder_sms_sent = serializers.SerializerMethodField()
     reminder_push_sent = serializers.SerializerMethodField()
+    # Where to send the card-to-card deposit. Deliberately NOT part of the
+    # business payload (that is public to anyone browsing): it appears only on
+    # the signed-in visitor's own appointment while it is still LOCKED, i.e.
+    # while they are on the checkout step. Null otherwise.
+    card_number = serializers.SerializerMethodField()
+    card_owner_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -26,7 +32,27 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
             'estimated_turn_time',
             'reminder_sms_sent',
             'reminder_push_sent',
+            'card_number',
+            'card_owner_name',
         ]
+
+    def _card_visible(self, obj):
+        if obj.status != 'LOCKED':
+            return False
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is None or getattr(user, 'pk', None) is None or obj.visitor_id != user.pk:
+            return False
+        business = obj.business
+        accepted = business.accepted_payment_methods or []
+        takes_card = 'CARD' in accepted or business.payment_method == 'CARD'
+        return takes_card and bool((business.card_number or '').strip())
+
+    def get_card_number(self, obj):
+        return obj.business.card_number if self._card_visible(obj) else None
+
+    def get_card_owner_name(self, obj):
+        return (obj.business.card_owner_name or '') if self._card_visible(obj) else None
 
     def get_reminder_sms_sent(self, obj):
         return obj.reminder_sent_at is not None

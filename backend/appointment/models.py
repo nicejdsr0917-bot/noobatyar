@@ -118,6 +118,14 @@ class Appointment(models.Model):
         verbose_name='رسید پرداخت',
     )
 
+    deposit_verified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='زمانی که زیبال پرداخت بیعانهٔ آنلاین را تأیید کرد. اگر نوبت بعد از آن '
+                  'قفل‌شده بماند (ساعت از دست رفته)، پول گرفته شده و باید برگردانده شود.',
+        verbose_name='زمان تأیید پرداخت بیعانه',
+    )
+
     DEPOSIT_METHOD_CHOICES = [
         ('NONE',    'بدون بیعانه'),
         ('CARD',    'کارت به کارت'),

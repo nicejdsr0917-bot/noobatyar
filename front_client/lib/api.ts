@@ -73,8 +73,6 @@ export interface Business {
   accepted_payment_methods?: string[];
   max_appointments_per_hour?: number | null;
   payment_method?: string;
-  card_number?: string;
-  card_owner_name?: string;
   payment_link?: string;
   /** True when the business has a Zibal merchant, so checkout can redirect to a
    *  real gateway instead of the manual link + tracking-number flow. */
@@ -109,6 +107,10 @@ export interface Appointment {
    *  or neither enabled (see backend/appointment/client_serializers.py). */
   reminder_sms_sent: boolean;
   reminder_push_sent: boolean;
+  /** Card-to-card deposit destination. Only present (non-null) on the signed-in
+   *  visitor's own LOCKED appointment — never on the public business payload. */
+  card_number?: string | null;
+  card_owner_name?: string | null;
 }
 
 /** Thrown when the API rejects the stored token (HTTP 401). */

@@ -46,12 +46,14 @@ class VerifyResult:
         return self.outcome in (Outcome.SUCCESS, Outcome.ALREADY_VERIFIED)
 
 
-def verify(track_id) -> VerifyResult:
+def verify(track_id, merchant=None) -> VerifyResult:
+    """``merchant`` defaults to the platform's own; the client-deposit flow passes
+    the business owner's merchant id, since that is whose account was paid."""
     try:
         response = _client.post(
             VERIFY_URL,
             headers={"Content-Type": "application/json"},
-            json={"merchant": settings.ZIBAL_MERCHANT_ID, "trackId": int(track_id)},
+            json={"merchant": merchant or settings.ZIBAL_MERCHANT_ID, "trackId": int(track_id)},
         )
         response.raise_for_status()
         data = response.json()
