@@ -13,6 +13,7 @@ import logging
 from .models import Visitor, SmsLog, VisitorArchive, VisitorActivity, VisitorContact
 from .serializers import VisitorSerializer, VisitorAttachSerializer, SmsLogSerializer
 from business.models import Business
+from . import services
 from .activity import record_activity
 from api.responses import APIResponse  # اضافه کردن import
 
@@ -160,26 +161,13 @@ class VisitorView(APIView):
                 phone = serializer.validated_data['phone_number']
                 full_name = serializer.validated_data['full_name']
 
-                visitor, created = await sync_to_async(Visitor.objects.get_or_create)(
-                    phone_number=phone,
-                    defaults={'full_name': full_name, 'user': request.user},
-                )
-                if not created and visitor.user_id is None:
-                    visitor.user = request.user
-                    await sync_to_async(visitor.save)(update_fields=['user'])
-
-                await sync_to_async(VisitorContact.objects.get_or_create)(
-                    owner=request.user, visitor=visitor,
-                )
-                # Adding someone back is the clearest possible statement that
-                # this owner wants them in their list, so it undoes an earlier
-                # archive rather than leaving them added-but-still-hidden.
-                await sync_to_async(
-                    VisitorArchive.objects.filter(owner=request.user, visitor=visitor).delete
-                )()
+                visitor, created, display_name = await sync_to_async(services.visitor_attach)(
+                    request.user, phone, full_name)
+                data = VisitorSerializer(visitor).data
+                data['full_name'] = display_name
 
                 return APIResponse.success(
-                    data=VisitorSerializer(visitor).data,
+                    data=data,
                     message="مشتری با موفقیت ایجاد شد" if created else "این مشتری از قبل ثبت شده بود و به لیست شما اضافه شد",
                     status=201 if created else 200,
                 )
@@ -209,49 +197,33 @@ class VisitorView(APIView):
         Visitor row is shared platform-wide — see get_owned_visitor().
         """
         try:
-            visitor = await get_owned_visitor(visitor_id, request.user)
-            if not visitor:
+            try:
+                updated_visitor = await sync_to_async(services.visitor_update_by_owner)(
+                    request.user, visitor_id, request.data)
+            except services.VisitorEditForbidden:
                 # Distinguish "not yours to edit" from "does not exist", so the
                 # owner is not left guessing why their own list rejects an edit.
-                if await self._get_visitor_or_404(visitor_id, request.user):
-                    return APIResponse.error(
-                        message="این مراجع توسط شما ثبت نشده و اطلاعاتش بین همه کسب‌وکارها مشترک است؛ ویرایش آن مجاز نیست",
-                        code=403
-                    )
                 return APIResponse.error(
-                    message="مشتری یافت نشد",
-                    code=404
+                    message="این مراجع توسط شما ثبت نشده و اطلاعاتش بین همه کسب‌وکارها مشترک است؛ ویرایش آن مجاز نیست",
+                    code=403
+                )
+            except services.PhoneLocked:
+                return APIResponse.error(
+                    message="این مراجع از برنامهٔ مشتریان یا در کسب‌وکارهای دیگر استفاده می‌کند و شمارهٔ موبایل او قابل تغییر نیست؛ فقط نام قابل ویرایش است",
+                    code=403
+                )
+            except services.VisitorNotFound:
+                return APIResponse.error(message="مشتری یافت نشد", code=404)
+            except services.InvalidVisitorData as e:
+                return APIResponse.error(
+                    message="اطلاعات وارد شده معتبر نیست",
+                    code=400,
+                    data=e.errors
                 )
 
-            before = {'full_name': visitor.full_name, 'phone_number': visitor.phone_number}
-            serializer = VisitorSerializer(visitor, data=request.data, partial=True)
-
-            if await sync_to_async(serializer.is_valid)():
-                updated_visitor = await sync_to_async(serializer.save)()
-
-                changed = {
-                    field: {'from': old, 'to': getattr(updated_visitor, field)}
-                    for field, old in before.items()
-                    if getattr(updated_visitor, field) != old
-                }
-                if changed:
-                    await sync_to_async(record_activity)(
-                        updated_visitor,
-                        'PROFILE_UPDATED',
-                        actor_type=VisitorActivity.ACTOR_OWNER,
-                        actor_user=request.user,
-                        changed=changed,
-                    )
-
-                return APIResponse.success(
-                    data=VisitorSerializer(updated_visitor).data,
-                    message="مشتری با موفقیت بروزرسانی شد"
-                )
-
-            return APIResponse.error(
-                message="اطلاعات وارد شده معتبر نیست",
-                code=400,
-                data=serializer.errors
+            return APIResponse.success(
+                data=VisitorSerializer(updated_visitor).data,
+                message="مشتری با موفقیت بروزرسانی شد"
             )
 
         except ValidationError as e:
@@ -275,27 +247,16 @@ class VisitorView(APIView):
         of their own account permanently — see VisitorArchive's docstring.
         """
         try:
-            visitor = await self._get_visitor_or_404(visitor_id, request.user)
-            if not visitor:
+            try:
+                vid, visitor_name, created = await sync_to_async(services.visitor_archive)(
+                    request.user, visitor_id)
+            except services.VisitorNotFound:
                 return APIResponse.error(
                     message="مشتری یافت نشد",
                     code=404
                 )
-
-            visitor_name = visitor.full_name or visitor.phone_number or f"ID:{visitor.id}"
-
-            _, created = await sync_to_async(VisitorArchive.objects.get_or_create)(
-                owner=request.user, visitor=visitor
-            )
-
             if created:
-                await sync_to_async(record_activity)(
-                    visitor,
-                    'ARCHIVED_BY_OWNER',
-                    actor_type=VisitorActivity.ACTOR_OWNER,
-                    actor_user=request.user,
-                )
-                logger.info(f"Visitor {visitor_id} archived by user {request.user.id}")
+                logger.info(f"Visitor {vid} archived by user {request.user.id}")
 
             return APIResponse.success(
                 message=f"مشتری '{visitor_name}' از لیست شما بایگانی شد",
