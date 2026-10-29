@@ -4,6 +4,7 @@ Views only parse input and shape the response; the rules live here. All
 functions are synchronous — async views call them through sync_to_async.
 """
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from .activity import record_activity
 from .models import (
@@ -45,13 +46,23 @@ def has_independent_identity(visitor, owner):
     Phone number is how a client logs into the client app (OTP), so letting an
     owner re-number such a visitor would hand over the account. Signals, from
     strongest to weakest: a device token (they used the client app and enabled
-    push), any activity the visitor performed themselves (VisitorActivity with
+    push), a recorded client-app login (last_client_login_at), another owner's
+    contact row or activity, any activity the visitor performed themselves (VisitorActivity with
     actor VISITOR, written by client bookings/cancels), and any appointment at a
     business this owner does not own. Client logins themselves are stateless
     signed tokens and leave no row, so these are the best persisted evidence.
     """
     from appointment.models import Appointment
+    if visitor.last_client_login_at is not None:
+        return True
     if VisitorDeviceToken.objects.filter(visitor=visitor).exists():
+        return True
+    # Another owner already has this person in their book (their SMS go to this
+    # number) or has acted on them.
+    if VisitorContact.objects.filter(visitor=visitor).exclude(owner=owner).exists():
+        return True
+    if VisitorActivity.objects.filter(
+            visitor=visitor, actor_user__isnull=False).exclude(actor_user=owner).exists():
         return True
     if VisitorActivity.objects.filter(
             visitor=visitor, actor_type=VisitorActivity.ACTOR_VISITOR).exists():
@@ -80,7 +91,11 @@ def visitor_attach(owner, phone, full_name):
     if not created:
         already_readable = Visitor.readable_by(owner).filter(pk=visitor.pk).exists()
 
-    VisitorContact.objects.get_or_create(owner=owner, visitor=visitor)
+    contact, made = VisitorContact.objects.get_or_create(
+        owner=owner, visitor=visitor, defaults={'display_name': full_name})
+    if not made and contact.display_name != full_name and not already_readable:
+        contact.display_name = full_name
+        contact.save(update_fields=['display_name'])
     # Adding someone back undoes an earlier archive.
     VisitorArchive.objects.filter(owner=owner, visitor=visitor).delete()
 
@@ -106,6 +121,9 @@ def visitor_update_by_owner(owner, visitor_id, data):
             and has_independent_identity(visitor, owner):
         raise PhoneLocked()
 
+    phone_changed = new_phone is not None and new_phone != visitor.phone_number
+    if phone_changed:
+        serializer.validated_data['phone_changed_at'] = timezone.now()
     updated = serializer.save()
     changed = {
         field: {'from': old, 'to': getattr(updated, field)}
@@ -133,3 +151,40 @@ def visitor_archive(owner, visitor_id):
             actor_type=VisitorActivity.ACTOR_OWNER, actor_user=owner,
         )
     return visitor.id, name, created
+
+
+def display_names_for_owner(owner, visitors):
+    """{visitor_id: name} overrides for visitors the owner only knows as a contact.
+
+    When the owner's sole link is a VisitorContact (they did not create the
+    row and have no appointment at their business) the global ``full_name`` is
+    someone else's data; show the name this owner gave instead. Contacts
+    without a display_name (older rows) are left alone.
+    """
+    from appointment.models import Appointment
+    ids = [v.id for v in visitors if v.user_id != owner.id]
+    if not ids:
+        return {}
+    names = dict(VisitorContact.objects.filter(
+        owner=owner, visitor_id__in=ids, display_name__isnull=False,
+    ).values_list('visitor_id', 'display_name'))
+    if not names:
+        return {}
+    booked = set(Appointment.objects.filter(
+        visitor_id__in=list(names), business__user=owner,
+    ).values_list('visitor_id', flat=True))
+    return {vid: n for vid, n in names.items() if vid not in booked}
+
+
+def serialize_for_owner(owner, visitors, many=True):
+    """VisitorSerializer data with per-owner contact names applied."""
+    items = list(visitors) if many else [visitors]
+    overrides = display_names_for_owner(owner, items)
+    data = VisitorSerializer(items, many=True).data
+    out = []
+    for v, d in zip(items, data):
+        d = dict(d)
+        if v.id in overrides:
+            d['full_name'] = overrides[v.id]
+        out.append(d)
+    return out if many else out[0]

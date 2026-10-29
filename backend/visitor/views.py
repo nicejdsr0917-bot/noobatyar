@@ -85,9 +85,10 @@ class VisitorView(APIView):
                         message="مشتری یافت نشد",
                         code=404
                     )
-                serializer = VisitorSerializer(visitor)
+                data = await sync_to_async(services.serialize_for_owner)(
+                    request.user, visitor, many=False)
                 return APIResponse.success(
-                    data=serializer.data,
+                    data=data,
                     message="اطلاعات مشتری با موفقیت دریافت شد"
                 )
 
@@ -117,7 +118,7 @@ class VisitorView(APIView):
             def _paginate():
                 paginator = Paginator(visitors, page_size)
                 page_obj = paginator.get_page(page)
-                return paginator, page_obj, VisitorSerializer(list(page_obj.object_list), many=True).data
+                return paginator, page_obj, services.serialize_for_owner(user, page_obj.object_list)
 
             paginator, page_obj, serialized = await sync_to_async(_paginate)()
 
@@ -300,7 +301,8 @@ class VisitorRestoreView(APIView):
                 message = "این مشتری در بایگانی شما نبود"
 
             return APIResponse.success(
-                data=VisitorSerializer(visitor).data,
+                data=await sync_to_async(services.serialize_for_owner)(
+                    request.user, visitor, many=False),
                 message=message,
             )
 

@@ -18,6 +18,7 @@ from api.throttles import (
     OTPRateThrottle, OTPSendPhoneThrottle, client_ip, OTPVerifyPhoneThrottle, OTPVerifyThrottle,
 )
 
+from django.utils import timezone
 from .auth import sign_visitor_token
 from .models import Visitor
 from .serializers import VisitorSerializer
@@ -67,6 +68,7 @@ def client_verify_otp_view(request):
 
     visitor = Visitor.objects.filter(phone_number=phone).first()
     if visitor:
+        Visitor.objects.filter(pk=visitor.pk).update(last_client_login_at=timezone.now())
         return APIResponse.success(
             data={
                 'is_registered': True,
@@ -114,6 +116,7 @@ def client_register_view(request):
         defaults={'full_name': name},
     )
 
+    Visitor.objects.filter(pk=visitor.pk).update(last_client_login_at=timezone.now())
     return APIResponse.success(
         data={
             'visitor': VisitorSerializer(visitor).data,
