@@ -76,10 +76,10 @@ tags: [gf]
   - `core/prefs/SavedLocation`: آخرین موقعیت کاربر. `core/location/TravelEstimate.kt`: تخمین زمان رانندگی.
   - `feature/promo/` و `data/remoteDataSource/promo/`: نوار تبلیغ `ClientPromo`.
 - **نقشه:**
-  - `core/ui/components/map/VectorMap.kt` با MapLibre (`maplibre-compose` 0.14.0) کار می‌کند.
-  - استایل Map.ir با کلید `BuildKonfig.MAPIR_API_KEY`. بدون کلید از کاشی OSM استفاده می‌شود.
-  - `installMapAuth` برای اندروید و iOS. در اندروید `MapLibre.getInstance` باید **قبل** از `setOkHttpClient` صدا زده شود.
-  - صفحهٔ کاوش هنوز MapCompose است.
+  - همهٔ نقشه‌ها هنوز MapCompose هستند: کاشی HOT با `TileRecolor` در `core/ui/components/map/TileMap.kt`.
+  - نسخهٔ MapLibre و Map.ir ساخته شد و کار کرد (`1d91e0f`، `e5d8ffd`)، ولی کاربر آن را رد کرد و در `0bc39e3` برگشت خورد.
+  - فقط با کلید Map.ir و بعد از مقایسهٔ کنار هم روی دستگاه برگردد.
+  - در آن نسخه، `MapLibre.getInstance` باید **قبل** از `setOkHttpClient` صدا زده شود.
 - **نکته‌ها:**
   - overlay پین‌ها باید اندازهٔ کامل والد را بگیرد (مشکل RTL).
   - lifecycle 2.10.0 است.
