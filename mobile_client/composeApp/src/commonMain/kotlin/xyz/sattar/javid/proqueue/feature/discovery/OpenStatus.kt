@@ -63,3 +63,26 @@ fun Business.openStatus(now: LocalDateTime = tehranNow()): OpenStatus? {
     }
     return OpenStatus(OpenTone.CLOSED, "بسته", "")
 }
+
+/**
+ * «امروز ۱۰:۳۰» / «فردا ۰۹:۰۰» / «شنبه ۱۱:۰۰» for the earliest free slot, in the
+ * viewer's local time. Null when the business has no slot to offer.
+ */
+@OptIn(ExperimentalTime::class)
+fun formatFirstFreeSlot(
+    epochMillis: Long?,
+    nowMillis: Long = Clock.System.now().toEpochMilliseconds(),
+    zone: TimeZone = TimeZone.currentSystemDefault(),
+): String? {
+    if (epochMillis == null) return null
+    val slot = kotlin.time.Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(zone)
+    val now = kotlin.time.Instant.fromEpochMilliseconds(nowMillis).toLocalDateTime(zone)
+    val dayDiff = slot.date.toEpochDays() - now.date.toEpochDays()
+    if (dayDiff < 0) return null
+    val whenText = when (dayDiff) {
+        0L -> "امروز"
+        1L -> "فردا"
+        else -> WEEKDAY_NAMES[slot.dayOfWeek.ordinal]
+    }
+    return "$whenText ${formatClock(slot.hour, slot.minute)}"
+}
