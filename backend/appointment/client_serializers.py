@@ -155,6 +155,12 @@ class ClientAppointmentCreateSerializer(serializers.ModelSerializer):
         required=False,
     )
 
+    # Only WEB / APP can be claimed by a client; anything else is rejected.
+    source = serializers.ChoiceField(
+        choices=[Appointment.SOURCE_WEB, Appointment.SOURCE_APP],
+        write_only=True, required=False, default=Appointment.SOURCE_WEB,
+    )
+
     class Meta:
         model = Appointment
-        fields = ['business_id', 'appointment_date', 'service_duration', 'description', 'selected_services']
+        fields = ['business_id', 'appointment_date', 'service_duration', 'description', 'selected_services', 'source']

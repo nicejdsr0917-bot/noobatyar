@@ -82,7 +82,7 @@ def hourly_capacity_exceeded(business, appointment_date):
 
 def appointment_create_for_client(
     *, business, visitor, appointment_date, duration, description,
-    selected_services, requires_payment,
+    selected_services, requires_payment, source=Appointment.SOURCE_WEB,
 ):
     """
     Check quota + slot and create a self-booked appointment atomically.
@@ -127,6 +127,7 @@ def appointment_create_for_client(
             expires_at=lock_expiry(now) if requires_payment else None,
             # Which bucket paid, so a cancellation can refund that same one.
             quota_source=quota_source,
+            source=source,
         )
         return BookingResult(appointment=appointment)
 
@@ -165,6 +166,7 @@ def appointment_create_for_owner(
                 selected_services=selected_services,
                 status='WAITING',
                 user=user,
+                source=Appointment.SOURCE_OWNER,
             )
             appointment.full_clean()
             appointment.save()

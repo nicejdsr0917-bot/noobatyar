@@ -185,6 +185,23 @@ class Appointment(models.Model):
         verbose_name='زمان اعلان یادآوری مشتری',
     )
 
+    # Where the booking came from. Rows that predate the field are UNKNOWN;
+    # every creation path sets it explicitly.
+    SOURCE_WEB = 'WEB'
+    SOURCE_APP = 'APP'
+    SOURCE_OWNER = 'OWNER'
+    SOURCE_UNKNOWN = 'UNKNOWN'
+    SOURCE_CHOICES = [
+        (SOURCE_WEB, 'سایت'),
+        (SOURCE_APP, 'اپ نوبت‌یار'),
+        (SOURCE_OWNER, 'ثبت توسط مالک'),
+        (SOURCE_UNKNOWN, 'نامشخص'),
+    ]
+    source = models.CharField(
+        max_length=8, choices=SOURCE_CHOICES, default=SOURCE_UNKNOWN,
+        verbose_name='منبع نوبت',
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 

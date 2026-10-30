@@ -61,11 +61,18 @@ def business_stats(user, business_id: int, date_filter: dict) -> dict:
         unique_visitors=Count('visitor_id', distinct=True)
     )
 
+    source_counts = {code: 0 for code, _ in Appointment.SOURCE_CHOICES}
+    for row in (Appointment.objects.filter(
+        business_id=business_id, business__user=user, **date_filter,
+    ).values('source').annotate(n=Count('id'))):
+        source_counts[row['source']] = row['n']
+
     return {
         'total_appointments': stats['total'] or 0,
         'completed_appointments': stats['completed'] or 0,
         'no_show_appointments': stats['no_show'] or 0,
-        'total_visitors': stats['unique_visitors'] or 0
+        'total_visitors': stats['unique_visitors'] or 0,
+        'source_counts': source_counts,
     }
 
 
