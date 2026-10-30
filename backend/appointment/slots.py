@@ -88,3 +88,35 @@ def build_day_slots(business, date, busy, now):
             'status': 'PAST' if is_past else ('BOOKED' if is_booked else 'AVAILABLE'),
         })
     return slots
+
+
+# How far ahead the list card's «اولین نوبت خالی» looks.
+FIRST_FREE_DAYS = 7
+
+
+def first_free_window(now):
+    """``(start, end)`` of the appointments that can block a slot in the
+    :data:`FIRST_FREE_DAYS` window (with the overnight lookback)."""
+    start, _ = day_bounds(now.astimezone(LOCAL_TZ).date())
+    return start - timedelta(hours=LOOKBACK_HOURS), start + timedelta(days=FIRST_FREE_DAYS)
+
+
+def first_free_slot_ms(business, now, busy=None):
+    """Sync: epoch ms of the earliest bookable slot in the next
+    :data:`FIRST_FREE_DAYS` local days, or ``None``. Same grid and occupancy
+    rules as the available-slots endpoint, so the card never promises a slot
+    the booking screen would not offer.
+
+    ``busy`` — every blocking ``(start, end)`` in :func:`first_free_window`,
+    when the caller batch-loaded them; otherwise each day is queried."""
+    today = now.astimezone(LOCAL_TZ).date()
+    closed = set(business.closed_weekdays or [])
+    for offset in range(FIRST_FREE_DAYS):
+        date = today + timedelta(days=offset)
+        if date.weekday() in closed:
+            continue
+        day_busy = busy if busy is not None else busy_intervals(business, date)
+        for slot in build_day_slots(business, date, day_busy, now):
+            if slot['available']:
+                return slot['timestamp']
+    return None

@@ -17,6 +17,7 @@ from .models import Business, ContentReport, Insurance, OnlineBookingRequest
 from .selectors import (
     PublicSearchParams, _float_or_none, public_business_detail, public_business_search,
 )
+from .first_free import attach_first_free_slots
 from .serializers import PublicBusinessSerializer, InsuranceSerializer
 from api.responses import APIResponse
 
@@ -101,18 +102,17 @@ class ClientBusinessListView(APIView):
 
         def _fetch_and_serialize():
             key = public_cache.list_key(params, _origin(request)) if use_cache else None
-            if key is not None:
-                cached = public_cache.get(key)
-                if cached is not None:
-                    return cached
-            page = public_business_search(params)
-            results = PublicBusinessSerializer(
-                page.items, many=True, context={'request': request}
-            ).data
-            payload = page.as_payload(results)
-            if key is not None:
-                public_cache.put(key, payload, public_cache.LIST_TTL)
-            return payload
+            payload = public_cache.get(key) if key is not None else None
+            if payload is None:
+                page = public_business_search(params)
+                results = PublicBusinessSerializer(
+                    page.items, many=True, context={'request': request}
+                ).data
+                payload = page.as_payload(results)
+                if key is not None:
+                    public_cache.put(key, payload, public_cache.LIST_TTL)
+            # Fresher than the cached page, so added on top of it.
+            return {**payload, 'results': attach_first_free_slots(payload['results'])}
 
         # One sync hop for query + serialisation: nothing below touches the DB.
         data = await sync_to_async(_fetch_and_serialize)()
@@ -208,8 +208,11 @@ class ClientBusinessDetailView(APIView):
                 data['distance_km'] = round(haversine_km(lat, lng, pin_lat, pin_lng), 2)
             return data
 
+        def _load_with_first_free():
+            return attach_first_free_slots([_load_and_serialize()])[0]
+
         try:
-            data = await sync_to_async(_load_and_serialize)()
+            data = await sync_to_async(_load_with_first_free)()
         except Business.DoesNotExist:
             return APIResponse.error(
                 message="کسب و کار مورد نظر یافت نشد",

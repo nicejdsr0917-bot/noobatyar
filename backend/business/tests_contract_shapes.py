@@ -33,7 +33,11 @@ def jtype(v):
 
 
 def shape(d):
-    return {k: jtype(v) for k, v in d.items()}
+    out = {k: jtype(v) for k, v in d.items()}
+    # Legitimately either: epoch ms, or null when nothing is free / bookable.
+    if out.get('first_free_slot') == 'null':
+        out['first_free_slot'] = 'int'
+    return out
 
 
 ENVELOPE = {'status', 'code', 'message', 'data'}
@@ -83,6 +87,9 @@ PUBLIC_BUSINESS_SHAPE = {
     'allow_client_add_service': 'bool',
     'has_location': 'bool',
     'is_expired': 'bool',
+    # Added by the view on top of the (cached) serializer payload; epoch ms,
+    # or null when not bookable / nothing free. Fixtures here are bookable.
+    'first_free_slot': 'int',
 }
 
 CLIENT_BUSINESS_SHAPE = {

@@ -73,3 +73,10 @@ Plain JSON (not enveloped):
 Add `?format=html` for a ready fragment (all values escaped):
 `<ul class="nby-businesses"><li class="nby-business"><a href="..."><img ...><span class="nby-name">..</span><span class="nby-meta">category - city</span></a></li></ul>`
 Setting `SITE_PUBLIC_URL` (default `https://noobatyar.ir`) controls the link base.
+
+## 6. First free slot (client app list card)
+Public business **list rows and detail** (`/api/client/business(es)/`, `/<id>/`) gain
+`"first_free_slot": <epoch ms> | null` — the start of the earliest bookable slot in the next 7 local
+days, using the same grid/occupancy rules as `available-slots`. `null` when the business is not
+claimed, has booking off, or has nothing free. Added on top of the cached payload with its own 30 s
+cache per business, dropped whenever one of its appointments changes. Old clients ignore it.

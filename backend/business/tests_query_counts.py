@@ -76,9 +76,10 @@ class DirectoryFixtureMixin:
 
 # Upper bound of the constant per-request cost: COUNT, SELECT, insurances
 # prefetch, subscriptions, add-ons, monthly balances (+2 ledger fallbacks),
-# wallet balances (+2 ledger fallbacks), contact policy. Before the batching
-# this was 38 / 123 / 604 queries for page sizes 5 / 20 / 100.
-MAX_LIST_QUERIES = 14
+# wallet balances (+2 ledger fallbacks), contact policy, and the «اولین نوبت
+# خالی» batch (businesses + their appointments, business/first_free.py).
+# Before the batching this was 38 / 123 / 604 queries for page sizes 5 / 20 / 100.
+MAX_LIST_QUERIES = 16
 
 
 class PublicListQueryCountTests(DirectoryFixtureMixin, TestCase):
@@ -141,6 +142,8 @@ class PublicListQueryCountTests(DirectoryFixtureMixin, TestCase):
             b.distance_km = None
             legacy[b.id] = PublicBusinessSerializer(b, context={'request': None}).data
         for bid, row in batched.items():
+            # View-level field, not part of the serializer (business/first_free.py).
+            row = {k: v for k, v in row.items() if k != 'first_free_slot'}
             self.assertEqual(row, dict(legacy[bid]), bid)
         flags = {(r['is_expired'], r['booking_enabled']) for r in batched.values()}
         self.assertGreater(len(flags), 1)  # fixture really covers several states

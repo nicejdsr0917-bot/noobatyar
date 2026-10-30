@@ -46,6 +46,10 @@ def public_slots_key(business_id, date_value) -> str:
     return f"{_PUBLIC_PREFIX}:{business_id}:{_normalize_date(date_value)}"
 
 
+def first_free_slot_key(business_id) -> str:
+    return f"first_free:{business_id}"
+
+
 def invalidate_slots_cache(business_id, date_value) -> None:
     """
     Drop both cached slot representations for one business on one date.
@@ -59,4 +63,6 @@ def invalidate_slots_cache(business_id, date_value) -> None:
     cache.delete_many([
         available_slots_key(business_id, date_value),
         public_slots_key(business_id, date_value),
+        # Any occupancy change can move the business's earliest free slot.
+        first_free_slot_key(business_id),
     ])

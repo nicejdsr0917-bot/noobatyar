@@ -6,6 +6,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 
+from appointment.cache_utils import first_free_slot_key
 from appointment.models import Appointment
 from business import cache as public_cache
 from business.tests_query_counts import DirectoryFixtureMixin
@@ -22,8 +23,13 @@ class HotEndpointQueryTests(DirectoryFixtureMixin, TestCase):
         self.client.get(LIST)           # warm contact policy / entitlement singletons
         cache.clear()
 
-    def cold_then_warm(self, url, params=None, cold=None):
+    def go_cold(self):
         public_cache.bump_all()
+        # The «اولین نوبت خالی» values have their own short cache.
+        cache.delete_many([first_free_slot_key(b.id) for b in self.bizs])
+
+    def cold_then_warm(self, url, params=None, cold=None):
+        self.go_cold()
         with self.assertNumQueries(cold):
             self.assertEqual(self.client.get(url, params or {}).status_code, 200)
         with self.assertNumQueries(0):
@@ -35,7 +41,7 @@ class HotEndpointQueryTests(DirectoryFixtureMixin, TestCase):
     def _measure(self, url, params):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
-        public_cache.bump_all()
+        self.go_cold()
         with CaptureQueriesContext(connection) as ctx:
             self.client.get(url, params)
         n = len(ctx)
@@ -45,8 +51,10 @@ class HotEndpointQueryTests(DirectoryFixtureMixin, TestCase):
     def test_list_cold_cost_is_independent_of_page_size(self):
         a = self._measure(LIST, {'page_size': 2})
         b = self._measure(LIST, {'page_size': 20})
-        self.assertEqual(a, b)
-        self.assertLessEqual(b, 12)
+        # Equal, except the «اولین نوبت خالی» batch (+2) runs only when the
+        # page holds a bookable business; never more as the page grows.
+        self.assertIn(b - a, (0, 2))
+        self.assertLessEqual(b, 14)
 
     def test_detail_cold_and_warm(self):
         url = f'{LIST}{self.biz.id}/'
