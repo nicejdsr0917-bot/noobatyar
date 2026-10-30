@@ -1,7 +1,7 @@
 # appointments/views.py
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional, Dict, Any, Tuple
 
 from adrf.views import APIView
@@ -27,8 +27,9 @@ from appointment.services.transitions import (
     appointment_change_status_by_owner,
     appointment_update_details_and_status_for_owner,
 )
-from api.responses import APIResponse
-from api.views import _extract_error
+from common.responses import APIResponse
+from common.timeutils import epoch_ms_to_utc
+from common.errors import extract_error as _extract_error
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 def _parse_timestamp(value) -> datetime:
     """Parse Unix epoch milliseconds to timezone-aware UTC datetime."""
     try:
-        return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
+        return epoch_ms_to_utc(value)
     except (ValueError, TypeError, OSError) as e:
         raise ValueError(f"Invalid timestamp: {value}") from e
 

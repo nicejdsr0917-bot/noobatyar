@@ -50,55 +50,31 @@ is left out of `services` rather than returned at 0 — nothing for the donut
 to draw.
 """
 
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import timedelta
 
 from asgiref.sync import sync_to_async
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from adrf.views import APIView
 
-from appointment.models import Appointment
-from business.models import Business
-from api.responses import APIResponse
+from appointment import selectors_stats
+from common.params import business_id_param
+from common.responses import APIResponse
+from common.timeutils import utc_date_tehran_midnight
 
 
-def _split_selected_services(raw: str) -> list:
-    """Parse a stored Appointment.selected_services value into ordered,
-    de-duplicated names.
-
-    Deliberately not business.serializers.normalize_service_names: that
-    function *validates* (raises on a >100-char name or a non-string/list
-    input) because it runs on fresh client input before it is stored. This
-    runs on data already in the database — AppointmentView.post
-    (appointment/views/views.py) writes selected_services straight from
-    request.data without ever calling normalize_service_names, so a raising
-    parser here would let one odd historical row 500 the whole dashboard
-    instead of just quietly landing in no_service_count/removed_service_count.
-    """
-    if not raw:
-        return []
-    names = []
-    for part in raw.split(','):
-        name = part.strip()
-        if name and name not in names:
-            names.append(name)
-    return names
+_split_selected_services = selectors_stats.split_selected_services  # kept: old name
 
 
 class ServiceBreakdownView(APIView):
     permission_classes = [IsAuthenticated]
 
     async def get(self, request: Request) -> Response:
-        business_id = request.query_params.get('business_id')
-        if not business_id:
-            return APIResponse.error('پارامتر business_id الزامی است', code=status.HTTP_400_BAD_REQUEST)
-        try:
-            business_id = int(business_id)
-        except ValueError:
-            return APIResponse.error('business_id باید عدد باشد', code=status.HTTP_400_BAD_REQUEST)
+        business_id, error = business_id_param(request)
+        if error:
+            return error
 
         date_from = request.query_params.get('date_from')
         date_to = request.query_params.get('date_to')
@@ -108,19 +84,13 @@ class ServiceBreakdownView(APIView):
         date_filter = {}
         if date_from:
             try:
-                timestamp_ms = int(date_from)
-                date_from_obj = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-                date_from_start = timezone.make_aware(datetime.combine(date_from_obj.date(), datetime.min.time()))
-                date_filter['appointment_date__gte'] = date_from_start
+                date_filter['appointment_date__gte'] = utc_date_tehran_midnight(date_from)
             except (ValueError, OSError):
                 return APIResponse.error('تاریخ شروع (date_from) باید یک Unix timestamp معتبر به میلی‌ثانیه باشد', code=status.HTTP_400_BAD_REQUEST)
 
         if date_to:
             try:
-                timestamp_ms = int(date_to)
-                date_to_obj = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-                date_to_end = timezone.make_aware(datetime.combine(date_to_obj.date(), datetime.min.time())) + timedelta(days=1)
-                date_filter['appointment_date__lt'] = date_to_end
+                date_filter['appointment_date__lt'] = utc_date_tehran_midnight(date_to) + timedelta(days=1)
             except (ValueError, OSError):
                 return APIResponse.error('تاریخ پایان (date_to) باید یک Unix timestamp معتبر به میلی‌ثانیه باشد', code=status.HTTP_400_BAD_REQUEST)
 
@@ -129,46 +99,4 @@ class ServiceBreakdownView(APIView):
 
     @sync_to_async
     def _breakdown(self, user, business_id: int, date_filter: dict) -> dict:
-        # Scoped to business__user=user, same as daily_counts_view.py — a
-        # business_id the caller does not own resolves to an all-zero
-        # response rather than a 403/404, so this endpoint gives no signal
-        # about whether the id exists at all.
-        appointments = Appointment.objects.filter(
-            business_id=business_id, business__user=user, **date_filter
-        ).values_list('selected_services', flat=True)
-
-        catalog = set(
-            Business.objects.filter(id=business_id, user=user)
-            .values_list('services', flat=True)
-            .first() or []
-        )
-
-        counts: dict[str, int] = {}
-        no_service_count = 0
-        removed_service_count = 0
-        total = 0
-
-        for raw in appointments:
-            total += 1
-            names = _split_selected_services(raw)
-            if not names:
-                no_service_count += 1
-                continue
-            primary = names[0]
-            if primary in catalog:
-                counts[primary] = counts.get(primary, 0) + 1
-            else:
-                removed_service_count += 1
-
-        services = [
-            {'name': name, 'count': count}
-            for name, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-        ]
-
-        return {
-            'business_id': business_id,
-            'total_appointments': total,
-            'services': services,
-            'no_service_count': no_service_count,
-            'removed_service_count': removed_service_count,
-        }
+        return selectors_stats.service_breakdown(user, business_id, date_filter)

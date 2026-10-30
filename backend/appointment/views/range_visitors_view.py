@@ -48,20 +48,19 @@ The app caps its picker too. This is the second layer: the owner panel also
 runs in a browser, where the query string is whatever the caller types.
 """
 
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import timedelta
 
 from asgiref.sync import sync_to_async
-from django.core.paginator import Paginator
-from django.db.models import Count, Max
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from adrf.views import APIView
 
-from appointment.models import Appointment
-from api.responses import APIResponse
+from appointment import selectors_stats
+from common.params import business_id_param, positive_int
+from common.responses import APIResponse
+from common.timeutils import local_date_midnight
 
 MAX_RANGE_DAYS = 31
 MAX_PAGE_SIZE = 100
@@ -80,31 +79,16 @@ def _parse_ms(value: str):
     customer list never included the last day asked for (with the default
     windows, that was always today).
     """
-    timestamp_ms = int(value)
-    instant = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-    day = timezone.localtime(instant).date()
-    return timezone.make_aware(datetime.combine(day, datetime.min.time()))
-
-
-def _positive_int(value, default: int) -> int:
-    try:
-        parsed = int(value)
-        return parsed if parsed > 0 else default
-    except (TypeError, ValueError):
-        return default
+    return local_date_midnight(value)
 
 
 class RangeVisitorsView(APIView):
     permission_classes = [IsAuthenticated]
 
     async def get(self, request: Request) -> Response:
-        business_id = request.query_params.get('business_id')
-        if not business_id:
-            return APIResponse.error('پارامتر business_id الزامی است', code=status.HTTP_400_BAD_REQUEST)
-        try:
-            business_id = int(business_id)
-        except ValueError:
-            return APIResponse.error('business_id باید عدد باشد', code=status.HTTP_400_BAD_REQUEST)
+        business_id, error = business_id_param(request)
+        if error:
+            return error
 
         raw_from = request.query_params.get('date_from')
         raw_to = request.query_params.get('date_to')
@@ -137,8 +121,8 @@ class RangeVisitorsView(APIView):
             start = earliest_allowed
             clamped = True
 
-        page = _positive_int(request.query_params.get('page'), default=1)
-        page_size = min(_positive_int(request.query_params.get('page_size'), default=20), MAX_PAGE_SIZE)
+        page = positive_int(request.query_params.get('page'), default=1)
+        page_size = min(positive_int(request.query_params.get('page_size'), default=20), MAX_PAGE_SIZE)
         ordering = ORDERINGS.get(request.query_params.get('ordering'), ORDERINGS['visits'])
 
         data = await self._range_visitors(
@@ -152,47 +136,4 @@ class RangeVisitorsView(APIView):
     @sync_to_async
     def _range_visitors(self, user, business_id: int, start, end_day, page: int, page_size: int,
                         ordering: tuple) -> dict:
-        # Scoped to business__user=user, same as daily_counts_view.py and
-        # service_breakdown_view.py — a business_id the caller does not own
-        # comes back empty rather than 403/404, so the endpoint leaks nothing
-        # about whether that id exists.
-        rows = (
-            Appointment.objects
-            .filter(
-                business_id=business_id,
-                business__user=user,
-                appointment_date__gte=start,
-                appointment_date__lt=end_day + timedelta(days=1),
-            )
-            .values('visitor_id', 'visitor__full_name', 'visitor__phone_number')
-            .annotate(appointment_count=Count('id'), last_visit=Max('appointment_date'))
-            # visitor_id last so rows that tie on both keys still page
-            # deterministically — without it the same person can show up on
-            # two pages, or on none.
-            .order_by(*ordering, 'visitor_id')
-        )
-
-        # Paginator over the queryset, not a materialised list: the grouping
-        # runs in the database and only one page is fetched, unlike
-        # visitor/views.py's list endpoint which pulls every row into Python
-        # before slicing.
-        paginator = Paginator(rows, page_size)
-        page_obj = paginator.get_page(page)
-
-        return {
-            'count': paginator.count,
-            'total_pages': paginator.num_pages,
-            'current_page': page_obj.number,
-            'next': page_obj.next_page_number() if page_obj.has_next() else None,
-            'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
-            'results': [
-                {
-                    'visitor_id': row['visitor_id'],
-                    'full_name': row['visitor__full_name'],
-                    'phone_number': row['visitor__phone_number'],
-                    'appointment_count': row['appointment_count'],
-                    'last_visit': int(row['last_visit'].timestamp() * 1000) if row['last_visit'] else None,
-                }
-                for row in page_obj.object_list
-            ],
-        }
+        return selectors_stats.range_visitors(user, business_id, start, end_day, page, page_size, ordering)

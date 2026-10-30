@@ -1,5 +1,6 @@
 # api/views.py
-from .responses import APIResponse
+from common.errors import extract_error
+from common.responses import APIResponse
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from .throttles import (
@@ -79,14 +80,7 @@ def get_tokens(user):
     }
 
 
-def _extract_error(errors: dict) -> str:
-    """اولین پیام خطا رو از serializer errors بیرون میکشه"""
-    for field, messages in errors.items():
-        if isinstance(messages, list) and messages:
-            return f"{messages[0]}"
-        if isinstance(messages, str):
-            return messages
-    return 'اطلاعات نامعتبر'
+_extract_error = extract_error  # kept for old importers (remove in R15)
 
 
 @api_view(['POST'])

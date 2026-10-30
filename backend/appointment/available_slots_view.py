@@ -3,13 +3,11 @@ from asgiref.sync import sync_to_async
 from django.core.cache import cache
 from rest_framework.permissions import AllowAny
 from rest_framework.throttling import ScopedRateThrottle
-from api.responses import APIResponse
+from common.responses import APIResponse
 from business.models import Business
-from .models import Appointment
 from .cache_utils import available_slots_key, SLOT_CACHE_TTL
-from .occupancy import blocking_q
-from .working_hours import LOCAL_TZ, working_window
-from datetime import datetime, timedelta, timezone
+from .slots import build_day_slots, busy_intervals
+from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -70,55 +68,14 @@ class AvailableSlotsView(APIView):
             await sync_to_async(cache.set)(cache_key, data, SLOT_CACHE_TTL)
             return APIResponse.success(data=data, message="این روز تعطیل است")
 
-        # Build all slots for the day based on work hours and default_service_duration.
+        # Slot grid, busy intervals and per-slot status live in appointment/slots.py.
         # Working hours are wall-clock times in the business's own timezone (see
         # working_hours.py): building them as UTC shifted every slot by the UTC
         # offset, offering slots outside working hours and judging `is_past`
         # against the wrong wall clock.
         duration = business.default_service_duration  # minutes
-        all_slots = []
-        current, day_end = working_window(business, target_date)
-
-        while current + timedelta(minutes=duration) <= day_end:
-            all_slots.append(current)
-            current += timedelta(minutes=duration)
-
-        # Get booked slots for this business on this local calendar day
-        day_start = datetime(target_date.year, target_date.month, target_date.day, 0, 0, tzinfo=LOCAL_TZ)
-        day_end_of_day = day_start + timedelta(days=1)
-
-        # Any blocking appointment that overlaps a slot marks it booked, not
-        # just one that starts exactly at the slot's start (owner bookings and
-        # longer services can start off-grid or span several slots). The scan
-        # reaches back 8h (max service length) to catch ones starting earlier.
-        busy = []
-        default_duration = business.default_service_duration
-        async for appt in Appointment.objects.filter(
-            blocking_q(),
-            business=business,
-            appointment_date__gt=day_start - timedelta(hours=8),
-            appointment_date__lt=day_end_of_day,
-        ):
-            appt_end = appt.appointment_date + timedelta(
-                minutes=appt.service_duration or default_duration
-            )
-            busy.append((appt.appointment_date, appt_end))
-
-        # Build response
-        now = datetime.now(tz=timezone.utc)
-        slots = []
-        for slot in all_slots:
-            slot_ts = int(slot.timestamp() * 1000)
-            slot_end = slot + timedelta(minutes=duration)
-            is_booked = any(b_start < slot_end and slot < b_end for b_start, b_end in busy)
-            is_past = slot < now
-
-            slots.append({
-                'time': slot.strftime('%H:%M'),
-                'timestamp': slot_ts,
-                'available': not is_booked and not is_past,
-                'status': 'PAST' if is_past else ('BOOKED' if is_booked else 'AVAILABLE'),
-            })
+        busy = await sync_to_async(busy_intervals)(business, target_date)
+        slots = build_day_slots(business, target_date, busy, datetime.now(tz=timezone.utc))
 
         data = {
             'business_id': business_id,

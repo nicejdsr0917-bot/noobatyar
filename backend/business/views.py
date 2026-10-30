@@ -3,7 +3,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
 from django.utils import timezone
 import logging
 
@@ -16,7 +15,9 @@ from .serializers import (
     ServiceCatalogItemSerializer,
     normalize_service_names,
 )
-from api.responses import APIResponse
+from common.pagination import page_dict
+from common.params import page_params
+from common.responses import APIResponse
 from accounting import entitlements
 from accounting.permissions import validate_business_settings
 
@@ -62,9 +63,9 @@ class BusinessView(APIView):
             )
 
         # List all businesses with pagination
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 10))
-        page_size = min(page_size, 100)  # حداکثر 100 آیتم در هر صفحه
+        page, page_size, error = page_params(request)  # page_size capped at 100
+        if error:
+            return error
 
         def _list_page():
             # Paginate in the database: COUNT + one LIMIT/OFFSET page, with the
@@ -74,23 +75,16 @@ class BusinessView(APIView):
                 .prefetch_related('insurances')
                 .order_by('-created_at', '-id')
             )
-            paginator = Paginator(qs, page_size)
-            page_obj = paginator.get_page(page)
-            results = BusinessSerializer(list(page_obj.object_list), many=True).data
-            return paginator, page_obj, results
+            return page_dict(
+                qs, page, page_size,
+                lambda objs: BusinessSerializer(list(objs), many=True).data,
+            )
 
-        paginator, page_obj, results = await sync_to_async(_list_page)()
-        logger.info(f"Retrieved page {page_obj.number} ({paginator.count} total) of businesses for user {user.id}")
+        data = await sync_to_async(_list_page)()
+        logger.info(f"Retrieved page {data['current_page']} ({data['count']} total) of businesses for user {user.id}")
 
         return APIResponse.success(
-            data={
-                'count': paginator.count,
-                'total_pages': paginator.num_pages,
-                'current_page': page_obj.number,
-                'next': page_obj.next_page_number() if page_obj.has_next() else None,
-                'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
-                'results': results
-            },
+            data=data,
             message="لیست کسب و کارها با موفقیت دریافت شد"
         )
 

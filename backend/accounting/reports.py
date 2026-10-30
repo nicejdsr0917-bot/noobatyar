@@ -31,7 +31,7 @@ there: one grouped scan with ``TruncDate`` + conditional aggregation, explicit
 Tehran ``tzinfo``, never a query per day or per row.
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncDate
@@ -42,7 +42,8 @@ from accounting.management.commands.run_subscription_lifecycle import (
 )
 from accounting.models import AddOnPack, AddOnPurchase, Subscription, Transaction
 from api import jalali
-from core.dashboard.metrics import ADDON_KINDS, project_tz
+from accounting.addon_kinds import ADDON_KINDS
+from common.timeutils import local_midnight, project_tz  # noqa: F401 -- re-exported
 
 DEFAULT_RANGE_DAYS = 30
 
@@ -149,13 +150,6 @@ def parse_jalali_date(value: str) -> date:
 def format_jalali_date(day: date) -> str:
     jy, jm, jd = jalali.to_jalali(day.year, day.month, day.day)
     return f'{jy}/{jm:02d}/{jd:02d}'
-
-
-def local_midnight(day: date, tz=None) -> datetime:
-    """Same construction as ``metrics.local_day_start``: ``combine(...,
-    tzinfo=tz)`` rather than ``.replace(hour=0)``, so the wall-clock midnight
-    is correct even where the zone's offset differs from another instant's."""
-    return datetime.combine(day, time.min, tzinfo=tz or project_tz())
 
 
 def parse_range(date_from: str, date_to: str, now=None):
