@@ -1,0 +1,39 @@
+---
+updated: 2026-10-30
+tags: [gf]
+---
+# backend: business
+
+**هدف:** پروفایل کسب‌وکار (ساعت کاری، روزهای تعطیل، خدمات، بیعانه، روش پرداخت، موقعیت)، moderation محتوا، پیامک تبلیغاتی، API عمومی برای وب/اپ مشتری.
+
+## فایل‌ها
+- `backend/business/models.py` — `Business`، `ServiceCatalogItem`، `PromoCampaign`(+`Recipient`)، `BannedKeyword`، `BusinessModerationLog`، `ContentReport`
+- `backend/business/serializers.py` — `BusinessSerializer` (owner)، serializer عمومی؛ `apply_contact_rules` (پنهان کردن تماس/آدرس با `allow_anonymous_view` و `ContactVisibilityPolicy`)، `apply_notice_rules`
+- `backend/business/client_urls.py` — `api/client/business/` (لیست/جستجو با `?search=<unique_code>`)، `<id>/`، `<id>/report/`
+- `backend/business/urls.py` — owner: `api/business/`، `sms-logs`، `push-logs`، `promo-sms/[preview|<cid>]`، `service-catalog/`، `categories/`
+- `backend/business/promo_sms.py`، `sms_moderation.py`، `theme_color.py`
+
+## فیلدهای مهم Business
+`services` (لیست رشته، حداکثر ۶۰)، `closed_weekdays` (Mon=0..Sun=6)، `work_start/end_hour/minute`، `deposit_mode`/`deposit_amount`، `accepted_payment_methods`، `latitude/longitude`، `notice_enabled/notice_message`، `booking_enabled`، `theme_color`.
+
+## شهر (روی برنچ `mobile-client`)
+- `Business.city_code` (شناسهٔ شهر در دیوار، migration `0030`)؛ `business/iran_cities.py` لیست را از `business/data/iran_cities.json` می‌خواند (`get_city`، `city_filter`).
+- serializer اونر `city_code` می‌گیرد و `city`/`province` را از لیست پر می‌کند (مقدار ارسالی اپ نادیده گرفته می‌شود)؛ کد ناشناخته ۴۰۰.
+- `api/client/businesses/?city_code=` → کسب‌وکارهای آن شهر + کسب‌وکارهای بدون `city_code` که پینشان داخل شعاع مرکز شهر است. تست‌ها: `business/tests_city_code.py`.
+
+## وابستگی‌ها
+[[modules/backend-accounting]] (اشتراک برای `is_expired`)، [[modules/backend-visitor]] (لاگ پیامک)، [[modules/backend-appointment]].
+
+## نکته‌ها
+- ⚠ API عمومی لیست کسب‌وکار بدون ورود `card_number` و `card_owner_name` را برمی‌گرداند (۱۳ از ۳۵ کسب‌وکار prod، ۲۰۲۶-۱۰-۲۸) — باید فقط بعد از رزرو در checkout داده شود.
+- روی برنچ `mobile-client`: فیلدهای کشف (`province/city/neighborhood`، `is_claimed`، `insurances`)، claim و `OnlineBookingRequest` — [[modules/mobile-client]].
+
+## روی برنچ mobile-client (۲۰۲۶-۱۰-۲۹، هنوز در develop نیست)
+- `business/models/` پکیج شد (core، moderation، catalog، booking، promo) با re-export کامل؛ schema بدون تغییر.
+- لیست/جزئیات عمومی: `business/selectors.py` (`public_businesses`، `attach_owner_state`) → تعداد کوئری ثابت (صفحهٔ ۱۰۰تایی ۱۰ کوئری). geo در SQL. migration `0031` (فقط Postgres، CONCURRENTLY): ایندکس trigram روی `UPPER(col)` چون Django `icontains` را `UPPER(col) LIKE` می‌سازد.
+- `card_number`/`card_owner_name` از `PublicBusinessSerializer` و `ClientBusinessSerializer` حذف؛ فقط روی نوبت LOCKED خود مشتری (`ClientAppointmentSerializer`).
+- اکشن‌های گروهی ادمین از طریق `business/services.py`.
+
+## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
+- `business/cache.py` و `signals.py`: کش Redis برای لیست (۶۰ ثانیه) و جزئیات عمومی (۳۰۰ ثانیه)، فقط برای درخواست بدون `Authorization`، با version stamp. کلید شامل origin است. خاموش کردن: `PUBLIC_DIRECTORY_CACHE_ENABLED=False`.
+- `public_policy.py`، `geo.py`، `selectors.public_business_search`، `categories.py` (`Business.CATEGORY_GROUPS` به‌صورت alias). `admin/` حالا یک بسته است.
