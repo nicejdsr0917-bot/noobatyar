@@ -10,15 +10,47 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
-## Unreleased — mobile_client (اپ مشتری)
+## v1.10.0 — منتشر نشده (اپ اونر)
 
 <!-- fa:start -->
 تغییرات این نسخه:
-- اپ مشتری نوبت‌یار: جستجوی نزدیک‌ترین پزشک، دندان‌پزشک، سالن زیبایی و مشاور با موقعیت واقعی گوشی.
-- فیلتر بیمه تکمیلی، دسته‌بندی‌ها، مرتب‌سازی بر اساس فاصله و نشان کردن مراکز.
-- مراکز دارای نوبت آنلاین با نشان ویژه و بخش «منتخب نوبت‌یار» نمایش داده می‌شوند.
-- صاحبان کسب‌وکار می‌توانند مالکیت مرکزی را که از قبل در فهرست است ثبت کنند.
+- نمونه‌کار و مدارک: عکس کارها (۱۰۸۰×۱۰۸۰) و مدارک (۱۰۸۰×۱۳۵۰) را آپلود کنید؛ بعد از تأیید در صفحه‌ی عمومی‌تان نمایش داده می‌شوند.
+- نظرات مشتری‌ها: صفحه‌ی نظرات و اعلان برای هر نظر جدید.
+- روی هر نوبت می‌بینید از کجا آمده: اپ نوبت‌یار، سایت یا ثبت توسط خودتان.
+- کارت «مشتری‌هایی که نوبت‌یار آورد» در صفحه‌ی اصلی: تعداد نوبت‌های این ماه از اپ و سایت.
+- بنرهای صفحه‌ی اصلی بر اساس دسته‌ی کسب‌وکار.
+- لوگو هنگام ساخت کسب‌وکار اجباری شد.
+- رفع خطای صفحه‌ی اصلی پنل وب و چند مشکل همگام‌سازی نوبت‌ها.
 <!-- fa:end -->
+
+### mobile_owner
+- Showcase: portfolio and certificate upload with crop + compression, pending/approved state; reviews page (read-only) and `NEW_REVIEW` push (Android opens the reviews page).
+- Appointment source badge (`AppointmentSource`); home `SourceSummaryCard` from `appointment/stats/` `source_counts` over the current month (`GetSourceSummaryUseCase`).
+- Rotating home banners per business category; logo required on the first create-business step.
+- Fixes: wasm home crash on Asia/Tehran, visitor messages keyed by (visitor, business), logout/sync cache leaks, server day window mirrored.
+
+### backend (ships with this release)
+- P2 apps: `showcase`, `reviews`, `banners`, `marketing`; `Appointment.source`; `Business.rank_score` + nightly `compute_rank_scores`; `first_free_slot`; site services under `api/public/site/`.
+- `AppVersion.app` (OWNER/CLIENT): set `force_update` on the OWNER row for this version in admin when releasing.
+
+## client-v1.0.0 — منتشر نشده (اپ مشتری)
+
+<!-- fa:start -->
+اولین نسخه‌ی اپ مشتری نوبت‌یار:
+- پیدا کردن نزدیک‌ترین پزشک، دندان‌پزشک، سالن زیبایی و مشاور روی نقشه، با فیلتر بیمه و دسته‌بندی.
+- رزرو نوبت داخل خود اپ: انتخاب خدمت، روز و ساعت، و پرداخت بیعانه.
+- تب «نوبت‌های من»: پیگیری، لغو و ثبت واریز کارت به کارت یا پرداخت حضوری.
+- «اولین نوبت خالی» روی کارت هر مرکز.
+- صفحه‌ی هر مرکز: نمونه‌کار، مدارک، نظرات، ساعات کاری، بیعانه و روش‌های پرداخت.
+- ثبت نظر و امتیاز، و گزارش نظر یا مرکز نامناسب.
+<!-- fa:end -->
+
+### mobile_client (P2)
+- Native booking (`source=APP`), my-appointments tab with card/cash payment submission, first free slot on list cards.
+- Business page: portfolio/certificates gallery with display-time watermark, reviews (write/report), deposit and payment-method section (`PaymentInfo`); booking confirm step now shows a MANDATORY deposit (was checking a non-existent `REQUIRED` value).
+- Separate release train: `client-vX.Y.Z` tags (`android-release-client.yml`); `force_update` on the CLIENT `AppVersion` row.
+
+### mobile_client (discovery, earlier)
 
 ### backend
 - Claim flow for imported listings: `GET business/claimable/`, `POST business/<id>/claim/` (OTP to the listing's mobile, else manual review), `POST business/<id>/claim/verify/`; `BusinessClaimRequest` model + admin approve/reject actions (`business/claims.py`).
