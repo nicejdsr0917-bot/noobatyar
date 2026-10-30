@@ -62,16 +62,16 @@ def rank_score(i: RankInputs) -> float:
 
 
 def _portfolio_counts():
-    """{business_id: count} from the portfolio app when installed, else None."""
+    """{business_id: approved portfolio item count}; None if showcase is absent."""
     from django.apps import apps
-    if not apps.is_installed('portfolio'):
+    from django.db.models import Count
+    if not apps.is_installed('showcase'):
         return None
     try:
-        for model in apps.get_app_config('portfolio').get_models():
-            if any(f.name == 'business' for f in model._meta.get_fields()):
-                from django.db.models import Count
-                return dict(model.objects.values_list('business_id')
-                            .annotate(n=Count('id')).values_list('business_id', 'n'))
+        from showcase.models import ModerationStatus, PortfolioItem
+        rows = (PortfolioItem.objects.filter(status=ModerationStatus.APPROVED)
+                .values('business_id').annotate(n=Count('id')))
+        return {r['business_id']: r['n'] for r in rows}
     except Exception:  # never let an optional app break the nightly job
         return None
     return None
