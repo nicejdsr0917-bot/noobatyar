@@ -11,6 +11,7 @@ from api.throttles import client_ip
 from visitor.auth import VisitorTokenAuthentication
 from visitor.models import Visitor
 
+from . import cache as public_cache
 from .geo import MAX_RADIUS_KM, haversine_km  # noqa: F401  (re-exported for older imports)
 from .models import Business, ContentReport, Insurance, OnlineBookingRequest
 from .selectors import (
@@ -89,13 +90,24 @@ class ClientBusinessListView(APIView):
 
     async def get(self, request):
         params = PublicSearchParams.from_query(request.query_params)
+        # A position makes every response unique: only position-less anonymous
+        # requests share cache entries (business/cache.py).
+        use_cache = public_cache.is_cacheable_request(request) and params.lat is None
 
         def _fetch_and_serialize():
+            key = public_cache.list_key(params) if use_cache else None
+            if key is not None:
+                cached = public_cache.get(key)
+                if cached is not None:
+                    return cached
             page = public_business_search(params)
             results = PublicBusinessSerializer(
                 page.items, many=True, context={'request': request}
             ).data
-            return page.as_payload(results)
+            payload = page.as_payload(results)
+            if key is not None:
+                public_cache.put(key, payload, public_cache.LIST_TTL)
+            return payload
 
         # One sync hop for query + serialisation: nothing below touches the DB.
         data = await sync_to_async(_fetch_and_serialize)()
@@ -169,9 +181,27 @@ class ClientBusinessDetailView(APIView):
         lat = _float_or_none(request.query_params.get('lat'))
         lng = _float_or_none(request.query_params.get('lng'))
 
+        use_cache = public_cache.is_cacheable_request(request)
+
         def _load_and_serialize():
-            business = public_business_detail(business_id, lat=lat, lng=lng)
-            return PublicBusinessSerializer(business, context={'request': request}).data
+            if not use_cache:
+                business = public_business_detail(business_id, lat=lat, lng=lng)
+                return PublicBusinessSerializer(business, context={'request': request}).data
+            # Cached without the viewer's distance; it is added per request.
+            key = public_cache.detail_key(business_id)
+            entry = public_cache.get(key)
+            if entry is None:
+                business = public_business_detail(business_id)
+                entry = {
+                    'data': dict(PublicBusinessSerializer(business, context={'request': request}).data),
+                    'pin': (business.latitude, business.longitude),
+                }
+                public_cache.put(key, entry, public_cache.DETAIL_TTL)
+            data = dict(entry['data'])
+            pin_lat, pin_lng = entry['pin']
+            if lat is not None and lng is not None and pin_lat is not None and pin_lng is not None:
+                data['distance_km'] = round(haversine_km(lat, lng, pin_lat, pin_lng), 2)
+            return data
 
         try:
             data = await sync_to_async(_load_and_serialize)()
