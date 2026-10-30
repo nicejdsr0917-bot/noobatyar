@@ -15,6 +15,8 @@ import xyz.sattar.javid.proqueue.domain.model.visitor.Visitor
 import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.FixedOffsetTimeZone
+import kotlinx.datetime.UtcOffset
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
@@ -380,7 +382,13 @@ class AppointmentRepositoryImpl(
     }
 
     companion object {
-        private val SERVER_ZONE = TimeZone.of("Asia/Tehran")
+        /**
+         * Asia/Tehran as a fixed UTC+3:30 (Iran dropped DST in 2022). Not
+         * `TimeZone.of("Asia/Tehran")`: on wasm that needs the js-joda tz
+         * database, which the web panel does not ship, so it threw and took
+         * the whole home screen down.
+         */
+        private val SERVER_ZONE = FixedOffsetTimeZone(UtcOffset(hours = 3, minutes = 30))
 
         /**
          * Mirrors the backend's `_utc_day_start` (appointment_query_view.py),
