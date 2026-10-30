@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-31 00:30
+updated: 2026-10-31 00:55
 tags: [gf, current]
 ---
 # وضعیت فعلی
@@ -19,31 +19,26 @@ tags: [gf, current]
   - صفحهٔ مرکز به شکل کارت‌های نیتیو
   - صفحهٔ نقشهٔ مرکز: خط منحنی، فاصله و تخمین رانندگی
   - نوار تبلیغ `ClientPromo`
-- **نیمه‌کار: MapLibre**
-  - انجام شد: `VectorMap.kt`، `installMapAuth` (اندروید و iOS)، صفحهٔ نقشهٔ مرکز (`BusinessMapScreen`) و پیش‌نمایش (`DetailMap`). روی AVD بالا می‌آیند.
-  - مانده: **صفحهٔ کاوش هنوز MapCompose است.**
-- **کلید Map.ir هنوز نیامده.** بدون کلید، MapLibre کاشی OSM را نشان می‌دهد.
+- **MapLibre کنار گذاشته شد:**
+  - کل نقشه‌ها (کاوش، پیش‌نمایش، صفحهٔ مسیر) روی MapLibre منتقل شدند و کار کردند (`e5d8ffd`).
+  - کاربر گفت ظاهرش خیلی بدتر از قبل است، چون بدون کلید Map.ir کاشی خام OSM را نشان می‌دهد.
+  - برای همین در کامیت revert (0bc39e3) نقشهٔ رنگ‌کاری‌شدهٔ MapCompose برگشت.
+  - **ترجیح کاربر:** نقشهٔ خلاصه و خلوت، اسم خیابان‌ها خوانا، رنگ‌ها و خطوط شفاف.
 - **تست‌ها:**
   - بک‌اند: ۱۰۰۲ تست سبز
   - اپ کلاینت: ۱۲۶ تست سبز (`testProdDebugUnitTest`)
   - اندروید و iOS (فقط Kotlin) کامپایل می‌شوند.
 
 ## قدم‌های بعدی
-1. **`feature/explore/ExploreMap.kt` را به MapLibre منتقل کن.**
-   - نسخهٔ آمادهٔ `ExploreMapCamera.kt` در پوشهٔ یادداشت سشن‌ها با نام `ExploreMapCamera.maplibre.kt` است. توابعش: `clusterOnScreen`، `fitCamera(camera, points, bottomInset)`، `visibleArea`، `areaAround`، و `circlePoints` با مختصات جغرافیایی.
-   - پین‌ها با `PinnedAt` از `BusinessMapScreen.kt`.
-   - حلقهٔ شعاع با `LineLayer`.
-   - «جستجو در این محدوده» با `camera.moveReason == GESTURE` و `isCameraMoving`.
-   - برای `clusterOnScreen` تست بنویس.
-2. MapCompose (`TileMap.kt`، `TileRecolor`، `loadedTileCount`) و وابستگی `mapcompose` را حذف کن.
-   - `MapAttribution` متنش را از `VectorMapStyle.attribution` بگیرد.
-3. **کلید Map.ir:**
-   - کاربر در corp.map.ir ثبت‌نام کند و کلید بسازد.
-   - کلید در `mobile_client/local.properties` با نام `mapir.apiKey=...` و در CI به‌عنوان secret `MAPIR_API_KEY`.
-   - بعد استایل‌های روشن و تاریک Map.ir روی دستگاه بررسی شود.
-4. **iOS:** فریم‌ورک MapLibre باید با Swift Package به پروژهٔ Xcode اضافه شود. تا الان فقط Kotlin کامپایل شده و لینک نشده.
-5. API مسیریابی Map.ir (`map.ir/routes/...`) برای فاصله و زمان واقعی رانندگی، به‌جای `driveEstimate`.
-6. بعد از آن: صفحه‌های کاوش و «نوبت‌های من»، فایل Firebase اپ کلاینت، و کارهای P3 (پایین‌تر).
+1. **کلید Map.ir را از کاربر بگیر** (ثبت‌نام در corp.map.ir).
+2. با کلید، کار MapLibre را برگردان:
+   - `git revert` کامیت revert، یا cherry-pick کامیت‌های `1d91e0f` (بخش نقشه) و `e5d8ffd`.
+   - کلید در `mobile_client/local.properties` با نام `mapir.apiKey=...`.
+   - استایل `mapir-xyz-style-min-poi` را **کنار نقشهٔ فعلی** روی دستگاه به کاربر نشان بده. فقط اگر بهتر و خلوت‌تر بود، جایگزین شود.
+3. اگر Map.ir قبول شد:
+   - iOS: فریم‌ورک MapLibre باید با SPM به Xcode اضافه شود.
+   - API مسیریابی Map.ir برای فاصله و زمان واقعی رانندگی.
+4. بعد از آن: صفحه‌های کاوش و «نوبت‌های من»، فایل Firebase اپ کلاینت، و کارهای P3.
 
 ## مسائل باز
 - ⚠️ **قبل از دیپلوی:**
@@ -72,6 +67,7 @@ tags: [gf, current]
 - `docs/BOOKING_PARITY.md` — جدول هم‌ترازی وب و اپ
 
 ## سشن‌های اخیر
+- revert نقشه (همین سشن): MapLibre ساخته شد ولی کاربر نقشهٔ قبلی را ترجیح داد
 - [[sessions/2026-10-31-0030]] — رزرو متحرک، هم‌ترازی با وب، صفحهٔ مرکز، نقشهٔ مسیر، تبلیغ، شروع MapLibre
 - [[sessions/2026-10-30-1940]] — ادمین موبایل، رتبه در ادمین، بیعانه در کلاینت، آمار منبع در اونر
 - [[sessions/2026-10-30-1808]] — پنل نوا؛ ادمین برای موبایل
