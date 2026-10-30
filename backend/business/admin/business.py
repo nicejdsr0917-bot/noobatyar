@@ -59,7 +59,7 @@ class BusinessModerationLogInline(TabularInline):
 class BusinessAdmin(_BulkConfirmMixin, ModelAdmin):
     list_display = (
         'title', 'user', 'unique_code', 'category',
-        'moderation_badge', 'lock_badge', 'created_at',
+        'moderation_badge', 'lock_badge', 'rank_column', 'created_at',
     )
     list_filter = ('moderation_status', 'category', 'is_claimed', 'is_locked')
     search_fields = ('title', 'unique_code', 'user__phone', 'bio')
@@ -96,6 +96,12 @@ class BusinessAdmin(_BulkConfirmMixin, ModelAdmin):
         'moderation_submitted_at',
         'created_at',
         'updated_at',
+        # Written by reviews and the nightly compute_rank_scores; a hand-typed
+        # value would be overwritten by the next run.
+        'rating_avg',
+        'rating_count',
+        'rank_score',
+        'rank_updated_at',
     )
 
     actions = ('action_approve', 'action_reject', 'action_suspend')
@@ -131,6 +137,17 @@ class BusinessAdmin(_BulkConfirmMixin, ModelAdmin):
         # give the normal case the same visual weight as the one that needs
         # somebody to act.
         return format_html('<span class="nb-quiet">فعال</span>')
+
+    @admin.display(description='رتبه', ordering='-rank_score')
+    def rank_column(self, obj):
+        # Score out of ~100 (× promo multiplier) with the rating behind it, so
+        # an operator can see why a business sits where it does in the app.
+        if not obj.rank_updated_at:
+            return format_html('<span class="nb-quiet">محاسبه نشده</span>')
+        return format_html(
+            '{} <span class="nb-quiet">(★ {} از {} نظر)</span>',
+            round(obj.rank_score), f'{obj.rating_avg:.1f}', obj.rating_count,
+        )
 
     # ── Custom URLs ───────────────────────────────────────────────────────
 

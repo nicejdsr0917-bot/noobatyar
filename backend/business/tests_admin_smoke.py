@@ -51,3 +51,19 @@ class BusinessAdminSmokeTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 response = self.client.get(reverse(f'admin:{meta.app_label}_{meta.model_name}_change', args=[obj.pk]))
                 self.assertEqual(response.status_code, 200)
+
+    def test_changelist_shows_rank_and_form_keeps_it_read_only(self):
+        url = reverse('admin:business_business_changelist')
+        self.assertContains(self.client.get(url), 'محاسبه نشده')
+
+        from django.utils import timezone
+        Business.objects.filter(pk=self.business.pk).update(
+            rank_score=72.4, rating_avg=4.25, rating_count=8, rank_updated_at=timezone.now(),
+        )
+        response = self.client.get(url)
+        self.assertContains(response, '72')
+        self.assertContains(response, '4.2 از 8 نظر')
+
+        form = self.client.get(reverse('admin:business_business_change', args=[self.business.pk]))
+        self.assertNotContains(form, 'name="rank_score"')
+        self.assertNotContains(form, 'name="rating_avg"')
