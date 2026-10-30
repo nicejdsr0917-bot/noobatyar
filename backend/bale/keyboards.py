@@ -161,3 +161,65 @@ def parse_callback(data: str):
         }
 
     return None
+
+
+# ── showcase (portfolio / certificate) review cards ─────────────────────────
+#
+#     s:<p|c>:<item_id>:A                approve
+#     s:<p|c>:<item_id>:Q                open the reason menu
+#     s:<p|c>:<item_id>:R:<reason_index> reject with a canned reason
+#     s:<p|c>:<item_id>:B                back to the buttons
+#
+# Same rule as business moderation: a rejection always carries a reason (the
+# owner sees it in the app), so only canned reasons are offered. Append-only.
+SHOWCASE_REJECT_REASONS = [
+    'کیفیت عکس پایین است',
+    'محتوای عکس نامناسب است',
+    'عکس مربوط به این کسب‌وکار نیست',
+    'متن یا اطلاعات نامعتبر است',
+]
+SHOWCASE_KINDS = {'p': 'portfolio', 'c': 'certificate'}
+SHOWCASE_LETTERS = {v: k for k, v in SHOWCASE_KINDS.items()}
+
+
+def showcase_keyboard(kind, item_id) -> dict:
+    k = SHOWCASE_LETTERS[kind]
+    return {'inline_keyboard': [[
+        {'text': '✅ تأیید', 'callback_data': f's:{k}:{item_id}:A'},
+        {'text': '❌ رد', 'callback_data': f's:{k}:{item_id}:Q'},
+    ]]}
+
+
+def showcase_reason_keyboard(kind, item_id) -> dict:
+    k = SHOWCASE_LETTERS[kind]
+    rows = [[{'text': r, 'callback_data': f's:{k}:{item_id}:R:{i}'}]
+            for i, r in enumerate(SHOWCASE_REJECT_REASONS)]
+    rows.append([{'text': '↩️ انصراف', 'callback_data': f's:{k}:{item_id}:B'}])
+    return {'inline_keyboard': rows}
+
+
+def parse_showcase_callback(data):
+    """Decode a showcase ``callback_data`` or return None (not ours/malformed)."""
+    if not data or not isinstance(data, str):
+        return None
+    parts = data.split(':')
+    if len(parts) < 4 or parts[0] != 's' or parts[1] not in SHOWCASE_KINDS:
+        return None
+    try:
+        item_id = int(parts[2])
+    except ValueError:
+        return None
+    out = {'kind': SHOWCASE_KINDS[parts[1]], 'item_id': item_id}
+    act = parts[3]
+    if act == 'A':
+        return {**out, 'action': 'approve'}
+    if act == 'Q':
+        return {**out, 'action': 'menu'}
+    if act == 'B':
+        return {**out, 'action': 'back'}
+    if act == 'R':
+        try:
+            return {**out, 'action': 'reject', 'note': SHOWCASE_REJECT_REASONS[int(parts[4])]}
+        except (IndexError, ValueError):
+            return None
+    return None

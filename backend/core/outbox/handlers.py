@@ -61,3 +61,9 @@ def expiry_sms_chunk(payload):
 def new_review_push(payload):
     from reviews.services import send_new_review_push
     send_new_review_push(payload['review_id'])
+
+
+@register('bale.showcase_card')
+def bale_showcase_card(payload):
+    from bale.notify import send_showcase_card
+    send_showcase_card(payload['kind'], payload['item_id'])

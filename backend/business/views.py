@@ -24,6 +24,12 @@ from accounting.permissions import validate_business_settings
 logger = logging.getLogger(__name__)
 
 
+def _logo_required(request) -> bool:
+    flag = request.data.get('logo_required') if hasattr(request.data, 'get') else None
+    flag = flag if flag not in (None, '') else request.headers.get('X-Logo-Required', '')
+    return str(flag).strip().lower() in ('1', 'true', 'yes')
+
+
 class BusinessView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -123,6 +129,13 @@ class BusinessView(APIView):
         settings_error = await sync_to_async(validate_business_settings)(user, request.data)
         if settings_error:
             return APIResponse.error(message=settings_error, code=403)
+
+        # Logo is required for NEW businesses only when the client opts in
+        # (`logo_required=1` form/JSON field or `X-Logo-Required: 1` header).
+        # Old app builds send neither, so they keep creating logo-less
+        # businesses; the new owner app sends it. Updates are never enforced.
+        if _logo_required(request) and not request.FILES.get('logo'):
+            return APIResponse.error(message="لوگوی کسب‌وکار الزامی است", code=400)
 
         serializer = BusinessSerializer(data=request.data)
 
