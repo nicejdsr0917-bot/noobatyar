@@ -285,6 +285,18 @@ internal fun DetailContent(
                     Section("خدمات") { Tags(business.services) }
                 }
 
+                val payment = if (business.isClaimed) paymentInfo(business) else null
+                if (payment != null) {
+                    SectionBand()
+                    Section("بیعانه و پرداخت") {
+                        payment.deposit?.let {
+                            Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            if (payment.methods.isNotEmpty()) Spacer(Modifier.height(Space.sm))
+                        }
+                        if (payment.methods.isNotEmpty()) Tags(payment.methods)
+                    }
+                }
+
                 if (business.insurances.isNotEmpty()) {
                     SectionBand()
                     Section("بیمه‌های طرف قرارداد") {

@@ -59,7 +59,9 @@ import xyz.sattar.javid.proqueue.core.utils.SystemBackHandler
 import xyz.sattar.javid.proqueue.core.utils.openUrl
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.TimeSlotDto
+import xyz.sattar.javid.proqueue.feature.businessDetail.DEPOSIT_MANDATORY
 import xyz.sattar.javid.proqueue.feature.businessDetail.TopBar
+import xyz.sattar.javid.proqueue.feature.businessDetail.formatToman
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.discovery.Radius
 import xyz.sattar.javid.proqueue.feature.discovery.Space
@@ -323,8 +325,8 @@ private fun ConfirmStep(state: BookingState, vm: BookingViewModel) {
         state.selectedSlot?.let { SummaryRow("ساعت", it.time.toPersianDigits()) }
         if (state.selectedServices.isNotEmpty()) SummaryRow("خدمات", state.selectedServices.joinToString("، "))
         val deposit = business.depositAmount
-        if (business.depositMode == "REQUIRED" && deposit != null && deposit > 0) {
-            SummaryRow("بیعانه", "${deposit.toString().toPersianDigits()} تومان")
+        if (business.depositMode == DEPOSIT_MANDATORY && deposit != null && deposit > 0) {
+            SummaryRow("بیعانه", formatToman(deposit))
         }
         OutlinedTextField(
             value = state.description,
