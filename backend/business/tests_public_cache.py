@@ -203,3 +203,12 @@ class PublicCacheTests(DirectoryFixtureMixin, TestCase):
             self.get(self.detail)
             q, _ = self.get(self.detail)
             self.assertGreater(q, 0)
+
+
+class PublicCacheOriginTests(TestCase):
+    def test_keys_differ_per_origin(self):
+        from business import cache as public_cache
+        self.assertNotEqual(public_cache.detail_key(1, 'https://api.noobatyar.ir'),
+                            public_cache.detail_key(1, 'http://93.127.223.93'))
+        self.assertNotEqual(public_cache.list_key({'q': 'x'}, 'https://a'),
+                            public_cache.list_key({'q': 'x'}, 'http://b'))

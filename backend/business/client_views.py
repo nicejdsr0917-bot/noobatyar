@@ -85,6 +85,11 @@ def request_fingerprint(request):
     return hashlib.sha256(raw.encode('utf-8')).hexdigest()
 
 
+def _origin(request):
+    """scheme://host the response's absolute URLs are built from."""
+    return f'{request.scheme}://{request.get_host()}'
+
+
 class ClientBusinessListView(APIView):
     permission_classes = [AllowAny]
 
@@ -95,7 +100,7 @@ class ClientBusinessListView(APIView):
         use_cache = public_cache.is_cacheable_request(request) and params.lat is None
 
         def _fetch_and_serialize():
-            key = public_cache.list_key(params) if use_cache else None
+            key = public_cache.list_key(params, _origin(request)) if use_cache else None
             if key is not None:
                 cached = public_cache.get(key)
                 if cached is not None:
@@ -188,7 +193,7 @@ class ClientBusinessDetailView(APIView):
                 business = public_business_detail(business_id, lat=lat, lng=lng)
                 return PublicBusinessSerializer(business, context={'request': request}).data
             # Cached without the viewer's distance; it is added per request.
-            key = public_cache.detail_key(business_id)
+            key = public_cache.detail_key(business_id, _origin(request))
             entry = public_cache.get(key)
             if entry is None:
                 business = public_business_detail(business_id)

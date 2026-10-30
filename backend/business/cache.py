@@ -70,15 +70,18 @@ def _stamps(*keys):
         return [0 for _ in keys]
 
 
-def list_key(params):
+def list_key(params, origin=''):
+    # origin (scheme://host) is part of the key: logo URLs are absolute and
+    # built from the request, so one host's form must not be served to another.
     all_v, list_v = _stamps(_ALL, _LIST)
-    digest = hashlib.sha1(repr(params).encode('utf-8')).hexdigest()
+    digest = hashlib.sha1(repr((origin, params)).encode('utf-8')).hexdigest()
     return f'{_PREFIX}:list:{all_v}:{list_v}:{digest}'
 
 
-def detail_key(business_id):
+def detail_key(business_id, origin=''):
     all_v, biz_v = _stamps(_ALL, _biz_stamp_key(business_id))
-    return f'{_PREFIX}:detail:{all_v}:{biz_v}:{business_id}'
+    host = hashlib.sha1(origin.encode('utf-8')).hexdigest()[:12]
+    return f'{_PREFIX}:detail:{all_v}:{biz_v}:{business_id}:{host}'
 
 
 def get(key):
