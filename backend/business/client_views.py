@@ -1,6 +1,7 @@
 from adrf.views import APIView
 from asgiref.sync import sync_to_async
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import F
 import hashlib
@@ -91,7 +92,14 @@ def _origin(request):
     return f'{request.scheme}://{request.get_host()}'
 
 
+# A signed-in visitor (``Authorization: Visitor <token>``) browses as a customer:
+# the owner's "hide contact from guests" switch is lifted for them. Tried before
+# JWT, which only reacts to ``Bearer``, so an owner's own token still works.
+CUSTOMER_AUTHENTICATION = [VisitorTokenAuthentication, JWTAuthentication]
+
+
 class ClientBusinessListView(APIView):
+    authentication_classes = CUSTOMER_AUTHENTICATION
     permission_classes = [AllowAny]
 
     async def get(self, request):
@@ -180,6 +188,7 @@ class ClientRequestOnlineBookingView(APIView):
 
 
 class ClientBusinessDetailView(APIView):
+    authentication_classes = CUSTOMER_AUTHENTICATION
     permission_classes = [AllowAny]
 
     async def get(self, request, business_id):

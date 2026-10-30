@@ -44,6 +44,10 @@ sealed class AppScreens {
 
     @Serializable
     object MyAppointments : AppScreens()
+
+    /** [bookBusinessId] > 0 continues into that business's booking once signed in. */
+    @Serializable
+    data class Login(val bookBusinessId: Long = 0) : AppScreens()
 }
 
 sealed interface MainTab {

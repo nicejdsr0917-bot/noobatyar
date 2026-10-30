@@ -9,6 +9,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -28,6 +30,8 @@ data class ClientBusinessDetailState(
     val hasRequestedBooking: Boolean = false,
     val isRequestingBooking: Boolean = false,
     val isReporting: Boolean = false,
+    /** Whether a visitor is signed in; a guest may be shown less than the owner allows. */
+    val isSignedIn: Boolean = false,
 )
 
 sealed interface DetailMessage {
@@ -61,6 +65,16 @@ class ClientBusinessDetailViewModel(
         businessId = id
         viewModelScope.launch(dispatcher) {
             preferences.savedBusinessIds.collect { ids -> _state.update { it.copy(isSaved = id in ids) } }
+        }
+        viewModelScope.launch(dispatcher) {
+            // Signing in (or out) changes what the server will show of this
+            // business, so read it again; the first value is just the current state.
+            var first = true
+            preferences.visitorToken.map { it != null }.distinctUntilChanged().collect { signedIn ->
+                _state.update { it.copy(isSignedIn = signedIn) }
+                if (!first) reload()
+                first = false
+            }
         }
         reload()
     }

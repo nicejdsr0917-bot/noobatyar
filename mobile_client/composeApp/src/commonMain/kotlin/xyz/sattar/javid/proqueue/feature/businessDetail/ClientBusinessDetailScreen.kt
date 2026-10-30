@@ -3,6 +3,7 @@ package xyz.sattar.javid.proqueue.feature.businessDetail
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LocationOn
 import xyz.sattar.javid.proqueue.core.utils.openMap
 import androidx.compose.foundation.layout.Box
@@ -88,6 +89,7 @@ fun ClientBusinessDetailScreen(
     onNavigateBack: () -> Unit,
     onBook: (Long) -> Unit,
     onOpenMap: (Long) -> Unit = {},
+    onSignIn: () -> Unit = {},
     viewModel: ClientBusinessDetailViewModel = koinViewModel(),
     social: BusinessSocialViewModel = koinViewModel(),
 ) {
@@ -136,7 +138,7 @@ fun ClientBusinessDetailScreen(
                     if (socialState.isSignedIn) showReviewDialog = true
                     else scope.launch {
                         snackbar.showToasty(
-                            UiMessage.info("برای ثبت نظر باید وارد شده باشید؛ با اولین رزرو نوبت از همین اپ وارد می‌شوید.")
+                            UiMessage.info("برای ثبت نظر باید وارد شده باشید؛ از «بیشتر» یا هنگام رزرو نوبت وارد شوید.")
                         )
                     }
                 },
@@ -148,6 +150,7 @@ fun ClientBusinessDetailScreen(
                 onReport = { showReport = true },
                 onBook = { onBook(business.id) },
                 onOpenMap = { onOpenMap(business.id) },
+                onSignIn = onSignIn,
             )
             state.isLoading -> DetailShimmer(onBack = onNavigateBack)
             else -> Column(Modifier.fillMaxSize()) {
@@ -205,6 +208,7 @@ internal fun DetailContent(
     onReport: () -> Unit,
     onBook: () -> Unit,
     onOpenMap: () -> Unit = {},
+    onSignIn: () -> Unit = {},
 ) {
     // Only for sharing: booking itself happens in the app, never on the site.
     val booking = bookingUrl(business)
@@ -275,7 +279,19 @@ internal fun DetailContent(
                         if (lat != null && lng != null) {
                             MapPreview(business, lat, lng, onOpen = onOpenMap, modifier = Modifier.padding(horizontal = Space.lg).padding(bottom = Space.xs))
                         }
-                        LinkRow(
+                        // The owner keeps these for signed-in customers: say so, and
+                        // offer the way in, instead of "not registered".
+                        val guestLocked = !state.isSignedIn && !business.allowAnonymousView && business.address.isBlank() && business.phone.isBlank()
+                        if (guestLocked) {
+                            LinkRow(
+                                Icons.Outlined.Lock,
+                                "آدرس و شمارهٔ تماس این مرکز فقط برای کاربران واردشده نمایش داده می‌شود",
+                                subtitle = "ورود یا ثبت‌نام",
+                                tint = MaterialTheme.colorScheme.primary,
+                                onClick = onSignIn,
+                            )
+                        }
+                        if (!guestLocked) LinkRow(
                             Icons.Outlined.LocationOn,
                             business.address.ifBlank { "آدرس ثبت نشده" },
                             subtitle = if (lat != null && lng != null) "مسیریابی" else null,
@@ -357,6 +373,6 @@ internal fun DetailContent(
                 Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
             }
         }
-        StickyActionBar(business, onBook)
+        StickyActionBar(business, onBook, signedIn = state.isSignedIn)
     }
 }

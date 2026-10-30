@@ -30,7 +30,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import xyz.sattar.javid.proqueue.core.navigation.AppScreens
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
+import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
+import xyz.sattar.javid.proqueue.feature.auth.LoginScreen
 import xyz.sattar.javid.proqueue.feature.appointments.AppointmentDetailScreen
 import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsScreen
 import xyz.sattar.javid.proqueue.feature.booking.BookingScreen
@@ -53,6 +55,13 @@ fun MainNavHost() {
         destination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true
     }
     val openDetail: (Long) -> Unit = { navController.navigate(AppScreens.ClientBusinessDetail(it)) }
+    val signIn: () -> Unit = { navController.navigate(AppScreens.Login()) }
+    // Browsing is open to everyone; booking needs an account, so a guest signs
+    // in first and lands in the booking afterwards, as on the web.
+    val book: (Long) -> Unit = { id ->
+        if (PreferencesManager.getVisitorToken() != null) navController.navigate(AppScreens.Booking(id))
+        else navController.navigate(AppScreens.Login(bookBusinessId = id))
+    }
 
     // Surface (not a bare background) so LocalContentColor follows the theme:
     // without it every Text that doesn't pick a colour renders black, which is
@@ -71,13 +80,14 @@ fun MainNavHost() {
                     SavedScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp)
                 }
                 composable<AppScreens.More> {
-                    MoreScreen(onOpenAbout = { navController.navigate(AppScreens.AboutUs) }, bottomPadding = 0.dp)
+                    MoreScreen(onOpenAbout = { navController.navigate(AppScreens.AboutUs) }, onSignIn = signIn, bottomPadding = 0.dp)
                 }
                 composable<AppScreens.ClientBusinessDetail> { entry ->
                     ClientBusinessDetailScreen(
                         businessId = entry.toRoute<AppScreens.ClientBusinessDetail>().businessId,
                         onNavigateBack = { navController.popBackStack() },
-                        onBook = { navController.navigate(AppScreens.Booking(it)) },
+                        onBook = book,
+                        onSignIn = signIn,
                         onOpenMap = { navController.navigate(AppScreens.BusinessMap(it)) },
                     )
                 }
@@ -105,9 +115,25 @@ fun MainNavHost() {
                         }
                     )
                 }
+                composable<AppScreens.Login> { entry ->
+                    val bookBusinessId = entry.toRoute<AppScreens.Login>().bookBusinessId
+                    LoginScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onSignedIn = {
+                            if (bookBusinessId > 0) {
+                                navController.navigate(AppScreens.Booking(bookBusinessId)) {
+                                    popUpTo<AppScreens.Login> { inclusive = true }
+                                }
+                            } else {
+                                navController.popBackStack()
+                            }
+                        },
+                    )
+                }
                 composable<AppScreens.MyAppointments> {
                     MyAppointmentsScreen(
                         onOpenBusiness = openDetail,
+                        onSignIn = signIn,
                         bottomPadding = 0.dp,
                         onOpenAppointment = { navController.navigate(AppScreens.AppointmentDetail(it)) },
                         onCompletePayment = { businessId, id -> navController.navigate(AppScreens.Booking(businessId, id)) },

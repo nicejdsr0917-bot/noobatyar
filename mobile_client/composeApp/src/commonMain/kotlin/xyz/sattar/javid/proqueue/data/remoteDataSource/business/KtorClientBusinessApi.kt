@@ -7,6 +7,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.network.PaginatedResponseDto
@@ -21,7 +22,25 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.RequestBoo
 class KtorClientBusinessApi(
     private val httpClient: HttpClient,
     private val deviceId: () -> String = { PreferencesManager.deviceId() },
+    private val visitorToken: () -> String? = { PreferencesManager.getVisitorToken() },
+    private val signOut: suspend () -> Unit = { PreferencesManager.setVisitorToken(null) },
 ) : ClientBusinessApi {
+
+    /**
+     * Runs a public read as the signed-in visitor, if there is one: the owner's
+     * "hide my phone and address from guests" switch is lifted for a customer
+     * who has signed in. A token the server no longer accepts would 401 a page
+     * anyone may read, so it is dropped and the read repeated as a guest.
+     */
+    private suspend fun <T> asCustomer(call: suspend (token: String?) -> ApiResponse<T>): ApiResponse<T> {
+        val token = visitorToken()
+        val response = call(token)
+        if (token != null && response is ApiResponse.Error && response.code == 401) {
+            signOut()
+            return call(null)
+        }
+        return response
+    }
 
     override suspend fun getBusinesses(
         page: Int,
@@ -35,9 +54,10 @@ class KtorClientBusinessApi(
         cityCode: Int?,
         onlyClaimed: Boolean,
         sort: String?,
-    ): ApiResponse<PaginatedResponseDto<BusinessDto>> = safeApiCall {
+    ): ApiResponse<PaginatedResponseDto<BusinessDto>> = asCustomer { token -> safeApiCall {
         httpClient.get("client/businesses/") {
             contentType(ContentType.Application.Json)
+            if (token != null) header(HttpHeaders.Authorization, "Visitor $token")
             parameter("page", page)
             parameter("page_size", pageSize)
             if (!search.isNullOrBlank()) parameter("search", search)
@@ -50,19 +70,20 @@ class KtorClientBusinessApi(
             if (onlyClaimed) parameter("only_claimed", true)
             if (!sort.isNullOrBlank()) parameter("sort", sort)
         }.toApiResponse()
-    }
+    } }
 
     override suspend fun getBusinessDetail(
         businessId: Long,
         lat: Double?,
         lng: Double?,
-    ): ApiResponse<BusinessDto> = safeApiCall {
+    ): ApiResponse<BusinessDto> = asCustomer { token -> safeApiCall {
         httpClient.get("client/businesses/$businessId/") {
             contentType(ContentType.Application.Json)
+            if (token != null) header(HttpHeaders.Authorization, "Visitor $token")
             if (lat != null) parameter("lat", lat)
             if (lng != null) parameter("lng", lng)
         }.toApiResponse()
-    }
+    } }
 
     override suspend fun getInsurances(): ApiResponse<List<InsuranceDto>> = safeApiCall {
         httpClient.get("client/businesses/insurances/") {

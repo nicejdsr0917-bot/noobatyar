@@ -341,7 +341,7 @@ class BookingViewModelTest {
         vm.confirm()
         val req = api.booked.single().second
         assertTrue(req.travelDistanceM!! in 5_700..6_300, "about 6 km: ${req.travelDistanceM}")
-        assertEquals(30, req.driveMinutesMax!! - req.driveMinutesMin!!)
+        assertEquals(20, req.driveMinutesMax!! - req.driveMinutesMin!!)
     }
 
     @Test

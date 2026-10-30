@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Login
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.Share
@@ -48,8 +50,9 @@ import xyz.sattar.javid.proqueue.feature.discovery.Space
 import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 
 @Composable
-fun MoreScreen(onOpenAbout: () -> Unit, bottomPadding: Dp) {
+fun MoreScreen(onOpenAbout: () -> Unit, onSignIn: () -> Unit, bottomPadding: Dp) {
     val themeMode by ThemeStateHolder.themeMode.collectAsState()
+    val signedIn by PreferencesManager.visitorToken.collectAsState(initial = PreferencesManager.getVisitorToken())
     val scope = rememberCoroutineScope()
 
     Column(
@@ -71,6 +74,17 @@ fun MoreScreen(onOpenAbout: () -> Unit, bottomPadding: Dp) {
             onClick = { openUrl(OWNER_LANDING_URL) },
             modifier = Modifier.padding(horizontal = Space.page)
         )
+
+        GroupTitle("حساب کاربری")
+        Hairline()
+        if (signedIn != null) {
+            ListRow(Icons.AutoMirrored.Outlined.Logout, "خروج از حساب", showChevron = false, onClick = {
+                scope.launch { PreferencesManager.setVisitorToken(null) }
+            })
+        } else {
+            ListRow(Icons.AutoMirrored.Outlined.Login, "ورود یا ثبت‌نام", onClick = onSignIn)
+        }
+        Hairline()
 
         GroupTitle("ظاهر")
         ThemeSegmentedControl(

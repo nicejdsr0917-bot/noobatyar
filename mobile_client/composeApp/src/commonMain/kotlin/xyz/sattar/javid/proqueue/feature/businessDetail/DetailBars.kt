@@ -89,7 +89,7 @@ internal fun TopBar(
  * business takes online bookings, otherwise call — with directions beside it.
  */
 @Composable
-internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(business: Business, onBook: () -> Unit) {
+internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(business: Business, onBook: () -> Unit, signedIn: Boolean = true) {
     val canBook = business.canBookOnline
     val canCall = business.phone.isNotBlank()
     if (!canBook && !canCall) return
@@ -114,7 +114,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(busines
                 colors = ButtonDefaults.buttonColors(),
                 modifier = Modifier.weight(1f).height(48.dp)
             ) {
-                Text(if (canBook) "رزرو نوبت" else "تماس با مرکز", fontWeight = FontWeight.Bold)
+                Text(if (canBook) (if (signedIn) "رزرو نوبت" else "ورود و رزرو نوبت") else "تماس با مرکز", fontWeight = FontWeight.Bold)
             }
             if (lat != null && lng != null) {
                 Spacer(Modifier.width(Space.sm))

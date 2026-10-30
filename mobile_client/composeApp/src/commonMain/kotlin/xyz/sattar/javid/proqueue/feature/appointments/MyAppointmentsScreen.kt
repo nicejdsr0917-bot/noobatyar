@@ -83,6 +83,7 @@ import kotlin.time.Clock
 fun MyAppointmentsScreen(
     onOpenBusiness: (Long) -> Unit,
     bottomPadding: Dp,
+    onSignIn: () -> Unit = {},
     onOpenAppointment: (Long) -> Unit = {},
     onCompletePayment: (businessId: Long, appointmentId: Long) -> Unit = { _, _ -> },
     viewModel: MyAppointmentsViewModel = koinViewModel(),
@@ -122,7 +123,21 @@ fun MyAppointmentsScreen(
                 }
                 Hairline()
                 when {
-                    !state.isSignedIn -> Message("هنوز نوبتی نگرفته‌اید. از صفحهٔ هر مرکز «رزرو نوبت» را بزنید؛ نوبت‌هایتان اینجا می‌آید.")
+                    !state.isSignedIn -> Column(
+                        Modifier.fillMaxSize().padding(Space.xl),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text("برای دیدن نوبت‌هایتان وارد شوید", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            "نوبت‌هایی که از همین اپ می‌گیرید اینجا می‌آید.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = Space.sm, bottom = Space.lg),
+                        )
+                        androidx.compose.material3.Button(onClick = onSignIn, shape = Radius.md) { Text("ورود یا ثبت‌نام", fontWeight = FontWeight.Bold) }
+                    }
                     state.isLoading && state.appointments.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }

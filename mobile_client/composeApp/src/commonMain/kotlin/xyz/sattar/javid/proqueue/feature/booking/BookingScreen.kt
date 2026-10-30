@@ -277,7 +277,7 @@ private fun LoadingSkeleton() {
  * [footer] sits just above the button, for a live summary of the pick.
  */
 @Composable
-private fun StepScaffold(
+internal fun StepScaffold(
     action: String?,
     actionEnabled: Boolean = true,
     busy: Boolean = false,
@@ -312,7 +312,7 @@ private fun StepScaffold(
 }
 
 @Composable
-private fun StepTitle(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
+internal fun StepTitle(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
     Column(modifier.enterStagger(0)) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         if (subtitle != null) {
@@ -481,13 +481,13 @@ private fun EmptyNote(title: String, subtitle: String) {
 
 /** Focuses the step's field once it has slid in, so the keyboard comes up by itself. */
 @Composable
-private fun rememberAutoFocus(): FocusRequester {
+internal fun rememberAutoFocus(): FocusRequester {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     return focus
 }
 
-private val ltrInput = TextStyle(textDirection = TextDirection.Ltr, textAlign = TextAlign.Center, fontSize = 20.sp, letterSpacing = 2.sp)
+internal val ltrInput = TextStyle(textDirection = TextDirection.Ltr, textAlign = TextAlign.Center, fontSize = 20.sp, letterSpacing = 2.sp)
 
 @Composable
 private fun PhoneStep(state: BookingState, vm: BookingViewModel) {
