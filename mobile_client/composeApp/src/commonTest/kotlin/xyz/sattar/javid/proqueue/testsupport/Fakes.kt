@@ -43,6 +43,10 @@ class FakeClientPreferences(
 
     override val recentCityCodes get() = cities
     override suspend fun selectCity(code: Int) = cities.update { it.withRecentCity(code) }
+
+    val token = MutableStateFlow<String?>(null)
+    override val visitorToken get() = token
+    override suspend fun setVisitorToken(token: String?) { this.token.value = token }
 }
 
 class FakeCityCatalog(private val cities: List<IranCity> = emptyList()) : CityCatalog {

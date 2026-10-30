@@ -31,13 +31,15 @@ import androidx.navigation.toRoute
 import xyz.sattar.javid.proqueue.core.navigation.AppScreens
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
+import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsScreen
+import xyz.sattar.javid.proqueue.feature.booking.BookingScreen
 import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailScreen
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.explore.ExploreScreen
 import xyz.sattar.javid.proqueue.feature.more.MoreScreen
 import xyz.sattar.javid.proqueue.feature.saved.SavedScreen
 
-private val tabs = listOf(MainTab.Explore, MainTab.Saved, MainTab.More)
+private val tabs = listOf(MainTab.Explore, MainTab.Appointments, MainTab.Saved, MainTab.More)
 
 @Composable
 fun MainNavHost() {
@@ -72,8 +74,25 @@ fun MainNavHost() {
                 composable<AppScreens.ClientBusinessDetail> { entry ->
                     ClientBusinessDetailScreen(
                         businessId = entry.toRoute<AppScreens.ClientBusinessDetail>().businessId,
-                        onNavigateBack = { navController.popBackStack() }
+                        onNavigateBack = { navController.popBackStack() },
+                        onBook = { navController.navigate(AppScreens.Booking(it)) }
                     )
+                }
+                composable<AppScreens.Booking> { entry ->
+                    BookingScreen(
+                        businessId = entry.toRoute<AppScreens.Booking>().businessId,
+                        onNavigateBack = { navController.popBackStack() },
+                        onOpenMyAppointments = {
+                            // Booked: leave the flow for the tab, so back does not reopen it.
+                            navController.navigate(AppScreens.MyAppointments) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
+                composable<AppScreens.MyAppointments> {
+                    MyAppointmentsScreen(onOpenBusiness = openDetail, bottomPadding = 0.dp)
                 }
                 composable<AppScreens.AboutUs> {
                     AboutUsScreen(onNavigateBack = { navController.popBackStack() })

@@ -20,6 +20,10 @@ interface ClientPreferences {
     /** Divar city ids ([ALL_IRAN] for "کل ایران"), newest first; empty until the first pick. */
     val recentCityCodes: Flow<List<Int>>
     suspend fun selectCity(code: Int)
+
+    /** Visitor session from OTP sign-in; null when signed out. */
+    val visitorToken: Flow<String?>
+    suspend fun setVisitorToken(token: String?)
 }
 
 /** Production [ClientPreferences]: straight delegation to the platform [PreferencesManager]. */
@@ -33,4 +37,7 @@ class PlatformClientPreferences : ClientPreferences {
 
     override val recentCityCodes: Flow<List<Int>> get() = PreferencesManager.recentCityCodes
     override suspend fun selectCity(code: Int) = PreferencesManager.selectCity(code)
+
+    override val visitorToken: Flow<String?> get() = PreferencesManager.visitorToken
+    override suspend fun setVisitorToken(token: String?) = PreferencesManager.setVisitorToken(token)
 }

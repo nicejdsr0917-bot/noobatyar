@@ -45,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import xyz.sattar.javid.proqueue.core.ui.components.ShimmerBox
 import xyz.sattar.javid.proqueue.core.utils.openMap
 import xyz.sattar.javid.proqueue.core.utils.openPhoneDial
-import xyz.sattar.javid.proqueue.core.utils.openUrl
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.discovery.BackIcon
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
@@ -90,9 +89,8 @@ internal fun TopBar(
  * business takes online bookings, otherwise call — with directions beside it.
  */
 @Composable
-internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(business: Business, booking: String?) {
-    val bookTarget = booking?.takeIf { business.canBookOnline }
-    val canBook = bookTarget != null
+internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(business: Business, onBook: () -> Unit) {
+    val canBook = business.canBookOnline
     val canCall = business.phone.isNotBlank()
     if (!canBook && !canCall) return
     val lat = business.latitude
@@ -111,7 +109,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(busines
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
-                onClick = { if (bookTarget != null) openUrl(bookTarget) else openPhoneDial(business.phone) },
+                onClick = { if (canBook) onBook() else openPhoneDial(business.phone) },
                 shape = Radius.md,
                 colors = ButtonDefaults.buttonColors(),
                 modifier = Modifier.weight(1f).height(48.dp)

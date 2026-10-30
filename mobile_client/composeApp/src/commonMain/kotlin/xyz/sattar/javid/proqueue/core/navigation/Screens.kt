@@ -2,9 +2,11 @@ package xyz.sattar.javid.proqueue.core.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -29,6 +31,12 @@ sealed class AppScreens {
 
     @Serializable
     object AboutUs : AppScreens()
+
+    @Serializable
+    data class Booking(val businessId: Long) : AppScreens()
+
+    @Serializable
+    object MyAppointments : AppScreens()
 }
 
 sealed interface MainTab {
@@ -42,6 +50,13 @@ sealed interface MainTab {
         override val iconSelected = Icons.Rounded.Explore
         override val iconUnSelected = Icons.Outlined.Explore
         override val route = AppScreens.Explore
+    }
+
+    data object Appointments : MainTab {
+        override val title = "نوبت‌های من"
+        override val iconSelected = Icons.Rounded.Event
+        override val iconUnSelected = Icons.Outlined.Event
+        override val route = AppScreens.MyAppointments
     }
 
     data object Saved : MainTab {

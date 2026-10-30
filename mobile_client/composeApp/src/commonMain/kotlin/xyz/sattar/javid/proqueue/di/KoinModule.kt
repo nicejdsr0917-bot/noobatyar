@@ -9,6 +9,8 @@ import xyz.sattar.javid.proqueue.core.location.IranCities
 import xyz.sattar.javid.proqueue.core.network.HttpClientFactory
 import xyz.sattar.javid.proqueue.core.prefs.ClientPreferences
 import xyz.sattar.javid.proqueue.core.prefs.PlatformClientPreferences
+import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.BookingApi
+import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.KtorBookingApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.ClientBusinessApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.KtorClientBusinessApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApiService
@@ -19,6 +21,8 @@ import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.domain.UserRepository
 import xyz.sattar.javid.proqueue.domain.usecase.push.SyncPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CheckVersionUseCase
+import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsViewModel
+import xyz.sattar.javid.proqueue.feature.booking.BookingViewModel
 import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailViewModel
 import xyz.sattar.javid.proqueue.feature.explore.ExploreViewModel
 import xyz.sattar.javid.proqueue.feature.saved.SavedViewModel
@@ -31,6 +35,7 @@ val appModule: Module = module {
     single { UserApiService(get()) }
     single { DeviceApiService(get()) }
     single<ClientBusinessApi> { KtorClientBusinessApi(get()) }
+    single<BookingApi> { KtorBookingApi(get()) }
 
     // --- Platform seams ---
     single<ClientPreferences> { PlatformClientPreferences() }
@@ -49,4 +54,6 @@ val appModule: Module = module {
     viewModel { ExploreViewModel(get(), get(), get()) }
     viewModel { ClientBusinessDetailViewModel(get(), get()) }
     viewModel { SavedViewModel(get(), get()) }
+    viewModel { BookingViewModel(get(), get(), get()) }
+    viewModel { MyAppointmentsViewModel(get(), get()) }
 }

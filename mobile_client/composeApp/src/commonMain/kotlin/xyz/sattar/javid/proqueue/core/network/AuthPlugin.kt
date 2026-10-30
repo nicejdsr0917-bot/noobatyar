@@ -52,8 +52,10 @@ private val PUBLIC_PATHS = listOf(
 
 private fun HttpRequestBuilder.isPublicEndpoint(): Boolean {
     val path = url.encodedPath
+    // `client/...` is the visitor surface: it authenticates with its own
+    // `Visitor <token>` header, which a Bearer token must never overwrite.
     return PUBLIC_PATHS.any { path.endsWith(it) } ||
-        path.contains("/client/businesses/") ||
+        path.contains("/client/") ||
         path.endsWith("business/categories/")
 }
 
