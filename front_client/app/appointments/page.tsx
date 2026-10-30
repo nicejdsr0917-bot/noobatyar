@@ -1,5 +1,6 @@
 'use client';
 
+import { getVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getMyAppointments, type Appointment } from '@/lib/api';
@@ -31,6 +32,8 @@ export default function AppointmentsPage() {
   useEffect(() => {
     const state = new URLSearchParams(window.location.search).get('payment');
     if (state === 'success' || state === 'failed' || state === 'conflict') {
+      // One-time read of the gateway's return param; it cannot be known during SSR.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPaymentResult(state);
       // Drop the parameter so a refresh does not replay the banner.
       window.history.replaceState({}, '', '/appointments');
@@ -38,7 +41,7 @@ export default function AppointmentsPage() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) {
       router.replace('/auth/login?redirect=/appointments');
       return;

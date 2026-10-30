@@ -1,5 +1,7 @@
 'use client';
 
+import { googleMapsSearchUrl } from '@/lib/maps';
+import { getVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAppointment, cancelAppointment, businessCategoryLabel, type Appointment } from '@/lib/api';
@@ -16,6 +18,8 @@ const CANCELLABLE = ['LOCKED', 'PENDING_APPROVAL', 'PENDING_VERIFICATION', 'WAIT
 
 export default function AppointmentDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  // Captured once at mount: "is it still ahead of us" does not need a live clock.
+  const [now] = useState(() => Date.now());
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,7 +29,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
 
   const handleCancel = async () => {
     if (!appointment) return;
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) return;
 
     setCancelling(true);
@@ -46,7 +50,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
   useEffect(() => {
     params.then((p) => {
       const aptId = parseInt(p.id, 10);
-      const token = localStorage.getItem('visitor_token');
+      const token = getVisitorToken();
       if (!token) {
         router.replace(`/auth/login?redirect=/appointments/${aptId}`);
         return;
@@ -160,7 +164,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
             <div style={{ fontSize: 12, color: 'var(--color-muted)', flexShrink: 0 }}>{t('address')}</div>
             {biz.address ? (
               <a
-                href={`https://maps.google.com/?q=${encodeURIComponent(biz.address)}`}
+                href={googleMapsSearchUrl(biz.address)}
                 target="_blank" rel="noopener noreferrer"
                 style={{ fontSize: 13, color: 'var(--color-primary)', lineHeight: 1.7, textAlign: 'end', textDecoration: 'none', fontWeight: 600 }}
               >
@@ -208,7 +212,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
           {t('viewBusinessProfile')}</button>
 
         {/* ── Cancel (only while the appointment is still ahead of us) ── */}
-        {CANCELLABLE.includes(appointment.status) && appointment.appointment_date > Date.now() && (
+        {CANCELLABLE.includes(appointment.status) && appointment.appointment_date > now && (
           confirmCancel ? (
             <div style={{ marginTop: 12, padding: 16, borderRadius: 14, border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
               <div style={{ fontSize: 14, color: 'var(--color-text)', textAlign: 'center', marginBottom: 14, lineHeight: 1.8 }}>

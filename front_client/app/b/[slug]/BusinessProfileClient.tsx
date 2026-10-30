@@ -1,5 +1,6 @@
 'use client';
 
+import { googleMapsSearchUrl } from '@/lib/maps';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { businessCategoryLabel, type Business } from '@/lib/api';
@@ -281,7 +282,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
         <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
           <a
             className="biz-address"
-            href={`https://maps.google.com/?q=${encodeURIComponent(business.address)}`}
+            href={googleMapsSearchUrl(business.address)}
             target="_blank"
             rel="noopener noreferrer"
           >

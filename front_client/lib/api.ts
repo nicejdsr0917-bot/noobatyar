@@ -1,3 +1,4 @@
+import { clearVisitorToken } from '@/lib/auth';
 
 import { getLocale, t } from '@/lib/i18n';
 // API client for Noobatyar backend
@@ -159,7 +160,7 @@ function hasAuthHeader(headers: HeadersInit | undefined): boolean {
  */
 export function forceReLogin(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('visitor_token');
+  clearVisitorToken();
   // Avoid a redirect loop if we're already on the login screen.
   if (window.location.pathname.startsWith('/auth/login')) return;
   const target = encodeURIComponent(window.location.pathname + window.location.search);
@@ -170,9 +171,12 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   // Destructure headers separately so we can merge them with Content-Type
   // without `...options` overwriting the headers key entirely.
   const { headers: extraHeaders, ...restOptions } = options ?? {};
+  // A FormData body needs the browser to set its own multipart boundary, so
+  // the JSON Content-Type must not be forced onto it.
+  const isForm = typeof FormData !== 'undefined' && restOptions.body instanceof FormData;
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: {
-      'Content-Type': 'application/json',
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
       ...extraHeaders,
     },
     ...restOptions,
@@ -192,7 +196,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     if (hasAuthHeader(extraHeaders)) {
       forceReLogin();
     } else if (typeof window !== 'undefined') {
-      localStorage.removeItem('visitor_token');
+      clearVisitorToken();
     }
     throw new UnauthorizedError(t('yourSessionHasExpiredPlease2'));
   }
@@ -456,23 +460,33 @@ export async function cancelAppointment(id: number, token: string) {
 }
 
 export async function payAppointmentWithReceipt(id: number, formData: FormData, token: string) {
-  const res = await fetch(`${BASE_URL}/api/client/appointments/${id}/pay/`, {
+  return apiFetch(`/api/client/appointments/${id}/pay/`, {
     method: 'POST',
-    headers: {
-      Authorization: `Visitor ${token}`,
-    },
+    headers: { Authorization: `Visitor ${token}` },
     body: formData,
   });
-  // Same 401-or-403 rule as apiFetch(); this upload always carries a token.
-  if (res.status === 401 || res.status === 403) {
-    forceReLogin();
-    throw new UnauthorizedError(t('yourSessionHasExpiredPlease2'));
-  }
-  const json = await res.json();
-  if (!res.ok || json.status === 'error') {
-    throw new Error(json.message || t('couldntUploadReceipt'));
-  }
-  return json.data;
+}
+
+export type PaymentResultKind = 'subscription' | 'addon';
+
+/**
+ * Outcome of a Zibal gateway return. The backend answers with an HTML page,
+ * not JSON, so this reads the text and looks for its success marker.
+ */
+export async function getPaymentResult(
+  kind: PaymentResultKind,
+  trackId: string,
+  success: string | null,
+): Promise<{ success: boolean; packName: string | null }> {
+  const path = kind === 'addon' ? '/api/accounting/addons/payment-result' : '/api/accounting/payment-result';
+  const res = await fetch(
+    `${BASE_URL}${path}?trackId=${trackId}&success=${success}`,
+    { method: 'GET' },
+  );
+  const text = await res.text();
+  const isSuccess = text.includes(t('successful')) && !text.includes(t('failed'));
+  const packMatch = text.match(/«([^»]+)»/);
+  return { success: isSuccess, packName: packMatch ? packMatch[1] : null };
 }
 
 // Helpers
