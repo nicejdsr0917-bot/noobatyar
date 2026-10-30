@@ -43,6 +43,8 @@ export interface Business {
    *  client tell a withheld pin (null coordinates, is_expired) from one that
    *  was never set. Absent on an older server. */
   has_location?: boolean;
+  /** Rating summary; absent on an older server. */
+  rating?: { avg: number; count: number; histogram: Record<string, number> };
   logo: string | null;
   default_service_duration: number;
   work_start_hour: number;
@@ -360,6 +362,8 @@ export async function bookAppointment(
     body: JSON.stringify({
       business_id: businessId,
       appointment_date: appointmentDate,
+      // Explicit so the owner's per-channel stats never depend on the server default.
+      source: 'WEB',
       ...(serviceDuration && { service_duration: serviceDuration }),
       ...(description && { description }),
       ...(selectedServices?.length && { selected_services: selectedServices }),
@@ -589,3 +593,126 @@ export function categoryLabel(category: string): string {
   return map[category] || category;
 }
 
+
+
+// ── Showcase (portfolio / certificates) ─────────────────────────────────────
+export interface PortfolioItem {
+  id: number;
+  image: string;
+  thumbnail: string;
+  caption: string;
+  order: number;
+}
+export interface CertificateItem {
+  id: number;
+  image: string;
+  thumbnail: string;
+  title: string;
+  issuer: string;
+  year: number | null;
+  order: number;
+}
+export interface Showcase {
+  portfolio: PortfolioItem[];
+  certificates: CertificateItem[];
+}
+
+export async function getShowcase(businessId: number): Promise<Showcase> {
+  return apiFetch<Showcase>(`/api/client/businesses/${businessId}/showcase/`);
+}
+
+// ── Reviews ─────────────────────────────────────────────────────────────────
+export interface RatingSummary {
+  avg: number;
+  count: number;
+  histogram: Record<string, number>;
+}
+export interface Review {
+  id: number;
+  rating: number;
+  text: string;
+  created_at: string;
+  visitor_name: string;
+  visitor_phone: string;
+}
+export interface MyReview {
+  id: number;
+  business_id: number;
+  rating: number;
+  text: string;
+  created_at: string;
+  updated_at: string;
+}
+export interface ReviewPage {
+  count: number;
+  total_pages: number;
+  current_page: number;
+  next: number | null;
+  previous: number | null;
+  results: Review[];
+}
+
+export async function getReviewSummary(businessId: number): Promise<RatingSummary> {
+  return apiFetch<RatingSummary>(`/api/client/reviews/business/${businessId}/summary/`);
+}
+
+export async function getReviews(businessId: number, page = 1, pageSize = 10): Promise<ReviewPage> {
+  return apiFetch<ReviewPage>(
+    `/api/client/reviews/business/${businessId}/?page=${page}&page_size=${pageSize}`
+  );
+}
+
+const visitorAuth = (token: string) => ({ Authorization: `Visitor ${token}` });
+
+/** The caller's own review, or null when they have not written one (404). */
+export async function getMyReview(businessId: number, token: string): Promise<MyReview | null> {
+  try {
+    return await apiFetch<MyReview>(`/api/client/reviews/business/${businessId}/mine/`, {
+      headers: visitorAuth(token),
+    });
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+}
+
+export async function saveMyReview(
+  businessId: number,
+  review: { rating: number; text: string },
+  token: string,
+  isEdit: boolean
+): Promise<MyReview> {
+  return apiFetch<MyReview>(`/api/client/reviews/business/${businessId}/mine/`, {
+    method: isEdit ? 'PUT' : 'POST',
+    headers: visitorAuth(token),
+    body: JSON.stringify(review),
+  });
+}
+
+export async function deleteMyReview(businessId: number, token: string): Promise<void> {
+  await apiFetch(`/api/client/reviews/business/${businessId}/mine/`, {
+    method: 'DELETE',
+    headers: visitorAuth(token),
+  });
+}
+
+export type ReportReason =
+  | 'SPAM'
+  | 'INAPPROPRIATE'
+  | 'MISLEADING'
+  | 'IMPERSONATION'
+  | 'ILLEGAL'
+  | 'OTHER';
+
+export async function reportReview(
+  reviewId: number,
+  reason: ReportReason,
+  detail: string,
+  token?: string
+): Promise<void> {
+  await apiFetch(`/api/client/reviews/${reviewId}/report/`, {
+    method: 'POST',
+    headers: token ? visitorAuth(token) : {},
+    body: JSON.stringify({ reason, detail }),
+  });
+}

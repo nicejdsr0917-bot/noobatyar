@@ -1,6 +1,11 @@
 import type { Viewport } from 'next';
 import { notFound } from 'next/navigation';
-import { getBusinessByCode, businessCategoryLabel, mediaUrl, type Business } from '@/lib/api';
+import {
+  getBusinessByCode, businessCategoryLabel, mediaUrl, getShowcase, getReviewSummary, getReviews,
+  type Business, type RatingSummary, type ReviewPage, type Showcase,
+} from '@/lib/api';
+import ShowcaseSection from '@/app/components/ShowcaseSection';
+import ReviewsSection from '@/app/components/ReviewsSection';
 import { businessLocation } from '@/lib/maps';
 import { absoluteBusinessUrl } from '@/lib/site';
 import BusinessProfileClient from './BusinessProfileClient';
@@ -148,7 +153,7 @@ export async function generateMetadata({ params }: Props) {
  *  open, and claiming Saturday–Friday would put a wrong "Open now" on the
  *  search result. It needs weekday data on the model first.
  */
-function businessJsonLd(biz: Business, canonical: string, t: T) {
+function businessJsonLd(biz: Business, canonical: string, t: T, rating: RatingSummary | null) {
   const logo = mediaUrl(biz.logo);
   const location = businessLocation(biz);
   return {
@@ -174,6 +179,17 @@ function businessJsonLd(biz: Business, canonical: string, t: T) {
             '@type': 'GeoCoordinates',
             latitude: location.lat,
             longitude: location.lng,
+          },
+        }
+      : {}),
+    ...(rating && rating.count > 0
+      ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: rating.avg,
+            reviewCount: rating.count,
+            bestRating: 5,
+            worstRating: 1,
           },
         }
       : {}),
@@ -210,6 +226,17 @@ export default async function BusinessProfilePage({ params }: Props) {
 
   const canonical = absoluteBusinessUrl(business.unique_code);
 
+  // SEO-relevant, so fetched on the server; each is optional — a failure (older
+  // API, no data) just omits that section instead of failing the page.
+  const [showcase, summary, firstPage] = await Promise.all([
+    getShowcase(business.id).catch((): Showcase | null => null),
+    business.rating
+      ? Promise.resolve<RatingSummary>(business.rating)
+      : getReviewSummary(business.id).catch((): RatingSummary | null => null),
+    getReviews(business.id, 1).catch((): ReviewPage | null => null),
+  ]);
+  const hasShowcase = !!showcase && (showcase.portfolio.length > 0 || showcase.certificates.length > 0);
+
   return (
     <>
       <script
@@ -218,13 +245,21 @@ export default async function BusinessProfilePage({ params }: Props) {
         // input: a `<` inside a business title would end the script tag early,
         // so it is escaped the way schema.org markup conventionally is.
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(businessJsonLd(business, canonical, t)).replace(
+          __html: JSON.stringify(businessJsonLd(business, canonical, t, summary)).replace(
             /</g,
             '\\u003c'
           ),
         }}
       />
-      <BusinessProfileClient business={business} slug={slug} />
+      <BusinessProfileClient business={business} slug={slug}>
+        {hasShowcase && <ShowcaseSection showcase={showcase} />}
+        <ReviewsSection
+          businessId={business.id}
+          summary={summary}
+          initialPage={firstPage}
+          loginHref={`/auth/login?redirect=${encodeURIComponent(`/b/${slug}`)}`}
+        />
+      </BusinessProfileClient>
     </>
   );
 }

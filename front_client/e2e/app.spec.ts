@@ -10,6 +10,38 @@ test.describe('business profile', () => {
     await expect(page.getByRole('heading', { name: 'کلینیک آزمون' }).first()).toBeVisible();
   });
 
+  test('shows portfolio, certificates and the rating summary', async ({ page }) => {
+    await page.goto(`/b/${SLUG}`);
+    await expect(page.getByText(fa.portfolio).first()).toBeVisible();
+    await expect(page.getByTestId('certificates-section').getByAltText('بورد تخصصی')).toBeVisible();
+    await expect(page.getByTestId('rating-summary')).toContainText('۴.۵');
+    await expect(page.getByTestId('review-item')).toHaveCount(2);
+    // Price-of-entry for Google's review stars.
+    const ld = await page.locator('script[type="application/ld+json"]').first().textContent();
+    expect(JSON.parse(ld!).aggregateRating).toMatchObject({ ratingValue: 4.5, reviewCount: 2 });
+  });
+
+  test('signed-out visitor is asked to sign in before reviewing', async ({ page }) => {
+    await page.goto(`/b/${SLUG}`);
+    await expect(page.getByRole('link', { name: fa.signInToReview })).toBeVisible();
+    await expect(page.getByTestId('review-form')).toHaveCount(0);
+  });
+
+  test('signed-in visitor writes a review and reports another', async ({ page }) => {
+    await page.addInitScript((tok) => localStorage.setItem('visitor_token', tok), TOKEN);
+    await page.goto(`/b/${SLUG}`);
+    const form = page.getByTestId('review-form');
+    await form.getByRole('radio').nth(4).click();
+    await form.getByRole('textbox').fill('عالی');
+    await form.getByRole('button', { name: fa.submitReview }).click();
+    await expect(page.getByRole('status')).toHaveText(fa.reviewSaved);
+
+    const first = page.getByTestId('review-item').first();
+    await first.getByRole('button', { name: fa.reportReview }).click();
+    await first.getByRole('button', { name: fa.submitReview }).click();
+    await expect(page.getByRole('status')).toHaveText(fa.reportSent);
+  });
+
   test('unknown business shows the not-available screen', async ({ page }) => {
     const res = await page.goto('/b/Noobatyar-NOPE');
     expect(res?.status()).toBe(404);
