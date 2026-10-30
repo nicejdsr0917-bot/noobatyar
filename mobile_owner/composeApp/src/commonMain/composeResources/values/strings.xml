@@ -690,6 +690,8 @@
     <string name="choose_days_your_business_is">روزهایی که کسب‌وکار شما تعطیل است و نوبت‌دهی در آن‌ها انجام نمی‌شود را انتخاب کنید.</string>
     <string name="no_closed_days_booking_is">تعطیلی ندارم؛ هر روز هفته نوبت‌دهی فعال است</string>
     <string name="name_must_be_3_to">نام باید بین ۳ تا ۵۰ کاراکتر باشد</string>
+    <string name="logo_required_hint">لوگوی کسب‌وکار الزامی است؛ مشتری‌ها آن را در لیست و صفحهٔ شما می‌بینند</string>
+    <string name="logo_required_error">لطفاً لوگوی کسب‌وکار را انتخاب کنید</string>
     <string name="choose_service_duration">مدت زمان سرویس را انتخاب کنید</string>
     <string name="closing_time_must_be_after">ساعت پایان کار باید بعد از ساعت شروع باشد</string>
     <string name="phone_number_is_not_valid">شماره تلفن صحیح نیست</string>

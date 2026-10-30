@@ -641,6 +641,8 @@
     <string name="choose_days_your_business_is">Choose the days your business is closed and no bookings are taken.</string>
     <string name="no_closed_days_booking_is">No closed days; booking is open every day of the week</string>
     <string name="name_must_be_3_to">Name must be 3 to 50 characters</string>
+    <string name="logo_required_hint">A business logo is required; customers see it in the list and on your page</string>
+    <string name="logo_required_error">Please choose a business logo</string>
     <string name="choose_service_duration">Choose the service duration</string>
     <string name="closing_time_must_be_after">Closing time must be after opening time</string>
     <string name="phone_number_is_not_valid">Phone number is not valid</string>
