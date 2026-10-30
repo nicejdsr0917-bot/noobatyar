@@ -430,11 +430,21 @@ class PublicBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
     )
     insurances = InsuranceSerializer(many=True, read_only=True)
     distance_km = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
+
+    def get_rating(self, obj):
+        hist = obj.rating_histogram or {}
+        return {
+            'avg': round(obj.rating_avg or 0, 2),
+            'count': obj.rating_count or 0,
+            'histogram': {str(i): int(hist.get(str(i), 0)) for i in range(1, 6)},
+        }
 
     class Meta:
         model = Business
         fields = [
             'id',
+            'rating',
             'unique_code',
             'category',
             'category_display',

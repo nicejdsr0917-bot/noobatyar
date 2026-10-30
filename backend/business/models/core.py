@@ -129,6 +129,12 @@ class Business(models.Model):
     city_code = models.PositiveIntegerField(null=True, blank=True, db_index=True, verbose_name='کد شهر')
     is_claimed = models.BooleanField(default=True, db_index=True, help_text="True if registered/claimed by an owner on Noobatyar; False if imported directory listing.")
     external_source = models.CharField(max_length=100, blank=True, default='', help_text="Source dataset identifier for imported listings")
+    # Denormalised review summary (reviews app keeps it in step, see
+    # reviews/services.py): lets the public list/detail show the rating with no
+    # extra query and lets the nightly rank job read it cheaply.
+    rating_avg = models.FloatField(default=0, verbose_name='میانگین امتیاز')
+    rating_count = models.PositiveIntegerField(default=0, verbose_name='تعداد نظرات')
+    rating_histogram = models.JSONField(default=dict, blank=True, verbose_name='توزیع امتیازها')
     online_booking_requests_count = models.PositiveIntegerField(default=0, help_text="Number of client requests to enable online booking for an unclaimed business")
     insurances = models.ManyToManyField('Insurance', blank=True, related_name='businesses', help_text="Supported basic and supplementary insurances")
     # TextField, not CharField, because this cap has now moved twice (50 → 300

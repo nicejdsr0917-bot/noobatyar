@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'business',
     'visitor',
     'appointment',
+    'reviews',
     'bale',
 ]
 
