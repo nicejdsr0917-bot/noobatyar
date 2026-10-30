@@ -6,7 +6,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef, Q
 import logging
 
@@ -15,18 +14,14 @@ from .serializers import VisitorSerializer, VisitorAttachSerializer, SmsLogSeria
 from business.models import Business
 from . import services
 from .activity import record_activity
-from api.responses import APIResponse  # اضافه کردن import
+from common.pagination import page_dict
+from common.params import page_params, positive_int
+from common.responses import APIResponse
 
 logger = logging.getLogger(__name__)
 
 
-def _positive_int(raw, default):
-    """Parse a pagination param, falling back on anything that isn't a positive int."""
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        return default
-    return value if value > 0 else default
+_positive_int = positive_int  # kept: old name (see common.params)
 
 
 async def get_readable_visitor(visitor_id, user):
@@ -96,9 +91,9 @@ class VisitorView(APIView):
             user = request.user
 
             # Get pagination parameters
-            page = int(request.query_params.get('page', 1))
-            page_size = int(request.query_params.get('page_size', 10))
-            page_size = min(page_size, 100)  # حداکثر 100 آیتم در هر صفحه
+            page, page_size, error = page_params(request)  # page_size capped at 100
+            if error:
+                return error
 
             # Same readability rule as get_readable_visitor(): include visitors
             # who booked online under their own account but have an appointment
@@ -116,21 +111,15 @@ class VisitorView(APIView):
             # Paginate in the database (COUNT + LIMIT/OFFSET); only the page's
             # rows are ever loaded.
             def _paginate():
-                paginator = Paginator(visitors, page_size)
-                page_obj = paginator.get_page(page)
-                return paginator, page_obj, services.serialize_for_owner(user, page_obj.object_list)
+                return page_dict(
+                    visitors, page, page_size,
+                    lambda objs: services.serialize_for_owner(user, objs),
+                )
 
-            paginator, page_obj, serialized = await sync_to_async(_paginate)()
+            data = await sync_to_async(_paginate)()
 
             return APIResponse.success(
-                data={
-                    'count': paginator.count,
-                    'total_pages': paginator.num_pages,
-                    'current_page': page_obj.number,
-                    'next': page_obj.next_page_number() if page_obj.has_next() else None,
-                    'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
-                    'results': serialized
-                },
+                data=data,
                 message="لیست مشتریان با موفقیت دریافت شد"
             )
 
@@ -349,19 +338,12 @@ class VisitorMessageHistoryView(APIView):
         # of pulling the visitor's entire SMS history into memory.
         logs = logs.select_related('business', 'visitor').order_by('-sent_at')
 
-        paginator = Paginator(logs, page_size)
-        page_obj = paginator.get_page(page)
-
-        serializer = SmsLogSerializer(page_obj.object_list, many=True)
+        data = page_dict(
+            logs, page, page_size,
+            lambda objs: SmsLogSerializer(objs, many=True).data,
+        )
 
         return APIResponse.success(
-            data={
-                'count': paginator.count,
-                'total_pages': paginator.num_pages,
-                'current_page': page_obj.number,
-                'next': page_obj.next_page_number() if page_obj.has_next() else None,
-                'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
-                'results': serializer.data
-            },
+            data=data,
             message="تاریخچه پیام‌ها با موفقیت دریافت شد"
         )

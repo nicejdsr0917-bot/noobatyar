@@ -29,3 +29,14 @@ Baseline: 733 tests OK on sqlite with --parallel 4 (6 skipped). Worktree has no 
 
 ## Order
 Security first: A1→R12, A2→R5, A6→R12. Parallel: R1, R8, R9, R13. Then parallel: R2→R3, R4, R7, R11, R10. R5→R6 sequential. R12 not with R10 (visitor/views.py). R14, R15 last. Every package: makemigrations --check + full suite; payment/race tests on Postgres :55432.
+
+## Note: A3 intentionally deferred (R1-R4 refactor, branch w2/core)
+
+The UTC-date day reading (`common.timeutils.utc_date_tehran_midnight`, formerly
+`_utc_day_start` and the inline copies in stats / service-breakdown) was kept
+exactly as is. The owner app now mirrors it (UTC calendar date of the epoch-ms,
+then midnight Asia/Tehran), so "fixing" the server alone would shift every
+range an old or new client asks for. `local_date_midnight` (formerly
+`range_visitors_view._parse_ms`) keeps the Tehran-date reading. Both are named
+for what they do and documented in `common/timeutils.py`; unifying them needs a
+coordinated client + server change.
