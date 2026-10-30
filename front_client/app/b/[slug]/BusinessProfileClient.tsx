@@ -1,7 +1,7 @@
 'use client';
 
 import { googleMapsSearchUrl } from '@/lib/maps';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { businessCategoryLabel, type Business } from '@/lib/api';
 import BusinessNotice from '@/app/components/BusinessNotice';
@@ -18,9 +18,11 @@ import { t } from '@/lib/i18n';
 interface Props {
   business: Business;
   slug: string;
+  /** Server-rendered showcase + reviews sections. */
+  children?: ReactNode;
 }
 
-export default function BusinessProfileClient({ business, slug }: Props) {
+export default function BusinessProfileClient({ business, slug, children }: Props) {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
   const isSignedIn = !!useVisitorToken();
@@ -353,6 +355,8 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             {t('bookingIsCurrentlyDisabled')}</div>
         </div>
       )}
+
+      {children}
 
       {/* ── Noobatyar Promo ──
           Takes this business's colour rather than Noobatyar purple: the page is

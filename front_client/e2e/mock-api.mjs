@@ -47,6 +47,16 @@ const appointment = {
   card_owner_name: 'صاحب کارت',
 };
 
+const showcase = {
+  portfolio: [{ id: 1, image: '/media/p1.jpg', thumbnail: '/media/p1t.jpg', caption: 'لمینت دندان', order: 0 }],
+  certificates: [{ id: 2, image: '/media/c1.jpg', thumbnail: '/media/c1t.jpg', title: 'بورد تخصصی', issuer: 'وزارت بهداشت', year: 1398, order: 0 }],
+};
+
+const reviews = [
+  { id: 31, rating: 5, text: 'برخورد خیلی خوب', created_at: '2026-10-20T10:00:00Z', visitor_name: 'مریم', visitor_phone: '0912***1234' },
+  { id: 32, rating: 4, text: 'کمی انتظار داشت', created_at: '2026-10-21T10:00:00Z', visitor_name: 'علی', visitor_phone: '0935***5678' },
+];
+
 const ok = (data) => ({ status: 'success', data });
 
 function route(req, url) {
@@ -75,6 +85,21 @@ function route(req, url) {
   if (p === '/api/client/appointments/') {
     return authed ? [200, ok({ results: [appointment] })] : [401, { status: 'error', message: 'unauthorized' }];
   }
+  if (p === `/api/client/businesses/${business.id}/showcase/`) {
+    return [200, ok(showcase)];
+  }
+  if (p === `/api/client/reviews/business/${business.id}/summary/`) {
+    return [200, ok({ avg: 4.5, count: 2, histogram: { 5: 1, 4: 1 } })];
+  }
+  if (p === `/api/client/reviews/business/${business.id}/`) {
+    return [200, ok({ count: 2, total_pages: 1, current_page: 1, next: null, previous: null, results: reviews })];
+  }
+  if (p === `/api/client/reviews/business/${business.id}/mine/`) {
+    if (!authed) return [401, { status: 'error', message: 'unauthorized' }];
+    if (req.method === 'GET') return [404, { status: 'error', message: 'not found' }];
+    return [200, ok({ id: 9, business_id: business.id, rating: 5, text: 'عالی', created_at: '2026-10-30T10:00:00Z', updated_at: '2026-10-30T10:00:00Z' })];
+  }
+  if (/^\/api\/client\/reviews\/\d+\/report\/$/.test(p)) return [200, ok({})];
   if (p.startsWith('/api/accounting/') && p.endsWith('payment-result')) {
     const okPay = url.searchParams.get('success') === '1';
     return [200, okPay ? 'پرداخت موفق' : 'پرداخت ناموفق', 'text/html'];
