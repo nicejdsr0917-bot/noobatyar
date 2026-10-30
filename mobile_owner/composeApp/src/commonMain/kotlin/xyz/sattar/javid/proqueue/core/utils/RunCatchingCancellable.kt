@@ -13,6 +13,6 @@ inline fun <T> runCatchingCancellable(block: () -> T): Result<T> =
         Result.success(block())
     } catch (e: CancellationException) {
         throw e
-    } catch (e: Throwable) {
+    } catch (e: Exception) {
         Result.failure(e)
     }
