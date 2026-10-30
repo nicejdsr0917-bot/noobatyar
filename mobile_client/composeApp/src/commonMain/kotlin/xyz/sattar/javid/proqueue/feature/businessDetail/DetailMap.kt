@@ -1,5 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import androidx.compose.foundation.layout.PaddingValues
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.map.GestureOptions
+import org.maplibre.spatialk.geojson.Position
+import xyz.sattar.javid.proqueue.core.ui.components.map.VectorMap
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,16 +39,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import ovh.plrapps.mapcompose.api.addMarker
-import ovh.plrapps.mapcompose.api.scale
-import ovh.plrapps.mapcompose.api.scrollTo
-import ovh.plrapps.mapcompose.ui.MapUI
-import xyz.sattar.javid.proqueue.core.ui.components.map.DisposeMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
 import xyz.sattar.javid.proqueue.core.ui.components.map.MapAttribution
-import xyz.sattar.javid.proqueue.core.ui.components.map.applyTileTint
-import xyz.sattar.javid.proqueue.core.ui.components.map.newTileMapState
-import xyz.sattar.javid.proqueue.core.ui.components.map.toNormalized
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.booking.pressScale
 import xyz.sattar.javid.proqueue.feature.discovery.Radius
@@ -51,7 +49,7 @@ import xyz.sattar.javid.proqueue.feature.explore.BusinessPin
 import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 
 /** Street level: a few blocks around the business, readable street names. */
-private const val PREVIEW_ZOOM = 16.0
+private const val PREVIEW_ZOOM = 15.5
 
 /**
  * A still map of where the business is, with the same pin as the explore
@@ -60,22 +58,12 @@ private const val PREVIEW_ZOOM = 16.0
  */
 @Composable
 internal fun MapPreview(business: Business, latitude: Double, longitude: Double, onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    val density = LocalDensity.current.density
     val dark = LocalIsDarkTheme.current
-    val state = remember(latitude, longitude) {
-        newTileMapState(GeoPoint(latitude, longitude), PREVIEW_ZOOM, density)
-    }
-    DisposeMapState(state)
-    LaunchedEffect(dark) { state.applyTileTint(dark) }
-    LaunchedEffect(state) {
-        val (x, y) = GeoPoint(latitude, longitude).toNormalized()
-        state.addMarker("place", x, y, relativeOffset = Offset(-0.5f, -1f), clickable = false) {
-            BusinessPin(business, selected = true)
-        }
-        // Tiles start loading on the first camera move after layout, as on the
-        // explore map; the bubble sits above its point, so centre a bit lower.
-        state.scrollTo(x, y, destScale = state.scale, animationSpec = snap(), screenOffset = Offset(-0.5f, -0.62f))
-    }
+    val place = remember(latitude, longitude) { GeoPoint(latitude, longitude) }
+    // A little below the centre, so the pin's bubble sits mid-frame.
+    val camera = rememberCameraState(
+        CameraPosition(target = Position(longitude, latitude), zoom = PREVIEW_ZOOM, padding = PaddingValues(top = 56.dp))
+    )
     val interaction = remember { MutableInteractionSource() }
     val open = onOpen
     Box(
@@ -86,7 +74,8 @@ internal fun MapPreview(business: Business, latitude: Double, longitude: Double,
             .clip(Radius.md)
             .semantics { contentDescription = "نقشهٔ محل ${business.title}؛ برای دیدن نقشه و فاصله لمس کنید" }
     ) {
-        MapUI(modifier = Modifier.fillMaxSize(), state = state)
+        VectorMap(camera, dark, Modifier.fillMaxSize(), gestures = GestureOptions.AllDisabled)
+        PinnedAt(camera, place, PinAnchor.Bottom) { BusinessPin(business, selected = true) }
         // Swallows every touch, so the map never steals the page's scroll.
         Box(
             Modifier

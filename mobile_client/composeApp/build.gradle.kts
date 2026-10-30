@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING
 import org.gradle.kotlin.dsl.buildkonfig
@@ -109,6 +110,8 @@ kotlin {
             // Tiled map for the explore screen (raster tiles, so Persian street
             // names come pre-rendered and correct on every platform).
             implementation(libs.mapcompose.mp)
+            // Vector maps (Map.ir) on MapLibre Native, Android and iOS.
+            implementation(libs.maplibre.compose)
 
             // Glassmorphism blur for bars/toolbars
             implementation(libs.haze)
@@ -243,6 +246,10 @@ buildkonfig {
     defaultConfigs {
         buildConfigField(STRING, "BASE_URL", "https://api.noobatyar.ir")
         buildConfigField(STRING, "BOOKING_BASE_URL", "https://app.noobatyar.ir")
+        // Map.ir key, never committed: `mapir.apiKey` in local.properties, or
+        // MAPIR_API_KEY in the environment (CI secret). Empty = the app falls
+        // back to OSM raster tiles.
+        buildConfigField(STRING, "MAPIR_API_KEY", mapirApiKey())
     }
 }
 
@@ -261,4 +268,12 @@ dependencies {
 
 room {
     schemaDirectory("$projectDir/schemas")
+}
+
+fun mapirApiKey(): String {
+    val local = rootProject.file("local.properties")
+    val fromFile = if (local.exists()) {
+        Properties().apply { local.inputStream().use { load(it) } }.getProperty("mapir.apiKey")
+    } else null
+    return (fromFile ?: System.getenv("MAPIR_API_KEY") ?: "").trim()
 }

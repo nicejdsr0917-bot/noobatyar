@@ -1,11 +1,33 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Dp
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.feature
+import org.maplibre.compose.expressions.dsl.interpolate
+import org.maplibre.compose.expressions.dsl.linear
+import org.maplibre.compose.expressions.value.LineCap
+import org.maplibre.compose.expressions.value.LineJoin
+import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.LineString
+import org.maplibre.spatialk.geojson.Position
+import xyz.sattar.javid.proqueue.core.ui.components.map.VectorMap
+import xyz.sattar.javid.proqueue.core.ui.components.map.geoPointFromNormalized
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.layout.layout
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
-import xyz.sattar.javid.proqueue.core.ui.components.map.loadedTileCount
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -20,7 +42,6 @@ import xyz.sattar.javid.proqueue.core.location.label
 import xyz.sattar.javid.proqueue.core.ui.components.map.distanceKmTo
 import kotlin.math.PI
 import kotlin.math.atan2
-import ovh.plrapps.mapcompose.ui.state.MapState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -69,24 +90,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import ovh.plrapps.mapcompose.api.BoundingBox
-import ovh.plrapps.mapcompose.api.addMarker
-import ovh.plrapps.mapcompose.api.addPath
-import ovh.plrapps.mapcompose.api.removeMarker
-import ovh.plrapps.mapcompose.api.removePath
-import ovh.plrapps.mapcompose.api.scale
-import ovh.plrapps.mapcompose.api.scrollTo
-import ovh.plrapps.mapcompose.ui.MapUI
 import xyz.sattar.javid.proqueue.core.location.LocationResult
 import xyz.sattar.javid.proqueue.data.remoteDataSource.promo.PromoPlacement
 import xyz.sattar.javid.proqueue.feature.promo.PromoStrip
 import xyz.sattar.javid.proqueue.core.location.rememberLocationRequester
-import xyz.sattar.javid.proqueue.core.ui.components.map.DisposeMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
 import xyz.sattar.javid.proqueue.core.ui.components.map.MapAttribution
-import xyz.sattar.javid.proqueue.core.ui.components.map.applyTileTint
 import xyz.sattar.javid.proqueue.core.ui.components.map.mapBackground
-import xyz.sattar.javid.proqueue.core.ui.components.map.newTileMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.toNormalized
 import xyz.sattar.javid.proqueue.core.utils.openMap
 import xyz.sattar.javid.proqueue.core.utils.rememberReducedMotion
@@ -102,22 +112,17 @@ import xyz.sattar.javid.proqueue.feature.explore.MyLocationDot
 import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 
-private const val BUSINESS_MARKER = "business"
-private const val ME_MARKER = "me"
-private const val ROUTE_PATH = "route"
-private const val ROUTE_HEAD = "route-head"
-private const val DESTINATION_MARKER = "destination"
-
 /** Straight segments the curve is drawn with; enough to look smooth at any zoom here. */
 private const val ARC_SEGMENTS = 40
-private const val ROUTE_ARROW = "route-arrow"
-
 
 /** Where along the finished route its direction chevron sits. */
 private const val MID_ARROW_AT = 0.55f
 
 /** Share of the screen the bottom card leaves for the map. */
 private const val MAP_VISIBLE_FRACTION = 0.62f
+
+/** Street level, where street and area names show. */
+private const val STREET_ZOOM = 15.5
 
 /**
  * The business on a full-screen map with the user's position beside it and
@@ -182,7 +187,6 @@ fun BusinessMapScreen(
 
 @Composable
 private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
-    val density = LocalDensity.current.density
     val dark = LocalIsDarkTheme.current
     val reduced = LocalReducedMotion.current
     val accent = MaterialTheme.colorScheme.primary
@@ -192,30 +196,106 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
         MaterialTheme.colorScheme.onSurface,
         accent,
     )
-    val state = remember(place) { newTileMapState(place, 16.0, density) }
-    DisposeMapState(state)
-    LaunchedEffect(dark) { state.applyTileTint(dark) }
-
-    // The map fades in once tiles arrive; only then does the route draw.
+    val camera = rememberCameraState(
+        CameraPosition(target = Position(place.longitude, place.latitude), zoom = STREET_ZOOM)
+    )
+    // The map fades in once its style is up; only then does the route draw.
     val shown = remember { Animatable(if (reduced) 1f else 0f) }
+    var loaded by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0f) }
     var played by remember { mutableStateOf(false) }
     var arrivedKm by remember { mutableStateOf<Double?>(null) }
+    val arc = remember(me, place) { me?.let { arcGeo(it, place) } }
 
+    LaunchedEffect(loaded) { if (loaded) shown.animateTo(1f, tween(450)) }
 
-    LaunchedEffect(state) {
-        val (x, y) = place.toNormalized()
-        // On the map itself, so the pin's tip is exactly on its point. The
-        // arrival card rides above it.
-        state.addMarker(BUSINESS_MARKER, x, y, relativeOffset = Offset(-0.5f, -1f), clickable = false, zIndex = 3f) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(mapBackground(dark))) {
+        // Room under the bottom card, and above the business for its card.
+        val framePadding = PaddingValues(
+            start = 56.dp,
+            end = 56.dp,
+            top = 170.dp,
+            bottom = maxHeight * (1f - MAP_VISIBLE_FRACTION) + 48.dp,
+        )
+        LaunchedEffect(arc, loaded) {
+            if (!loaded) return@LaunchedEffect
+            arrivedKm = null
+            if (arc == null || me == null) {
+                progress = 0f
+                camera.animateTo(
+                    CameraPosition(target = Position(place.longitude, place.latitude), zoom = STREET_ZOOM, padding = framePadding),
+                    duration = 400.milliseconds,
+                )
+                return@LaunchedEffect
+            }
+            camera.animateTo(boundsOf(arc), padding = framePadding, duration = 600.milliseconds)
+            if (!reduced && !played) {
+                played = true
+                delay(450)
+                val flight = Animatable(0f)
+                flight.animateTo(1f, tween(2_000, easing = FastOutSlowInEasing)) { progress = value }
+            }
+            progress = 1f
+            arrivedKm = me.distanceKmTo(place)
+        }
+
+        VectorMap(
+            cameraState = camera,
+            dark = dark,
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = shown.value },
+            onMapLoadFinished = { loaded = true },
+        ) {
+            if (arc != null && progress > 0f) {
+                val drawn = partialArc(arc, progress)
+                val route = rememberGeoJsonSource(
+                    GeoJsonData.Features(LineString(drawn.map { Position(it.longitude, it.latitude) })),
+                    GeoJsonOptions(lineMetrics = true),
+                )
+                LineLayer(
+                    id = "route",
+                    source = route,
+                    width = const(5.dp),
+                    cap = const(LineCap.Round),
+                    join = const(LineJoin.Round),
+                    gradient = interpolate(
+                        linear(),
+                        feature.lineProgress(),
+                        0f to const(routeColors.first),
+                        0.5f to const(routeColors.second),
+                        1f to const(routeColors.third),
+                    ),
+                )
+                // The arrow is the line's own tip, in the line's colour; once
+                // landed, a chevron mid-way shows the direction instead.
+                val at = if (progress < 1f) progress else MID_ARROW_AT
+                chevronGeo(arc, at)?.let { v ->
+                    val arrow = rememberGeoJsonSource(
+                        GeoJsonData.Features(LineString(v.map { Position(it.longitude, it.latitude) }))
+                    )
+                    LineLayer(
+                        id = "route-arrow",
+                        source = arrow,
+                        width = const(4.dp),
+                        cap = const(LineCap.Round),
+                        join = const(LineJoin.Round),
+                        color = const(routeColor(routeColors, at)),
+                    )
+                }
+            }
+        }
+
+        // Markers are Compose, pinned to their point through the camera's
+        // projection, so they look exactly like the rest of the app.
+        val pinAlpha = shown.value
+        if (me != null) PinnedAt(camera, me, PinAnchor.Center, pinAlpha) { MyLocationDot() }
+        PinnedAt(camera, place, PinAnchor.Center, pinAlpha) { DestinationSquare() }
+        PinnedAt(camera, place, PinAnchor.Bottom, pinAlpha, lift = 6.dp) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 arrivedKm?.let { km ->
                     ArrivalLabel(km)
                     Spacer(Modifier.height(Space.sm))
                 }
-                // The compact pin: the name is in the bottom card, and a wide
-                // labelled bubble would cover the route at this zoom.
+                // The compact pin: the name is in the bottom card.
                 Box(
                     Modifier.graphicsLayer {
                         scaleX = 1.3f
@@ -225,69 +305,6 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
                 ) { BusinessPin(business, selected = false) }
             }
         }
-        // The destination on the ground, under the standing pin's tip.
-        state.addMarker(DESTINATION_MARKER, x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = 2f) {
-            DestinationSquare()
-        }
-    }
-    LaunchedEffect(state) {
-        val start = loadedTileCount.value
-        withTimeoutOrNull(4_000) { loadedTileCount.first { it >= start + 4 } }
-        shown.animateTo(1f, tween(450))
-    }
-    LaunchedEffect(state, me) {
-        state.removeMarker(ME_MARKER)
-        state.clearRoute()
-        arrivedKm = null
-        val target = place.toNormalized()
-        if (me == null) {
-            // Above the bottom card, at street level.
-            state.scrollTo(target.first, target.second, destScale = state.scale, screenOffset = Offset(-0.5f, -MAP_VISIBLE_FRACTION / 2))
-            return@LaunchedEffect
-        }
-        val mine = me.toNormalized()
-        state.addMarker(ME_MARKER, mine.first, mine.second, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = 0f) {
-            MyLocationDot()
-        }
-        val before = loadedTileCount.value
-        fitBoth(state, mine, target)
-        val arc = arcPoints(mine, target)
-
-        if (!reduced && !played) {
-            played = true
-            // The map first: wait for this view's tiles, and for the fade-in.
-            withTimeoutOrNull(5_000) { loadedTileCount.first { it >= before + 6 } }
-            shown.animateTo(1f, tween(300))
-            delay(350)
-            val flight = Animatable(0f)
-            var drawn = 0
-            flight.animateTo(1f, tween(2_000, easing = FastOutSlowInEasing)) {
-                drawn = state.drawRoute(arc, value, routeColors, alreadyDrawn = drawn)
-                // The arrow is the line's own tip, in the line's colour.
-                state.drawChevron(arc, value, routeColor(routeColors, value))
-            }
-        }
-        state.clearRoute()
-        state.drawRoute(arc, 1f, routeColors)
-        // Arrived: the square marks the end, a chevron mid-way shows the direction.
-        state.drawChevron(arc, MID_ARROW_AT, routeColor(routeColors, MID_ARROW_AT))
-        arrivedKm = me.distanceKmTo(place)
-    }
-
-    Box(Modifier.fillMaxSize().background(mapBackground(dark))) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    alpha = shown.value
-                    // A slight settle as it appears.
-                    scaleX = 1f + 0.04f * (1f - shown.value)
-                    scaleY = 1f + 0.04f * (1f - shown.value)
-                }
-        ) {
-            MapUI(modifier = Modifier.fillMaxSize(), state = state)
-        }
-
         if (shown.value < 1f) {
             Text(
                 "در حال بارگذاری نقشه…",
@@ -301,6 +318,42 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
             )
         }
     }
+}
+
+internal enum class PinAnchor { Center, Bottom }
+
+/**
+ * Places [content] on [point] of the map: centred on it, or standing on it
+ * by its bottom edge, raised by [lift]. Re-placed whenever the camera moves.
+ * Takes the full parent size, so its origin is the map's even in RTL.
+ */
+@Composable
+internal fun PinnedAt(
+    camera: CameraState,
+    point: GeoPoint,
+    anchor: PinAnchor,
+    alpha: Float = 1f,
+    lift: Dp = 0.dp,
+    content: @Composable () -> Unit,
+) {
+    val position = remember(point) { Position(point.longitude, point.latitude) }
+    Box(
+        Modifier
+            .graphicsLayer { this.alpha = alpha }
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+                layout(constraints.maxWidth, constraints.maxHeight) {
+                    camera.position // re-place on every camera move
+                    val at = camera.projection?.screenLocationFromPosition(position) ?: return@layout
+                    val x = at.x.roundToPx() - placeable.width / 2
+                    val y = when (anchor) {
+                        PinAnchor.Center -> at.y.roundToPx() - placeable.height / 2
+                        PinAnchor.Bottom -> at.y.roundToPx() - placeable.height + lift.roundToPx()
+                    }
+                    placeable.place(x, y)
+                }
+            }
+    ) { content() }
 }
 
 private fun lerp(a: Pair<Double, Double>, b: Pair<Double, Double>, t: Double) =
@@ -342,65 +395,61 @@ private fun routeColor(colors: Triple<Color, Color, Color>, t: Float): Color =
     if (t < 0.5f) androidx.compose.ui.graphics.lerp(colors.first, colors.second, t * 2)
     else androidx.compose.ui.graphics.lerp(colors.second, colors.third, (t - 0.5f) * 2)
 
-/**
- * Draws [arc] up to [progress] as short segments in a colour ramp, adding
- * only the segments not drawn yet ([alreadyDrawn]) plus a moving head piece.
- * Returns how many whole segments are now drawn.
- */
-private fun MapState.drawRoute(
-    arc: List<Pair<Double, Double>>,
-    progress: Float,
-    colors: Triple<Color, Color, Color>,
-    alreadyDrawn: Int = 0,
-): Int {
+
+/** The curved trip between two places, in geographic points. */
+internal fun arcGeo(from: GeoPoint, to: GeoPoint): List<GeoPoint> =
+    arcPoints(from.toNormalized(), to.toNormalized()).map { (x, y) -> geoPointFromNormalized(x, y) }
+
+/** [arc] drawn up to [progress]: whole segments plus the moving head. */
+internal fun partialArc(arc: List<GeoPoint>, progress: Float): List<GeoPoint> {
     val segments = arc.size - 1
-    val whole = (progress.coerceIn(0f, 1f) * segments).toInt().coerceAtMost(segments)
-    for (i in alreadyDrawn until whole) {
-        addPath("$ROUTE_PATH$i", width = 5.dp, color = routeColor(colors, (i + 0.5f) / segments)) {
-            addPoints(listOf(arc[i], arc[i + 1]))
-        }
-    }
-    removePath(ROUTE_HEAD)
-    if (whole < segments) {
-        val head = pointOnArc(arc, progress)
-        addPath(ROUTE_HEAD, width = 5.dp, color = routeColor(colors, progress)) { addPoints(listOf(arc[whole], head)) }
-    }
-    return whole
-}
-
-private fun MapState.clearRoute() {
-    for (i in 0 until ARC_SEGMENTS) removePath("$ROUTE_PATH$i")
-    removePath(ROUTE_HEAD)
-    removePath(ROUTE_ARROW)
+    val pos = progress.coerceIn(0f, 1f) * segments
+    val whole = pos.toInt().coerceAtMost(segments)
+    if (whole >= segments) return arc
+    val a = arc[whole]
+    val b = arc[whole + 1]
+    val t = (pos - whole).toDouble()
+    val head = GeoPoint(a.latitude + (b.latitude - a.latitude) * t, a.longitude + (b.longitude - a.longitude) * t)
+    return arc.subList(0, whole + 1) + head
 }
 
 /**
- * An open arrowhead drawn into the route at [t], pointing along it: two short
- * strokes meeting at the route, sized to the trip so it reads the same at the
- * zoom the trip is framed at.
+ * An open arrowhead on the route at [t], pointing along it: three points
+ * (wing, tip, wing), sized to the trip so it reads the same at the zoom the
+ * trip is framed at. Null at the very start.
  */
-private fun MapState.drawChevron(arc: List<Pair<Double, Double>>, t: Float, color: Color) {
-    removePath(ROUTE_ARROW)
-    if (t < 0.06f) return
-    val tip = pointOnArc(arc, t)
-    val back = pointOnArc(arc, (t - 0.03f).coerceAtLeast(0f))
+internal fun chevronGeo(arc: List<GeoPoint>, t: Float): List<GeoPoint>? {
+    if (t < 0.06f) return null
+    val flat = arc.map { it.toNormalized() }
+    val tip = pointOnArc(flat, t)
+    val back = pointOnArc(flat, (t - 0.03f).coerceAtLeast(0f))
     var dx = tip.first - back.first
     var dy = tip.second - back.second
     val d = kotlin.math.sqrt(dx * dx + dy * dy)
-    if (d == 0.0) return
+    if (d == 0.0) return null
     dx /= d
     dy /= d
-    val chord = kotlin.math.sqrt(
-        (arc.last().first - arc.first().first).let { it * it } + (arc.last().second - arc.first().second).let { it * it }
-    )
+    val first = flat.first()
+    val last = flat.last()
+    val chord = kotlin.math.sqrt((last.first - first.first).let { it * it } + (last.second - first.second).let { it * it })
     val length = chord * 0.028
     val half = chord * 0.018
     val baseX = tip.first - dx * length
     val baseY = tip.second - dy * length
-    addPath(ROUTE_ARROW, width = 4.dp, color = color) {
-        addPoints(listOf(baseX - dy * half to baseY + dx * half, tip, baseX + dy * half to baseY - dx * half))
-    }
+    return listOf(
+        baseX - dy * half to baseY + dx * half,
+        tip,
+        baseX + dy * half to baseY - dx * half,
+    ).map { (x, y) -> geoPointFromNormalized(x, y) }
 }
+
+/** The box around [points], for the camera to frame. */
+private fun boundsOf(points: List<GeoPoint>): BoundingBox = BoundingBox(
+    west = points.minOf { it.longitude },
+    south = points.minOf { it.latitude },
+    east = points.maxOf { it.longitude },
+    north = points.maxOf { it.latitude },
+)
 
 /** The destination as a small square on the ground, like a ride app's drop-off. */
 @Composable
@@ -442,23 +491,6 @@ private fun ArrivalLabel(straightKm: Double) {
         )
         Text(drive.label(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
     }
-}
-
-/** Frames the user and the business above the bottom card, as close as both fit. */
-private suspend fun fitBoth(state: MapState, a: Pair<Double, Double>, b: Pair<Double, Double>) {
-    val w = maxOf(kotlin.math.abs(a.first - b.first), 0.00002)
-    val h = maxOf(kotlin.math.abs(a.second - b.second), 0.00002)
-    val span = maxOf(w, h)
-    val cx = (a.first + b.first) / 2
-    val cy = (a.second + b.second) / 2
-    // Street level: the trip fills most of the width, so street and area
-    // names show (the arrival card keeps itself on screen).
-    val halfW = span * 0.92
-    // Room above for the bubble, below for the dot; then stretch down under the card.
-    val top = cy - h / 2 - span * 0.55
-    val visibleBottom = cy + h / 2 + span * 0.35
-    val bottom = top + (visibleBottom - top) / MAP_VISIBLE_FRACTION
-    state.scrollTo(BoundingBox(cx - halfW, top, cx + halfW, bottom), animationSpec = tween(500))
 }
 
 @Composable

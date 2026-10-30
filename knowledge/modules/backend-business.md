@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-10-31
 tags: [gf]
 ---
 # backend: business
@@ -45,3 +45,8 @@ tags: [gf]
 
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰ (عصر)
 - `business/admin/business.py`: ستون `rank_column` («رتبه»، مرتب‌سازی `-rank_score`، «محاسبه نشده» تا اولین اجرای cron). `rating_avg`، `rating_count`، `rank_score`، `rank_updated_at` فقط‌خواندنی‌اند. تست در `tests_admin_smoke.py`.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۱
+- **اپ `banners`، مدل `ClientPromo`** (migration `0002`):
+  - فیلدها: متن، متن دکمه، مرکز یا لینک، محل نمایش (`EXPLORE` / `BUSINESS_MAP` / `ALL`)، و زمان‌بندی.
+  - API: `GET /api/client/promos/?placement=` (عمومی). در ادمین زیر «نوارهای تبلیغ اپ مشتری» است.

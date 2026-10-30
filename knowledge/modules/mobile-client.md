@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-10-31
 tags: [gf]
 ---
 # اپ موبایل مشتری (mobile_client — برنچ `mobile-client`)
@@ -60,3 +60,26 @@ tags: [gf]
 - `feature/businessDetail/PaymentInfo.kt`: `paymentInfo(business)` خط بیعانه و برچسب روش‌های پرداخت را می‌سازد (`ONLINE/GATEWAY/CARD/CASH`)؛ `formatToman` (۱۵۰٬۰۰۰ تومان). بخش «بیعانه و پرداخت» در `ClientBusinessDetailScreen` فقط برای مراکز claim‌شده. تست: `commonTest/.../PaymentInfoTest.kt`.
 - مقدار `deposit_mode` سرور `MANDATORY/OPTIONAL/NONE` است، نه `REQUIRED`؛ از ثابت‌های `DEPOSIT_MANDATORY`/`DEPOSIT_OPTIONAL` استفاده کن.
 - تسک تست Gradle: `testProdDebugUnitTest` یا `testLocalDebugUnitTest` (`testDebugUnitTest` مبهم است).
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۱
+- **رزرو:**
+  - `feature/booking/`: `BookingFlow.kt` منطق خالص دارد (مرحله‌ها، قواعد پرداخت مثل وب، خدمت دلخواه). `BookingMotion.kt` و `BookingComponents.kt` بخش انیمیشن و اجزای صفحه‌اند.
+  - `ReceiptPicker.kt` عکس رسید را انتخاب و با پیشرفت آپلود می‌کند.
+  - `Booking(businessId, resumeAppointmentId)` پرداخت نوبتی را که قبلاً قفل شده ادامه می‌دهد.
+- **نوبت‌ها:**
+  - `feature/appointments/`: تب‌ها، `AppointmentDetailScreen` (فیش نوبت) و `AppointmentRules.kt`.
+  - `ClientAppointmentDto` فیلدهای فیش را دارد (خدمات، توضیح، شمارهٔ پیگیری، رسید، روش پرداخت).
+- **صفحهٔ مرکز:**
+  - `feature/businessDetail/`: `DetailCards.kt` (`GroupCard`، `LinkRow`).
+  - `BusinessMapScreen` نقشهٔ کامل با خط منحنی و `PinnedAt` است. `BusinessMapViewModel` فاصله را حساب می‌کند و موقعیت را ذخیره می‌کند.
+- **موقعیت و تبلیغ:**
+  - `core/prefs/SavedLocation`: آخرین موقعیت کاربر. `core/location/TravelEstimate.kt`: تخمین زمان رانندگی.
+  - `feature/promo/` و `data/remoteDataSource/promo/`: نوار تبلیغ `ClientPromo`.
+- **نقشه:**
+  - `core/ui/components/map/VectorMap.kt` با MapLibre (`maplibre-compose` 0.14.0) کار می‌کند.
+  - استایل Map.ir با کلید `BuildKonfig.MAPIR_API_KEY`. بدون کلید از کاشی OSM استفاده می‌شود.
+  - `installMapAuth` برای اندروید و iOS. در اندروید `MapLibre.getInstance` باید **قبل** از `setOkHttpClient` صدا زده شود.
+  - صفحهٔ کاوش هنوز MapCompose است.
+- **نکته‌ها:**
+  - overlay پین‌ها باید اندازهٔ کامل والد را بگیرد (مشکل RTL).
+  - lifecycle 2.10.0 است.

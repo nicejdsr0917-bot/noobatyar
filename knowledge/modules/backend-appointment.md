@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-10-31
 tags: [gf]
 ---
 # backend: appointment
@@ -36,3 +36,13 @@ tags: [gf]
 - `slots.py`: توابع `first_free_window(now)` و `first_free_slot_ms(business, now, busy=None)` اضافه شدند. همان قواعد grid و occupancy صفحهٔ available-slots را دارند و در ۷ روز آینده می‌گردند.
 - `cache_utils.invalidate_slots_cache` حالا `first_free_slot_key(business_id)` را هم پاک می‌کند.
 - `Appointment.source` مقدارهای WEB، APP، OWNER و UNKNOWN را دارد. پیش‌فرض سرور برای رزرو کلاینت `WEB` است، پس اپ باید `APP` را صریح بفرستد.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۱
+- **رسید پرداخت:**
+  - `_store_receipt` در `services/client_booking.py` رسید را با Pillow باز و بررسی می‌کند، سقف ۸ مگابایت دارد، تا ۱۶۰۰ پیکسل کوچک و به JPEG تبدیل می‌کند.
+  - از کمک‌تابع‌های `showcase/images.py` استفاده می‌کند (`open_upload`، `flatten_rgb`، `encode_jpeg`).
+  - فایل غیرعکس خطای ۴۰۰ می‌گیرد.
+- **فیلدهای فیش:** `ClientAppointmentSerializer` حالا `description`، `selected_services` (به شکل لیست)، `payment_reference`، `payment_receipt` و `deposit_payment_method` را هم برمی‌گرداند؛ فقط برای نوبت خود مراجع.
+- **فیلدهای سفر:**
+  - `Appointment.travel_distance_m`، `drive_minutes_min`، `drive_minutes_max` (nullable، migration `0017`).
+  - `travel_estimate(request.data)` مقدارهای خراب را دور می‌ریزد و ثبت نوبت هرگز به‌خاطر آن رد نمی‌شود.

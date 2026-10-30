@@ -10,7 +10,8 @@ androidx-activity = "1.11.0"
 androidx-appcompat = "1.7.1"
 androidx-core = "1.17.0"
 androidx-espresso = "3.7.0"
-androidx-lifecycle = "2.9.6"
+# 2.10.0 because maplibre-compose 0.14.0 is built against it.
+androidx-lifecycle = "2.10.0"
 androidx-testExt = "1.3.0"
 composeMultiplatform = "1.11.1"
 junit = "4.13.2"
@@ -31,6 +32,9 @@ coil3 = "3.5.0"
 haze = "1.7.2"
 # Tiled raster map for the explore screen. Pinned to the owner app's version.
 mapcompose = "0.13.2"
+# Vector map (Map.ir styles) on MapLibre Native. 0.14.0 on purpose: it is the
+# last release built on Compose Multiplatform 1.11.1; 0.15+ pulls Compose 1.12.
+maplibreCompose = "0.14.0"
 # QR generation for the booking-link share screen. 1.1.2 rather than the
 # newer 1.3.0 on purpose: 1.3.0 declares compose-ui 1.12.0, which Gradle would
 # resolve *up* over this project's 1.11.1 and split compose-ui away from the
@@ -49,6 +53,7 @@ qrose = { module = "io.github.alexzhirkevich:qrose", version.ref = "qrose" }
 haze-materials = { module = "dev.chrisbanes.haze:haze-materials", version.ref = "haze" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil3" }
 mapcompose-mp = { module = "ovh.plrapps:mapcompose-mp", version.ref = "mapcompose" }
+maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "maplibreCompose" }
 peekaboo-image-picker = { module = "io.github.onseok:peekaboo-image-picker", version.ref = "peekaboo" }
 easycrop = { module = "io.github.mr0xf00:easycrop", version.ref = "easycrop" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
