@@ -30,3 +30,9 @@ tags: [gf]
 - `core/observability.py`: لاگ JSON، `X-Request-ID` (ContextVar)، slow query با `SLOW_QUERY_LOG`. `core/health.py`: `/api/healthz` و `/api/readyz`. `core/checks.py`: هشدار `core.W001` اگر `ZIBAL_MERCHANT_ID` خالی باشد.
 - `core/tests_tenant_isolation.py`: ۲۷ تست جداسازی داده. CI: `.github/workflows/ci.yml` (بک‌اند روی Postgres ترتیبی، وب lint+tsc+e2e، تست KMP دو اپ).
 - `bale/handlers.py`: هندلرهای bot. `versions.AppVersion.app` (OWNER/CLIENT) با پیش‌فرض OWNER؛ `version/check?app=`.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰ — ادمین
+- **منو:** `UNFOLD.SIDEBAR.navigation` در `core/settings.py` شش بخش دارد: بررسی، کاربران، رشد، پیام، مالی، سیستم. «بررسی» و «کاربران» `collapsible: False` هستند. عنوان آیتم‌ها حداکثر دو کلمه است و `core/tests_admin_menu.py` این را چک می‌کند. آیتم‌ها با `_item` و `_optional_item` ساخته می‌شوند و permission دارند.
+- **کش CSS:** `_versioned_static(path)` به آدرس `admin_custom/css/unfold.css` پسوند `?v=<mtime>` اضافه می‌کند. بدون این، مرورگرها CSS قدیمی را از کش نشان می‌دهند.
+- **موبایل:** در `assets/admin_custom/css/unfold.css`، کارت‌های داشبورد (`.nb-card`، `.nb-panel`، `.nb-alert`) `min-width: 0` دارند و گرید موبایل `minmax(0, 1fr)` است، تا جدول‌های no-wrap صفحه را پهن نکنند. آیکون‌های منوی unfold با `mr-3` فاصله می‌گیرند که در RTL سمت اشتباه است؛ قانون `[dir="rtl"] .material-symbols-outlined.mr-3` آن را درست می‌کند.
+- پنل «نوا» (`staffpanel`) یک بار ساخته و revert شد (`60442df`). در کد نیست.

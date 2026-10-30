@@ -1,16 +1,16 @@
 ---
-updated: 2026-10-30 13:52
+updated: 2026-10-30 18:08
 tags: [gf, current]
 ---
 # وضعیت فعلی
 
 ## هدف
-P2 از `../PLAN_NEXT.md` روی برنچ `mobile-client` (worktree `../Noobatyar-mobile-client`). همهٔ کارهای ساختنی P2 تمام و merge شده‌اند. کار در حال انجام: یک پنل ادمین جدید روی قالب «نوا» که در سشن جداگانه ساخته می‌شود. کاربر فعلاً نمی‌خواهد منتشر کند. قاعده: فقط تغییر افزایشی، چون کاربر واقعی و اپ قدیمی داریم.
+P2 از `../PLAN_NEXT.md` روی برنچ `mobile-client` (worktree `../Noobatyar-mobile-client`). همهٔ کارهای ساختنی P2 تمام و merge شده‌اند. ادمین پیش‌فرض (unfold) برای موبایل درست شد و منویش کوتاه شد. پنل «نوا» ساخته و بعد revert شد، چون کاربر تصمیم گرفت فقط ادمین پیش‌فرض را بهتر کند. کاربر فعلاً نمی‌خواهد منتشر کند. قاعده: فقط تغییر افزایشی، چون کاربر واقعی و اپ قدیمی داریم.
 
 ## وضعیت
 - **`mobile-client`:** push و دیپلوی نشده. develop و main دست نخورده‌اند.
 - **تست‌ها:**
-  - بک‌اند: ۹۸۱ تست.
+  - بک‌اند: ۹۸۲ تست.
   - اپ اونر: ۸۴ تست؛ اندروید، iOS و wasm compile می‌شوند.
   - اپ کلاینت: ۸۰ تست؛ اندروید و iOS compile می‌شوند.
   - وب: ۱۳ تست e2e.
@@ -26,7 +26,7 @@ P2 از `../PLAN_NEXT.md` روی برنچ `mobile-client` (worktree `../Noobatya
   - رزرو نیتیو کلاینت و تب «نوبت‌های من» با ثبت واریز
   - «اولین نوبت خالی» (`first_free_slot`)
   - workflow جدا برای ریلیز کلاینت (`client-v*`)
-- **در حال انجام:** پنل ادمین نوا در سشن «New Nava-based admin panel for Noobatyar». فایل‌های commit‌نشده‌اش `backend/staffpanel/` و `backend/assets/nava/` هستند. منبع قالب: `~/Desktop/Archive.zip`. نمونهٔ ظاهر و منو: https://javiddeveloper.github.io/workflow-sell-DEMO/
+- **ادمین:** روی موبایل overflow ندارد (داشبورد و گزارش مالی). منو شش بخش کوتاه دارد: بررسی، کاربران، رشد، پیام، مالی، سیستم. آدرس CSS نسخه‌دار است. پنل نوا revert شده (`60442df`).
 - **روی AVD تست سرتاسری شده:** رزرو، کارت به کارت، لغو، نظرات کلاینت، بنر و نظرات اونر. بقیهٔ رابط کاربری جدید فقط باز شده و به‌طور کامل امتحان نشده.
 - **محیط محلی:**
   - بک‌اند روی :8000 (preview `backend_mobile_client_mac`)
@@ -36,7 +36,7 @@ P2 از `../PLAN_NEXT.md` روی برنچ `mobile-client` (worktree `../Noobatya
   - حساب‌های تستی در `../Noobatyar-automation/TEST_ACCOUNTS.local.md`
 
 ## قدم‌های بعدی
-1. خروجی سشن پنل نوا را بررسی کنید: تست‌ها، دسترسی فقط staff، کامپوننت‌ها، منوی کوتاه. بعد commit روی `mobile-client`.
+1. (اختیاری) بهبود بیشتر ادمین پیش‌فرض: ثبت `LogEntry` برای کارهای داشبورد سفارشی، و چک موبایل صفحه‌های سفارشی با دادهٔ زیاد.
 2. تست دستی رابط‌های جدید روی دستگاه:
    - برش و آپلود نمونه‌کار
    - دیالوگ نظر
@@ -65,14 +65,14 @@ P2 از `../PLAN_NEXT.md` روی برنچ `mobile-client` (worktree `../Noobatya
 - `../PLAN_NEXT.md` — پلن P0 تا P3
 - `docs/api/P2_SHOWCASE_API.md` و `docs/api/P2_SOCIAL_API.md` — قراردادهای API، شامل `first_free_slot`
 - `backend/business/first_free.py` — «اولین نوبت خالی»
-- `backend/core/settings.py` (`UNFOLD`) — منوی ادمین فعلی
+- `backend/core/settings.py` (`UNFOLD.SIDEBAR`، `_versioned_static`) — منوی ادمین؛ عنوان‌ها حداکثر دو کلمه‌اند و `core/tests_admin_menu.py` این را چک می‌کند
 - `docs/DEPLOY_SCALE_HARDENING.md` — چک‌لیست دیپلوی
 
 ## سشن‌های اخیر
+- [[sessions/2026-10-30-1808]] — پنل نوا ساخته و revert شد؛ ادمین برای موبایل درست شد و منو کوتاه شد
 - [[sessions/2026-10-30-1352]] — همهٔ قابلیت‌های P2 در دو اپ و بک‌اند، تست روی AVD، رفع کرش wasm، بنرها، شروع پنل نوا
 - [[sessions/2026-10-30-0959]] — اجرای P1 با ایجنت‌ها، رفع تصاحب حساب، بازسازی، شروع P2 بک‌اند
 - [[sessions/2026-10-29-2022]] — مقاوم‌سازی سرور برای بار بالا، پول در DB، Outbox، OTP، بازسازی SOLID
 - [[sessions/2026-10-29-1039]] — انتخاب شهر با لیست دیوار، تمیز کردن دیتای محلی، پلن کار بعدی
-- [[sessions/2026-10-28-2144]] — بررسی پروژه، merge mobile-client، ساخت knowledge base
 
 ببین: [نقشهٔ پروژه](../knowledge/INDEX.md)
