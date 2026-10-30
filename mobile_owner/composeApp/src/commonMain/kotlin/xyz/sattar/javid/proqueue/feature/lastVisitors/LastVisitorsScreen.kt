@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
+import xyz.sattar.javid.proqueue.core.ui.components.SourceBadge
 import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
 import androidx.compose.material3.Surface
@@ -670,7 +671,10 @@ fun AppointmentCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(6.dp))
-                    StatusBadge(status = appointment.status, overdue = overdue)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        StatusBadge(status = appointment.status, overdue = overdue)
+                        SourceBadge(appointment.source)
+                    }
                 }
             }
 

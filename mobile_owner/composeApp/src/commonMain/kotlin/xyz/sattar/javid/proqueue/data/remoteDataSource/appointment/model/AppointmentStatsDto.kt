@@ -8,5 +8,7 @@ data class AppointmentStatsDto(
     @SerialName("total_appointments") val totalAppointments: Int = 0,
     @SerialName("completed_appointments") val completedAppointments: Int = 0,
     @SerialName("no_show_appointments") val noShowAppointments: Int = 0,
-    @SerialName("total_visitors") val totalVisitors: Int = 0
+    @SerialName("total_visitors") val totalVisitors: Int = 0,
+    /** Bookings per origin for the period: WEB / APP / OWNER / UNKNOWN. Empty on an old server. */
+    @SerialName("source_counts") val sourceCounts: Map<String, Int> = emptyMap()
 )

@@ -23,3 +23,22 @@ expect fun cropImageToSquare(
     heightFraction: Float,
     outputSize: Int = 512
 ): ByteArray?
+
+/**
+ * Crops [source] to the given window and re-encodes it as a JPEG of exactly
+ * [outputWidth] x [outputHeight], for the portfolio (1:1) and certificate
+ * (4:5) uploads. The window is in fractions of the source like
+ * [cropImageToSquare]'s, but is not forced to be square, so it keeps the
+ * aspect ratio the caller's cropper UI showed.
+ *
+ * Returns null if the bytes could not be decoded.
+ */
+expect fun cropImageToRect(
+    source: ByteArray,
+    leftFraction: Float,
+    topFraction: Float,
+    widthFraction: Float,
+    heightFraction: Float,
+    outputWidth: Int,
+    outputHeight: Int
+): ByteArray?

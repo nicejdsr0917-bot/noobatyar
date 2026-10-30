@@ -57,6 +57,8 @@ import xyz.sattar.javid.proqueue.feature.settings.ThemeScreen
 import xyz.sattar.javid.proqueue.feature.promo.PromoCampaignScreen
 import xyz.sattar.javid.proqueue.feature.settings.SettingsScreen
 import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportScreen
+import xyz.sattar.javid.proqueue.feature.reviews.ReviewsScreen
+import xyz.sattar.javid.proqueue.feature.showcase.ShowcaseScreen
 import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsScreen
 import xyz.sattar.javid.proqueue.feature.visitorSelection.VisitorSelectionScreen
 import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
@@ -106,6 +108,7 @@ fun MainNavHost(
                     DeepLinkTarget.SMS_REPORT -> AppScreens.SmsReport
                     DeepLinkTarget.ADD_ONS -> AppScreens.AddOns
                     DeepLinkTarget.SETTINGS -> AppScreens.Settings
+                    DeepLinkTarget.REVIEWS -> AppScreens.Reviews
                 }
                 screen?.let { navController.navigate(it) }
                 NotificationNavigationManager.consumeEvent()
@@ -403,6 +406,8 @@ private fun MainNavGraph(
                     onNavigateToPromoCampaign = {
                         navController.navigate(AppScreens.PromoCampaign)
                     },
+                    onNavigateToReviews = { navController.navigate(AppScreens.Reviews) },
+                    onNavigateToShowcase = { navController.navigate(AppScreens.Showcase) },
                     onNavigateToLogin = onNavigateToLogin
                 )
             }
@@ -468,6 +473,14 @@ private fun MainNavGraph(
                 SmsReportScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
+            }
+
+            composable<AppScreens.Reviews> {
+                ReviewsScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            composable<AppScreens.Showcase> {
+                ShowcaseScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable<AppScreens.EmergencyNotice> {

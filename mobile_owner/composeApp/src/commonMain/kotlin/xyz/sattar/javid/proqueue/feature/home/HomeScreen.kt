@@ -158,7 +158,8 @@ fun HomeScreen(
         onNavigateToLogin = onNavigateToLogin,
         onChangeBusiness = onChangeBusiness,
         onNavigateToAddons = onNavigateToAddons,
-        onNavigateToVisitors = onNavigateToVisitors
+        onNavigateToVisitors = onNavigateToVisitors,
+        bannerSlot = { xyz.sattar.javid.proqueue.feature.banner.HomeBannerCarousel(businessId = uiState.business?.id) }
     )
 }
 
@@ -202,7 +203,9 @@ fun HomeScreenContent(
     onNavigateToLogin: () -> Unit,
     onChangeBusiness: () -> Unit = {},
     onNavigateToAddons: () -> Unit = {},
-    onNavigateToVisitors: (VisitorsNavArgs) -> Unit = {}
+    onNavigateToVisitors: (VisitorsNavArgs) -> Unit = {},
+    /** Rotating banners, just under the header; injected so previews need no Koin. */
+    bannerSlot: @Composable () -> Unit = {}
 ) {
     var visible by remember { mutableStateOf(false) }
 
@@ -372,6 +375,7 @@ fun HomeScreenContent(
                     .padding(horizontal = adaptivePagePadding()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                item(key = "banners") { bannerSlot() }
                 if (wide) {
                     item {
                         HomeReveal(visible, delayMillis = 120) {
