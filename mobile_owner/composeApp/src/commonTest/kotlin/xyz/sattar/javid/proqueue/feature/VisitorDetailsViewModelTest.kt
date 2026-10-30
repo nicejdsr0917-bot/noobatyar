@@ -20,6 +20,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.SyncAppointmentsUseCase
 import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsIntent
 import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsState
 import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsViewModel
+import xyz.sattar.javid.proqueue.testsupport.FakeAppPreferences
 import xyz.sattar.javid.proqueue.testsupport.MainDispatcherSetup
 import xyz.sattar.javid.proqueue.testsupport.StubAppointmentRepository
 import kotlin.test.AfterTest
@@ -84,8 +85,9 @@ class VisitorDetailsViewModelTest {
         appointmentRepository = appointments,
         messageRepository = messages,
         sendMessageUseCase = SendMessageUseCase(messages),
-        generateReminderMessageUseCase = GenerateReminderMessageUseCase(),
+        generateReminderMessageUseCase = GenerateReminderMessageUseCase(FakeAppPreferences()),
         syncAppointmentsUseCase = SyncAppointmentsUseCase(appointments),
+        businessStore = BusinessStateHolder,
     )
 
     @Test

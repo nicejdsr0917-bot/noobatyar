@@ -1,11 +1,11 @@
 package xyz.sattar.javid.proqueue.domain.usecase
 
 import xyz.sattar.javid.proqueue.core.i18n.Str
-import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
+import xyz.sattar.javid.proqueue.core.prefs.AppPreferences
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.domain.model.message.MessageToken
 
-class GenerateReminderMessageUseCase {
+class GenerateReminderMessageUseCase(private val preferences: AppPreferences) {
 
     operator fun invoke(
         businessId: Long,
@@ -17,7 +17,7 @@ class GenerateReminderMessageUseCase {
         serviceDuration: Int?,
         templateOverride: String? = null
     ): String {
-        val template = templateOverride ?: PreferencesManager.getMessageTemplate(businessId)
+        val template = templateOverride ?: preferences.getMessageTemplate(businessId)
         ?: getDefaultTemplate()
 
         val date = DateTimeUtils.formatMillisDateOnly(appointmentMillis)

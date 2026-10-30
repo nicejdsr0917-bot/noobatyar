@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.notifications
 
+import xyz.sattar.javid.proqueue.core.state.SelectedBusinessStore
+import xyz.sattar.javid.proqueue.core.prefs.AppPreferences
+
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
@@ -9,8 +12,6 @@ import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.network.ApiException
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.notifications.NotificationScheduler
-import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
-import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementKeys
@@ -26,7 +27,9 @@ class NotificationsViewModel(
     private val businessRepository: BusinessRepository,
     private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase,
     private val getPlansUseCase: GetPlansUseCase,
-    private val purchaseUseCase: PurchaseUseCase
+    private val purchaseUseCase: PurchaseUseCase,
+    private val businessStore: SelectedBusinessStore,
+    private val preferences: AppPreferences
 ) :
     BaseViewModel<NotificationsState, NotificationsState.PartialState, NotificationsEvent, NotificationsIntent>(
         initialState = NotificationsState()
@@ -142,7 +145,7 @@ class NotificationsViewModel(
     private fun loadSettings(): Flow<NotificationsState.PartialState> = flow {
         emit(NotificationsState.PartialState.IsLoading(true))
         try {
-            val business = BusinessStateHolder.selectedBusiness.value
+            val business = businessStore.selectedBusiness.value
             val hasPermission = notificationScheduler.hasPermission()
 
             emit(NotificationsState.PartialState.PermissionStatusChanged(hasPermission))
@@ -228,7 +231,7 @@ class NotificationsViewModel(
         emit(NotificationsState.PartialState.IsLoading(true))
         try {
             val currentState = uiState.value
-            val currentBusiness = BusinessStateHolder.selectedBusiness.value
+            val currentBusiness = businessStore.selectedBusiness.value
 
             if (currentBusiness == null) {
                 emit(NotificationsState.PartialState.ShowMessage(UiMessage.warning(Str.no_business_selected_3)))
@@ -256,10 +259,10 @@ class NotificationsViewModel(
             // and the server is what sends PANEL reminders.
             val saved = businessRepository.updateBusiness(updatedBusiness)
             if (saved != null) {
-                BusinessStateHolder.selectBusiness(saved)
+                businessStore.selectBusiness(saved)
                 // The lead time also drives the {minutes} token in the message
                 // templates, which reads it back out of preferences.
-                PreferencesManager.setNotificationReminderMinutes(minutes)
+                preferences.setNotificationReminderMinutes(minutes)
                 emit(NotificationsState.PartialState.ReminderMinutesChanged(minutes.toString()))
                 emit(NotificationsState.PartialState.DeliveryChanged(delivery))
                 sendEvent(NotificationsEvent.ShowSavedConfirmation)
@@ -273,7 +276,7 @@ class NotificationsViewModel(
             // about it (the server lets a setting that is already saved
             // through): drop back to the mode that always works instead of
             // leaving the UI claiming PANEL is on.
-            val business = BusinessStateHolder.selectedBusiness.value
+            val business = businessStore.selectedBusiness.value
             val switchingPanelOn = uiState.value.reminderDelivery == ReminderDelivery.PANEL.value &&
                 business?.reminderDelivery != ReminderDelivery.PANEL.value
             if (e.code == 403 && switchingPanelOn) {

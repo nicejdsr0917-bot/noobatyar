@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.share
 
+import xyz.sattar.javid.proqueue.core.AppLinks
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -316,7 +317,7 @@ internal fun AppSignature(onDark: Boolean, modifier: Modifier = Modifier) {
         // is the whole point of signing a card that will be reposted,
         // screenshotted and forwarded away from any link.
         LtrText(
-            text = "noobatyar.ir",
+            text = AppLinks.SITE_HOST,
             fontSize = 9.sp,
             weight = FontWeight.SemiBold,
             color = tone.copy(alpha = 0.9f),

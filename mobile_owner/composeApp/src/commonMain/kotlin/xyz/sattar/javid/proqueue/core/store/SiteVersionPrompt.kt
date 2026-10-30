@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.core.store
 
+import xyz.sattar.javid.proqueue.core.AppLinks
+
 /**
  * Invites users of a store build (Myket, Bazaar) over to the site build, where
  * releases land first. Store builds lag behind by the stores' review time, so
@@ -20,5 +22,5 @@ interface SiteVersionPrompt {
 object SiteVersionPromptProvider {
     var prompt: SiteVersionPrompt? = null
 
-    const val SITE_URL = "https://noobatyar.ir"
+    const val SITE_URL = AppLinks.SITE
 }

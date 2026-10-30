@@ -960,4 +960,19 @@
     <string name="language_name_fa">فارسی</string>
     <string name="language_name_en">English</string>
     <string name="web_panel_title">Noobatyar panel</string>
+    <string name="claim_title">Claim ownership of a center</string>
+    <string name="claim_confirm_hint">If you have access to the mobile number registered for this center, a verification code is sent to it. Otherwise your request is reviewed by support.</string>
+    <string name="claim_note_label">Note for support (e.g. medical council or license number)</string>
+    <string name="claim_continue">Continue</string>
+    <string name="claim_code_sent">A verification code was sent to %1$s.</string>
+    <string name="claim_verify_transfer">Verify and transfer ownership</string>
+    <string name="claim_pending_title">Your request was submitted</string>
+    <string name="claim_pending_body">Noobatyar support will review ownership of “%1$s” and, once approved, the center is added to your businesses.</string>
+    <string name="claim_done_title">The center was transferred to your account</string>
+    <string name="claim_done_body">“%1$s” is now yours. Complete its details and turn on online booking so customers can book directly.</string>
+    <string name="claim_go_to_businesses">Go to businesses</string>
+    <string name="claim_search_hint">Your center may already be listed on Noobatyar. Search by its name or phone number.</string>
+    <string name="claim_search_label">Center name or phone number</string>
+    <string name="claim_not_found">No center matched. You can create a new business.</string>
+    <string name="claim_area_separator">, </string>
 </resources>

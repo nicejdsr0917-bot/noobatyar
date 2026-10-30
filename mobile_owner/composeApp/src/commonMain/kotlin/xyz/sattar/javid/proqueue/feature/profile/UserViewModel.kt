@@ -1,11 +1,12 @@
 package xyz.sattar.javid.proqueue.feature.profile
 
+import xyz.sattar.javid.proqueue.core.state.SelectedBusinessStore
+import xyz.sattar.javid.proqueue.core.prefs.AppPreferences
+
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
-import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
-import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
 import xyz.sattar.javid.proqueue.domain.usecase.UserLogoutUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.push.UnregisterPushTokenUseCase
@@ -21,6 +22,8 @@ class UserViewModel(
     private val unregisterPushTokenUseCase: UnregisterPushTokenUseCase,
     private val clearTokenUseCase: ClearTokenUseCase,
     private val syncUserProfileUseCase: SyncUserProfileUseCase,
+    private val businessStore: SelectedBusinessStore,
+    private val preferences: AppPreferences
 ) : BaseViewModel<UserState, UserState.PartialState, UserEvent, UserIntent>(
     initialState = UserState()
 ) {
@@ -102,8 +105,8 @@ class UserViewModel(
         } catch (e: Exception) {
         } finally {
             clearTokenUseCase()
-            BusinessStateHolder.clearBusiness()
-            PreferencesManager.setDefaultBusinessId(null)
+            businessStore.clearBusiness()
+            preferences.setDefaultBusinessId(null)
             emit(UserState.PartialState.IsLoading(false))
             sendEvent(UserEvent.LogoutSuccess)
         }

@@ -1009,4 +1009,19 @@
     <string name="language_name_fa">فارسی</string>
     <string name="language_name_en">English</string>
     <string name="web_panel_title">پنل نوبت‌یار</string>
+    <string name="claim_title">ثبت مالکیت مرکز</string>
+    <string name="claim_confirm_hint">اگر شماره موبایل ثبت‌شده برای این مرکز در اختیار شماست، کد تأیید به همان شماره ارسال می‌شود. در غیر این صورت درخواست شما توسط پشتیبانی بررسی می‌شود.</string>
+    <string name="claim_note_label">توضیح برای پشتیبانی (مثلاً شماره نظام پزشکی یا پروانه)</string>
+    <string name="claim_continue">ادامه</string>
+    <string name="claim_code_sent">کد تأیید به شماره %1$s ارسال شد.</string>
+    <string name="claim_verify_transfer">تأیید و انتقال مالکیت</string>
+    <string name="claim_pending_title">درخواست شما ثبت شد</string>
+    <string name="claim_pending_body">پشتیبانی نوبت‌یار مالکیت «%1$s» را بررسی می‌کند و پس از تأیید، مرکز به فهرست کسب‌وکارهای شما اضافه می‌شود.</string>
+    <string name="claim_done_title">مرکز به حساب شما منتقل شد</string>
+    <string name="claim_done_body">«%1$s» حالا متعلق به شماست. اطلاعات را کامل کنید و نوبت‌دهی آنلاین را روشن کنید تا مشتریان مستقیم نوبت بگیرند.</string>
+    <string name="claim_go_to_businesses">رفتن به کسب‌وکارها</string>
+    <string name="claim_search_hint">مرکز شما ممکن است از قبل در فهرست نوبت‌یار باشد. نام مرکز یا شماره تلفن آن را جستجو کنید.</string>
+    <string name="claim_search_label">نام مرکز یا شماره تلفن</string>
+    <string name="claim_not_found">مرکزی با این مشخصات پیدا نشد. می‌توانید کسب‌وکار جدید بسازید.</string>
+    <string name="claim_area_separator">، </string>
 </resources>

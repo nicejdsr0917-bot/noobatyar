@@ -29,7 +29,9 @@ enum class AppLanguage(val code: String) {
 object AppLocale {
     // Read synchronously on first use, so the very first frame already has
     // the saved language and direction.
-    var language by mutableStateOf(PreferencesManager.getLanguage())
+    // Falls back to Persian when preferences are not available yet (JVM unit
+    // tests have no Android context), the same default getLanguage() uses.
+    var language by mutableStateOf(runCatching { PreferencesManager.getLanguage() }.getOrDefault(AppLanguage.FA))
         private set
 
     suspend fun change(newLanguage: AppLanguage) {
