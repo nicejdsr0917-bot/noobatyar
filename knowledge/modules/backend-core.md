@@ -36,3 +36,7 @@ tags: [gf]
 - **کش CSS:** `_versioned_static(path)` به آدرس `admin_custom/css/unfold.css` پسوند `?v=<mtime>` اضافه می‌کند. بدون این، مرورگرها CSS قدیمی را از کش نشان می‌دهند.
 - **موبایل:** در `assets/admin_custom/css/unfold.css`، کارت‌های داشبورد (`.nb-card`، `.nb-panel`، `.nb-alert`) `min-width: 0` دارند و گرید موبایل `minmax(0, 1fr)` است، تا جدول‌های no-wrap صفحه را پهن نکنند. آیکون‌های منوی unfold با `mr-3` فاصله می‌گیرند که در RTL سمت اشتباه است؛ قانون `[dir="rtl"] .material-symbols-outlined.mr-3` آن را درست می‌کند.
 - پنل «نوا» (`staffpanel`) یک بار ساخته و revert شد (`60442df`). در کد نیست.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰ (عصر) — ادمین روی موبایل
+- بخش ۴ در `assets/admin_custom/css/unfold.css`: زیر ۱۰۲۴px کارت هر ردیف changelist (`#result_list tr.data-row`) گرید دوستونه است و برچسب بالای مقدار؛ ستون لینک (th) یک خط کامل و checkbox در گوشه. ویجت raw-id می‌شکند، `.readonly`/`code` با `overflow-wrap:anywhere`. زیر ۷۶۸px سلول‌های inline جدولی ستونی‌اند.
+- audit: هر ۶۲ صفحهٔ ادمین در ۳۷۵px بدون اسکرول افقی (با Playwright از `wt-p2f-web/front_client/node_modules/playwright`).

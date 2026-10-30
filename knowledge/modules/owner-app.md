@@ -39,3 +39,7 @@ tags: [gf]
 - `feature/banner/` بنر چرخشی ۳:۱ صفحهٔ اصلی است (`/api/owner/banners/`). `feature/reviews/` صفحهٔ نظرات است؛ روی اندروید، پوش `NEW_REVIEW` به آن deep link می‌شود. `feature/showcase/` نمونه‌کار و مدارک را با `RectImageCropperDialog` و `cropImageToRect` (۱:۱ و ۴:۵) مدیریت می‌کند.
 - `source` نوبت با `SourceBadge` نشان داده می‌شود. Room نسخهٔ ۲۰ است (destructive؛ Room فقط کش است).
 - ⚠️ روی wasm هیچ‌وقت از `TimeZone.of(...)` استفاده نکنید، چون دیتابیس js-joda نیست و صفحهٔ اصلی کرش می‌کرد. `SERVER_ZONE` آفست ثابت UTC+3:30 است. تست JVM آن در `androidUnitTest/.../ServerZoneMatchesTehranTest.kt` است.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰ (عصر)
+- صفحهٔ اصلی: `SourceSummaryCard` (`feature/home/HomeSourceCard.kt`) زیر کارت ماه، داخل `trendBlock`. داده از `GetSourceSummaryUseCase` ← `AppointmentRepository.getSourceCounts` (پیش‌فرض `null` در interface تا stubها نشکنند) ← `appointment/stats/` با `date_from` = اول ماه (`monthOverview.current.rangeStart`) و `date_to` = امروز. اگر APP و WEB هر دو صفر باشند نمایش داده نمی‌شود.
+- `HomeViewModel` یک پارامتر سازندهٔ جدید دارد (`getSourceSummaryUseCase`)؛ Koin ۱۴ تا `get()` می‌دهد.

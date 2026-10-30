@@ -22,7 +22,7 @@ tags: [gf]
 - انتخاب در `PreferencesManager.recentCityCodes` / `selectCity` (Android و iOS) ذخیره می‌شود؛ `ALL_IRAN = 0`.
 - پیدا کردن خودکار GPS هنگام باز شدن حذف شد؛ دکمهٔ موقعیت روی نقشه مانده.
 - `MAP_ENABLED` در `ExploreScreen.kt`: `false` = فقط لیست با کشیدن برای بروزرسانی (الان `true`).
-- رزرو در اپ نیست؛ دکمهٔ رزرو سایت را باز می‌کند (`bookingUrl` در `feature/discovery/DiscoveryUi.kt`).
+- (قدیمی) رزرو قبلاً سایت را باز می‌کرد؛ حالا رزرو نیتیو است (پایین‌تر).
 
 ## اجرا
 - پکیج `xyz.sattar.javid.proqueue.client.local`؛ `:composeApp:assembleLocalDebug`؛ نصب با `adb install -r .../apk/local/debug/composeApp-local-arm64-v8a-debug.apk` (`installLocalDebug` به‌خاطر ABI split خطا می‌دهد)
@@ -55,3 +55,8 @@ tags: [gf]
   - `SystemBackHandler` به صورت expect/actual نوشته شده (navigationevent فقط روی اندروید است).
   - شماره کارت با `formatCardNumber` (LTR isolate) نمایش داده می‌شود.
 - ریلیز: `.github/workflows/android-release-client.yml` با تگ `client-v*.*.*`. پیش‌نیازش بخش `## client-vX.Y.Z` در CHANGELOG است.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰ (عصر)
+- `feature/businessDetail/PaymentInfo.kt`: `paymentInfo(business)` خط بیعانه و برچسب روش‌های پرداخت را می‌سازد (`ONLINE/GATEWAY/CARD/CASH`)؛ `formatToman` (۱۵۰٬۰۰۰ تومان). بخش «بیعانه و پرداخت» در `ClientBusinessDetailScreen` فقط برای مراکز claim‌شده. تست: `commonTest/.../PaymentInfoTest.kt`.
+- مقدار `deposit_mode` سرور `MANDATORY/OPTIONAL/NONE` است، نه `REQUIRED`؛ از ثابت‌های `DEPOSIT_MANDATORY`/`DEPOSIT_OPTIONAL` استفاده کن.
+- تسک تست Gradle: `testProdDebugUnitTest` یا `testLocalDebugUnitTest` (`testDebugUnitTest` مبهم است).
