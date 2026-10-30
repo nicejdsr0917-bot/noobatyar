@@ -23,6 +23,13 @@ interface AppointmentRepository {
     suspend fun getDailyCounts(businessId: Long, days: Int, daysAhead: Int = 0): List<xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.DailyCountDto>
 
     /**
+     * Bookings per origin (APP / WEB / OWNER / UNKNOWN) between two days,
+     * both inclusive. Null when the call fails or the server is too old to
+     * report sources.
+     */
+    suspend fun getSourceCounts(businessId: Long, dateFrom: Long, dateTo: Long): Map<String, Int>? = null
+
+    /**
      * Range report for the مراجعین screen's third tab. Server-only, with no
      * local-cache read: the summary is a whole-window aggregate and the
      * customer rows are grouped in the database, neither of which can be

@@ -30,6 +30,16 @@ class AppointmentRepositoryImpl(
     private val visitorDao: VisitorLocalSource,
     private val appointmentApiService: AppointmentApi
 ) : AppointmentRepository {
+    override suspend fun getSourceCounts(businessId: Long, dateFrom: Long, dateTo: Long): Map<String, Int>? =
+        try {
+            when (val response = appointmentApiService.getAppointmentStats(businessId, dateFrom, dateTo)) {
+                is ApiResponse.Success -> response.data.sourceCounts.takeIf { it.isNotEmpty() }
+                is ApiResponse.Error -> null
+            }
+        } catch (e: Exception) {
+            null
+        }
+
     override suspend fun getRangeReport(
         businessId: Long,
         dateFrom: Long,

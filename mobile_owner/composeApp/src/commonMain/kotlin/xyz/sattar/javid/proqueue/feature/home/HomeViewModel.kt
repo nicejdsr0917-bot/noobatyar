@@ -20,6 +20,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.RemoveAppointmentUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.SendMessageUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.SyncAppointmentsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.GetDailyCountsUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.GetSourceSummaryUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetPlansUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CreatePaymentUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMySubscriptionUseCase
@@ -46,6 +47,7 @@ class HomeViewModel(
     private val getMySubscriptionUseCase: GetMySubscriptionUseCase,
     private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase,
     private val getDailyCountsUseCase: GetDailyCountsUseCase,
+    private val getSourceSummaryUseCase: GetSourceSummaryUseCase,
     private val businessStore: SelectedBusinessStore
 ) : BaseViewModel<HomeState, HomeState.PartialState, HomeEvent, HomeIntent>(
     initialState = HomeState()
@@ -119,6 +121,8 @@ class HomeViewModel(
                 currentState.copy(dailyCounts = partialState.counts, chartLoaded = true)
             is HomeState.PartialState.LoadMonthOverview ->
                 currentState.copy(monthOverview = partialState.overview)
+            is HomeState.PartialState.LoadSourceSummary ->
+                currentState.copy(sourceSummary = partialState.summary)
             HomeState.PartialState.ClearMessage ->
                 currentState.copy(message = null)
         }
@@ -224,18 +228,30 @@ class HomeViewModel(
                 val window = getDailyCountsUseCase(business.id, daysBack, daysAhead)
                 if (businessStore.selectedBusiness.value?.id != business.id) return@flow
                 emit(HomeState.PartialState.LoadDailyCounts(chartSlice(window)))
-                emit(HomeState.PartialState.LoadMonthOverview(buildMonthOverview(window)))
+                val overview = buildMonthOverview(window)
+                emit(HomeState.PartialState.LoadMonthOverview(overview))
+
+                // Same month the month card shows (Jalali or Gregorian by
+                // locale), from its first day through today.
+                val monthStart = overview?.current?.rangeStart ?: 0L
+                val summary = if (monthStart > 0) {
+                    getSourceSummaryUseCase(business.id, monthStart, DateTimeUtils.startOfTodayMillis())
+                } else null
+                if (businessStore.selectedBusiness.value?.id != business.id) return@flow
+                emit(HomeState.PartialState.LoadSourceSummary(summary))
             } catch (e: Exception) {
                 if (businessStore.selectedBusiness.value?.id != business.id) return@flow
                 emit(HomeState.PartialState.LoadStats(DashboardStats()))
                 emit(HomeState.PartialState.LoadDailyCounts(emptyList()))
                 emit(HomeState.PartialState.LoadMonthOverview(null))
+                emit(HomeState.PartialState.LoadSourceSummary(null))
                 emit(HomeState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_load)))
             }
         } else {
             emit(HomeState.PartialState.LoadStats(DashboardStats()))
             emit(HomeState.PartialState.LoadDailyCounts(emptyList()))
             emit(HomeState.PartialState.LoadMonthOverview(null))
+            emit(HomeState.PartialState.LoadSourceSummary(null))
         }
         emit(HomeState.PartialState.IsLoading(false))
     }

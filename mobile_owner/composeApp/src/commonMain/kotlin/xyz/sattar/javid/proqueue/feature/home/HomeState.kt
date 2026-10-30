@@ -27,7 +27,8 @@ data class HomeState(
     val entitlementsLoaded: Boolean = false,
     val dailyCounts: List<DailyCountDto> = emptyList(),
     val chartLoaded: Boolean = false,
-    val monthOverview: MonthOverview? = null
+    val monthOverview: MonthOverview? = null,
+    val sourceSummary: SourceSummary? = null
 ) {
     sealed class PartialState {
         data class IsLoading(val isLoading: Boolean) : PartialState()
@@ -43,6 +44,7 @@ data class HomeState(
         data class LoadEntitlements(val entitlements: EntitlementsResponseDto?) : PartialState()
         data class LoadDailyCounts(val counts: List<DailyCountDto>) : PartialState()
         data class LoadMonthOverview(val overview: MonthOverview?) : PartialState()
+        data class LoadSourceSummary(val summary: SourceSummary?) : PartialState()
     }
 }
 
@@ -98,3 +100,13 @@ data class DashboardStats(
     val cancelledAppointments: Int = 0,
     val totalVisitors: Int = 0
 )
+
+/**
+ * This month's bookings that came through Noobatyar rather than the owner:
+ * from the client app and from the booking website. Shown on home so the
+ * owner sees what the platform brings them.
+ */
+@Immutable
+data class SourceSummary(val app: Int, val web: Int) {
+    val isEmpty: Boolean get() = app == 0 && web == 0
+}

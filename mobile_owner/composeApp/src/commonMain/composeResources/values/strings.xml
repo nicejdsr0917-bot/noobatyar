@@ -1029,6 +1029,8 @@
     <string name="source_app">اپ نوبت‌یار</string>
     <string name="source_web">سایت</string>
     <string name="source_owner">ثبت توسط شما</string>
+    <string name="source_summary_title">مشتری‌هایی که نوبت‌یار آورد</string>
+    <string name="source_summary_body">این ماه %1$d نوبت از اپ نوبت‌یار و %2$d نوبت از سایت گرفته شد</string>
     <string name="showcase_title">نمونه‌کار و مدارک</string>
     <string name="showcase_subtitle">عکس کارها و مدارک خود را در صفحه‌ی عمومی نمایش دهید</string>
     <string name="showcase_tab_portfolio">نمونه‌کار</string>

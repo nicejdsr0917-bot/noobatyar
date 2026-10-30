@@ -323,7 +323,7 @@ fun HomeScreenContent(
                     )
                 }
             }
-            val trendBlock: @Composable () -> Unit = {
+            val trendBlock: @Composable () -> Unit = { Column {
                 if (!uiState.chartLoaded) {
                     HomeChartShimmer()
                 } else {
@@ -343,7 +343,13 @@ fun HomeScreenContent(
                         }
                     )
                 }
-            }
+                // Inside the same block so the wide layout's column keeps it
+                // next to the month card it counts from.
+                uiState.sourceSummary?.takeUnless { it.isEmpty }?.let { summary ->
+                    Spacer(Modifier.height(14.dp))
+                    SourceSummaryCard(summary)
+                }
+            } }
             val usageBlock: @Composable () -> Unit = {
                 if (!uiState.entitlementsLoaded) {
                     HomeUsageShimmer()

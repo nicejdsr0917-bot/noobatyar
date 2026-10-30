@@ -7,7 +7,10 @@ import kotlinx.coroutines.test.runTest
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentOrdering
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
+import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.DailyCountDto
 import xyz.sattar.javid.proqueue.domain.usecase.GetDailyCountsUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.GetSourceSummaryUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.GetTodayStatsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.GetWaitingQueueUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.MarkAppointmentCompletedUseCase
@@ -23,6 +26,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.GetPlansUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
 import xyz.sattar.javid.proqueue.feature.home.HomeIntent
 import xyz.sattar.javid.proqueue.feature.home.HomeViewModel
+import xyz.sattar.javid.proqueue.feature.home.SourceSummary
 import xyz.sattar.javid.proqueue.testsupport.FakeBusinessStore
 import xyz.sattar.javid.proqueue.testsupport.MainDispatcherSetup
 import xyz.sattar.javid.proqueue.testsupport.StubAppointmentRepository
@@ -52,6 +56,9 @@ class HomeViewModelTest {
     private val queueGates = mutableMapOf<Long, CompletableDeferred<Unit>>()
     val syncedFor = mutableListOf<Long>()
     val syncedReplace = mutableListOf<Boolean>()
+    private var dailyWindow = emptyList<DailyCountDto>()
+    private var sourceCounts: Map<String, Int>? = null
+    private val sourceRequests = mutableListOf<Triple<Long, Long, Long>>()
 
     private val appointments = object : StubAppointmentRepository() {
         override suspend fun syncAppointments(
@@ -65,8 +72,11 @@ class HomeViewModelTest {
             return queues[businessId].orEmpty()
         }
         override suspend fun getTodayAppointments(businessId: Long) = emptyList<AppointmentWithDetails>()
-        override suspend fun getDailyCounts(businessId: Long, days: Int, daysAhead: Int) =
-            emptyList<xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.DailyCountDto>()
+        override suspend fun getDailyCounts(businessId: Long, days: Int, daysAhead: Int) = dailyWindow
+        override suspend fun getSourceCounts(businessId: Long, dateFrom: Long, dateTo: Long): Map<String, Int>? {
+            sourceRequests += Triple(businessId, dateFrom, dateTo)
+            return sourceCounts
+        }
         override suspend fun updateAppointmentStatus(appointmentId: Long, status: String): Boolean = true
     }
 
@@ -89,6 +99,7 @@ class HomeViewModelTest {
         getMySubscriptionUseCase = GetMySubscriptionUseCase(users),
         getMyEntitlementsUseCase = GetMyEntitlementsUseCase(users),
         getDailyCountsUseCase = GetDailyCountsUseCase(appointments),
+        getSourceSummaryUseCase = GetSourceSummaryUseCase(appointments),
         businessStore = store,
     )
 
@@ -113,6 +124,30 @@ class HomeViewModelTest {
         // the queue is laid out back to back: the second starts when the first ends
         val (first, second) = state.queue
         assertEquals(first.estimatedEndTime, second.estimatedStartTime)
+    }
+
+    @Test
+    fun sourceSummaryCountsThisMonthFromItsFirstDayThroughToday() = runTest {
+        dailyWindow = listOf(DailyCountDto(DateTimeUtils.isoDateDaysAgo(0), 3))
+        sourceCounts = mapOf("APP" to 7, "WEB" to 2, "OWNER" to 5, "UNKNOWN" to 0)
+        val vm = viewModel(FakeBusinessStore(shopA))
+        advanceUntilIdle()
+
+        assertEquals(SourceSummary(app = 7, web = 2), vm.uiState.value.sourceSummary)
+        val (business, from, to) = sourceRequests.single()
+        assertEquals(1L, business)
+        assertEquals(vm.uiState.value.monthOverview!!.current.rangeStart, from)
+        assertEquals(DateTimeUtils.startOfTodayMillis(), to)
+    }
+
+    @Test
+    fun oldServerWithoutSourcesShowsNoSummary() = runTest {
+        dailyWindow = listOf(DailyCountDto(DateTimeUtils.isoDateDaysAgo(0), 3))
+        sourceCounts = null
+        val vm = viewModel(FakeBusinessStore(shopA))
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.sourceSummary)
     }
 
     @Test

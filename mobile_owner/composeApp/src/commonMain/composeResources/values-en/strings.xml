@@ -980,6 +980,8 @@
     <string name="source_app">Noobatyar app</string>
     <string name="source_web">Website</string>
     <string name="source_owner">Added by you</string>
+    <string name="source_summary_title">Clients Noobatyar brought you</string>
+    <string name="source_summary_body">This month: %1$d bookings from the Noobatyar app and %2$d from the website</string>
     <string name="showcase_title">Portfolio and certificates</string>
     <string name="showcase_subtitle">Show your work and credentials on your public page</string>
     <string name="showcase_tab_portfolio">Portfolio</string>

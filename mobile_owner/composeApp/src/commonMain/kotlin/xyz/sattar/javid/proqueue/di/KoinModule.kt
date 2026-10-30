@@ -173,6 +173,7 @@ val appModule: Module = module {
     factory { CheckAppointmentConflictUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.SyncAppointmentsUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.GetDailyCountsUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.GetSourceSummaryUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.GetRangeReportUseCase(get()) }
 
     // --- Message UseCases ---
@@ -196,6 +197,7 @@ val appModule: Module = module {
     viewModel { CreateAppointmentViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel {
         HomeViewModel(
+            get(),
             get(),
             get(),
             get(),
