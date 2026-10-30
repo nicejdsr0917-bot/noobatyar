@@ -317,6 +317,28 @@ class ReceiptImageTests(ReceiptOrphanTests):
         self.assertEqual(self._files(), [])
 
 
+class BookingSlipTests(ReceiptOrphanTests):
+    """The visitor's own list carries their booking slip: services, note, proof."""
+
+    def test_list_carries_services_note_and_receipt(self):
+        a = self.make(payment_reference='', selected_services='ترمیم,جرم‌گیری', description='درد دارد')
+        self.assertEqual(self._pay(a, payment_reference='4455').status_code, 200)
+        r = self.client.get(reverse('client-appointment-list'), HTTP_AUTHORIZATION=self.auth)
+        row = r.json()['data']['results'][0] if 'data' in r.json() else r.json()['results'][0]
+        self.assertEqual(row['selected_services'], ['ترمیم', 'جرم‌گیری'])
+        self.assertEqual(row['description'], 'درد دارد')
+        self.assertEqual(row['payment_reference'], '4455')
+        self.assertEqual(row['deposit_payment_method'], 'CARD')
+        self.assertTrue(row['payment_receipt'].endswith('.jpg'))
+
+    def test_other_visitors_rows_are_not_listed(self):
+        self.make(visitor=self.other, description='secret')
+        r = self.client.get(reverse('client-appointment-list'), HTTP_AUTHORIZATION=self.auth)
+        body = r.json()
+        rows = (body.get('data') or body)['results']
+        self.assertEqual(rows, [])
+
+
 class BookingGuardTests(Base, TestCase):
     def book(self, ts=None):
         return self.client.post(

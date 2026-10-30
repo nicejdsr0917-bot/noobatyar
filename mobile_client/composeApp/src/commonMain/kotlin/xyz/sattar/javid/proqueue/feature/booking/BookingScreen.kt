@@ -1,6 +1,22 @@
 package xyz.sattar.javid.proqueue.feature.booking
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.key
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.foundation.layout.size
+import kotlinx.coroutines.delay
+import xyz.sattar.javid.proqueue.domain.model.business.Business
+import xyz.sattar.javid.proqueue.feature.businessDetail.DEPOSIT_OPTIONAL
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -82,13 +98,16 @@ fun BookingScreen(
     businessId: Long,
     onNavigateBack: () -> Unit,
     onOpenMyAppointments: () -> Unit,
+    resumeAppointmentId: Long = 0,
     viewModel: BookingViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val haptic = LocalHapticFeedback.current
 
-    LaunchedEffect(businessId) { viewModel.load(businessId) }
+    LaunchedEffect(businessId) { viewModel.load(businessId, resumeAppointmentId) }
+    LaunchedEffect(state.released) { if (state.released) onNavigateBack() }
+    var confirmRelease by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         viewModel.messages.collect { msg ->
             when (msg) {
@@ -100,7 +119,12 @@ fun BookingScreen(
             }
         }
     }
-    val goBack = { if (!viewModel.back()) onNavigateBack() }
+    // Leaving the payment step gives the held slot back, as the web checkout's
+    // close does; asked first, since it cannot be undone.
+    val goBack = {
+        if (state.step == BookingStep.PAYMENT) confirmRelease = true
+        else if (!viewModel.back()) onNavigateBack()
+    }
     // System back steps through the flow like the top bar does.
     SystemBackHandler(onBack = goBack)
 
@@ -108,7 +132,7 @@ fun BookingScreen(
     CompositionLocalProvider(LocalReducedMotion provides reduced) {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             Column(Modifier.fillMaxSize()) {
-                TopBar(title = state.business?.title ?: "رزرو نوبت", showDivider = false, onBack = goBack)
+                TopBar(title = "رزرو نوبت", showDivider = false, onBack = goBack)
                 val business = state.business
                 when {
                     state.isLoading -> LoadingSkeleton()
@@ -121,7 +145,13 @@ fun BookingScreen(
                         Spacer(Modifier.height(Space.md))
                         OutlinedButton(onClick = { viewModel.load(businessId) }, shape = Radius.md) { Text("تلاش دوباره") }
                     }
+                    !business.bookingEnabled -> BookingDisabled(business, onNavigateBack)
                     else -> {
+                        AnimatedVisibility(
+                            visible = state.step != BookingStep.DONE,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically(),
+                        ) { BusinessHeader(business) }
                         // Remembered, so the payment stage stays on the indicator while it fades out.
                         var paymentRequested by remember { mutableStateOf(false) }
                         if (state.step == BookingStep.PAYMENT) paymentRequested = true
@@ -144,7 +174,7 @@ fun BookingScreen(
                             label = "bookingStep",
                         ) { step ->
                             when (step) {
-                                BookingStep.SERVICES -> ServicesStep(business.services, state, viewModel)
+                                BookingStep.SERVICES -> ServicesStep(business, state, viewModel)
                                 BookingStep.SLOT -> SlotStep(state, viewModel)
                                 BookingStep.PHONE -> PhoneStep(state, viewModel)
                                 BookingStep.CODE -> CodeStep(state, viewModel)
@@ -159,6 +189,74 @@ fun BookingScreen(
             }
             ToastyHost(snackbar, Modifier.align(Alignment.TopCenter))
         }
+    }
+
+    if (confirmRelease) {
+        AlertDialog(
+            onDismissRequest = { confirmRelease = false },
+            title = { Text("انصراف از این نوبت؟") },
+            text = { Text("نوبت تا پرداخت بیعانه برای شما نگه داشته شده است. با خروج، این زمان آزاد می‌شود.") },
+            confirmButton = {
+                TextButton(onClick = { confirmRelease = false; viewModel.releaseHold() }) {
+                    Text("آزاد کردن نوبت", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmRelease = false }) { Text("ادامهٔ پرداخت") } }
+        )
+    }
+}
+
+/** The business's logo and name over the flow, as on the web's booking page, with its notice. */
+@Composable
+private fun BusinessHeader(business: Business) {
+    Column {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = Space.page, vertical = Space.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BusinessAvatar(business, 40.dp)
+            Spacer(Modifier.width(Space.md))
+            Text(business.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+        if (business.noticeEnabled && business.noticeMessage.isNotBlank()) {
+            NoticeLine(business.noticeMessage, Modifier.padding(horizontal = Space.page).padding(bottom = Space.sm))
+        }
+        Hairline()
+    }
+}
+
+@Composable
+private fun NoticeLine(text: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, Radius.md)
+            .padding(Space.md),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(Icons.Outlined.Campaign, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(Space.sm))
+        Text(text, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** The web's «نوبت‌دهی غیرفعال است» screen, with the owner's own words under it. */
+@Composable
+private fun BookingDisabled(business: Business, onBack: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(Space.xl),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        BusinessAvatar(business, 64.dp)
+        Spacer(Modifier.height(Space.lg))
+        Text("نوبت‌دهی این مرکز فعلاً غیرفعال است", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        if (business.noticeEnabled && business.noticeMessage.isNotBlank()) {
+            Spacer(Modifier.height(Space.md))
+            NoticeLine(business.noticeMessage)
+        }
+        Spacer(Modifier.height(Space.xl))
+        OutlinedButton(onClick = onBack, shape = Radius.md) { Text("بازگشت") }
     }
 }
 
@@ -225,22 +323,48 @@ private fun StepTitle(title: String, subtitle: String? = null, modifier: Modifie
 }
 
 @Composable
-private fun ServicesStep(services: List<String>, state: BookingState, vm: BookingViewModel) {
+private fun ServicesStep(business: Business, state: BookingState, vm: BookingViewModel) {
     val count = state.selectedServices.size
+    // The owner's menu, plus anything typed: a typed one stays as a row so it can be un-picked.
+    val rows = business.services + state.selectedServices.filter { it !in business.services }
+    var custom by remember { mutableStateOf("") }
     StepScaffold(
         action = if (count == 0) "ادامه بدون انتخاب" else "ادامه با ${count.toPersianDigits()} خدمت",
         onAction = vm::continueFromServices,
     ) {
-        StepTitle("چه خدمتی می‌خواهید؟", "می‌توانید چند خدمت انتخاب کنید")
+        StepTitle(
+            "چه خدمتی می‌خواهید؟",
+            if (business.services.isEmpty()) "خدمت موردنظرتان را بنویسید" else "می‌توانید چند خدمت انتخاب کنید",
+        )
         Column(verticalArrangement = Arrangement.spacedBy(Space.sm)) {
-            services.forEachIndexed { index, service ->
-                ServiceRow(
-                    service,
-                    selected = service in state.selectedServices,
-                    onToggle = { vm.toggleService(service) },
-                    modifier = Modifier.enterStagger(index + 1),
-                )
+            rows.forEachIndexed { index, service ->
+                key(service) {
+                    ServiceRow(
+                        service,
+                        selected = service in state.selectedServices,
+                        onToggle = { vm.toggleService(service) },
+                        modifier = Modifier.enterStagger(index + 1).animateContentSize(),
+                    )
+                }
             }
+        }
+        if (business.allowClientAddService) {
+            val add = { if (vm.addCustomService(custom)) custom = "" }
+            OutlinedTextField(
+                value = custom,
+                onValueChange = { custom = it.take(CUSTOM_SERVICE_MAX) },
+                placeholder = { Text("خدمت دیگری می‌خواهید؟ بنویسید") },
+                singleLine = true,
+                shape = Radius.md,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { add() }),
+                trailingIcon = {
+                    IconButton(onClick = add, enabled = customServiceName(custom) != null) {
+                        Icon(Icons.Rounded.Add, contentDescription = "افزودن خدمت")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().enterStagger(rows.size + 1),
+            )
         }
     }
 }
@@ -459,7 +583,14 @@ private fun SummaryCard(state: BookingState, modifier: Modifier = Modifier, show
                     }
                 }
             }
-            Row(Modifier.enterStagger(2), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+            val heldAt = state.heldAt
+            if (state.selectedSlot == null && heldAt != null) {
+                // A hold resumed from «نوبت‌های من»: its time comes from the appointment.
+                Row(Modifier.enterStagger(2), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                    SummaryTile("روز", DateTimeUtils.getJalaliDate(heldAt).toPersianDigits(), Modifier.weight(1.6f))
+                    SummaryTile("ساعت", DateTimeUtils.formatTime(heldAt).toPersianDigits(), Modifier.weight(1f))
+                }
+            } else Row(Modifier.enterStagger(2), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 if (day != null) {
                     SummaryTile("روز", "${day.weekdayLabel(state.selectedDay)} ${day.jalaliLabel()}", Modifier.weight(1.6f))
                 }
@@ -507,23 +638,30 @@ private fun ConfirmStep(state: BookingState, vm: BookingViewModel) {
 
 @Composable
 private fun PaymentStep(state: BookingState, vm: BookingViewModel) {
+    val business = state.business ?: return
     var reference by remember { mutableStateOf("") }
+    var linkReference by remember { mutableStateOf("") }
     var receipt by remember { mutableStateOf<ByteArray?>(null) }
-    val options = paymentOptions(state.paymentMethods, state.cardNumber)
+    val options = paymentOptions(state.paymentMethods, business.depositMode, business.onlineGatewayEnabled, business.paymentLink)
     var picked by remember(options) { mutableStateOf(options.firstOrNull()) }
+    val linkOnly = !business.onlineGatewayEnabled
     val (action, enabled, onAction) = when (picked) {
-        PaymentOption.ONLINE -> Triple("پرداخت آنلاین", true, vm::payOnline)
+        PaymentOption.ONLINE -> if (linkOnly) {
+            Triple("ثبت پرداخت", linkReference.isNotBlank(), { vm.payByLink(linkReference) })
+        } else {
+            Triple("پرداخت با درگاه بانکی", true, vm::payOnline)
+        }
         PaymentOption.CARD -> Triple(
             "ثبت واریز",
-            canSubmitCardPayment(reference, receipt != null),
+            state.cardNumber.isNotBlank() && canSubmitCardPayment(reference, receipt != null),
             { vm.payByCard(reference, receipt) },
         )
-        PaymentOption.CASH -> Triple("پرداخت حضوری", true, vm::payCash)
+        PaymentOption.CASH -> Triple("ثبت نوبت با پرداخت حضوری", true, vm::payCash)
         null -> Triple(null, false, {})
     }
     StepScaffold(action = action, actionEnabled = enabled, busy = state.busy, onAction = onAction) {
         StepTitle("پرداخت بیعانه", "نوبت برای شما نگه داشته شده؛ با پرداخت بیعانه قطعی می‌شود")
-        state.business?.depositAmount?.takeIf { it > 0 }?.let { amount ->
+        business.depositAmount?.takeIf { it > 0 }?.let { amount ->
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -535,8 +673,19 @@ private fun PaymentStep(state: BookingState, vm: BookingViewModel) {
                 Text("مبلغ بیعانه", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(Space.xs))
                 Text(formatToman(amount), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                if (business.depositMode == DEPOSIT_OPTIONAL) {
+                    Spacer(Modifier.height(Space.xs))
+                    Text(
+                        "بیعانهٔ این مرکز اختیاری است؛ می‌توانید حضوری پرداخت کنید",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
-        }
+        } ?: if (business.depositMode == DEPOSIT_OPTIONAL) {
+            Text("مبلغ را با مرکز هماهنگ کنید", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else Unit
         if (options.isEmpty()) {
             EmptyNote("روش پرداختی ثبت نشده است", "وضعیت نوبت را در «نوبت‌های من» ببینید")
         }
@@ -545,26 +694,85 @@ private fun PaymentStep(state: BookingState, vm: BookingViewModel) {
             val onSelect = { picked = option }
             val mod = Modifier.enterStagger(index + 2)
             when (option) {
-                PaymentOption.ONLINE -> PaymentOptionCard("پرداخت آنلاین", "با درگاه بانکی، همین حالا", selected, onSelect, mod)
-                PaymentOption.CASH -> PaymentOptionCard("پرداخت حضوری", "هنگام مراجعه در مرکز", selected, onSelect, mod)
+                PaymentOption.ONLINE -> if (linkOnly) {
+                    PaymentOptionCard("پرداخت آنلاین", "از صفحهٔ پرداخت مرکز، سپس شمارهٔ پیگیری", selected, onSelect, mod) {
+                        val url = paymentLinkUrl(business.paymentLink)
+                        if (url != null) {
+                            OutlinedButton(onClick = { openUrl(url) }, shape = Radius.md, modifier = Modifier.fillMaxWidth()) {
+                                Text("رفتن به صفحهٔ پرداخت")
+                            }
+                        }
+                        OutlinedTextField(
+                            value = linkReference,
+                            onValueChange = { linkReference = it.normalizeDigits().filter(Char::isDigit).take(64) },
+                            label = { Text("شمارهٔ پیگیری پرداخت") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = Radius.md,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                } else {
+                    PaymentOptionCard("پرداخت آنلاین", "با درگاه بانکی؛ نوبت بعد از پرداخت قطعی می‌شود", selected, onSelect, mod)
+                }
+                PaymentOption.CASH -> PaymentOptionCard(
+                    "پرداخت حضوری", "نوبت برای تأیید به مرکز فرستاده می‌شود", selected, onSelect, mod,
+                )
                 PaymentOption.CARD -> PaymentOptionCard("کارت به کارت", "واریز، سپس شمارهٔ پیگیری یا عکس رسید", selected, onSelect, mod) {
-                    SummaryRow("شماره کارت", formatCardNumber(state.cardNumber))
-                    if (state.cardOwnerName.isNotBlank()) SummaryRow("به نام", state.cardOwnerName)
-                    OutlinedTextField(
-                        value = reference,
-                        onValueChange = { reference = it.take(64) },
-                        label = { Text(if (receipt == null) "شمارهٔ پیگیری واریز" else "شمارهٔ پیگیری (اختیاری)") },
-                        singleLine = true,
-                        enabled = state.uploadProgress == null,
-                        shape = Radius.md,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    ReceiptPicker(
-                        receipt = receipt,
-                        onPick = { receipt = it },
-                        onRemove = { receipt = null },
-                        progress = state.uploadProgress,
-                    )
+                    if (state.cardNumber.isBlank()) {
+                        Text(
+                            "شماره کارتی برای این مرکز ثبت نشده است؛ روش دیگری را انتخاب کنید",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    } else {
+                        CardNumberRow(state.cardNumber)
+                        SummaryRow("به نام", state.cardOwnerName.ifBlank { "صاحب کسب‌وکار" })
+                        OutlinedTextField(
+                            value = reference,
+                            onValueChange = { reference = it.take(64) },
+                            label = { Text(if (receipt == null) "شمارهٔ پیگیری واریز" else "شمارهٔ پیگیری (اختیاری)") },
+                            singleLine = true,
+                            enabled = state.uploadProgress == null,
+                            shape = Radius.md,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        ReceiptPicker(
+                            receipt = receipt,
+                            onPick = { receipt = it },
+                            onRemove = { receipt = null },
+                            progress = state.uploadProgress,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The destination card with a copy button that confirms itself, as on the web. */
+@Suppress("DEPRECATION")
+@Composable
+private fun CardNumberRow(number: String) {
+    val clipboard = LocalClipboardManager.current
+    val haptic = LocalHapticFeedback.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { delay(1800); copied = false } }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("شماره کارت", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(formatCardNumber(number), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        TextButton(onClick = {
+            clipboard.setText(AnnotatedString(number))
+            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            copied = true
+        }) {
+            AnimatedContent(targetState = copied, label = "copyCard") { done ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (done) Icons.Rounded.Check else Icons.Outlined.ContentCopy, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (done) "کپی شد" else "کپی")
                 }
             }
         }
@@ -593,8 +801,11 @@ private fun DoneStep(state: BookingState, onOpenMyAppointments: () -> Unit, onCl
             )
             Spacer(Modifier.height(Space.sm))
             Text(
-                if (state.paidOnline) "بعد از پرداخت در درگاه، نتیجه در «نوبت‌های من» نمایش داده می‌شود"
-                else "وضعیت نوبت را در «نوبت‌های من» ببینید",
+                when {
+                    state.paidOnline -> "بعد از پرداخت در درگاه، نتیجه در «نوبت‌های من» نمایش داده می‌شود"
+                    state.proofSent -> "پرداخت شما ثبت شد؛ پس از تأیید مرکز، نوبت قطعی می‌شود"
+                    else -> "درخواست نوبت برای مرکز فرستاده شد؛ وضعیت را در «نوبت‌های من» ببینید"
+                },
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.enterStagger(7, stepMillis = 60),

@@ -114,6 +114,12 @@ export interface Appointment {
    *  visitor's own LOCKED appointment — never on the public business payload. */
   card_number?: string | null;
   card_owner_name?: string | null;
+  /** The visitor's own booking slip: what they asked for and the proof they sent. */
+  description?: string | null;
+  selected_services?: string[];
+  payment_reference?: string | null;
+  payment_receipt?: string | null;
+  deposit_payment_method?: 'NONE' | 'CARD' | 'GATEWAY' | null;
 }
 
 /** Thrown when the API rejects the stored token (HTTP 401). */

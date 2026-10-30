@@ -31,6 +31,7 @@ import androidx.navigation.toRoute
 import xyz.sattar.javid.proqueue.core.navigation.AppScreens
 import xyz.sattar.javid.proqueue.core.navigation.MainTab
 import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
+import xyz.sattar.javid.proqueue.feature.appointments.AppointmentDetailScreen
 import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsScreen
 import xyz.sattar.javid.proqueue.feature.booking.BookingScreen
 import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailScreen
@@ -79,8 +80,10 @@ fun MainNavHost() {
                     )
                 }
                 composable<AppScreens.Booking> { entry ->
+                    val route = entry.toRoute<AppScreens.Booking>()
                     BookingScreen(
-                        businessId = entry.toRoute<AppScreens.Booking>().businessId,
+                        businessId = route.businessId,
+                        resumeAppointmentId = route.resumeAppointmentId,
                         onNavigateBack = { navController.popBackStack() },
                         onOpenMyAppointments = {
                             // Booked: drop the finished flow first. Otherwise it is
@@ -94,7 +97,20 @@ fun MainNavHost() {
                     )
                 }
                 composable<AppScreens.MyAppointments> {
-                    MyAppointmentsScreen(onOpenBusiness = openDetail, bottomPadding = 0.dp)
+                    MyAppointmentsScreen(
+                        onOpenBusiness = openDetail,
+                        bottomPadding = 0.dp,
+                        onOpenAppointment = { navController.navigate(AppScreens.AppointmentDetail(it)) },
+                        onCompletePayment = { businessId, id -> navController.navigate(AppScreens.Booking(businessId, id)) },
+                    )
+                }
+                composable<AppScreens.AppointmentDetail> { entry ->
+                    AppointmentDetailScreen(
+                        appointmentId = entry.toRoute<AppScreens.AppointmentDetail>().appointmentId,
+                        onNavigateBack = { navController.popBackStack() },
+                        onOpenBusiness = openDetail,
+                        onCompletePayment = { businessId, id -> navController.navigate(AppScreens.Booking(businessId, id)) },
+                    )
                 }
                 composable<AppScreens.AboutUs> {
                     AboutUsScreen(onNavigateBack = { navController.popBackStack() })

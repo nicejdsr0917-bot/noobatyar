@@ -90,6 +90,15 @@ data class ClientAppointmentDto(
     /** Card-to-card destination; only on the visitor's own LOCKED appointment. */
     @SerialName("card_number") val cardNumber: String? = null,
     @SerialName("card_owner_name") val cardOwnerName: String? = null,
+    @SerialName("reminder_sms_sent") val reminderSmsSent: Boolean = false,
+    @SerialName("reminder_push_sent") val reminderPushSent: Boolean = false,
+    // The visitor's own booking slip.
+    val description: String? = null,
+    @SerialName("selected_services") val selectedServices: List<String> = emptyList(),
+    @SerialName("payment_reference") val paymentReference: String? = null,
+    /** URL of the receipt photo they sent, absolute or media-relative. */
+    @SerialName("payment_receipt") val paymentReceipt: String? = null,
+    @SerialName("deposit_payment_method") val depositPaymentMethod: String? = null,
 )
 
 @Serializable

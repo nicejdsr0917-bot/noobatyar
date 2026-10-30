@@ -49,6 +49,7 @@ fun BusinessDto.toDomain(): Business {
         depositAmount = depositAmount,
         merchantId = merchantId ?: "",
         paymentLink = paymentLink ?: "",
+        onlineGatewayEnabled = onlineGatewayEnabled,
         cardNumber = cardNumber ?: "",
         cardOwnerName = cardOwnerName ?: "",
         bio = bio ?: "",

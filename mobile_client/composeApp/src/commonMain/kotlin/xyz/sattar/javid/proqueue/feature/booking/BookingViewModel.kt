@@ -33,7 +33,7 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
 import kotlin.time.Clock
 
 /** How many days ahead the day strip offers. */
-const val BOOKING_DAYS_AHEAD = 14
+const val BOOKING_DAYS_AHEAD = 7
 
 enum class BookingStep { SERVICES, SLOT, PHONE, CODE, NAME, CONFIRM, PAYMENT, DONE }
 
@@ -66,6 +66,12 @@ data class BookingState(
     val paidOnline: Boolean = false,
     /** Sent fraction of the receipt photo while it uploads; null otherwise. */
     val uploadProgress: Float? = null,
+    /** When the held appointment is, if it came from «نوبت‌های من» rather than this flow. */
+    val heldAt: Long? = null,
+    /** A card or link payment was recorded and now waits for the owner to verify it. */
+    val proofSent: Boolean = false,
+    /** The hold was given up; the screen leaves. */
+    val released: Boolean = false,
 )
 
 sealed interface BookingMessage {
@@ -96,7 +102,11 @@ class BookingViewModel(
     private var registerToken: String? = null
     private var slotsJob: Job? = null
 
-    fun load(businessId: Long) {
+    /**
+     * [resumeAppointmentId] reopens the payment step of a hold made earlier
+     * («تکمیل پرداخت» in the appointments list), like the web's checkout link.
+     */
+    fun load(businessId: Long, resumeAppointmentId: Long = 0) {
         viewModelScope.launch(dispatcher) {
             _state.update { it.copy(isLoading = true, loadError = null) }
             when (val res = businessRepository.getClientBusinessDetail(businessId)) {
@@ -110,12 +120,18 @@ class BookingViewModel(
                             business = business,
                             days = days,
                             selectedDay = first,
-                            step = if (business.services.isNotEmpty()) BookingStep.SERVICES else BookingStep.SLOT,
+                            step = if (business.offersServiceStep()) BookingStep.SERVICES else BookingStep.SLOT,
                             paymentMethods = business.acceptedPaymentMethods
                                 ?: listOfNotNull(business.paymentMethod),
                         )
                     }
-                    loadSlots()
+                    val token = preferences.visitorToken.first()
+                    if (resumeAppointmentId > 0 && token != null) {
+                        _state.update { it.copy(appointmentId = resumeAppointmentId) }
+                        openPayment(token, resumeAppointmentId)
+                    } else {
+                        loadSlots()
+                    }
                 }
                 is ApiResponse.Error -> _state.update { it.copy(isLoading = false, loadError = res.message) }
             }
@@ -138,6 +154,14 @@ class BookingViewModel(
     fun toggleService(service: String) = _state.update {
         val picked = if (service in it.selectedServices) it.selectedServices - service else it.selectedServices + service
         it.copy(selectedServices = picked)
+    }
+
+    /** Adds a service the visitor typed (when the business allows it), picked. */
+    fun addCustomService(raw: String): Boolean {
+        val name = customServiceName(raw) ?: return false
+        if (_state.value.business?.allowClientAddService != true) return false
+        _state.update { if (name in it.selectedServices) it else it.copy(selectedServices = it.selectedServices + name) }
+        return true
     }
 
     fun continueFromServices() = _state.update { it.copy(step = BookingStep.SLOT) }
@@ -290,10 +314,18 @@ class BookingViewModel(
     private suspend fun openPayment(token: String, appointmentId: Long) {
         val own = (bookingApi.myAppointments(token) as? ApiResponse.Success)
             ?.data?.results?.firstOrNull { it.id == appointmentId }
+        if (own != null && own.status != "LOCKED") {
+            // Paid, cancelled or expired meanwhile (a resumed hold): nothing to pay.
+            _messages.send(BookingMessage.Error("این نوبت دیگر در انتظار پرداخت نیست"))
+            _state.update { it.copy(released = true) }
+            return
+        }
         val methods = own?.business?.let { it.acceptedPaymentMethods ?: listOfNotNull(it.paymentMethod) }
         _state.update {
             it.copy(
                 step = BookingStep.PAYMENT,
+                business = own?.business?.toDomain() ?: it.business,
+                heldAt = if (it.selectedSlot == null) own?.appointmentDate else null,
                 cardNumber = own?.cardNumber.orEmpty(),
                 cardOwnerName = own?.cardOwnerName.orEmpty(),
                 paymentMethods = methods ?: it.paymentMethods,
@@ -325,9 +357,28 @@ class BookingViewModel(
                 _state.update { it.copy(uploadProgress = null) }
             }
             when (res) {
-                is ApiResponse.Success -> _state.update { it.copy(step = BookingStep.DONE) }
+                is ApiResponse.Success -> _state.update { it.copy(step = BookingStep.DONE, proofSent = true) }
                 is ApiResponse.Error -> _messages.send(BookingMessage.Error(res.message))
             }
+        }
+    }
+
+    /** Paid on the owner's own payment page: the tracking number is the proof. */
+    fun payByLink(reference: String) {
+        if (reference.isBlank()) return
+        submitPayment("ONLINE", reference.trim())
+    }
+
+    /**
+     * Gives the held slot back, as closing the web checkout does. Leaves even
+     * when the call fails: a stale hold ages out on the server by itself.
+     */
+    fun releaseHold() {
+        val id = _state.value.appointmentId
+        busy {
+            val token = preferences.visitorToken.first()
+            if (id != null && token != null) bookingApi.cancel(token, id)
+            _state.update { it.copy(released = true) }
         }
     }
 
@@ -335,7 +386,7 @@ class BookingViewModel(
 
     private fun submitPayment(method: String, reference: String) = withAppointment { token, id ->
         when (val res = bookingApi.pay(token, id, method, reference)) {
-            is ApiResponse.Success -> _state.update { it.copy(step = BookingStep.DONE) }
+            is ApiResponse.Success -> _state.update { it.copy(step = BookingStep.DONE, proofSent = method != "CASH") }
             is ApiResponse.Error -> _messages.send(BookingMessage.Error(res.message))
         }
     }
@@ -353,7 +404,7 @@ class BookingViewModel(
         val s = _state.value
         val previous = when (s.step) {
             BookingStep.SERVICES -> null
-            BookingStep.SLOT -> if (s.business?.services?.isNotEmpty() == true) BookingStep.SERVICES else null
+            BookingStep.SLOT -> if (s.business?.offersServiceStep() == true) BookingStep.SERVICES else null
             BookingStep.PHONE, BookingStep.CONFIRM -> BookingStep.SLOT
             BookingStep.CODE -> BookingStep.PHONE
             BookingStep.NAME -> BookingStep.CODE

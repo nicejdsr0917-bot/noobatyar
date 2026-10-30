@@ -25,6 +25,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -250,6 +251,83 @@ class BookingViewModelTest {
         assertEquals(BookingStep.PAYMENT, vm.state.value.step)
         assertNull(vm.state.value.uploadProgress)
         assertFalse(vm.state.value.busy)
+    }
+
+    @Test
+    fun typedServicesOnlyWhenTheBusinessAllowsThem() = runTest(main.dispatcher) {
+        repo.details[7] = ApiResponse.Success(business().copy(allowClientAddService = true))
+        val vm = vm()
+        vm.load(7)
+        assertEquals(BookingStep.SERVICES, vm.state.value.step, "no menu, but typing is allowed")
+        assertTrue(vm.addCustomService(" بلیچینگ، کامل "))
+        assertFalse(vm.addCustomService("  "))
+        vm.addCustomService("بلیچینگ  کامل")
+        assertEquals(listOf("بلیچینگ  کامل"), vm.state.value.selectedServices)
+
+        repo.details[8] = ApiResponse.Success(businessDto(8).copy(services = listOf("ترمیم")))
+        val other = vm()
+        other.load(8)
+        assertFalse(other.addCustomService("چیز دیگر"))
+        assertTrue(other.state.value.selectedServices.isEmpty())
+    }
+
+    @Test
+    fun resumingAHoldOpensItsPaymentStep() = runTest(main.dispatcher) {
+        repo.details[7] = ApiResponse.Success(business(methods = listOf("CARD")))
+        prefs.token.value = "tok"
+        api.appointments = ApiResponse.Success(
+            AppointmentPageDto(listOf(ClientAppointmentDto(55, businessDto(7).copy(acceptedPaymentMethods = listOf("CARD")), 1_800_000_000_000, "LOCKED", cardNumber = "6037991234567890")))
+        )
+        val vm = vm()
+        vm.load(7, resumeAppointmentId = 55)
+        val s = vm.state.value
+        assertEquals(BookingStep.PAYMENT, s.step)
+        assertEquals(55L, s.appointmentId)
+        assertEquals(1_800_000_000_000, s.heldAt)
+        assertTrue(api.slotDates.isEmpty(), "no slots are needed to pay")
+    }
+
+    @Test
+    fun aResumedHoldThatIsNoLongerLockedLeaves() = runTest(main.dispatcher) {
+        repo.details[7] = ApiResponse.Success(business())
+        prefs.token.value = "tok"
+        api.appointments = ApiResponse.Success(AppointmentPageDto(listOf(ClientAppointmentDto(55, businessDto(7), 0, "CANCELLED"))))
+        val vm = vm()
+        vm.messages.test {
+            vm.load(7, resumeAppointmentId = 55)
+            assertIs<BookingMessage.Error>(awaitItem())
+        }
+        assertTrue(vm.state.value.released)
+    }
+
+    @Test
+    fun releasingTheHoldCancelsItAndLeaves() = runTest(main.dispatcher) {
+        val vm = vm()
+        vm.toCardPayment()
+        vm.releaseHold()
+        assertEquals(listOf(55L), api.cancelled)
+        assertTrue(vm.state.value.released)
+    }
+
+    @Test
+    fun linkPaymentSendsTheTrackingNumberAsOnline() = runTest(main.dispatcher) {
+        val vm = vm()
+        vm.toCardPayment()
+        vm.payByLink("  ")
+        assertTrue(api.payments.isEmpty())
+        vm.payByLink(" 778899 ")
+        val p = api.payments.single()
+        assertEquals("ONLINE" to "778899", p.method to p.reference)
+        assertTrue(vm.state.value.proofSent)
+        assertEquals(BookingStep.DONE, vm.state.value.step)
+    }
+
+    @Test
+    fun cashIsNotProof() = runTest(main.dispatcher) {
+        val vm = vm()
+        vm.toCardPayment()
+        vm.payCash()
+        assertFalse(vm.state.value.proofSent)
     }
 
     @Test

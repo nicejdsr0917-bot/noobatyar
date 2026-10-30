@@ -145,6 +145,12 @@ APPOINTMENT_SHAPE = {
     'reminder_push_sent': 'bool',
     'card_number': 'null',
     'card_owner_name': 'null',
+    # The visitor's own booking slip (added for the app's appointment page).
+    'description': 'null',
+    'selected_services': 'list',
+    'payment_reference': 'null',
+    'payment_receipt': 'null',
+    'deposit_payment_method': 'str',
 }
 
 

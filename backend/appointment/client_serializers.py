@@ -3,6 +3,8 @@ from .models import Appointment
 from business.selectors import attach_owner_state
 from business.serializers import ClientBusinessSerializer
 
+from .selectors_stats import split_selected_services
+
 
 class ClientAppointmentListSerializer(serializers.ListSerializer):
     """Resolves the owners' subscription / booking-quota state for the whole
@@ -46,6 +48,10 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
     # while they are on the checkout step. Null otherwise.
     card_number = serializers.SerializerMethodField()
     card_owner_name = serializers.SerializerMethodField()
+    # The visitor's own booking slip: what they asked for and the proof they
+    # sent. This serializer only ever serves the signed-in visitor's own rows.
+    selected_services = serializers.SerializerMethodField()
+    payment_receipt = serializers.ImageField(read_only=True)
 
     class Meta:
         model = Appointment
@@ -61,6 +67,11 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
             'reminder_push_sent',
             'card_number',
             'card_owner_name',
+            'description',
+            'selected_services',
+            'payment_reference',
+            'payment_receipt',
+            'deposit_payment_method',
         ]
 
     def _card_visible(self, obj):
@@ -80,6 +91,9 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
 
     def get_card_owner_name(self, obj):
         return (obj.business.card_owner_name or '') if self._card_visible(obj) else None
+
+    def get_selected_services(self, obj):
+        return split_selected_services(obj.selected_services or '')
 
     def get_reminder_sms_sent(self, obj):
         return obj.reminder_sent_at is not None

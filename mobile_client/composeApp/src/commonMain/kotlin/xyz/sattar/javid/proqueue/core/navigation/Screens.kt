@@ -32,8 +32,12 @@ sealed class AppScreens {
     @Serializable
     object AboutUs : AppScreens()
 
+    /** [resumeAppointmentId] > 0 opens the payment step of an existing hold. */
     @Serializable
-    data class Booking(val businessId: Long) : AppScreens()
+    data class Booking(val businessId: Long, val resumeAppointmentId: Long = 0) : AppScreens()
+
+    @Serializable
+    data class AppointmentDetail(val appointmentId: Long) : AppScreens()
 
     @Serializable
     object MyAppointments : AppScreens()

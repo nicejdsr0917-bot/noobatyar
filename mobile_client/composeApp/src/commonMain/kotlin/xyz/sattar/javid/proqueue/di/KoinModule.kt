@@ -23,6 +23,7 @@ import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.domain.UserRepository
 import xyz.sattar.javid.proqueue.domain.usecase.push.SyncPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CheckVersionUseCase
+import xyz.sattar.javid.proqueue.feature.appointments.AppointmentDetailViewModel
 import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsViewModel
 import xyz.sattar.javid.proqueue.feature.booking.BookingViewModel
 import xyz.sattar.javid.proqueue.feature.businessDetail.BusinessSocialViewModel
@@ -61,4 +62,5 @@ val appModule: Module = module {
     viewModel { SavedViewModel(get(), get()) }
     viewModel { BookingViewModel(get(), get(), get()) }
     viewModel { MyAppointmentsViewModel(get(), get()) }
+    viewModel { AppointmentDetailViewModel(get(), get()) }
 }

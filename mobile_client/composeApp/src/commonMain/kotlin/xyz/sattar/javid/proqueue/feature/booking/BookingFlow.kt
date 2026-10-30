@@ -3,6 +3,7 @@ package xyz.sattar.javid.proqueue.feature.booking
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.TimeSlotDto
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.businessDetail.DEPOSIT_MANDATORY
+import xyz.sattar.javid.proqueue.feature.businessDetail.DEPOSIT_OPTIONAL
 
 /**
  * What the step indicator shows. Coarser than [BookingStep]: the one-time
@@ -34,7 +35,7 @@ fun Business.expectsDeposit(): Boolean =
  * ([paymentRequested] keeps it there after the visitor has paid and moved on).
  */
 fun bookingPhases(business: Business?, step: BookingStep, paymentRequested: Boolean = false): List<BookingPhase> = buildList {
-    if (business?.services?.isNotEmpty() == true) add(BookingPhase.SERVICE)
+    if (business?.offersServiceStep() == true) add(BookingPhase.SERVICE)
     add(BookingPhase.TIME)
     add(BookingPhase.CONFIRM)
     if (business?.expectsDeposit() == true || paymentRequested || step == BookingStep.PAYMENT) add(BookingPhase.PAY)
@@ -74,14 +75,38 @@ fun groupByDayPart(slots: List<TimeSlotDto>): List<Pair<DayPart, List<TimeSlotDt
 enum class PaymentOption { ONLINE, CARD, CASH }
 
 /**
- * The deposit options to offer, in the order shown. Card to card needs the
- * card number, which only the visitor's own held appointment carries.
+ * The deposit options to offer, in the order shown; the web checkout's rules.
+ * Online needs a real gateway or the owner's own payment link. Card is the
+ * fallback when the business never said (the number may still be missing:
+ * the step then says so). Cash is never offered against a mandatory deposit,
+ * and always against an optional one.
  */
-fun paymentOptions(methods: List<String>, cardNumber: String): List<PaymentOption> = buildList {
-    if ("ONLINE" in methods) add(PaymentOption.ONLINE)
-    if ("CARD" in methods && cardNumber.isNotBlank()) add(PaymentOption.CARD)
-    if ("CASH" in methods) add(PaymentOption.CASH)
+fun paymentOptions(
+    methods: List<String>,
+    depositMode: String?,
+    onlineGateway: Boolean,
+    paymentLink: String,
+): List<PaymentOption> = buildList {
+    if ("ONLINE" in methods && (onlineGateway || paymentLink.isNotBlank())) add(PaymentOption.ONLINE)
+    if (methods.isEmpty() || "CARD" in methods) add(PaymentOption.CARD)
+    if (depositMode != DEPOSIT_MANDATORY && ("CASH" in methods || depositMode == DEPOSIT_OPTIONAL)) add(PaymentOption.CASH)
 }
+
+/** The owner's manual payment page, made absolute like the web does. */
+fun paymentLinkUrl(link: String): String? = link.trim().takeIf { it.isNotEmpty() }
+    ?.let { if (it.startsWith("http")) it else "https://$it" }
+
+/** Services come first when there is a menu, or the visitor may type their own. */
+fun Business.offersServiceStep(): Boolean = services.isNotEmpty() || allowClientAddService
+
+const val CUSTOM_SERVICE_MAX = 100
+
+/**
+ * A typed service as it is stored: the server splits services on commas, so
+ * one inside a name becomes a space. Null when nothing usable is left.
+ */
+fun customServiceName(raw: String): String? =
+    raw.replace(',', ' ').replace('،', ' ').trim().take(CUSTOM_SERVICE_MAX).takeIf { it.isNotEmpty() }
 
 /**
  * A card transfer needs proof: a tracking number, a photo of the receipt, or

@@ -53,6 +53,7 @@ data class Business(
     val depositAmount: Int? = null,
     val merchantId: String = "",
     val paymentLink: String = "",
+    val onlineGatewayEnabled: Boolean = false,
     val cardNumber: String = "",
     val cardOwnerName: String = "",
     val bio: String = "",

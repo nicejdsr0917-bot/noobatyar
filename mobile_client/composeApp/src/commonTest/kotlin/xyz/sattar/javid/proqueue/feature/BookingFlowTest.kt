@@ -14,6 +14,10 @@ import xyz.sattar.javid.proqueue.feature.booking.expectsDeposit
 import xyz.sattar.javid.proqueue.feature.booking.groupByDayPart
 import xyz.sattar.javid.proqueue.feature.booking.isForward
 import xyz.sattar.javid.proqueue.feature.booking.paymentOptions
+import xyz.sattar.javid.proqueue.feature.booking.paymentLinkUrl
+import xyz.sattar.javid.proqueue.feature.booking.customServiceName
+import xyz.sattar.javid.proqueue.feature.booking.CUSTOM_SERVICE_MAX
+import xyz.sattar.javid.proqueue.feature.booking.offersServiceStep
 import xyz.sattar.javid.proqueue.feature.businessDetail.DEPOSIT_MANDATORY
 import xyz.sattar.javid.proqueue.feature.businessDetail.DEPOSIT_OPTIONAL
 import xyz.sattar.javid.proqueue.testsupport.businessDto
@@ -92,11 +96,41 @@ class BookingFlowTest {
     }
 
     @Test
-    fun cardToCardNeedsTheCardNumber() {
+    fun paymentOptionsFollowTheWebCheckoutRules() {
         val all = listOf("CASH", "CARD", "ONLINE")
-        assertEquals(listOf(PaymentOption.ONLINE, PaymentOption.CARD, PaymentOption.CASH), paymentOptions(all, "6037991234567890"))
-        assertEquals(listOf(PaymentOption.ONLINE, PaymentOption.CASH), paymentOptions(all, " "))
-        assertTrue(paymentOptions(listOf("GATEWAY"), "").isEmpty())
+        // Online needs a gateway or the owner's own link.
+        assertEquals(listOf(PaymentOption.CARD, PaymentOption.CASH), paymentOptions(all, null, onlineGateway = false, paymentLink = ""))
+        assertEquals(
+            listOf(PaymentOption.ONLINE, PaymentOption.CARD, PaymentOption.CASH),
+            paymentOptions(all, null, onlineGateway = false, paymentLink = "pay.example"),
+        )
+        // Never cash against a mandatory deposit; always against an optional one.
+        assertEquals(listOf(PaymentOption.ONLINE, PaymentOption.CARD), paymentOptions(all, DEPOSIT_MANDATORY, onlineGateway = true, paymentLink = ""))
+        assertEquals(listOf(PaymentOption.ONLINE, PaymentOption.CASH), paymentOptions(listOf("ONLINE"), DEPOSIT_OPTIONAL, true, "") )
+        // A business that never said takes card.
+        assertEquals(listOf(PaymentOption.CARD), paymentOptions(emptyList(), DEPOSIT_MANDATORY, false, ""))
+    }
+
+    @Test
+    fun paymentLinkIsMadeAbsolute() {
+        assertEquals("https://pay.example/x", paymentLinkUrl(" pay.example/x "))
+        assertEquals("http://a.b", paymentLinkUrl("http://a.b"))
+        assertEquals(null, paymentLinkUrl("  "))
+    }
+
+    @Test
+    fun customServiceNamesLoseCommasAndLength() {
+        assertEquals("جرم گیری", customServiceName(" جرم،گیری "))
+        assertEquals("a b", customServiceName("a,b"))
+        assertEquals(null, customServiceName(" , "))
+        assertEquals(CUSTOM_SERVICE_MAX, customServiceName("x".repeat(150))?.length)
+    }
+
+    @Test
+    fun serviceStepShowsForAMenuOrTypedServices() {
+        assertFalse(business().offersServiceStep())
+        assertTrue(business(listOf("ترمیم")).offersServiceStep())
+        assertTrue(businessDto(1).copy(allowClientAddService = true).toDomain().offersServiceStep())
     }
 
     @Test

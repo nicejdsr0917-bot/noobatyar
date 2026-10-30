@@ -45,6 +45,8 @@ data class BusinessDto(
     @SerialName("deposit_amount") val depositAmount: Int? = null,
     @SerialName("merchant_id") val merchantId: String? = null,
     @SerialName("payment_link") val paymentLink: String? = null,
+    /** A real Zibal merchant is set up: ONLINE goes to the bank, not to [paymentLink]. */
+    @SerialName("online_gateway_enabled") val onlineGatewayEnabled: Boolean = false,
     @SerialName("card_number") val cardNumber: String? = null,
     @SerialName("card_owner_name") val cardOwnerName: String? = null,
     @SerialName("bio") val bio: String? = null,
