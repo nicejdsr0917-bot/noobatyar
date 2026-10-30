@@ -9,6 +9,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.map.loadedTileCount
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -87,6 +88,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.map.MapAttribution
 import xyz.sattar.javid.proqueue.core.ui.components.map.applyTileTint
 import xyz.sattar.javid.proqueue.core.ui.components.map.mapBackground
 import xyz.sattar.javid.proqueue.core.ui.components.map.newTileMapState
+import xyz.sattar.javid.proqueue.core.ui.components.map.scaleForZoom
 import xyz.sattar.javid.proqueue.core.ui.components.map.toNormalized
 import xyz.sattar.javid.proqueue.core.utils.openMap
 import xyz.sattar.javid.proqueue.core.utils.rememberReducedMotion
@@ -115,6 +117,12 @@ private const val ROUTE_ARROW = "route-arrow"
 
 /** Where along the finished route its direction chevron sits. */
 private const val MID_ARROW_AT = 0.55f
+
+/** Zoom the map settles at once the route has arrived: street names and districts read. */
+private const val ARRIVAL_ZOOM = 14.4
+
+/** Where the destination sits from the top of the screen after arriving, leaving room for its card above and the sheet below. */
+private const val ARRIVAL_PIN_AT = 0.46f
 
 /** Share of the screen the bottom card leaves for the map. */
 private const val MAP_VISIBLE_FRACTION = 0.62f
@@ -272,6 +280,16 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
         // Arrived: the square marks the end, a chevron mid-way shows the direction.
         state.drawChevron(arc, MID_ARROW_AT, routeColor(routeColors, MID_ARROW_AT))
         arrivedKm = me.distanceKmTo(place)
+        // Then the camera goes in on the destination, at street level, with the
+        // card above the pin and the pin above the bottom sheet.
+        delay(if (reduced) 0 else 500)
+        state.scrollTo(
+            target.first,
+            target.second,
+            destScale = scaleForZoom(ARRIVAL_ZOOM, density),
+            screenOffset = Offset(-0.5f, -ARRIVAL_PIN_AT),
+            animationSpec = if (reduced) snap() else tween(1_100, easing = FastOutSlowInEasing),
+        )
     }
 
     Box(Modifier.fillMaxSize().background(mapBackground(dark))) {
