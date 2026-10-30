@@ -1,13 +1,17 @@
 package xyz.sattar.javid.proqueue.feature.booking
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -17,18 +21,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -37,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,26 +44,38 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.datetime.isoDayNumber
 import org.koin.compose.viewmodel.koinViewModel
+import xyz.sattar.javid.proqueue.core.ui.components.ShimmerBox
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.core.utils.SystemBackHandler
 import xyz.sattar.javid.proqueue.core.utils.openUrl
-import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
+import xyz.sattar.javid.proqueue.core.utils.rememberReducedMotion
+import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.TimeSlotDto
-import xyz.sattar.javid.proqueue.feature.businessDetail.DEPOSIT_MANDATORY
 import xyz.sattar.javid.proqueue.feature.businessDetail.TopBar
 import xyz.sattar.javid.proqueue.feature.businessDetail.formatToman
+import xyz.sattar.javid.proqueue.feature.discovery.BusinessAvatar
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.discovery.Radius
 import xyz.sattar.javid.proqueue.feature.discovery.Space
+import xyz.sattar.javid.proqueue.feature.discovery.areaLine
 
 @Composable
 fun BookingScreen(
@@ -75,12 +86,16 @@ fun BookingScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
+    val haptic = LocalHapticFeedback.current
 
     LaunchedEffect(businessId) { viewModel.load(businessId) }
     LaunchedEffect(Unit) {
         viewModel.messages.collect { msg ->
             when (msg) {
-                is BookingMessage.Error -> snackbar.showToasty(UiMessage.error(msg.text))
+                is BookingMessage.Error -> {
+                    haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                    snackbar.showToasty(UiMessage.error(msg.text))
+                }
                 is BookingMessage.OpenUrl -> openUrl(msg.url)
             }
         }
@@ -89,76 +104,119 @@ fun BookingScreen(
     // System back steps through the flow like the top bar does.
     SystemBackHandler(onBack = goBack)
 
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxSize()) {
-            TopBar(title = state.business?.title ?: "رزرو نوبت", showDivider = true, onBack = goBack)
-            val business = state.business
-            when {
-                state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                business == null -> Column(
-                    Modifier.fillMaxSize().padding(Space.page),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(state.loadError ?: "اطلاعات مرکز در دسترس نیست", textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(Space.md))
-                    OutlinedButton(onClick = { viewModel.load(businessId) }) { Text("تلاش دوباره") }
-                }
-                else -> when (state.step) {
-                    BookingStep.SERVICES -> ServicesStep(business.services, state, viewModel)
-                    BookingStep.SLOT -> SlotStep(state, viewModel)
-                    BookingStep.PHONE -> PhoneStep(state, viewModel)
-                    BookingStep.CODE -> CodeStep(state, viewModel)
-                    BookingStep.NAME -> NameStep(state, viewModel)
-                    BookingStep.CONFIRM -> ConfirmStep(state, viewModel)
-                    BookingStep.PAYMENT -> PaymentStep(state, viewModel)
-                    BookingStep.DONE -> DoneStep(state, onOpenMyAppointments)
+    val reduced = rememberReducedMotion()
+    CompositionLocalProvider(LocalReducedMotion provides reduced) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            Column(Modifier.fillMaxSize()) {
+                TopBar(title = state.business?.title ?: "رزرو نوبت", showDivider = false, onBack = goBack)
+                val business = state.business
+                when {
+                    state.isLoading -> LoadingSkeleton()
+                    business == null -> Column(
+                        Modifier.fillMaxSize().padding(Space.page),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(state.loadError ?: "اطلاعات مرکز در دسترس نیست", textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(Space.md))
+                        OutlinedButton(onClick = { viewModel.load(businessId) }, shape = Radius.md) { Text("تلاش دوباره") }
+                    }
+                    else -> {
+                        // Remembered, so the payment stage stays on the indicator while it fades out.
+                        var paymentRequested by remember { mutableStateOf(false) }
+                        if (state.step == BookingStep.PAYMENT) paymentRequested = true
+                        val phases = bookingPhases(business, state.step, paymentRequested)
+                        AnimatedVisibility(
+                            visible = state.step != BookingStep.DONE,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically(),
+                        ) {
+                            Column {
+                                StepIndicator(phases, currentPhaseIndex(phases, state.step))
+                                Hairline()
+                            }
+                        }
+                        val layoutDirection = LocalLayoutDirection.current
+                        AnimatedContent(
+                            targetState = state.step,
+                            transitionSpec = { stepTransition(layoutDirection, reduced) },
+                            modifier = Modifier.weight(1f),
+                            label = "bookingStep",
+                        ) { step ->
+                            when (step) {
+                                BookingStep.SERVICES -> ServicesStep(business.services, state, viewModel)
+                                BookingStep.SLOT -> SlotStep(state, viewModel)
+                                BookingStep.PHONE -> PhoneStep(state, viewModel)
+                                BookingStep.CODE -> CodeStep(state, viewModel)
+                                BookingStep.NAME -> NameStep(state, viewModel)
+                                BookingStep.CONFIRM -> ConfirmStep(state, viewModel)
+                                BookingStep.PAYMENT -> PaymentStep(state, viewModel)
+                                BookingStep.DONE -> DoneStep(state, onOpenMyAppointments, onNavigateBack)
+                            }
+                        }
+                    }
                 }
             }
+            ToastyHost(snackbar, Modifier.align(Alignment.TopCenter))
         }
-        ToastyHost(snackbar, Modifier.align(Alignment.TopCenter))
     }
 }
 
-/** A scrolling step body with its primary action pinned under the thumb. */
+@Composable
+private fun LoadingSkeleton() {
+    Column(Modifier.fillMaxSize().padding(Space.page), verticalArrangement = Arrangement.spacedBy(Space.lg)) {
+        ShimmerBox(Modifier.fillMaxWidth().height(44.dp), Radius.md)
+        ShimmerBox(Modifier.width(140.dp).height(20.dp), Radius.sm)
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+            repeat(5) { ShimmerBox(Modifier.width(64.dp).height(84.dp), Radius.md) }
+        }
+        SlotGridShimmer()
+    }
+}
+
+/**
+ * A scrolling step body with its primary action pinned under the thumb.
+ * [footer] sits just above the button, for a live summary of the pick.
+ */
 @Composable
 private fun StepScaffold(
     action: String?,
     actionEnabled: Boolean = true,
     busy: Boolean = false,
     onAction: () -> Unit = {},
+    footer: (@Composable () -> Unit)? = null,
+    scrollPadding: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().imePadding()) {
         Column(
-            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(Space.page),
-            verticalArrangement = Arrangement.spacedBy(Space.md)
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = Space.lg, horizontal = if (scrollPadding) Space.page else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(Space.lg)
         ) { content() }
-        if (action != null) {
+        if (action != null || footer != null) {
             Hairline()
-            Button(
-                onClick = onAction,
-                enabled = actionEnabled && !busy,
-                shape = Radius.md,
-                modifier = Modifier
+            Column(
+                Modifier
+                    .background(MaterialTheme.colorScheme.background)
                     .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = Space.page, vertical = Space.md)
-                    .fillMaxWidth()
-                    .height(48.dp)
+                    .padding(horizontal = Space.page, vertical = Space.md),
+                verticalArrangement = Arrangement.spacedBy(Space.sm),
             ) {
-                if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Text(action, fontWeight = FontWeight.Bold)
+                footer?.invoke()
+                if (action != null) PrimaryAction(action, actionEnabled, busy, onAction)
             }
         }
     }
 }
 
 @Composable
-private fun StepTitle(title: String, subtitle: String? = null) {
-    Column {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+private fun StepTitle(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
+    Column(modifier.enterStagger(0)) {
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         if (subtitle != null) {
             Spacer(Modifier.height(Space.xs))
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -166,17 +224,21 @@ private fun StepTitle(title: String, subtitle: String? = null) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ServicesStep(services: List<String>, state: BookingState, vm: BookingViewModel) {
-    StepScaffold(action = if (state.selectedServices.isEmpty()) "ادامه بدون انتخاب" else "ادامه", onAction = vm::continueFromServices) {
+    val count = state.selectedServices.size
+    StepScaffold(
+        action = if (count == 0) "ادامه بدون انتخاب" else "ادامه با ${count.toPersianDigits()} خدمت",
+        onAction = vm::continueFromServices,
+    ) {
         StepTitle("چه خدمتی می‌خواهید؟", "می‌توانید چند خدمت انتخاب کنید")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.sm), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
-            services.forEach { service ->
-                FilterChip(
+        Column(verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+            services.forEachIndexed { index, service ->
+                ServiceRow(
+                    service,
                     selected = service in state.selectedServices,
-                    onClick = { vm.toggleService(service) },
-                    label = { Text(service) }
+                    onToggle = { vm.toggleService(service) },
+                    modifier = Modifier.enterStagger(index + 1),
                 )
             }
         }
@@ -186,7 +248,7 @@ private fun ServicesStep(services: List<String>, state: BookingState, vm: Bookin
 private val weekdayNames = mapOf(
     1 to "دوشنبه", 2 to "سه‌شنبه", 3 to "چهارشنبه", 4 to "پنجشنبه", 5 to "جمعه", 6 to "شنبه", 7 to "یکشنبه",
 )
-private val jalaliMonths = listOf(
+internal val jalaliMonths = listOf(
     "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
 )
 
@@ -196,7 +258,7 @@ private val jalaliMonths = listOf(
  * copying the number would transfer to the wrong card.
  */
 fun formatCardNumber(number: String): String =
-    "\u2066" + number.chunked(4).joinToString(" ").toPersianDigits() + "\u2069"
+    "⁦" + number.chunked(4).joinToString(" ").toPersianDigits() + "⁩"
 
 internal fun BookingDay.weekdayLabel(index: Int): String = when (index) {
     0 -> "امروز"
@@ -209,98 +271,158 @@ internal fun BookingDay.jalaliLabel(): String {
     return "${j.dayOfMonth.toString().toPersianDigits()} ${jalaliMonths[j.month - 1]}"
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** What the slot area shows; a snapshot, so the outgoing panel keeps its own slots while it fades. */
+private data class SlotPanel(val kind: Kind, val day: Int, val slots: List<TimeSlotDto>) {
+    enum class Kind { LOADING, CLOSED, FULL, SLOTS }
+}
+
+private fun BookingState.slotPanel(): SlotPanel = SlotPanel(
+    kind = when {
+        slotsLoading -> SlotPanel.Kind.LOADING
+        dayClosed -> SlotPanel.Kind.CLOSED
+        slots.none { it.available } -> SlotPanel.Kind.FULL
+        else -> SlotPanel.Kind.SLOTS
+    },
+    day = selectedDay,
+    slots = slots,
+)
+
 @Composable
 private fun SlotStep(state: BookingState, vm: BookingViewModel) {
-    StepScaffold(action = "ادامه", actionEnabled = state.selectedSlot != null, onAction = vm::continueFromSlot) {
-        StepTitle("روز و ساعت")
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-            state.days.forEachIndexed { index, day ->
-                val selected = index == state.selectedDay
-                Surface(
-                    onClick = { vm.selectDay(index) },
-                    shape = Radius.md,
-                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                    contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.width(76.dp).height(84.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, Radius.md)
-                ) {
-                    Column(
-                        Modifier.padding(vertical = Space.sm),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(day.weekdayLabel(index), style = MaterialTheme.typography.labelMedium)
-                        Text(day.jalaliLabel(), style = MaterialTheme.typography.bodySmall)
-                        if (day.closed) Text("تعطیل", style = MaterialTheme.typography.labelSmall)
+    val day = state.days.getOrNull(state.selectedDay)
+    val slot = state.selectedSlot
+    StepScaffold(
+        action = "ادامه",
+        actionEnabled = slot != null,
+        onAction = vm::continueFromSlot,
+        scrollPadding = false,
+        footer = {
+            AnimatedVisibility(
+                visible = slot != null && day != null,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
+                if (slot != null && day != null) {
+                    AnimatedContent(
+                        targetState = "${day.weekdayLabel(state.selectedDay)} ${day.jalaliLabel()}، ساعت ${slot.time.toPersianDigits()}",
+                        transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+                        label = "slotSummary",
+                    ) { text ->
+                        Text(
+                            text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
             }
-        }
-        when {
-            state.slotsLoading -> Box(Modifier.fillMaxWidth().padding(Space.xl), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            state.dayClosed -> Text("این روز تعطیل است؛ روز دیگری انتخاب کنید", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            state.slots.none { it.available } -> Text("برای این روز نوبت خالی نمانده است", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else -> FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.sm), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
-                state.slots.forEach { slot -> SlotChip(slot, selected = slot == state.selectedSlot) { vm.selectSlot(slot) } }
+        },
+    ) {
+        StepTitle("روز و ساعت", "زمانی را که برایتان مناسب است انتخاب کنید", Modifier.padding(horizontal = Space.page))
+        DayStrip(state.days, state.selectedDay, vm::selectDay)
+        AnimatedContent(
+            targetState = state.slotPanel(),
+            contentKey = { it.kind to it.day },
+            transitionSpec = { fadeIn(tween(220, delayMillis = 60)) togetherWith fadeOut(tween(120)) },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Space.page),
+            label = "slotPanel",
+        ) { panel ->
+            when (panel.kind) {
+                SlotPanel.Kind.LOADING -> SlotGridShimmer()
+                SlotPanel.Kind.CLOSED -> EmptyNote("این روز تعطیل است", "روز دیگری را انتخاب کنید")
+                SlotPanel.Kind.FULL -> EmptyNote("نوبت خالی نمانده است", "روزهای بعد را ببینید")
+                SlotPanel.Kind.SLOTS -> SlotGrid(panel.slots, state.selectedSlot, vm::selectSlot, animationKey = panel.day)
             }
         }
     }
 }
 
 @Composable
-private fun SlotChip(slot: TimeSlotDto, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected,
-        enabled = slot.available,
-        onClick = onClick,
-        label = { Text(slot.time.toPersianDigits()) }
-    )
+private fun EmptyNote(title: String, subtitle: String) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, Radius.md)
+            .padding(vertical = Space.xl, horizontal = Space.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(Space.xs))
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
+
+/** Focuses the step's field once it has slid in, so the keyboard comes up by itself. */
+@Composable
+private fun rememberAutoFocus(): FocusRequester {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    return focus
+}
+
+private val ltrInput = TextStyle(textDirection = TextDirection.Ltr, textAlign = TextAlign.Center, fontSize = 20.sp, letterSpacing = 2.sp)
 
 @Composable
 private fun PhoneStep(state: BookingState, vm: BookingViewModel) {
+    val focus = rememberAutoFocus()
+    val wrong = state.phone.length == 11 && !vm.isPhoneValid
     StepScaffold(action = "دریافت کد", actionEnabled = vm.isPhoneValid, busy = state.busy, onAction = vm::sendOtp) {
         StepTitle("شمارهٔ موبایل", "برای ثبت نوبت یک بار وارد می‌شوید؛ کد تأیید پیامک می‌شود")
         OutlinedTextField(
             value = state.phone,
             onValueChange = vm::setPhone,
-            label = { Text("۰۹۱۲…") },
+            placeholder = { Text("۰۹۱۲ ۰۰۰ ۰۰۰۰", style = ltrInput, modifier = Modifier.fillMaxWidth()) },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            isError = wrong,
+            supportingText = if (wrong) ({ Text("شماره باید با ۰۹ شروع شود") }) else null,
+            textStyle = ltrInput,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { vm.sendOtp() }),
             shape = Radius.md,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().focusRequester(focus).enterStagger(1)
         )
     }
 }
 
 @Composable
 private fun CodeStep(state: BookingState, vm: BookingViewModel) {
+    val focus = rememberAutoFocus()
     StepScaffold(action = "تأیید", actionEnabled = state.code.length >= 4, busy = state.busy, onAction = vm::verifyOtp) {
         StepTitle("کد تأیید", "کدی که به ${state.phone.toPersianDigits()} پیامک شد")
         OutlinedTextField(
             value = state.code,
             onValueChange = vm::setCode,
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            textStyle = ltrInput.copy(fontSize = 26.sp, letterSpacing = 10.sp, fontWeight = FontWeight.Bold),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { vm.verifyOtp() }),
             shape = Radius.md,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().focusRequester(focus).enterStagger(1)
         )
-        TextButton(onClick = vm::sendOtp, enabled = !state.busy) { Text("ارسال دوبارهٔ کد") }
+        Row(Modifier.enterStagger(2), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = vm::sendOtp, enabled = !state.busy) { Text("ارسال دوبارهٔ کد") }
+            TextButton(onClick = { vm.back() }, enabled = !state.busy) { Text("تغییر شماره") }
+        }
     }
 }
 
 @Composable
 private fun NameStep(state: BookingState, vm: BookingViewModel) {
+    val focus = rememberAutoFocus()
     StepScaffold(action = "ادامه", actionEnabled = state.name.isNotBlank(), busy = state.busy, onAction = vm::register) {
         StepTitle("نام شما", "مرکز با این نام نوبت را می‌بیند")
         OutlinedTextField(
             value = state.name,
             onValueChange = vm::setName,
             singleLine = true,
+            placeholder = { Text("نام و نام خانوادگی") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { vm.register() }),
             shape = Radius.md,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().focusRequester(focus).enterStagger(1)
         )
     }
 }
@@ -314,27 +436,71 @@ private fun SummaryRow(label: String, value: String) {
     }
 }
 
+/** The booking at a glance: who, when, what, and any deposit due. */
 @Composable
-private fun ConfirmStep(state: BookingState, vm: BookingViewModel) {
+private fun SummaryCard(state: BookingState, modifier: Modifier = Modifier, showDeposit: Boolean = true) {
     val business = state.business ?: return
     val day = state.days.getOrNull(state.selectedDay)
-    StepScaffold(action = "ثبت نوبت", busy = state.busy, onAction = vm::confirm) {
-        StepTitle("تأیید نوبت")
-        SummaryRow("مرکز", business.title)
-        if (day != null) SummaryRow("روز", "${day.weekdayLabel(state.selectedDay)} ${day.jalaliLabel()}")
-        state.selectedSlot?.let { SummaryRow("ساعت", it.time.toPersianDigits()) }
-        if (state.selectedServices.isNotEmpty()) SummaryRow("خدمات", state.selectedServices.joinToString("، "))
-        val deposit = business.depositAmount
-        if (business.depositMode == DEPOSIT_MANDATORY && deposit != null && deposit > 0) {
-            SummaryRow("بیعانه", formatToman(deposit))
+    Surface(
+        shape = Radius.md,
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(Space.lg), verticalArrangement = Arrangement.spacedBy(Space.md)) {
+            Row(Modifier.enterStagger(1), verticalAlignment = Alignment.CenterVertically) {
+                BusinessAvatar(business, 44.dp)
+                Spacer(Modifier.width(Space.md))
+                Column(Modifier.weight(1f)) {
+                    Text(business.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+                    val area = business.areaLine()
+                    if (area.isNotBlank()) {
+                        Text(area, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
+                }
+            }
+            Row(Modifier.enterStagger(2), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                if (day != null) {
+                    SummaryTile("روز", "${day.weekdayLabel(state.selectedDay)} ${day.jalaliLabel()}", Modifier.weight(1.6f))
+                }
+                state.selectedSlot?.let { SummaryTile("ساعت", it.time.toPersianDigits(), Modifier.weight(1f)) }
+            }
+            if (state.selectedServices.isNotEmpty()) {
+                Column(Modifier.enterStagger(3)) {
+                    Text("خدمات", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(Space.xs))
+                    Text(state.selectedServices.joinToString("، "), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            val deposit = business.depositAmount
+            if (showDeposit && business.expectsDeposit() && deposit != null) {
+                Hairline(Modifier.enterStagger(4))
+                Column(Modifier.enterStagger(4)) {
+                    SummaryRow("بیعانه", formatToman(deposit))
+                    Text(
+                        "بعد از ثبت، با پرداخت بیعانه نوبت قطعی می‌شود",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun ConfirmStep(state: BookingState, vm: BookingViewModel) {
+    StepScaffold(action = "ثبت نوبت", busy = state.busy, onAction = vm::confirm) {
+        StepTitle("تأیید نوبت", "اطلاعات را بررسی کنید")
+        SummaryCard(state)
+        TextButton(onClick = { vm.back() }, enabled = !state.busy, modifier = Modifier.enterStagger(5)) { Text("تغییر روز یا ساعت") }
         OutlinedTextField(
             value = state.description,
             onValueChange = vm::setDescription,
             label = { Text("توضیح برای مرکز (اختیاری)") },
             minLines = 2,
             shape = Radius.md,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().enterStagger(6)
         )
     }
 }
@@ -342,57 +508,97 @@ private fun ConfirmStep(state: BookingState, vm: BookingViewModel) {
 @Composable
 private fun PaymentStep(state: BookingState, vm: BookingViewModel) {
     var reference by remember { mutableStateOf("") }
-    StepScaffold(action = null) {
+    val options = paymentOptions(state.paymentMethods, state.cardNumber)
+    var picked by remember(options) { mutableStateOf(options.firstOrNull()) }
+    val (action, enabled, onAction) = when (picked) {
+        PaymentOption.ONLINE -> Triple("پرداخت آنلاین", true, vm::payOnline)
+        PaymentOption.CARD -> Triple("ثبت واریز", reference.isNotBlank(), { vm.payByCard(reference) })
+        PaymentOption.CASH -> Triple("پرداخت حضوری", true, vm::payCash)
+        null -> Triple(null, false, {})
+    }
+    StepScaffold(action = action, actionEnabled = enabled, busy = state.busy, onAction = onAction) {
         StepTitle("پرداخت بیعانه", "نوبت برای شما نگه داشته شده؛ با پرداخت بیعانه قطعی می‌شود")
-        val methods = state.paymentMethods
-        if ("ONLINE" in methods) {
-            Button(onClick = vm::payOnline, enabled = !state.busy, shape = Radius.md, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Text("پرداخت آنلاین", fontWeight = FontWeight.Bold)
+        state.business?.depositAmount?.takeIf { it > 0 }?.let { amount ->
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .enterStagger(1)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow, Radius.md)
+                    .padding(Space.lg),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("مبلغ بیعانه", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(Space.xs))
+                Text(formatToman(amount), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             }
         }
-        if ("CARD" in methods && state.cardNumber.isNotBlank()) {
-            Hairline()
-            Text("کارت به کارت", fontWeight = FontWeight.Bold)
-            SummaryRow("شماره کارت", formatCardNumber(state.cardNumber))
-            if (state.cardOwnerName.isNotBlank()) SummaryRow("به نام", state.cardOwnerName)
-            OutlinedTextField(
-                value = reference,
-                onValueChange = { reference = it.take(64) },
-                label = { Text("شمارهٔ پیگیری واریز") },
-                singleLine = true,
-                shape = Radius.md,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedButton(
-                onClick = { vm.payByCard(reference) },
-                enabled = reference.isNotBlank() && !state.busy,
-                shape = Radius.md,
-                modifier = Modifier.fillMaxWidth().height(48.dp)
-            ) { Text("ثبت واریز") }
+        if (options.isEmpty()) {
+            EmptyNote("روش پرداختی ثبت نشده است", "وضعیت نوبت را در «نوبت‌های من» ببینید")
         }
-        if ("CASH" in methods) {
-            Hairline()
-            OutlinedButton(onClick = vm::payCash, enabled = !state.busy, shape = Radius.md, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Text("پرداخت حضوری")
+        options.forEachIndexed { index, option ->
+            val selected = option == picked
+            val onSelect = { picked = option }
+            val mod = Modifier.enterStagger(index + 2)
+            when (option) {
+                PaymentOption.ONLINE -> PaymentOptionCard("پرداخت آنلاین", "با درگاه بانکی، همین حالا", selected, onSelect, mod)
+                PaymentOption.CASH -> PaymentOptionCard("پرداخت حضوری", "هنگام مراجعه در مرکز", selected, onSelect, mod)
+                PaymentOption.CARD -> PaymentOptionCard("کارت به کارت", "واریز و ثبت شمارهٔ پیگیری", selected, onSelect, mod) {
+                    SummaryRow("شماره کارت", formatCardNumber(state.cardNumber))
+                    if (state.cardOwnerName.isNotBlank()) SummaryRow("به نام", state.cardOwnerName)
+                    OutlinedTextField(
+                        value = reference,
+                        onValueChange = { reference = it.take(64) },
+                        label = { Text("شمارهٔ پیگیری واریز") },
+                        singleLine = true,
+                        shape = Radius.md,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DoneStep(state: BookingState, onOpenMyAppointments: () -> Unit) {
-    StepScaffold(action = "نوبت‌های من", onAction = onOpenMyAppointments) {
-        Column(Modifier.fillMaxWidth().padding(top = Space.xl), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
-            Spacer(Modifier.height(Space.md))
-            Text("نوبت شما ثبت شد", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+private fun DoneStep(state: BookingState, onOpenMyAppointments: () -> Unit, onClose: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
+    var settled by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(Space.page),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.height(Space.xl))
+            AnimatedCheck(onSettled = {
+                if (!settled) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                settled = true
+            })
+            Text(
+                "نوبت شما ثبت شد",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.enterStagger(6, stepMillis = 60),
+            )
             Spacer(Modifier.height(Space.sm))
             Text(
                 if (state.paidOnline) "بعد از پرداخت در درگاه، نتیجه در «نوبت‌های من» نمایش داده می‌شود"
                 else "وضعیت نوبت را در «نوبت‌های من» ببینید",
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.enterStagger(7, stepMillis = 60),
             )
+            Spacer(Modifier.height(Space.xl))
+            SummaryCard(state, Modifier.enterStagger(8, stepMillis = 60), showDeposit = false)
+        }
+        Hairline()
+        Column(
+            Modifier
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = Space.page, vertical = Space.md),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            PrimaryAction("نوبت‌های من", enabled = true, busy = false, onClick = onOpenMyAppointments)
+            TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("بازگشت به صفحهٔ مرکز") }
         }
     }
 }
