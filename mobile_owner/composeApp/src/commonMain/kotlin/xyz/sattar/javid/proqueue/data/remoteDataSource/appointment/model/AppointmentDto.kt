@@ -18,5 +18,6 @@ data class AppointmentDto(
     @SerialName("payment_receipt") val paymentReceipt: String? = null,
     @SerialName("tracking_code") val trackingCode: String? = null,
     @SerialName("payment_reference") val paymentReference: String? = null,
-    @SerialName("deposit_payment_method") val depositPaymentMethod: String? = null
+    @SerialName("deposit_payment_method") val depositPaymentMethod: String? = null,
+    @SerialName("source") val source: String? = null
 )

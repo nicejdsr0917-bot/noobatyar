@@ -105,6 +105,7 @@ val appModule: Module = module {
     single<xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApiService(get()) }
     single<xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApiService(get()) }
     single<xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.ShowcaseApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.ShowcaseApiService(get()) }
     single { LocalCacheCleaner(get(), get(), get(), get(), get()) }
     single<UserRepository> { UserRepositoryImpl(get(), get(), get(), get()) }
 
@@ -120,6 +121,7 @@ val appModule: Module = module {
     single<VisitorRepository> { VisitorRepositoryImpl(get(), get()) }
     single<AppointmentRepository> { AppointmentRepositoryImpl(get(), get(), get(), get()) }
     single<MessageRepository> { MessageRepositoryImpl(get(), get()) }
+    single<xyz.sattar.javid.proqueue.domain.ShowcaseRepository> { xyz.sattar.javid.proqueue.data.repository.showcase.ShowcaseRepositoryImpl(get()) }
 
     // --- User UseCases ---
     factory { RegisterUseCase(get(), get()) }
@@ -231,6 +233,9 @@ val appModule: Module = module {
     viewModel { SmsReportViewModel(get(), get(), get(), get()) }
     viewModel { xyz.sattar.javid.proqueue.feature.promo.PromoCampaignViewModel(get()) }
     viewModel { CalendarViewModel(get(), get(), get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.banner.BannerViewModel(get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.reviews.ReviewsViewModel(get(), get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.showcase.ShowcaseViewModel(get(), get()) }
     viewModel { RegisterViewModel(get()) }
     viewModel { SendOTPViewModel(get(), get()) }
     viewModel { ResetPasswordViewModel(get()) }

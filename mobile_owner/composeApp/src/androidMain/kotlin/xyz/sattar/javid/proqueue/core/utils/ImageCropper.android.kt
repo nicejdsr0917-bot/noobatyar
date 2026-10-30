@@ -47,3 +47,37 @@ actual fun cropImageToSquare(
         decoded.recycle()
     }
 }
+
+actual fun cropImageToRect(
+    source: ByteArray,
+    leftFraction: Float,
+    topFraction: Float,
+    widthFraction: Float,
+    heightFraction: Float,
+    outputWidth: Int,
+    outputHeight: Int
+): ByteArray? {
+    val decoded = BitmapFactory.decodeByteArray(source, 0, source.size) ?: return null
+
+    return try {
+        val left = (leftFraction * decoded.width).roundToInt().coerceIn(0, max(0, decoded.width - 1))
+        val top = (topFraction * decoded.height).roundToInt().coerceIn(0, max(0, decoded.height - 1))
+        val width = (widthFraction * decoded.width).roundToInt().coerceIn(1, decoded.width - left)
+        val height = (heightFraction * decoded.height).roundToInt().coerceIn(1, decoded.height - top)
+
+        val cropped = Bitmap.createBitmap(decoded, left, top, width, height)
+        val scaled = Bitmap.createScaledBitmap(cropped, outputWidth, outputHeight, true)
+
+        ByteArrayOutputStream().use { out ->
+            scaled.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            out.toByteArray()
+        }.also {
+            if (scaled !== cropped) scaled.recycle()
+            if (cropped !== decoded) cropped.recycle()
+        }
+    } catch (e: Exception) {
+        null
+    } finally {
+        decoded.recycle()
+    }
+}

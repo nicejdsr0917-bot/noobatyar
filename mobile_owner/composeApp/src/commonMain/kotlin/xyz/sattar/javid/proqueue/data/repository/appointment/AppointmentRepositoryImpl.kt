@@ -115,6 +115,7 @@ class AppointmentRepositoryImpl(
                     trackingCode = dto.trackingCode,
                     paymentReference = dto.paymentReference,
                     depositPaymentMethod = dto.depositPaymentMethod,
+                    source = dto.source,
                     createdAt = DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
                     updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                 )
@@ -358,6 +359,7 @@ class AppointmentRepositoryImpl(
                     trackingCode = dto.trackingCode,
                     paymentReference = dto.paymentReference,
                     depositPaymentMethod = dto.depositPaymentMethod,
+                    source = dto.source,
                         createdAt = DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
                         updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                     )

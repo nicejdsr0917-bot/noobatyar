@@ -112,6 +112,8 @@ class PushMessagingService : FirebaseMessagingService(), KoinComponent {
         val launch = destinationIntent(data) ?: packageManager.getLaunchIntentForPackage(packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("from_notification", true)
+            // Lets MainActivity route a new-review tap to the reviews page.
+            data["type"]?.takeIf { it.isNotBlank() }?.let { putExtra("type", it) }
             data["business_id"]?.toLongOrNull()?.let { putExtra("businessId", it) }
             data["visitor_id"]?.toLongOrNull()?.let { putExtra("visitorId", it) }
             data["appointment_id"]?.toLongOrNull()?.let { putExtra("appointmentId", it) }

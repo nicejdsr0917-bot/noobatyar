@@ -83,3 +83,48 @@ private fun NSData.toByteArray(): ByteArray {
         usePinned { pinned -> memcpy(pinned.addressOf(0), bytes, length) }
     }
 }
+
+@OptIn(ExperimentalForeignApi::class)
+actual fun cropImageToRect(
+    source: ByteArray,
+    leftFraction: Float,
+    topFraction: Float,
+    widthFraction: Float,
+    heightFraction: Float,
+    outputWidth: Int,
+    outputHeight: Int
+): ByteArray? {
+    if (source.isEmpty()) return null
+    val image = UIImage.imageWithData(source.toNSData()) ?: return null
+
+    // Same orientation bake-in as cropImageToSquare.
+    val pixelWidth = image.size.useContents { width } * image.scale
+    val pixelHeight = image.size.useContents { height } * image.scale
+    if (pixelWidth <= 0.0 || pixelHeight <= 0.0) return null
+
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(pixelWidth, pixelHeight), false, 1.0)
+    image.drawInRect(CGRectMake(0.0, 0.0, pixelWidth, pixelHeight))
+    val normalized = UIGraphicsGetImageFromCurrentImageContext()
+    UIGraphicsEndImageContext()
+
+    val cgImage = normalized?.CGImage ?: return null
+
+    val left = (leftFraction * pixelWidth).toDouble().coerceIn(0.0, max(0.0, pixelWidth - 1))
+    val top = (topFraction * pixelHeight).toDouble().coerceIn(0.0, max(0.0, pixelHeight - 1))
+    val width = (widthFraction * pixelWidth).toDouble().coerceIn(1.0, pixelWidth - left)
+    val height = (heightFraction * pixelHeight).toDouble().coerceIn(1.0, pixelHeight - top)
+
+    val croppedRef = CGImageCreateWithImageInRect(cgImage, CGRectMake(left, top, width, height)) ?: return null
+
+    val outW = outputWidth.coerceAtLeast(1).toDouble()
+    val outH = outputHeight.coerceAtLeast(1).toDouble()
+    val cropped = UIImage.imageWithCGImage(croppedRef)
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(outW, outH), false, 1.0)
+    cropped.drawInRect(CGRectMake(0.0, 0.0, outW, outH))
+    val scaled = UIGraphicsGetImageFromCurrentImageContext()
+    UIGraphicsEndImageContext()
+    CGImageRelease(croppedRef)
+
+    val jpeg = scaled?.let { UIImageJPEGRepresentation(it, 0.9) } ?: return null
+    return jpeg.toByteArray()
+}

@@ -84,6 +84,8 @@ fun SettingsScreen(
     onNavigateToEmergencyNotice: () -> Unit = {},
     onNavigateToTheme: () -> Unit = {},
     onNavigateToPromoCampaign: () -> Unit = {},
+    onNavigateToReviews: () -> Unit = {},
+    onNavigateToShowcase: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -181,7 +183,9 @@ fun SettingsScreen(
                 onNavigateToAdvancedSettings(it.id)
             }
         },
-        onPromoCampaign = onNavigateToPromoCampaign
+        onPromoCampaign = onNavigateToPromoCampaign,
+        onReviews = onNavigateToReviews,
+        onShowcase = onNavigateToShowcase
     )
 }
 
@@ -202,7 +206,9 @@ fun SettingsContent(
     onLogout: () -> Unit = {},
     onChangeBusiness: () -> Unit = {},
     onAdvancedSettings: () -> Unit,
-    onPromoCampaign: () -> Unit = {}
+    onPromoCampaign: () -> Unit = {},
+    onReviews: () -> Unit = {},
+    onShowcase: () -> Unit = {}
 ) {
     // No top app bar here: the profile hero below is this screen's header, so a
     // separate toolbar showing the business title would just overlap it. We only
@@ -273,6 +279,12 @@ fun SettingsContent(
                                     }
                                 ),
                                 SettingsTile(
+                                    icon = Icons.Rounded.PhotoLibrary,
+                                    title = Str.showcase_title,
+                                    subtitle = Str.showcase_subtitle,
+                                    onClick = onShowcase
+                                ),
+                                SettingsTile(
                                     icon = Icons.Rounded.Delete,
                                     title = Str.delete_business,
                                     subtitle = Str.remove_this_business_from_your,
@@ -333,7 +345,8 @@ fun SettingsContent(
             BusinessActionsCard(
                 business = uiState.currentBusiness,
                 onIntent = onIntent,
-                onShowDeleteDialog = onShowDeleteDialog
+                onShowDeleteDialog = onShowDeleteDialog,
+                onShowcase = onShowcase
             )
                 },
                 end = {
@@ -367,6 +380,15 @@ fun SettingsContent(
                         title = Str.promotional_sms,
                         subtitle = Str.send_discounts_and_news_to,
                         onClick = onPromoCampaign
+                    )
+
+                    HorizontalDivider()
+
+                    SettingsItem(
+                        icon = Icons.Rounded.RateReview,
+                        title = Str.reviews_title,
+                        subtitle = Str.reviews_subtitle,
+                        onClick = onReviews
                     )
 
                     HorizontalDivider()
@@ -553,7 +575,8 @@ private fun SettingsTileCard(tile: SettingsTile) {
 private fun BusinessActionsCard(
     business: Business?,
     onIntent: (SettingsIntent) -> Unit,
-    onShowDeleteDialog: () -> Unit
+    onShowDeleteDialog: () -> Unit,
+    onShowcase: () -> Unit = {}
 ) {
     SettingsCard {
         Column {
@@ -574,6 +597,16 @@ private fun BusinessActionsCard(
                 onClick = {
                     business?.let { onIntent(SettingsIntent.OnEditBusinessClick(it.id)) }
                 },
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+
+            HorizontalDivider()
+
+            SettingsItem(
+                icon = Icons.Rounded.PhotoLibrary,
+                title = Str.showcase_title,
+                subtitle = null,
+                onClick = onShowcase,
                 tint = MaterialTheme.colorScheme.onSurface
             )
 

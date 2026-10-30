@@ -112,6 +112,12 @@ sealed class AppScreens {
     object ShareBusiness : AppScreens()
     @Serializable
     object AddOns : AppScreens()
+    /** Read-only customer reviews of the selected business. */
+    @Serializable
+    object Reviews : AppScreens()
+    /** Portfolio photos and certificates shown on the public page. */
+    @Serializable
+    object Showcase : AppScreens()
     /**
      * In-app payment gateway view — replaces bouncing out to the external
      * browser (see [xyz.sattar.javid.proqueue.core.payment.PaymentWebViewScreen]).
