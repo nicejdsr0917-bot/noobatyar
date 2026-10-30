@@ -127,6 +127,12 @@ class ContentReport(models.Model):
         verbose_name='مشتری گزارش‌دهنده',
     )
     reporter_phone = models.CharField(max_length=20, blank=True, default='', verbose_name='تلفن گزارش‌دهنده')
+    # Set when the report targets one review rather than the whole business
+    # (``business`` is still that review's business, so the queue stays one list).
+    review = models.ForeignKey(
+        'reviews.Review', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reports', verbose_name='نظر گزارش‌شده',
+    )
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default=STATUS_NEW, db_index=True,
         verbose_name='وضعیت',

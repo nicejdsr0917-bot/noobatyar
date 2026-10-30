@@ -79,6 +79,7 @@ class ClientAppointmentListView(APIView):
                 duration=serializer.validated_data.get('service_duration'),
                 description=serializer.validated_data.get('description', ''),
                 raw_services=serializer.validated_data.get('selected_services'),
+                source=serializer.validated_data.get('source', 'WEB'),
             )
         except ClientBookingError as exc:
             return APIResponse.error(message=exc.message, code=exc.code)

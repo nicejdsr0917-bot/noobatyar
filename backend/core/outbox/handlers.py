@@ -55,3 +55,9 @@ def push_campaign_chunk(payload):
 def expiry_sms_chunk(payload):
     from core.messaging import deliver_expiry_chunk
     deliver_expiry_chunk(payload)
+
+
+@register('reviews.new_review_push')
+def new_review_push(payload):
+    from reviews.services import send_new_review_push
+    send_new_review_push(payload['review_id'])

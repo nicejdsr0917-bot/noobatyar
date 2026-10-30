@@ -113,6 +113,10 @@ IP خام (`93.127.223.93`) عمداً در `ALLOWED_HOSTS` باقی مانده 
   ```bash
   0 * * * * cd /root/app/backend && docker compose exec -T web python manage.py run_subscription_lifecycle >> /var/log/nobatyar_lifecycle.log 2>&1
   ```
+- **کرون شبانه‌ی امتیاز رتبه‌بندی** (ترتیب پیش‌فرض لیست عمومی کسب‌وکارها؛ بدون آن همه ۰ می‌مانند و ترتیب همان «جدیدترین» است):
+  ```bash
+  30 3 * * * cd /root/app/backend && docker compose exec -T web python manage.py compute_rank_scores >> /var/log/nobatyar_rank.log 2>&1
+  ```
   متغیرهای قابل تنظیم: `SUBSCRIPTION_REMINDER_DAYS` (پیش‌فرض ۳)، `SUBSCRIPTION_GRACE_DAYS` (پیش‌فرض ۳).
 
 ---

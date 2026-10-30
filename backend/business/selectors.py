@@ -327,7 +327,7 @@ def public_business_search(params):
 
     located = params.lat is not None and params.lng is not None
     if not located:
-        qs = qs.order_by('-is_claimed', '-created_at')
+        qs = qs.order_by('-is_claimed', '-rank_score', '-created_at')
     else:
         qs = geo_queryset(qs, params.lat, params.lng, params.radius_km,
                           params.include_unlocated, params.sort)

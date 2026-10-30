@@ -43,6 +43,7 @@ INSURANCE_KEYS = {'id': 'int', 'name': 'str', 'slug': 'str', 'insurance_type': '
 
 PUBLIC_BUSINESS_SHAPE = {
     'id': 'int',
+    'rating': 'dict',
     'unique_code': 'str',
     'category': 'str',
     'category_display': 'str',

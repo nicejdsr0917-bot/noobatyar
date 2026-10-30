@@ -137,7 +137,8 @@ def validate_client_booking(business, appointment_date, duration, now=None):
         raise ClientBookingError("زمان انتخاب‌شده خارج از ساعات کاری است", 400)
 
 
-def client_book(*, business, visitor, appointment_date, duration, description='', raw_services=None):
+def client_book(*, business, visitor, appointment_date, duration, description='', raw_services=None,
+                source=Appointment.SOURCE_WEB):
     """
     Book ``business`` for ``visitor`` at ``appointment_date`` (aware datetime).
 
@@ -182,6 +183,7 @@ def client_book(*, business, visitor, appointment_date, duration, description=''
             description=description,
             selected_services=selected_services,
             requires_payment=requires_payment,
+            source=source,
         )
         if result.failure is BookingFailure.QUOTA:
             raise ClientBookingError("ظرفیت نوبت‌های این کسب‌وکار برای این ماه تکمیل شده است", 409)
