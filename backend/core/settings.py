@@ -418,6 +418,25 @@ def _item(title, icon, link, perm=None):
     return item
 
 
+def _optional_item(title, icon, url_name, perm):
+    """Sidebar entry for an app that may not be installed: hidden (permission
+    callable returns False) when the URL name does not resolve."""
+    from django.urls import NoReverseMatch, reverse
+
+    def _resolves():
+        try:
+            reverse(url_name)
+            return True
+        except NoReverseMatch:
+            return False
+
+    return {
+        'title': title, 'icon': icon,
+        'link': lambda request: reverse(url_name) if _resolves() else '#',
+        'permission': lambda request: _resolves() and (request.user.is_superuser or request.user.has_perm(perm)),
+    }
+
+
 def _changelist(app, model):
     return reverse_lazy(f'admin:{app}_{model}_changelist')
 
@@ -450,6 +469,8 @@ UNFOLD = {
     'SIDEBAR': {
         'show_search': True,
         'show_all_applications': False,
+        # Grouped by daily work, in the order staff do it. Section titles carry
+        # a one-line hint of what the section is for.
         'navigation': [
             {
                 'items': [
@@ -457,15 +478,85 @@ UNFOLD = {
                 ],
             },
             {
-                'title': 'کسب‌وکارها',
+                'title': 'بررسی کسب‌وکارها — تأیید ثبت‌نام و ویرایش‌ها',
                 'separator': True,
                 'collapsible': True,
                 'items': [
-                    _item('کسب‌وکارها', 'storefront', _changelist('business', 'business'), 'business.view_business'),
-                    _item('صف بررسی', 'fact_check', reverse_lazy('admin:business_business_moderation_queue'), 'business.view_business'),
-                    _item('گزارش‌های تخلف', 'flag', _changelist('business', 'contentreport'), 'business.view_contentreport'),
-                    _item('کلمات ممنوع', 'block', _changelist('business', 'bannedkeyword'), 'business.view_bannedkeyword'),
+                    _item('صف بررسی (اول اینجا)', 'fact_check', reverse_lazy('admin:business_business_moderation_queue'), 'business.view_business'),
+                    _item('همهٔ کسب‌وکارها', 'storefront', _changelist('business', 'business'), 'business.view_business'),
                     _item('سوابق بررسی', 'history', _changelist('business', 'businessmoderationlog'), 'business.view_businessmoderationlog'),
+                    _item('کلمات ممنوع', 'block', _changelist('business', 'bannedkeyword'), 'business.view_bannedkeyword'),
+                ],
+            },
+            {
+                'title': 'نمونه‌کار و مدارک — تأیید عکس‌های اونرها',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('نمونه‌کارها', 'photo_library', _changelist('showcase', 'portfolioitem'), 'showcase.view_portfolioitem'),
+                    _item('مدارک و افتخارات', 'workspace_premium', _changelist('showcase', 'certificate'), 'showcase.view_certificate'),
+                ],
+            },
+            {
+                'title': 'نظرات و گزارش‌ها — گزارش تخلف و نظرات کاربران',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('گزارش‌های تخلف', 'flag', _changelist('business', 'contentreport'), 'business.view_contentreport'),
+                    _optional_item('نظرات کاربران', 'rate_review', 'admin:reviews_review_changelist', 'reviews.view_review'),
+                ],
+            },
+            {
+                'title': 'بنرها — تبلیغ بالای اپ اونر (۱۲۰۰×۴۰۰)',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('بنرها', 'image', _changelist('banners', 'banner'), 'banners.view_banner'),
+                    _item('گروه دسته‌ها و تعداد اونرها', 'category', _changelist('banners', 'bannercategorygroup'), 'banners.view_bannercategorygroup'),
+                    _item('لینک مشترک بنرها', 'link', _changelist('banners', 'sitesetting'), 'banners.view_sitesetting'),
+                ],
+            },
+            {
+                'title': 'بازاریابی — جذب مراکز جدید با تماس',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('تماس‌های امروز', 'call', lambda request: str(reverse_lazy('admin:marketing_marketinglead_changelist')) + '?today=1', 'marketing.view_marketinglead'),
+                    _item('مراکز بازاریابی', 'contact_phone', _changelist('marketing', 'marketinglead'), 'marketing.view_marketinglead'),
+                    _item('درخواست‌های مالکیت', 'verified_user', _changelist('business', 'businessclaimrequest'), 'business.view_businessclaimrequest'),
+                ],
+            },
+            {
+                'title': 'اشتراک و مالی — پرداخت‌ها و پلن‌ها',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('گزارش مالی', 'monitoring', reverse_lazy('admin:accounting_financial_report'), 'accounting.view_transaction'),
+                    _item('اشتراک‌ها', 'card_membership', _changelist('accounting', 'subscription'), 'accounting.view_subscription'),
+                    _item('تراکنش‌ها', 'receipt_long', _changelist('accounting', 'transaction'), 'accounting.view_transaction'),
+                    _item('خرید بسته‌ها', 'shopping_cart', _changelist('accounting', 'addonpurchase'), 'accounting.view_addonpurchase'),
+                    _item('خریدهای مایکت', 'store', _changelist('accounting', 'storepurchase'), 'accounting.view_storepurchase'),
+                    _item('دفتر اعتبار', 'account_balance_wallet', _changelist('accounting', 'creditledger'), 'accounting.view_creditledger'),
+                    _item('پلن‌ها', 'sell', _changelist('accounting', 'plan'), 'accounting.view_plan'),
+                    _item('بسته‌های افزودنی', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
+                    _item('یادآوری تمدید اشتراک', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),
+                    _item('تماس کسب‌وکارهای بدون اشتراک', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
+                ],
+            },
+            {
+                'title': 'پیامک — ارسال و گزارش پیام‌ها',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('گزارش پیامک', 'bar_chart', reverse_lazy('admin:visitor_smslog_report'), 'visitor.view_smslog'),
+                    _item('پیامک‌ها', 'sms', _changelist('visitor', 'smslog'), 'visitor.view_smslog'),
+                    _item('کمپین‌ها', 'campaign', reverse_lazy('admin:core_campaigns'), 'core.view_marketingpushlog'),
+                    _item('گروه مخاطب', 'filter_alt', reverse_lazy('admin:core_segment_builder'), 'core.view_audiencesegment'),
+                    _item('گروه‌های مخاطب ذخیره‌شده', 'bookmarks', _changelist('core', 'audiencesegment'), 'core.view_audiencesegment'),
+                    _item('خروجی‌های گروه مخاطب', 'download', _changelist('core', 'audiencesegmentexport'), 'core.view_audiencesegmentexport'),
+                    _item('کمپین‌های پوش', 'notifications_active', _changelist('core', 'marketingpushlog'), 'core.view_marketingpushlog'),
+                    _item('پیام به کسب‌وکارها', 'forum', _changelist('core', 'adminmessagelog'), 'core.view_adminmessagelog'),
+                    _item('پیامک انقضای اشتراک', 'mark_email_unread', _changelist('core', 'expirysmslog'), 'core.view_expirysmslog'),
                 ],
             },
             {
@@ -477,39 +568,6 @@ UNFOLD = {
                     _item('مشتریان', 'groups', _changelist('visitor', 'visitor'), 'visitor.view_visitor'),
                     _item('نوبت‌ها', 'event', _changelist('appointment', 'appointment'), 'appointment.view_appointment'),
                     _item('دستگاه‌ها', 'smartphone', _changelist('api', 'devicetoken'), 'api.view_devicetoken'),
-                ],
-            },
-            {
-                'title': 'مالی',
-                'separator': True,
-                'collapsible': True,
-                'items': [
-                    _item('گزارش مالی', 'monitoring', reverse_lazy('admin:accounting_financial_report'), 'accounting.view_transaction'),
-                    _item('تراکنش‌ها', 'receipt_long', _changelist('accounting', 'transaction'), 'accounting.view_transaction'),
-                    _item('اشتراک‌ها', 'card_membership', _changelist('accounting', 'subscription'), 'accounting.view_subscription'),
-                    _item('خرید بسته‌ها', 'shopping_cart', _changelist('accounting', 'addonpurchase'), 'accounting.view_addonpurchase'),
-                    _item('خریدهای مایکت', 'store', _changelist('accounting', 'storepurchase'), 'accounting.view_storepurchase'),
-                    _item('دفتر اعتبار', 'account_balance_wallet', _changelist('accounting', 'creditledger'), 'accounting.view_creditledger'),
-                    _item('پلن‌ها', 'sell', _changelist('accounting', 'plan'), 'accounting.view_plan'),
-                    _item('بسته‌های افزودنی', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
-                    _item('یادآوری تمدید اشتراک', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),
-                    _item('تماس کسب‌وکارهای بدون اشتراک', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
-                ],
-            },
-            {
-                'title': 'پیام‌رسانی و بازاریابی',
-                'separator': True,
-                'collapsible': True,
-                'items': [
-                    _item('کمپین‌ها', 'campaign', reverse_lazy('admin:core_campaigns'), 'core.view_marketingpushlog'),
-                    _item('گروه مخاطب', 'filter_alt', reverse_lazy('admin:core_segment_builder'), 'core.view_audiencesegment'),
-                    _item('گزارش پیامک', 'bar_chart', reverse_lazy('admin:visitor_smslog_report'), 'visitor.view_smslog'),
-                    _item('پیامک‌ها', 'sms', _changelist('visitor', 'smslog'), 'visitor.view_smslog'),
-                    _item('کمپین‌های پوش', 'notifications_active', _changelist('core', 'marketingpushlog'), 'core.view_marketingpushlog'),
-                    _item('پیام به کسب‌وکارها', 'forum', _changelist('core', 'adminmessagelog'), 'core.view_adminmessagelog'),
-                    _item('پیامک انقضای اشتراک', 'mark_email_unread', _changelist('core', 'expirysmslog'), 'core.view_expirysmslog'),
-                    _item('گروه‌های مخاطب ذخیره‌شده', 'bookmarks', _changelist('core', 'audiencesegment'), 'core.view_audiencesegment'),
-                    _item('خروجی‌های گروه مخاطب', 'download', _changelist('core', 'audiencesegmentexport'), 'core.view_audiencesegmentexport'),
                 ],
             },
             {
