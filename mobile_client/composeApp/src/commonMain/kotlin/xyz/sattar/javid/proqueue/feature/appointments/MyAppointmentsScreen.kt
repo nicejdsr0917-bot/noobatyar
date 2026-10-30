@@ -20,6 +20,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,6 +61,7 @@ fun MyAppointmentsScreen(
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var confirmCancel by remember { mutableStateOf<Long?>(null) }
+    var transferFor by remember { mutableStateOf<Long?>(null) }
 
     // Also on coming back from the bank gateway, whose result lands server-side.
     LifecycleResumeEffect(Unit) {
@@ -115,6 +117,8 @@ fun MyAppointmentsScreen(
                                     onOpen = { onOpenBusiness(apt.business.id) },
                                     onCancel = { confirmCancel = apt.id },
                                     onPayOnline = { viewModel.payOnline(apt.id) },
+                                    onPayCard = { transferFor = apt.id },
+                                    onPayCash = { viewModel.payCash(apt.id) },
                                 )
                             }
                         }
@@ -123,6 +127,13 @@ fun MyAppointmentsScreen(
             }
         }
         ToastyHost(snackbar, Modifier.align(Alignment.TopCenter))
+    }
+
+    transferFor?.let { id ->
+        TransferDialog(
+            onDismiss = { transferFor = null },
+            onSubmit = { reference -> transferFor = null; viewModel.payByCard(id, reference) }
+        )
     }
 
     confirmCancel?.let { id ->
@@ -141,6 +152,36 @@ fun MyAppointmentsScreen(
 }
 
 @Composable
+private fun TransferDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
+    var reference by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("ثبت واریز") },
+        text = {
+            Column {
+                Text(
+                    "پس از کارت به کارت، شمارهٔ پیگیری یا چهار رقم آخر کارت مبدأ را وارد کنید.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(Space.md))
+                OutlinedTextField(
+                    value = reference,
+                    onValueChange = { if (it.length <= 64) reference = it },
+                    label = { Text("شمارهٔ پیگیری") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSubmit(reference) }, enabled = reference.isNotBlank()) { Text("ثبت") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
+    )
+}
+
+@Composable
 private fun Message(text: String) {
     Box(Modifier.fillMaxSize().padding(Space.xl), contentAlignment = Alignment.Center) {
         Text(text, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -154,6 +195,8 @@ private fun AppointmentCard(
     onOpen: () -> Unit,
     onCancel: () -> Unit,
     onPayOnline: () -> Unit,
+    onPayCard: () -> Unit,
+    onPayCash: () -> Unit,
 ) {
     val acceptsOnline = "ONLINE" in apt.business.acceptedPaymentMethods.orEmpty()
     Column(Modifier.fillMaxWidth()) {
@@ -180,6 +223,12 @@ private fun AppointmentCard(
         Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
             if (apt.status == "LOCKED" && acceptsOnline) {
                 TextButton(onClick = onPayOnline, enabled = !busy) { Text("پرداخت آنلاین") }
+            }
+            if (apt.canPayByCard()) {
+                TextButton(onClick = onPayCard, enabled = !busy) { Text("ثبت واریز") }
+            }
+            if (apt.canPayCash()) {
+                TextButton(onClick = onPayCash, enabled = !busy) { Text("پرداخت حضوری") }
             }
             if (apt.status in CANCELLABLE_STATUSES && apt.appointmentDate > Clock.System.now().toEpochMilliseconds()) {
                 TextButton(onClick = onCancel, enabled = !busy) {

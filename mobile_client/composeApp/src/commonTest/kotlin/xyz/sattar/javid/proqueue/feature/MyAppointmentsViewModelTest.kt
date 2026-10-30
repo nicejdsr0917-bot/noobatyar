@@ -8,6 +8,8 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.Appointment
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.ClientAppointmentDto
 import xyz.sattar.javid.proqueue.feature.appointments.AppointmentsMessage
 import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsViewModel
+import xyz.sattar.javid.proqueue.feature.appointments.canPayByCard
+import xyz.sattar.javid.proqueue.feature.appointments.canPayCash
 import xyz.sattar.javid.proqueue.testsupport.FakeBookingApi
 import xyz.sattar.javid.proqueue.testsupport.FakeClientPreferences
 import xyz.sattar.javid.proqueue.testsupport.MainDispatcherSetup
@@ -17,6 +19,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -103,5 +106,66 @@ class MyAppointmentsViewModelTest {
         vm.signOut()
         assertNull(prefs.token.value)
         assertFalse(vm.state.value.isSignedIn)
+    }
+
+    private fun lockedApt(
+        id: Long,
+        methods: List<String>?,
+        card: String? = "6037997212345678",
+    ) = ClientAppointmentDto(
+        id, businessDto(7).copy(acceptedPaymentMethods = methods, paymentMethod = null), 0, "LOCKED", cardNumber = card
+    )
+
+    @Test
+    fun cardTransferIsOfferedOnlyWhenCardIsAcceptedAndShown() {
+        assertTrue(lockedApt(1, listOf("CARD", "CASH")).canPayByCard())
+        assertFalse(lockedApt(1, listOf("ONLINE")).canPayByCard())
+        assertFalse(lockedApt(1, listOf("CARD"), card = null).canPayByCard())
+        assertFalse(lockedApt(1, listOf("CARD"), card = " ").canPayByCard())
+        assertFalse(apt(1, "CONFIRMED").copy(cardNumber = "6037").canPayByCard())
+    }
+
+    @Test
+    fun cashIsOfferedOnlyOnLockedWhenAccepted() {
+        assertTrue(lockedApt(1, listOf("CASH")).canPayCash())
+        assertFalse(lockedApt(1, listOf("CARD")).canPayCash())
+        assertFalse(apt(1, "CONFIRMED").copy(business = businessDto(7).copy(acceptedPaymentMethods = listOf("CASH"))).canPayCash())
+    }
+
+    @Test
+    fun payByCardSubmitsTheReferenceThenRefreshes() = runTest(main.dispatcher) {
+        prefs.token.value = "tok"
+        api.appointments = ApiResponse.Success(AppointmentPageDto(listOf(lockedApt(4, listOf("CARD")))))
+        val vm = vm()
+        vm.messages.test {
+            vm.payByCard(4, "  123456  ")
+            assertIs<AppointmentsMessage.Info>(awaitItem())
+        }
+        val p = api.payments.single()
+        assertEquals(Triple("tok", 4L, "CARD"), Triple(p.token, p.id, p.method))
+        assertEquals("123456", p.reference)
+        assertNull(vm.state.value.busyId)
+        assertEquals(1, vm.state.value.appointments.size) // refreshed
+    }
+
+    @Test
+    fun blankReferenceIsNotSubmitted() = runTest(main.dispatcher) {
+        prefs.token.value = "tok"
+        val vm = vm()
+        vm.payByCard(4, "   ")
+        assertTrue(api.payments.isEmpty())
+    }
+
+    @Test
+    fun payCashSubmitsWithAnEmptyReference() = runTest(main.dispatcher) {
+        prefs.token.value = "tok"
+        val vm = vm()
+        vm.messages.test {
+            vm.payCash(4)
+            assertIs<AppointmentsMessage.Info>(awaitItem())
+        }
+        val p = api.payments.single()
+        assertEquals("CASH", p.method)
+        assertEquals("", p.reference)
     }
 }
