@@ -83,7 +83,9 @@ fun MainNavHost() {
                         businessId = entry.toRoute<AppScreens.Booking>().businessId,
                         onNavigateBack = { navController.popBackStack() },
                         onOpenMyAppointments = {
-                            // Booked: leave the flow for the tab, so back does not reopen it.
+                            // Booked: drop the finished flow first. Otherwise it is
+                            // saved into the explore tab's stack and reopens there.
+                            navController.popBackStack()
                             navController.navigate(AppScreens.MyAppointments) {
                                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                 launchSingleTop = true

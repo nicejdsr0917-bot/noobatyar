@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -26,7 +27,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +46,7 @@ import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.core.utils.openUrl
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.ClientAppointmentDto
+import xyz.sattar.javid.proqueue.feature.booking.formatCardNumber
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.discovery.Space
 import kotlin.time.Clock
@@ -55,6 +59,7 @@ fun MyAppointmentsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
+    var confirmCancel by remember { mutableStateOf<Long?>(null) }
 
     // Also on coming back from the bank gateway, whose result lands server-side.
     LifecycleResumeEffect(Unit) {
@@ -108,7 +113,7 @@ fun MyAppointmentsScreen(
                                     apt = apt,
                                     busy = state.busyId == apt.id,
                                     onOpen = { onOpenBusiness(apt.business.id) },
-                                    onCancel = { viewModel.cancel(apt.id) },
+                                    onCancel = { confirmCancel = apt.id },
                                     onPayOnline = { viewModel.payOnline(apt.id) },
                                 )
                             }
@@ -118,6 +123,20 @@ fun MyAppointmentsScreen(
             }
         }
         ToastyHost(snackbar, Modifier.align(Alignment.TopCenter))
+    }
+
+    confirmCancel?.let { id ->
+        AlertDialog(
+            onDismissRequest = { confirmCancel = null },
+            title = { Text("لغو نوبت") },
+            text = { Text("این نوبت لغو شود؟ این کار برگشت‌پذیر نیست.") },
+            confirmButton = {
+                TextButton(onClick = { confirmCancel = null; viewModel.cancel(id) }) {
+                    Text("لغو نوبت", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmCancel = null }) { Text("انصراف") } }
+        )
     }
 }
 
@@ -153,7 +172,7 @@ private fun AppointmentCard(
         )
         if (apt.status == "LOCKED" && !apt.cardNumber.isNullOrBlank()) {
             Text(
-                "کارت به کارت: ${apt.cardNumber.chunked(4).joinToString(" ").toPersianDigits()}${apt.cardOwnerName?.let { " ($it)" }.orEmpty()}",
+                "کارت به کارت: ${formatCardNumber(apt.cardNumber)}${apt.cardOwnerName?.let { " ($it)" }.orEmpty()}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

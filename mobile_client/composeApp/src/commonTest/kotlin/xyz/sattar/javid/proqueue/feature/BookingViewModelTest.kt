@@ -182,12 +182,15 @@ class BookingViewModelTest {
 
     @Test
     fun depositShowsTheOwnCardAndRecordsTheTransfer() = runTest(main.dispatcher) {
-        repo.details[7] = ApiResponse.Success(business(methods = listOf("CARD", "CASH")))
+        // The public detail is cached and may predate the owner turning on card
+        // deposits; the visitor's own appointment carries the current methods.
+        repo.details[7] = ApiResponse.Success(business(methods = listOf("CASH")))
         prefs.token.value = "tok"
         api.bookResponse = ApiResponse.Success(BookResponseDto(id = 55, requiresPayment = true))
+        val fresh = businessDto(7).copy(acceptedPaymentMethods = listOf("CARD", "CASH"))
         api.appointments = ApiResponse.Success(
             AppointmentPageDto(
-                listOf(ClientAppointmentDto(55, businessDto(7), 0, "LOCKED", cardNumber = "6037991234567890", cardOwnerName = "صاحب کارت"))
+                listOf(ClientAppointmentDto(55, fresh, 0, "LOCKED", cardNumber = "6037991234567890", cardOwnerName = "صاحب کارت"))
             )
         )
         val vm = vm()
@@ -196,6 +199,7 @@ class BookingViewModelTest {
         val s = vm.state.value
         assertEquals(BookingStep.PAYMENT, s.step)
         assertEquals("6037991234567890", s.cardNumber)
+        assertEquals(listOf("CARD", "CASH"), s.paymentMethods)
         assertFalse(vm.back(), "a held appointment cannot be stepped back out of")
 
         vm.payByCard("  ")

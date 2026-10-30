@@ -280,15 +280,21 @@ class BookingViewModel(
         }
     }
 
-    /** The card number is only served on the visitor's own held appointment. */
+    /**
+     * The card number is only served on the visitor's own held appointment,
+     * and its business payload is fresher than the one loaded at the start of
+     * the flow (the public detail is cached), so payment options come from it.
+     */
     private suspend fun openPayment(token: String, appointmentId: Long) {
         val own = (bookingApi.myAppointments(token) as? ApiResponse.Success)
             ?.data?.results?.firstOrNull { it.id == appointmentId }
+        val methods = own?.business?.let { it.acceptedPaymentMethods ?: listOfNotNull(it.paymentMethod) }
         _state.update {
             it.copy(
                 step = BookingStep.PAYMENT,
                 cardNumber = own?.cardNumber.orEmpty(),
                 cardOwnerName = own?.cardOwnerName.orEmpty(),
+                paymentMethods = methods ?: it.paymentMethods,
             )
         }
     }

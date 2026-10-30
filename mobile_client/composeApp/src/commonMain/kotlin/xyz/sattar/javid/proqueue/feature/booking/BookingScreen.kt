@@ -188,6 +188,14 @@ private val jalaliMonths = listOf(
     "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
 )
 
+/**
+ * Groups of four, isolated left-to-right: in an RTL line the bidi algorithm
+ * otherwise lays the space-separated groups out last-to-first, and a visitor
+ * copying the number would transfer to the wrong card.
+ */
+fun formatCardNumber(number: String): String =
+    "\u2066" + number.chunked(4).joinToString(" ").toPersianDigits() + "\u2069"
+
 internal fun BookingDay.weekdayLabel(index: Int): String = when (index) {
     0 -> "امروز"
     1 -> "فردا"
@@ -212,9 +220,13 @@ private fun SlotStep(state: BookingState, vm: BookingViewModel) {
                     shape = Radius.md,
                     color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                     contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.width(76.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, Radius.md)
+                    modifier = Modifier.width(76.dp).height(84.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, Radius.md)
                 ) {
-                    Column(Modifier.padding(vertical = Space.sm), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        Modifier.padding(vertical = Space.sm),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
                         Text(day.weekdayLabel(index), style = MaterialTheme.typography.labelMedium)
                         Text(day.jalaliLabel(), style = MaterialTheme.typography.bodySmall)
                         if (day.closed) Text("تعطیل", style = MaterialTheme.typography.labelSmall)
@@ -339,7 +351,7 @@ private fun PaymentStep(state: BookingState, vm: BookingViewModel) {
         if ("CARD" in methods && state.cardNumber.isNotBlank()) {
             Hairline()
             Text("کارت به کارت", fontWeight = FontWeight.Bold)
-            SummaryRow("شماره کارت", state.cardNumber.chunked(4).joinToString(" ").toPersianDigits())
+            SummaryRow("شماره کارت", formatCardNumber(state.cardNumber))
             if (state.cardOwnerName.isNotBlank()) SummaryRow("به نام", state.cardOwnerName)
             OutlinedTextField(
                 value = reference,
