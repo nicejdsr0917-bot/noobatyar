@@ -2,12 +2,13 @@ package xyz.sattar.javid.proqueue.feature.explore
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,8 +32,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,78 +41,53 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import ovh.plrapps.mapcompose.api.Custom
-import ovh.plrapps.mapcompose.api.ExperimentalClusteringApi
-import ovh.plrapps.mapcompose.api.addClusterer
-import ovh.plrapps.mapcompose.api.addPath
-import ovh.plrapps.mapcompose.api.removePath
-import ovh.plrapps.mapcompose.api.setClustererExemptList
-import ovh.plrapps.mapcompose.ui.state.markers.model.RenderingStrategy
-import ovh.plrapps.mapcompose.api.addMarker
-import ovh.plrapps.mapcompose.api.idleStateFlow
-import ovh.plrapps.mapcompose.api.onLongPress
-import ovh.plrapps.mapcompose.api.onMarkerClick
-import ovh.plrapps.mapcompose.api.onTap
-import ovh.plrapps.mapcompose.api.onTouchDown
-import ovh.plrapps.mapcompose.api.removeAllMarkers
-import ovh.plrapps.mapcompose.api.scale
-import ovh.plrapps.mapcompose.api.scrollTo
-import ovh.plrapps.mapcompose.api.updateMarkerZ
-import ovh.plrapps.mapcompose.api.visibleBoundingBox
-import ovh.plrapps.mapcompose.ui.MapUI
-import xyz.sattar.javid.proqueue.core.ui.components.map.DisposeMapState
+import org.maplibre.compose.camera.CameraMoveReason
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.util.ClickResult
+import org.maplibre.spatialk.geojson.LineString
 import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
 import xyz.sattar.javid.proqueue.core.ui.components.map.MapAttribution
 import xyz.sattar.javid.proqueue.core.ui.components.map.MapTiles
-import xyz.sattar.javid.proqueue.core.ui.components.map.applyTileTint
-import xyz.sattar.javid.proqueue.core.ui.components.map.geoPointFromNormalized
+import xyz.sattar.javid.proqueue.core.ui.components.map.VectorMap
+import xyz.sattar.javid.proqueue.core.ui.components.map.distanceKmTo
 import xyz.sattar.javid.proqueue.core.ui.components.map.mapBackground
-import xyz.sattar.javid.proqueue.core.ui.components.map.newTileMapState
-import xyz.sattar.javid.proqueue.core.ui.components.map.toNormalized
 import xyz.sattar.javid.proqueue.domain.model.business.Business
+import xyz.sattar.javid.proqueue.feature.businessDetail.PinAnchor
+import xyz.sattar.javid.proqueue.feature.businessDetail.PinnedAt
 import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
-
-
-
-internal const val ME_MARKER = "me"
-internal const val CLUSTERER = "results"
-internal const val RADIUS_PATH = "radius"
-
-/** Smallest box the camera fits to, in normalized units (≈ 2 km): one pin
- *  alone shouldn't zoom the map down to the building. */
-internal const val MIN_SPAN = 0.00005
-
-/** Zooming into a cluster may go this close (≈ 100 m) — enough to pull pins a few doors apart. */
-internal const val CLUSTER_MIN_SPAN = 0.0000025
-
-/** A search centre counts as "moved away from" past this share of the visible width. */
-internal const val MOVED_THRESHOLD = 0.2
+import kotlin.time.Duration.Companion.milliseconds
 
 /** A point on the map plus a radius that covers what's on screen around it. */
 data class MapArea(val center: GeoPoint, val radiusKm: Double)
+
+/** Pins closer than this on screen fold into a count bubble. */
+private val CLUSTER_DISTANCE = 44.dp
 
 /**
  * The results on a map.
  *
  * - One pin per business with coordinates, coloured by category; listings
- *   that can't take a booking get a quieter, outlined pin.
+ *   that can't take a booking get a quieter, outlined pin. Pins close on
+ *   screen fold into a count bubble; tapping one fits its pins.
  * - The camera fits the pins into the strip the sheet leaves uncovered
- *   (the top [visibleFraction] of this composable).
+ *   (the top [visibleFraction] of this composable; [bottomInset] is the sheet).
  * - Moving the map by hand offers "search this area"; a long press searches
  *   around the pressed point; [pickMode] shows a fixed centre pin to aim with.
  */
-@OptIn(ExperimentalClusteringApi::class)
 @Composable
 fun ExploreMap(
     businesses: List<Business>,
@@ -128,139 +104,102 @@ fun ExploreMap(
     bottomInset: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val density = LocalDensity.current.density
     val dark = LocalIsDarkTheme.current
     val scope = rememberCoroutineScope()
-    val state = remember {
-        val center = area.latitude?.let { lat -> GeoPoint(lat, area.longitude!!) } ?: MapTiles.DEFAULT_CENTER
-        newTileMapState(center, MapTiles.DEFAULT_ZOOM, density)
-    }
-    DisposeMapState(state)
-    LaunchedEffect(dark) { state.applyTileTint(dark) }
-
-    // Set by a finger on the map, cleared by every camera move we make ourselves.
-    var userMoved by remember { mutableStateOf(false) }
+    val camera = rememberCameraState(
+        CameraPosition(
+            target = (area.latitude?.let { GeoPoint(it, area.longitude!!) } ?: MapTiles.DEFAULT_CENTER).toPosition(),
+            zoom = MapTiles.DEFAULT_ZOOM,
+        )
+    )
+    var loaded by remember { mutableStateOf(false) }
     val select by rememberUpdatedState(onSelect)
     val searchArea by rememberUpdatedState(onSearchArea)
-    val fraction by rememberUpdatedState(visibleFraction)
-
-    LaunchedEffect(state) {
-        // Pins closer than this merge into a count bubble. Tapping one fits its
-        // pins above the sheet (the library's own zoom ignores the sheet and
-        // can leave some of them behind it).
-        state.addClusterer(
-            CLUSTERER,
-            clusteringThreshold = 44.dp,
-            clusterClickBehavior = Custom(withDefaultBehavior = false) { cluster ->
-                scope.launch {
-                    fitCamera(state, cluster.markers.map { it.x to it.y }, fraction, minSpan = CLUSTER_MIN_SPAN)
-                    userMoved = false
-                }
-            },
-        ) { ids ->
-            { ClusterBubble(count = ids.size) }
-        }
-        state.onMarkerClick { id, _, _ -> id.toLongOrNull()?.let(select) }
-        state.onTap { _, _ -> select(null) }
-        state.onTouchDown { userMoved = true }
-        state.onLongPress { x, y ->
-            scope.launch { searchArea(areaAround(state, geoPointFromNormalized(x, y), fraction)) }
-        }
-    }
 
     val placed = remember(businesses) {
         businesses.mapNotNull { b ->
             val lat = b.latitude ?: return@mapNotNull null
             val lng = b.longitude ?: return@mapNotNull null
-            b to GeoPoint(lat, lng).toNormalized()
+            b to GeoPoint(lat, lng)
         }
     }
-    val me = (area as? SearchArea.NearMe)?.let { GeoPoint(it.latitude, it.longitude).toNormalized() }
-    val picked = (area as? SearchArea.Picked)?.let { GeoPoint(it.latitude, it.longitude).toNormalized() }
-
-    LaunchedEffect(placed, me, picked) {
-        state.removeAllMarkers()
-        me?.let { (x, y) ->
-            state.addMarker(ME_MARKER, x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = 0f) {
-                MyLocationDot()
-            }
-        }
-        picked?.let { (x, y) ->
-            state.addMarker("picked", x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = 0f) {
-                PickedAreaDot()
-            }
-        }
-        placed.forEach { (business, xy) ->
-            state.addMarker(
-                business.id.toString(), xy.first, xy.second,
-                relativeOffset = Offset(-0.5f, -1f),
-                zIndex = 1f,
-                renderingStrategy = RenderingStrategy.Clustering(CLUSTERER),
-            ) {
-                BusinessPin(business, selected = selectedId.value == business.id)
-            }
-        }
-        // A picked point already has the camera where the user wants it.
-        if (picked == null) {
-            fitCamera(state, placed.map { it.second } + listOfNotNull(me), fraction)
-        }
-        userMoved = false
-    }
-
-    // The search area as a soft ring: what "۱۰ کیلومتر" means, drawn on the map.
-    val ringColor = MaterialTheme.colorScheme.primary
+    val me = (area as? SearchArea.NearMe)?.let { GeoPoint(it.latitude, it.longitude) }
+    val picked = (area as? SearchArea.Picked)?.let { GeoPoint(it.latitude, it.longitude) }
     val center = area.latitude?.let { GeoPoint(it, area.longitude!!) }
-    LaunchedEffect(center, radiusKm, ringColor) {
-        state.removePath(RADIUS_PATH)
-        center ?: return@LaunchedEffect
-        state.addPath(
-            RADIUS_PATH,
-            // Outline only: at street zoom the ring is larger than the screen,
-            // and a fill would just wash the whole map in the accent colour.
-            width = 2.dp,
-            color = ringColor.copy(alpha = 0.55f),
-        ) {
-            addPoints(circlePoints(center, radiusKm))
-        }
-    }
-
-    // The selected pin draws over its neighbours, never folds into a cluster,
-    // and slides into view.
-    var lastSelected by remember { mutableStateOf<Long?>(null) }
-    LaunchedEffect(selectedId.value) {
-        lastSelected?.let { state.updateMarkerZ(it.toString(), 1f) }
-        val id = selectedId.value
-        lastSelected = id
-        state.setClustererExemptList(CLUSTERER, setOfNotNull(id?.toString()))
-        id ?: return@LaunchedEffect
-        state.updateMarkerZ(id.toString(), 2f)
-        val (_, xy) = placed.firstOrNull { it.first.id == id } ?: return@LaunchedEffect
-        state.scrollTo(
-            xy.first, xy.second,
-            destScale = state.scale,
-            animationSpec = tween(350),
-            screenOffset = Offset(-0.5f, -fraction / 2),
-        )
-        userMoved = false
-    }
-
-    // "Search this area": only once the map is at rest, and only if it really moved.
-    var offerSearchHere by remember { mutableStateOf(false) }
-    LaunchedEffect(userMoved, area) {
-        offerSearchHere = false
-        if (!userMoved) return@LaunchedEffect
-        state.idleStateFlow().first { it }
-        val box = state.visibleBoundingBox()
-        val (cx, cy) = stripCenter(box, fraction)
-        val searched = area.latitude?.let { GeoPoint(it, area.longitude!!).toNormalized() }
-        offerSearchHere = searched == null ||
-            kotlin.math.abs(searched.first - cx) > (box.xRight - box.xLeft) * MOVED_THRESHOLD ||
-            kotlin.math.abs(searched.second - cy) > (box.yBottom - box.yTop) * fraction * MOVED_THRESHOLD
-    }
 
     BoxWithConstraints(modifier.background(mapBackground(dark))) {
+        val width = maxWidth
         val stripHeight = maxHeight * visibleFraction
-        MapUI(modifier = Modifier.fillMaxSize(), state = state)
+
+        // New results: fit them (and the user) above the sheet. A picked point
+        // already has the camera where the user wants it.
+        LaunchedEffect(placed, me, picked, loaded) {
+            if (!loaded || picked != null) return@LaunchedEffect
+            fitCamera(camera, placed.map { it.second } + listOfNotNull(me), bottomInset)
+        }
+
+        // The selected pin slides into the middle of the uncovered strip.
+        LaunchedEffect(selectedId.value, loaded) {
+            if (!loaded) return@LaunchedEffect
+            val point = placed.firstOrNull { it.first.id == selectedId.value }?.second ?: return@LaunchedEffect
+            camera.animateTo(
+                camera.position.copy(target = point.toPosition(), padding = PaddingValues(bottom = bottomInset)),
+                duration = 350.milliseconds,
+            )
+        }
+
+        // "Search this area": once the map comes to rest after the user moved
+        // it, and only if it really moved away from what was searched.
+        var offerSearchHere by remember { mutableStateOf(false) }
+        LaunchedEffect(camera.isCameraMoving, area) {
+            if (camera.isCameraMoving) return@LaunchedEffect
+            if (camera.moveReason != CameraMoveReason.GESTURE) {
+                offerSearchHere = false
+                return@LaunchedEffect
+            }
+            val visible = visibleArea(camera, width, stripHeight) ?: return@LaunchedEffect
+            offerSearchHere = center == null ||
+                visible.center.distanceKmTo(center) > visible.radiusKm * 2 * MOVED_THRESHOLD
+        }
+
+        val ringColor = MaterialTheme.colorScheme.primary
+        VectorMap(
+            cameraState = camera,
+            dark = dark,
+            modifier = Modifier.fillMaxSize(),
+            onMapClick = { _, _ ->
+                select(null)
+                ClickResult.Pass
+            },
+            onMapLongClick = { position, _ ->
+                areaAround(camera, position.toGeoPoint(), width, stripHeight)?.let(searchArea)
+                ClickResult.Consume
+            },
+            onMapLoadFinished = { loaded = true },
+        ) {
+            // The search area as a soft ring: what "۱۰ کیلومتر" means, drawn on
+            // the map. Outline only: at street zoom the ring is larger than the
+            // screen, and a fill would wash the whole map in the accent colour.
+            if (center != null) {
+                val ring = rememberGeoJsonSource(
+                    GeoJsonData.Features(LineString(circlePoints(center, radiusKm).map { it.toPosition() }))
+                )
+                LineLayer(id = "search-radius", source = ring, width = const(2.dp), color = const(ringColor.copy(alpha = 0.55f)))
+            }
+        }
+
+        me?.let { PinnedAt(camera, it, PinAnchor.Center) { MyLocationDot() } }
+        picked?.let { PinnedAt(camera, it, PinAnchor.Center) { PickedAreaDot() } }
+        ClusteredPins(
+            camera = camera,
+            placed = placed,
+            selectedId = selectedId.value,
+            onSelect = { select(it) },
+            onCluster = { points ->
+                scope.launch { fitCamera(camera, points, bottomInset, minSpanKm = CLUSTER_MIN_SPAN_KM) }
+            },
+        )
+
         // A soft shade under the toolbar, so the map reads as sitting beneath it.
         Box(
             Modifier
@@ -280,10 +219,8 @@ fun ExploreMap(
                     text = "جستجو در این محدوده",
                     icon = Icons.Outlined.Refresh,
                     onClick = {
-                        scope.launch {
-                            offerSearchHere = false
-                            searchArea(visibleArea(state, fraction))
-                        }
+                        offerSearchHere = false
+                        visibleArea(camera, width, stripHeight)?.let(searchArea)
                     }
                 )
             }
@@ -295,9 +232,8 @@ fun ExploreMap(
         // Pick mode: a pin fixed to the centre of the uncovered strip; it lifts
         // while the map moves under it and settles when the map comes to rest.
         if (pickMode) {
-            val idle by state.idleStateFlow().collectAsState()
             CenterPin(
-                lifted = !idle,
+                lifted = camera.isCameraMoving,
                 modifier = Modifier.align(Alignment.TopCenter).offset(y = stripHeight / 2 - CenterPinTip)
             )
         }
@@ -314,7 +250,7 @@ fun ExploreMap(
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 Button(
-                    onClick = { scope.launch { searchArea(visibleArea(state, fraction)) } },
+                    onClick = { visibleArea(camera, width, stripHeight)?.let(searchArea) },
                     shape = CircleShape,
                     contentPadding = PaddingValues(horizontal = 22.dp),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
@@ -332,6 +268,52 @@ fun ExploreMap(
                 onLocate = onLocate,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp)
             )
+        }
+    }
+}
+
+/**
+ * The business pins, folded into count bubbles where they crowd on screen.
+ * Regrouped on every camera move (a few dozen pins: cheap). The selected pin
+ * never folds away and draws on top.
+ */
+@Composable
+private fun ClusteredPins(
+    camera: CameraState,
+    placed: List<Pair<Business, GeoPoint>>,
+    selectedId: Long?,
+    onSelect: (Long) -> Unit,
+    onCluster: (List<GeoPoint>) -> Unit,
+) {
+    val projection = camera.projection ?: return
+    camera.position // regroup whenever the camera moves
+    val density = LocalDensity.current
+    val byId = remember(placed) { placed.associate { it.first.id to it } }
+    val onScreen = placed.map { (business, point) ->
+        val at = projection.screenLocationFromPosition(point.toPosition())
+        business.id to with(density) { Offset(at.x.toPx(), at.y.toPx()) }
+    }
+    val groups = clusterOnScreen(onScreen, with(density) { CLUSTER_DISTANCE.toPx() }, exempt = selectedId)
+    // Lone pins after bubbles, and the selected one last, so it draws on top.
+    val ordered = groups.sortedWith(compareBy({ it.size == 1 }, { it.singleOrNull() == selectedId }))
+    ordered.forEach { ids ->
+        key(ids) {
+            if (ids.size == 1) {
+                val (business, point) = byId.getValue(ids.single())
+                PinnedAt(camera, point, PinAnchor.Bottom) {
+                    Box(Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(business.id) }) {
+                        BusinessPin(business, selected = selectedId == business.id)
+                    }
+                }
+            } else {
+                val points = ids.map { byId.getValue(it).second }
+                val middle = GeoPoint(points.map { it.latitude }.average(), points.map { it.longitude }.average())
+                PinnedAt(camera, middle, PinAnchor.Center) {
+                    Box(Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onCluster(points) }) {
+                        ClusterBubble(count = ids.size)
+                    }
+                }
+            }
         }
     }
 }

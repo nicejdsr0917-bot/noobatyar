@@ -1,91 +1,135 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.flow.first
-import ovh.plrapps.mapcompose.api.BoundingBox
-import ovh.plrapps.mapcompose.api.scrollTo
-import ovh.plrapps.mapcompose.api.visibleBoundingBox
-import ovh.plrapps.mapcompose.ui.state.MapState
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
+import org.maplibre.compose.camera.CameraState
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
 import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
 import xyz.sattar.javid.proqueue.core.ui.components.map.distanceKmTo
-import xyz.sattar.javid.proqueue.core.ui.components.map.geoPointFromNormalized
-import xyz.sattar.javid.proqueue.core.ui.components.map.toNormalized
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.time.Duration.Companion.milliseconds
 
 // ── Camera maths ─────────────────────────────────────────────────────────────
 
+/** Smallest span the camera fits to: one pin alone shouldn't zoom the map down to the building. */
+internal const val MIN_SPAN_KM = 2.0
 
-/** A circle of [radiusKm] around [center] as normalized map points (a 72-gon is smooth at any zoom we show). */
-internal fun circlePoints(center: GeoPoint, radiusKm: Double): List<Pair<Double, Double>> {
+/** Zooming into a cluster may go this close: enough to pull pins a few doors apart. */
+internal const val CLUSTER_MIN_SPAN_KM = 0.1
+
+/** A search centre counts as "moved away from" past this share of the visible width. */
+internal const val MOVED_THRESHOLD = 0.2
+
+internal fun GeoPoint.toPosition() = Position(longitude, latitude)
+internal fun Position.toGeoPoint() = GeoPoint(latitude, longitude)
+
+/** A circle of [radiusKm] around [center] (a 72-gon is smooth at any zoom we show). */
+internal fun circlePoints(center: GeoPoint, radiusKm: Double): List<GeoPoint> {
     val dLat = radiusKm / 111.32
     val dLng = radiusKm / (111.32 * cos(center.latitude * PI / 180.0))
     return (0..72).map { i ->
         val a = 2 * PI * i / 72
-        GeoPoint(center.latitude + dLat * sin(a), center.longitude + dLng * cos(a)).toNormalized()
+        GeoPoint(center.latitude + dLat * sin(a), center.longitude + dLng * cos(a))
     }
 }
-
-/** Centre of the strip above the sheet, in normalized coordinates. */
-internal fun stripCenter(box: BoundingBox, fraction: Float): Pair<Double, Double> =
-    (box.xLeft + box.xRight) / 2 to box.yTop + (box.yBottom - box.yTop) * fraction / 2
 
 /** Radius options the API takes; the smallest one that covers [km]. */
 internal fun radiusCovering(km: Double): Double =
     radiusOptionsKm.firstOrNull { it >= km } ?: radiusOptionsKm.last()
 
-/** What the user is looking at: the uncovered strip's centre and its half-width. */
-internal suspend fun visibleArea(state: MapState, fraction: Float): MapArea {
-    val box = state.visibleBoundingBox()
-    val (cx, cy) = stripCenter(box, fraction)
-    return MapArea(geoPointFromNormalized(cx, cy), radiusCovering(halfWidthKm(box, cy)))
+/** The box around [points], grown to at least [minSpanKm] each way around its centre. */
+internal fun boxAround(points: List<GeoPoint>, minSpanKm: Double): BoundingBox {
+    val south = points.minOf { it.latitude }
+    val north = points.maxOf { it.latitude }
+    val west = points.minOf { it.longitude }
+    val east = points.maxOf { it.longitude }
+    val midLat = (south + north) / 2
+    val midLng = (west + east) / 2
+    val minDLat = minSpanKm / 111.32 / 2
+    val minDLng = minSpanKm / (111.32 * cos(midLat * PI / 180.0)) / 2
+    return BoundingBox(
+        west = minOf(west, midLng - minDLng),
+        south = minOf(south, midLat - minDLat),
+        east = maxOf(east, midLng + minDLng),
+        north = maxOf(north, midLat + minDLat),
+    )
+}
+
+/**
+ * Moves the camera so [points] sit in the strip above the sheet: the sheet's
+ * height ([bottomInset]) is padding, so "fit" means "fit above the sheet".
+ */
+internal suspend fun fitCamera(
+    camera: CameraState,
+    points: List<GeoPoint>,
+    bottomInset: Dp,
+    minSpanKm: Double = MIN_SPAN_KM,
+) {
+    if (points.isEmpty()) return
+    camera.animateTo(
+        boundingBox = boxAround(points, minSpanKm),
+        // Room on top for the pins' heads, on the bottom for the control row.
+        padding = PaddingValues(start = 40.dp, end = 40.dp, top = 64.dp, bottom = bottomInset + 72.dp),
+        duration = 450.milliseconds,
+    )
+}
+
+/**
+ * What the user is looking at: the uncovered strip's centre, and a radius
+ * that covers half its width. Null before the map is laid out.
+ */
+internal fun visibleArea(camera: CameraState, width: Dp, stripHeight: Dp): MapArea? {
+    val projection = camera.projection ?: return null
+    val y = stripHeight / 2
+    val center = projection.positionFromScreenLocation(DpOffset(width / 2, y)).toGeoPoint()
+    return MapArea(center, radiusCovering(halfWidthKm(camera, width, y) ?: return null))
 }
 
 /** A long-pressed point, with the radius of the current view. */
-internal suspend fun areaAround(state: MapState, point: GeoPoint, fraction: Float): MapArea {
-    val box = state.visibleBoundingBox()
-    val (_, cy) = stripCenter(box, fraction)
-    return MapArea(point, radiusCovering(halfWidthKm(box, cy)))
+internal fun areaAround(camera: CameraState, point: GeoPoint, width: Dp, stripHeight: Dp): MapArea? {
+    val half = halfWidthKm(camera, width, stripHeight / 2) ?: return null
+    return MapArea(point, radiusCovering(half))
 }
 
-internal fun halfWidthKm(box: BoundingBox, y: Double): Double =
-    geoPointFromNormalized(box.xLeft, y).distanceKmTo(geoPointFromNormalized(box.xRight, y)) / 2
+private fun halfWidthKm(camera: CameraState, width: Dp, y: Dp): Double? {
+    val projection = camera.projection ?: return null
+    val left = projection.positionFromScreenLocation(DpOffset(0.dp, y)).toGeoPoint()
+    val right = projection.positionFromScreenLocation(DpOffset(width, y)).toGeoPoint()
+    return left.distanceKmTo(right) / 2
+}
 
 /**
- * Moves the camera so [points] sit in the top [visibleFraction] of the map.
- * The box is stretched downwards by the share of the screen the sheet hides,
- * so "fit" means "fit above the sheet".
+ * Pins closer than [threshold] on screen merge into one cluster. Greedy, in
+ * the given order, so the grouping is stable between frames; [exempt] (the
+ * selected pin) is never folded into a cluster. Returns groups of ids: a
+ * single id is a lone pin.
  */
-internal suspend fun fitCamera(
-    state: MapState,
-    points: List<Pair<Double, Double>>,
-    visibleFraction: Float,
-    minSpan: Double = MIN_SPAN,
-) {
-    if (points.isEmpty()) return
-    val left = points.minOf { it.first }
-    val right = points.maxOf { it.first }
-    val top = points.minOf { it.second }
-    val bottom = points.maxOf { it.second }
-    val w = maxOf(right - left, minSpan)
-    val h = maxOf(bottom - top, minSpan)
-    val cx = (left + right) / 2
-    val cy = (top + bottom) / 2
-    // 15% breathing room on the sides; extra on top for the pins' heads and
-    // at the bottom for the location button row.
-    val padW = w * 1.3
-    val yTop = cy - h * 0.5 - h * 0.35
-    val yBottomVisible = cy + h * 0.5 + h * 0.3
-    val total = (yBottomVisible - yTop) / visibleFraction.coerceIn(0.2f, 1f)
-    val box = BoundingBox(
-        xLeft = cx - padW / 2,
-        yTop = yTop,
-        xRight = cx + padW / 2,
-        yBottom = yTop + total,
-    )
-    state.scrollTo(box, animationSpec = tween(450))
+internal fun clusterOnScreen(points: List<Pair<Long, Offset>>, threshold: Float, exempt: Long? = null): List<List<Long>> {
+    val taken = BooleanArray(points.size)
+    val groups = mutableListOf<List<Long>>()
+    for (i in points.indices) {
+        if (taken[i]) continue
+        taken[i] = true
+        val (id, at) = points[i]
+        if (id == exempt) {
+            groups += listOf(id)
+            continue
+        }
+        val group = mutableListOf(id)
+        for (j in i + 1 until points.size) {
+            if (taken[j] || points[j].first == exempt) continue
+            if ((points[j].second - at).getDistance() < threshold) {
+                taken[j] = true
+                group += points[j].first
+            }
+        }
+        groups += group
+    }
+    return groups
 }

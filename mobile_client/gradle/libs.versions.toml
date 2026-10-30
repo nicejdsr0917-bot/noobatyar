@@ -30,8 +30,6 @@ ksp = "2.3.10"
 chucker = "4.1.0"
 coil3 = "3.5.0"
 haze = "1.7.2"
-# Tiled raster map for the explore screen. Pinned to the owner app's version.
-mapcompose = "0.13.2"
 # Vector map (Map.ir styles) on MapLibre Native. 0.14.0 on purpose: it is the
 # last release built on Compose Multiplatform 1.11.1; 0.15+ pulls Compose 1.12.
 maplibreCompose = "0.14.0"
@@ -52,7 +50,6 @@ haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 qrose = { module = "io.github.alexzhirkevich:qrose", version.ref = "qrose" }
 haze-materials = { module = "dev.chrisbanes.haze:haze-materials", version.ref = "haze" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil3" }
-mapcompose-mp = { module = "ovh.plrapps:mapcompose-mp", version.ref = "mapcompose" }
 maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "maplibreCompose" }
 peekaboo-image-picker = { module = "io.github.onseok:peekaboo-image-picker", version.ref = "peekaboo" }
 easycrop = { module = "io.github.mr0xf00:easycrop", version.ref = "easycrop" }

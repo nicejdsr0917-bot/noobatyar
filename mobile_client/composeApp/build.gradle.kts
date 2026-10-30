@@ -107,9 +107,6 @@ kotlin {
             implementation(libs.easycrop)
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor3)
-            // Tiled map for the explore screen (raster tiles, so Persian street
-            // names come pre-rendered and correct on every platform).
-            implementation(libs.mapcompose.mp)
             // Vector maps (Map.ir) on MapLibre Native, Android and iOS.
             implementation(libs.maplibre.compose)
 

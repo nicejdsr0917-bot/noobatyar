@@ -56,7 +56,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import ovh.plrapps.mapcompose.api.scale
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
 import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategoryGroup
