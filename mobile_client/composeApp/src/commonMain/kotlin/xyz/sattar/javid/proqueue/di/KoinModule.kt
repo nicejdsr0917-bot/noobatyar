@@ -13,6 +13,8 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.BookingApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.KtorBookingApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.ClientBusinessApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.KtorClientBusinessApi
+import xyz.sattar.javid.proqueue.data.remoteDataSource.social.BusinessSocialApi
+import xyz.sattar.javid.proqueue.data.remoteDataSource.social.KtorBusinessSocialApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApiService
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApiService
 import xyz.sattar.javid.proqueue.data.repository.business.BusinessRepositoryImpl
@@ -23,6 +25,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.push.SyncPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CheckVersionUseCase
 import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsViewModel
 import xyz.sattar.javid.proqueue.feature.booking.BookingViewModel
+import xyz.sattar.javid.proqueue.feature.businessDetail.BusinessSocialViewModel
 import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailViewModel
 import xyz.sattar.javid.proqueue.feature.explore.ExploreViewModel
 import xyz.sattar.javid.proqueue.feature.saved.SavedViewModel
@@ -36,6 +39,7 @@ val appModule: Module = module {
     single { DeviceApiService(get()) }
     single<ClientBusinessApi> { KtorClientBusinessApi(get()) }
     single<BookingApi> { KtorBookingApi(get()) }
+    single<BusinessSocialApi> { KtorBusinessSocialApi(get()) }
 
     // --- Platform seams ---
     single<ClientPreferences> { PlatformClientPreferences() }
@@ -53,6 +57,7 @@ val appModule: Module = module {
     viewModel { VersionViewModel(get()) }
     viewModel { ExploreViewModel(get(), get(), get()) }
     viewModel { ClientBusinessDetailViewModel(get(), get()) }
+    viewModel { BusinessSocialViewModel(get(), get()) }
     viewModel { SavedViewModel(get(), get()) }
     viewModel { BookingViewModel(get(), get(), get()) }
     viewModel { MyAppointmentsViewModel(get(), get()) }
