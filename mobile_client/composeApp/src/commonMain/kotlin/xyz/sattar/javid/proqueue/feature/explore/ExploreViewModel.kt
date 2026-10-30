@@ -2,6 +2,8 @@ package xyz.sattar.javid.proqueue.feature.explore
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -11,12 +13,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import xyz.sattar.javid.proqueue.core.location.IranCities
+import xyz.sattar.javid.proqueue.core.location.CityCatalog
 import xyz.sattar.javid.proqueue.core.location.LocationResult
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.prefs.ALL_IRAN
-import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
-import xyz.sattar.javid.proqueue.data.localDataSource.business.toDomain
+import xyz.sattar.javid.proqueue.core.prefs.ClientPreferences
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.toDomain
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.feature.discovery.CategoryGroup
 
@@ -31,7 +33,10 @@ private const val SEARCH_DEBOUNCE_MS = 350L
  * in-flight search ([searchJob]) so only the latest query can reach the screen.
  */
 class ExploreViewModel(
-    private val businessRepository: BusinessRepository
+    private val businessRepository: BusinessRepository,
+    private val preferences: ClientPreferences,
+    private val cities: CityCatalog,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ExploreState())
@@ -41,13 +46,13 @@ class ExploreViewModel(
     private var loadMoreJob: Job? = null
 
     init {
-        viewModelScope.launch {
-            PreferencesManager.savedBusinessIds.collect { ids -> _state.update { it.copy(savedIds = ids) } }
+        viewModelScope.launch(dispatcher) {
+            preferences.savedBusinessIds.collect { ids -> _state.update { it.copy(savedIds = ids) } }
         }
-        viewModelScope.launch {
-            PreferencesManager.recentSearches.collect { r -> _state.update { it.copy(recentSearches = r) } }
+        viewModelScope.launch(dispatcher) {
+            preferences.recentSearches.collect { r -> _state.update { it.copy(recentSearches = r) } }
         }
-        viewModelScope.launch {
+        viewModelScope.launch(dispatcher) {
             when (val res = businessRepository.getInsurances()) {
                 is ApiResponse.Success -> _state.update { s -> s.copy(insurances = res.data.map { it.toDomain() }) }
                 is ApiResponse.Error -> Unit
@@ -55,23 +60,23 @@ class ExploreViewModel(
         }
         // City first, like Divar: the last pick is where the app reopens; with
         // none yet, the screen asks before showing the whole country.
-        viewModelScope.launch {
-            val codes = PreferencesManager.recentCityCodes.first()
+        viewModelScope.launch(dispatcher) {
+            val codes = preferences.recentCityCodes.first()
             val area = codes.firstOrNull()?.takeIf { it != ALL_IRAN }
-                ?.let { IranCities.city(it)?.first?.toArea() }
+                ?.let { cities.city(it)?.first?.toArea() }
                 ?: SearchArea.Anywhere
             _state.update { it.copy(area = area, recentCityCodes = codes, needsCityPick = codes.isEmpty()) }
             search()
         }
-        viewModelScope.launch {
-            PreferencesManager.recentCityCodes.collect { c -> _state.update { it.copy(recentCityCodes = c) } }
+        viewModelScope.launch(dispatcher) {
+            preferences.recentCityCodes.collect { c -> _state.update { it.copy(recentCityCodes = c) } }
         }
     }
 
     /** A pick from [CityPickerSheet]: a city, or [SearchArea.Anywhere] for "کل ایران". */
     fun selectCity(area: SearchArea) {
-        viewModelScope.launch {
-            PreferencesManager.selectCity((area as? SearchArea.City)?.code ?: ALL_IRAN)
+        viewModelScope.launch(dispatcher) {
+            preferences.selectCity((area as? SearchArea.City)?.code ?: ALL_IRAN)
         }
         _state.update { it.copy(needsCityPick = false) }
         selectArea(area)
@@ -148,11 +153,11 @@ class ExploreViewModel(
     /** Remembers the current query once the user acts on its results. */
     fun rememberQuery() {
         val q = _state.value.query.trim()
-        if (q.length >= 2) viewModelScope.launch { PreferencesManager.addRecentSearch(q) }
+        if (q.length >= 2) viewModelScope.launch(dispatcher) { preferences.addRecentSearch(q) }
     }
 
     fun clearRecentSearches() {
-        viewModelScope.launch { PreferencesManager.clearRecentSearches() }
+        viewModelScope.launch(dispatcher) { preferences.clearRecentSearches() }
     }
 
     fun selectCategory(group: CategoryGroup) {
@@ -187,7 +192,7 @@ class ExploreViewModel(
     fun refresh() = search(isRefresh = true)
 
     fun toggleSaved(id: Long) {
-        viewModelScope.launch { PreferencesManager.toggleSavedBusiness(id) }
+        viewModelScope.launch(dispatcher) { preferences.toggleSavedBusiness(id) }
     }
 
     // ── Loading ──────────────────────────────────────────────────────────────
@@ -195,7 +200,7 @@ class ExploreViewModel(
     private fun search(debounce: Boolean = false, isRefresh: Boolean = false) {
         searchJob?.cancel()
         loadMoreJob?.cancel()
-        searchJob = viewModelScope.launch {
+        searchJob = viewModelScope.launch(dispatcher) {
             if (debounce) delay(SEARCH_DEBOUNCE_MS)
             _state.update {
                 it.copy(
@@ -242,7 +247,7 @@ class ExploreViewModel(
         val s = _state.value
         val page = s.nextPage ?: return
         if (s.isLoading || s.isLoadingMore || loadMoreJob?.isActive == true) return
-        loadMoreJob = viewModelScope.launch {
+        loadMoreJob = viewModelScope.launch(dispatcher) {
             _state.update { it.copy(isLoadingMore = true) }
             when (val res = fetch(s, page = page, pageSize = PAGE_SIZE, onlyClaimed = s.onlyOnline)) {
                 is ApiResponse.Success -> _state.update { current ->

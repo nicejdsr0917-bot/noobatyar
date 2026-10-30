@@ -41,7 +41,7 @@ import xyz.sattar.javid.proqueue.core.utils.openUrl
 import xyz.sattar.javid.proqueue.core.utils.shareText
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.discovery.ListRow
-import xyz.sattar.javid.proqueue.feature.discovery.OWNER_LANDING_URL
+import xyz.sattar.javid.proqueue.core.config.OWNER_LANDING_URL
 import xyz.sattar.javid.proqueue.feature.discovery.OwnerInviteRow
 import xyz.sattar.javid.proqueue.feature.discovery.Radius
 import xyz.sattar.javid.proqueue.feature.discovery.Space

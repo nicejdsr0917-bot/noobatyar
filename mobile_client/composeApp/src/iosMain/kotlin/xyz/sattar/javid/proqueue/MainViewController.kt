@@ -10,7 +10,6 @@ import org.koin.core.context.startKoin
 import org.koin.mp.KoinPlatformTools
 import xyz.sattar.javid.proqueue.di.appModule
 import xyz.sattar.javid.proqueue.di.dbModuleiOS
-import xyz.sattar.javid.proqueue.di.platformModule
 
 fun MainViewController() = ComposeUIViewController {
     var isKoinInitialized by remember { mutableStateOf(false) }
@@ -19,7 +18,7 @@ fun MainViewController() = ComposeUIViewController {
         val alreadyExists = KoinPlatformTools.defaultContext().getOrNull() != null
         if (!alreadyExists) {
             startKoin {
-                modules(dbModuleiOS, platformModule, appModule)
+                modules(dbModuleiOS, appModule)
             }
         }
         isKoinInitialized = true
