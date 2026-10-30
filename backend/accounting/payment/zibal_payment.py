@@ -4,7 +4,7 @@ from django.conf import settings
 from django.utils import timezone
 from accounting.models import Transaction
 from accounting import pricing
-from accounting.payment import zibal_client
+from integrations import zibal
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class ZibalPaymentService:
         # قیمت پلن + مالیات + کارمزد زیبال؛ همان مبلغی که دیالوگ تأیید به کاربر نشان داده
         final_price = pricing.quote(pricing.plan_base(plan), pricing.CHANNEL_ZIBAL)["total"]
 
-        result = zibal_client.request_payment(
+        result = zibal.request_payment(
             settings.ZIBAL_MERCHANT_ID,
             final_price * 10,  # تبدیل تومان به ریال برای زیبال
             callback_url, order_id,

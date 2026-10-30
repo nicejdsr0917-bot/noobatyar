@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from accounting.payment import zibal_client
+from integrations import zibal
 from business.models import Business
 from visitor.models import Visitor
 
@@ -149,7 +149,7 @@ class PatchStatusWithDetailsTests(Base, TestCase):
 
 
 def _result(outcome, **data):
-    return zibal_client.VerifyResult(outcome, data.get('result'), '', data)
+    return zibal.VerifyResult(outcome, data.get('result'), '', data)
 
 
 class UnderpaidDepositTests(Base, TestCase):
@@ -157,8 +157,8 @@ class UnderpaidDepositTests(Base, TestCase):
         a = self.make(status='LOCKED', quota_source='', payment_reference='111',
                       locked_at=timezone.now(),
                       expires_at=timezone.now() + timedelta(minutes=5))
-        low = _result(zibal_client.Outcome.SUCCESS, result=100, amount=1000)
-        with patch('appointment.payment.zibal_deposit.zibal_client.verify', return_value=low):
+        low = _result(zibal.Outcome.SUCCESS, result=100, amount=1000)
+        with patch('appointment.payment.zibal_deposit.zibal.verify', return_value=low):
             self.assertFalse(verify_deposit_payment(a, '111')['success'])
         a.refresh_from_db()
         self.assertIsNotNone(a.deposit_verified_at)

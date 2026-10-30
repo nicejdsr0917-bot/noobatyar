@@ -10,7 +10,7 @@ from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounting.payment import zibal_client
+from integrations import zibal
 from business.models import Business
 from visitor.auth import sign_visitor_token
 from visitor.models import Visitor
@@ -104,14 +104,14 @@ class CardExposureTests(Base, TestCase):
 
 
 def _result(outcome, **data):
-    return zibal_client.VerifyResult(outcome, data.get('result'), '', data)
+    return zibal.VerifyResult(outcome, data.get('result'), '', data)
 
 
 class VerifyDepositTests(Base, TestCase):
     def test_success_stamps_verified_at_and_uses_business_merchant(self):
         a = self.make(payment_reference='111')
-        ok = _result(zibal_client.Outcome.SUCCESS, result=100, amount=500000)
-        with patch('appointment.payment.zibal_deposit.zibal_client.verify', return_value=ok) as v:
+        ok = _result(zibal.Outcome.SUCCESS, result=100, amount=500000)
+        with patch('appointment.payment.zibal_deposit.zibal.verify', return_value=ok) as v:
             res = verify_deposit_payment(a, '111')
         self.assertTrue(res['success'])
         v.assert_called_once_with('111', merchant='zibal-m')
@@ -120,14 +120,14 @@ class VerifyDepositTests(Base, TestCase):
 
     def test_already_verified_is_success(self):
         a = self.make(payment_reference='111')
-        dup = _result(zibal_client.Outcome.ALREADY_VERIFIED, result=201, amount=500000)
-        with patch('appointment.payment.zibal_deposit.zibal_client.verify', return_value=dup):
+        dup = _result(zibal.Outcome.ALREADY_VERIFIED, result=201, amount=500000)
+        with patch('appointment.payment.zibal_deposit.zibal.verify', return_value=dup):
             self.assertTrue(verify_deposit_payment(a, '111')['success'])
 
     def test_failed_and_transport_error_are_not_success(self):
         a = self.make(payment_reference='111')
-        for outcome in (zibal_client.Outcome.FAILED, zibal_client.Outcome.TRANSPORT_ERROR):
-            with patch('appointment.payment.zibal_deposit.zibal_client.verify',
+        for outcome in (zibal.Outcome.FAILED, zibal.Outcome.TRANSPORT_ERROR):
+            with patch('appointment.payment.zibal_deposit.zibal.verify',
                        return_value=_result(outcome, result=202)):
                 self.assertFalse(verify_deposit_payment(a, '111')['success'])
         a.refresh_from_db()
@@ -135,8 +135,8 @@ class VerifyDepositTests(Base, TestCase):
 
     def test_underpayment_is_rejected_but_stamped_for_refund(self):
         a = self.make(payment_reference='111')
-        low = _result(zibal_client.Outcome.SUCCESS, result=100, amount=1000)
-        with patch('appointment.payment.zibal_deposit.zibal_client.verify', return_value=low):
+        low = _result(zibal.Outcome.SUCCESS, result=100, amount=1000)
+        with patch('appointment.payment.zibal_deposit.zibal.verify', return_value=low):
             self.assertFalse(verify_deposit_payment(a, '111')['success'])
         a.refresh_from_db()
         self.assertIsNotNone(a.deposit_verified_at)

@@ -32,13 +32,15 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
-from accounting import entitlements, usage
+from accounting import entitlements, sms_billing, usage
 from api.phone import is_iran_phone, normalize_phone
 from api.sms import (
-    SEND_WINDOW_END_HOUR, SEND_WINDOW_START_HOUR, send_sms, signed, within_send_window,
+    SEND_WINDOW_END_HOUR, SEND_WINDOW_START_HOUR, signed, within_send_window,
 )
 
 logger = logging.getLogger(__name__)
+
+QUOTA_DETAIL = 'اعتبار پیامک تمام شده است'
 
 # What the owner may type. Two Persian parts of body leaves room for a long
 # name and the footer within three billed parts; anything longer is almost
@@ -262,8 +264,6 @@ def start_background_send(campaign_id):
 
 def process_campaign(campaign_id):
     """Send every still-PENDING recipient of one campaign, then close it out."""
-    from visitor.models import SmsLog
-
     from .models import PromoCampaign, PromoCampaignRecipient
 
     campaign = PromoCampaign.objects.select_related('business').get(id=campaign_id)
@@ -281,32 +281,21 @@ def process_campaign(campaign_id):
             continue
         recipient = PromoCampaignRecipient.objects.get(id=rid)
 
-        receipt = usage.consume_sms(owner_id, amount=recipient.parts)
-        if not receipt:
+        outcome = sms_billing.send_metered_sms_detailed(
+            owner_id, business.id, recipient.visitor_id, recipient.phone, recipient.text,
+            amount=recipient.parts, quota_detail=QUOTA_DETAIL,
+        )
+        if outcome.status == sms_billing.SKIPPED_QUOTA:
             recipient.status = 'SKIPPED_QUOTA'
-            recipient.error_detail = 'اعتبار پیامک تمام شده است'
+            recipient.error_detail = QUOTA_DETAIL
             recipient.save(update_fields=['status', 'error_detail'])
-            SmsLog.objects.create(
-                business=business, visitor_id=recipient.visitor_id, message_text=recipient.text,
-                status='SKIPPED_QUOTA', error_detail=recipient.error_detail,
-            )
             continue
 
-        try:
-            ok, err = send_sms(recipient.phone, recipient.text)
-        except Exception as exc:  # noqa: BLE001 — one bad number must not stop the rest
-            ok, err = False, str(exc)
-        if not ok:
-            usage.refund_sms(receipt)
-
+        ok = outcome.status == sms_billing.SENT
         recipient.status = 'SENT' if ok else 'FAILED'
-        recipient.error_detail = '' if ok else (err or '')
+        recipient.error_detail = '' if ok else outcome.error
         recipient.sent_at = timezone.now()
         recipient.save(update_fields=['status', 'error_detail', 'sent_at'])
-        SmsLog.objects.create(
-            business=business, visitor_id=recipient.visitor_id, message_text=recipient.text,
-            status='SENT' if ok else 'FAILED', error_detail='' if ok else (err or ''),
-        )
         PromoCampaign.objects.filter(id=campaign_id).update(heartbeat_at=timezone.now())
 
     _finish_if_complete(campaign_id)

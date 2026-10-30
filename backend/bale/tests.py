@@ -36,7 +36,7 @@ class BaleTestBase(TestCase):
         # that thread contends with the test transaction ("database table is
         # locked"), and what it does is already covered by the business app's
         # own tests — here we only care that a decision triggers it.
-        sms_patcher = patch('bale.views.fire_owner_sms')
+        sms_patcher = patch('bale.handlers.fire_owner_sms')
         self.fire_sms = sms_patcher.start()
         self.addCleanup(sms_patcher.stop)
 

@@ -9,17 +9,18 @@ from django.test import TestCase, TransactionTestCase
 
 from accounting import usage
 from accounting.models import AddOnPack, AddOnPurchase, Plan, Subscription, StorePurchase, Transaction
-from accounting.payment import myket, zibal_client
+from accounting.payment import myket
+from integrations import zibal
 from accounting.payment.addon_payment import AddOnVerificationService, grant_addon_benefit
 from accounting.payment.zibal_payment_verification import PaymentVerificationService
 
 User = get_user_model()
-Outcome = zibal_client.Outcome
+Outcome = zibal.Outcome
 
 
 def result(outcome, code=None, data=None):
     # amount: Zibal reports Rial; every fixture row below costs 1000 Toman.
-    return zibal_client.VerifyResult(
+    return zibal.VerifyResult(
         outcome, code, "m", data or {"result": code, "refNumber": "R1", "amount": 10000})
 
 
@@ -30,7 +31,7 @@ TIMEOUT = result(Outcome.TRANSPORT_ERROR, None, {"error": "timeout"})
 
 
 def patch_verify(*results):
-    return patch.object(zibal_client, "verify", side_effect=list(results))
+    return patch.object(zibal, "verify", side_effect=list(results))
 
 
 class Base:
@@ -86,7 +87,7 @@ class PlanVerificationTests(Base, TestCase):
         self.assertEqual(self.subs(), 1)
 
     def test_exception_leaves_pending(self):
-        with patch.object(zibal_client, "verify", side_effect=RuntimeError("boom")):
+        with patch.object(zibal, "verify", side_effect=RuntimeError("boom")):
             r = self.run_cb()
         self.assertEqual(r["status_code"], 500)
         self.txn.refresh_from_db()
@@ -114,7 +115,7 @@ class PlanVerificationTests(Base, TestCase):
         def verify_then_other_wins(track_id):
             Transaction.objects.filter(pk=self.txn.pk).update(status="success")
             return NOPAY
-        with patch.object(zibal_client, "verify", side_effect=verify_then_other_wins):
+        with patch.object(zibal, "verify", side_effect=verify_then_other_wins):
             self.run_cb()
         self.txn.refresh_from_db()
         self.assertEqual(self.txn.status, "success")
@@ -268,7 +269,7 @@ class ConcurrentCallbackTests(Base, TransactionTestCase):
             finally:
                 c.close()
 
-        with patch.object(zibal_client, "verify", side_effect=fake_verify):
+        with patch.object(zibal, "verify", side_effect=fake_verify):
             ts = [threading.Thread(target=worker) for _ in range(2)]
             [t.start() for t in ts]
             [t.join() for t in ts]
