@@ -45,7 +45,7 @@ class BusinessApiService(private val httpClient: HttpClient) : BusinessApi {
 
     override suspend fun createBusiness(business: Business): ApiResponse<BusinessDto> {
         return httpClient.post("business/") {
-            setBody(buildMultipart(business))
+            setBody(buildMultipart(business, logoRequired = true))
         }.toApiResponse()
     }
 
@@ -55,9 +55,14 @@ class BusinessApiService(private val httpClient: HttpClient) : BusinessApi {
         }.toApiResponse()
     }
 
-    private fun buildMultipart(business: Business): io.ktor.client.request.forms.MultiPartFormDataContent {
+    private fun buildMultipart(
+        business: Business,
+        logoRequired: Boolean = false
+    ): io.ktor.client.request.forms.MultiPartFormDataContent {
         return io.ktor.client.request.forms.MultiPartFormDataContent(
             io.ktor.client.request.forms.formData {
+                // Create only: updates are never enforced server-side.
+                if (logoRequired) append("logo_required", "1")
                 append("title", business.title)
                 append("category", business.category)
                 append("phone", business.phone)

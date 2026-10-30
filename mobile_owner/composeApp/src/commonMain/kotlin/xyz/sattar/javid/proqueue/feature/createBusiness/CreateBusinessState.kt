@@ -34,3 +34,10 @@ data class CreateBusinessState (
         data class ServiceCatalogLoading(val isLoading: Boolean): PartialState()
     }
 }
+
+/**
+ * The logo is mandatory when creating a business, never when editing one.
+ * A new business has no saved logo yet, so only a freshly picked one counts.
+ */
+internal fun isLogoMissing(businessId: Long, pickedLogo: ByteArray?, savedLogoPath: String?): Boolean =
+    businessId == 0L && pickedLogo == null && savedLogoPath.isNullOrEmpty()

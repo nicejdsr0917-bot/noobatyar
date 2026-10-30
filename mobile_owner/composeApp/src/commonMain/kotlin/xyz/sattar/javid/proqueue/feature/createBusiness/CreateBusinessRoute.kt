@@ -410,6 +410,9 @@ fun CreateBusinessScreen(
     // before it advances and jumping forward would skip that.
     var furthestStep by remember { mutableStateOf(0) }
     val formScrollState = rememberScrollState()
+    val logoMissing = isLogoMissing(uiState.businessId, logoBytes, uiState.business?.logoPath)
+    var logoError by remember { mutableStateOf(false) }
+    LaunchedEffect(logoBytes) { if (logoBytes != null) logoError = false }
 
     // A new step starts at its own top. Without this the next step opens
     // already scrolled to wherever the previous one was left.
@@ -429,7 +432,8 @@ fun CreateBusinessScreen(
             val t = title.trim()
             val invalid = t.length < 3 || t.length > 50
             onTitleErrorUpdate(if (invalid) Str.name_must_be_3_to else null)
-            !invalid
+            logoError = logoMissing
+            !invalid && !logoMissing
         }
 
         BusinessFormStep.SCHEDULE -> {
@@ -635,7 +639,12 @@ fun CreateBusinessScreen(
                             onWorkHoursErrorUpdate(if (hoursInvalid) Str.opening_hours_arent_valid else null)
                             onCityErrorUpdate(if (city == null) Str.city_is_required else null)
 
-                            if (!titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid && city != null) {
+                            if (logoMissing) {
+                                logoError = true
+                                currentStep = 0
+                            }
+
+                            if (!logoMissing && !titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid && city != null) {
                                 val intent =
                                     CreateBusinessIntent.CreateBusiness(
                                         title = t,
@@ -822,6 +831,15 @@ fun CreateBusinessScreen(
                         modifier = Modifier.size(40.dp)
                     )
                 }
+            }
+            if (logoMissing) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (logoError) Str.logo_required_error else Str.logo_required_hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (logoError) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
 
