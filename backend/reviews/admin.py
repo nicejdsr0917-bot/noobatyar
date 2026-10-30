@@ -20,7 +20,10 @@ class ReviewAdmin(ModelAdmin):
         return (obj.text or '')[:60]
 
     def _set_hidden(self, request, queryset, hidden):
-        n = services.set_hidden(queryset, hidden)
+        business_ids = set(queryset.values_list('business_id', flat=True))
+        n = queryset.update(is_hidden=hidden, hidden_reason='' if not hidden else 'hidden by admin')
+        for bid in business_ids:
+            services.recompute_summary(bid)
         self.message_user(request, f'{n} نظر به‌روزرسانی شد', messages.SUCCESS)
 
     @admin.action(description='مخفی کردن نظرهای انتخاب‌شده')

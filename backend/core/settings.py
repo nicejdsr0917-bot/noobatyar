@@ -54,8 +54,6 @@ INSTALLED_APPS = [
     'core',
     # DB-backed outbox + run_outbox worker (core/outbox/).
     'core.outbox',
-    # The «نوا» staff panel (ADMIN_URL + 'panel/'); no models.
-    'staffpanel',
     'api',
     'accounting',
     'versions',
@@ -472,29 +470,27 @@ UNFOLD = {
     'SIDEBAR': {
         'show_search': True,
         'show_all_applications': False,
-        # Grouped by daily work, in the order staff do it. Titles stay short
-        # (one or two words); daily work itself lives in the «نوا» panel
-        # (staffpanel, linked first) and this stays the full model admin.
+        # Grouped by daily work, in the order staff do it. Section titles carry
+        # a one-line hint of what the section is for.
         'navigation': [
             {
                 'items': [
-                    _item('پنل کارکنان', 'space_dashboard', reverse_lazy('staffpanel:dashboard')),
                     _item('داشبورد', 'dashboard', reverse_lazy('admin:index')),
                 ],
             },
             {
-                'title': 'بررسی کسب‌وکارها',
+                'title': 'بررسی کسب‌وکارها — تأیید ثبت‌نام و ویرایش‌ها',
                 'separator': True,
                 'collapsible': True,
                 'items': [
-                    _item('صف بررسی', 'fact_check', reverse_lazy('admin:business_business_moderation_queue'), 'business.view_business'),
+                    _item('صف بررسی (اول اینجا)', 'fact_check', reverse_lazy('admin:business_business_moderation_queue'), 'business.view_business'),
                     _item('همهٔ کسب‌وکارها', 'storefront', _changelist('business', 'business'), 'business.view_business'),
                     _item('سوابق بررسی', 'history', _changelist('business', 'businessmoderationlog'), 'business.view_businessmoderationlog'),
                     _item('کلمات ممنوع', 'block', _changelist('business', 'bannedkeyword'), 'business.view_bannedkeyword'),
                 ],
             },
             {
-                'title': 'نمونه‌کار و مدارک',
+                'title': 'نمونه‌کار و مدارک — تأیید عکس‌های اونرها',
                 'separator': True,
                 'collapsible': True,
                 'items': [
@@ -503,7 +499,7 @@ UNFOLD = {
                 ],
             },
             {
-                'title': 'نظرات و گزارش‌ها',
+                'title': 'نظرات و گزارش‌ها — گزارش تخلف و نظرات کاربران',
                 'separator': True,
                 'collapsible': True,
                 'items': [
@@ -512,17 +508,17 @@ UNFOLD = {
                 ],
             },
             {
-                'title': 'بنرها',
+                'title': 'بنرها — تبلیغ بالای اپ اونر (۱۲۰۰×۴۰۰)',
                 'separator': True,
                 'collapsible': True,
                 'items': [
                     _item('بنرها', 'image', _changelist('banners', 'banner'), 'banners.view_banner'),
-                    _item('گروه دسته‌ها', 'category', _changelist('banners', 'bannercategorygroup'), 'banners.view_bannercategorygroup'),
+                    _item('گروه دسته‌ها و تعداد اونرها', 'category', _changelist('banners', 'bannercategorygroup'), 'banners.view_bannercategorygroup'),
                     _item('لینک مشترک بنرها', 'link', _changelist('banners', 'sitesetting'), 'banners.view_sitesetting'),
                 ],
             },
             {
-                'title': 'بازاریابی',
+                'title': 'بازاریابی — جذب مراکز جدید با تماس',
                 'separator': True,
                 'collapsible': True,
                 'items': [
@@ -532,7 +528,7 @@ UNFOLD = {
                 ],
             },
             {
-                'title': 'اشتراک و مالی',
+                'title': 'اشتراک و مالی — پرداخت‌ها و پلن‌ها',
                 'separator': True,
                 'collapsible': True,
                 'items': [
@@ -545,11 +541,11 @@ UNFOLD = {
                     _item('پلن‌ها', 'sell', _changelist('accounting', 'plan'), 'accounting.view_plan'),
                     _item('بسته‌های افزودنی', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
                     _item('یادآوری تمدید اشتراک', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),
-                    _item('تماس بدون اشتراک', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
+                    _item('تماس کسب‌وکارهای بدون اشتراک', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
                 ],
             },
             {
-                'title': 'پیامک',
+                'title': 'پیامک — ارسال و گزارش پیام‌ها',
                 'separator': True,
                 'collapsible': True,
                 'items': [

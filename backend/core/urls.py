@@ -15,10 +15,6 @@ urlpatterns = [
     # Path comes from settings.ADMIN_URL (env: ADMIN_URL), already normalised to
     # a single trailing slash there. nginx must be taught the new prefix too —
     # see the note in core/settings.py.
-    # The «نوا» staff panel. Under the admin prefix on purpose: nginx already
-    # proxies it, and it must come before admin.site.urls, whose catch-all
-    # app_label pattern would otherwise swallow 'panel/'.
-    path(f'{settings.ADMIN_URL}panel/', include('staffpanel.urls')),
     path(settings.ADMIN_URL, admin.site.urls),
     path('api/', include('api.urls')),
     path('api/accounting/', include('accounting.urls')),
