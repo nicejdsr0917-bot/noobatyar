@@ -1,0 +1,53 @@
+{% extends 'staffpanel/base.html' %}{% load panel %}
+{% block subtitle %}<p class="mt-1.5 text-sm text-muted-foreground">پرداخت‌ها و اشتراک‌ها — فقط خواندنی. اصلاح و بازپرداخت در ادمین انجام می‌شود.</p>{% endblock %}
+{% block actions %}<a href="{% url 'admin:accounting_financial_report' %}" class="btn btn-outline"><i data-icon="bar-chart" class="size-4"></i>گزارش مالی</a>{% endblock %}
+{% block content %}
+<section class="grid grid-cols-2 gap-4 xl:grid-cols-4">
+  <article class="card reveal p-4"><p class="text-xs text-muted-foreground">اشتراک‌های فروخته‌شده (۳۰ روز)</p><p class="mt-1 text-lg font-extrabold tabular">{{ totals.transactions.s|default:0|toman }}</p><p class="text-[11px] text-muted-foreground">{{ totals.transactions.n|fa }} پرداخت</p></article>
+  {% if totals.addons %}<article class="card reveal p-4" style="--delay:70ms"><p class="text-xs text-muted-foreground">بسته‌ها (۳۰ روز)</p><p class="mt-1 text-lg font-extrabold tabular">{{ totals.addons.s|default:0|toman }}</p><p class="text-[11px] text-muted-foreground">{{ totals.addons.n|fa }} خرید</p></article>{% endif %}
+  {% if totals.subs %}<article class="card reveal p-4" style="--delay:140ms"><p class="text-xs text-muted-foreground">اشتراک فعال</p><p class="mt-1 text-xl font-extrabold tabular" data-to="{{ totals.subs.active }}">۰</p></article>
+  <a href="?view=subscriptions&status=expiring" class="card card-hover reveal p-4" style="--delay:210ms"><p class="text-xs text-muted-foreground">رو به پایان در ۷ روز</p><p class="mt-1 text-xl font-extrabold tabular text-warning" data-to="{{ totals.subs.expiring }}">۰</p></a>{% endif %}
+</section>
+<nav class="tabs reveal" data-tabs role="tablist" aria-label="بخش">
+  {% for k, label in views %}<a role="tab" href="?view={{ k }}" aria-selected="{% if k == view %}true{% else %}false{% endif %}">{{ label }}</a>{% endfor %}
+</nav>
+<section class="card reveal overflow-hidden" data-server-table>
+  <div class="flex flex-col gap-3 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+    <div class="-mx-1 flex gap-2 overflow-x-auto px-1" role="toolbar">
+      {% for code, label in filters %}<a class="chip" href="{% qs status=code %}" aria-pressed="{% if code == status %}true{% else %}false{% endif %}">{{ label }}</a>{% endfor %}
+    </div>
+    <form method="get" class="flex items-center gap-2"><input type="hidden" name="view" value="{{ view }}">{% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+      <div class="input-wrap lg:w-72"><i data-icon="search"></i><input type="search" name="q" value="{{ q }}" class="input" placeholder="موبایل، نام یا کد پیگیری" data-live-filter aria-label="جستجو"></div></form>
+  </div>
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      {% if view == 'subscriptions' %}
+      <thead><tr><th>کاربر</th><th>پلن</th><th>وضعیت</th><th><button type="button" class="sort-btn" data-sort="start">شروع<i data-icon="chevron-up"></i></button></th><th><button type="button" class="sort-btn" data-sort="end">پایان<i data-icon="chevron-up"></i></button></th></tr></thead>
+      <tbody>{% for s in page_obj.object_list %}
+        <tr data-sort-start="{{ s.started_at|date:'U' }}" data-sort-end="{{ s.ends_at|date:'U' }}">
+          <td><a class="hover:underline" href="{% url 'admin:core_user_detail' s.user_id %}">{{ s.user.name|default:'—' }}</a><p class="text-xs text-muted-foreground" dir="ltr">{{ s.user.phone|fa }}</p></td>
+          <td>{{ s.plan.name }}{% if s.plan.is_vip %} <span class="badge badge-accent">ویژه</span>{% endif %}</td>
+          <td>{% if s.status == 'active' and s.ends_at > now %}<span class="badge badge-primary">فعال</span>{% elif s.status == 'cancelled' %}<span class="badge badge-muted">لغو</span>{% else %}<span class="badge badge-danger">تمام‌شده</span>{% endif %}</td>
+          <td class="text-xs text-muted-foreground">{{ s.started_at|jdate }}</td>
+          <td class="text-xs">{{ s.ends_at|jdate }}</td>
+        </tr>{% endfor %}</tbody>
+      {% else %}
+      <thead><tr><th>کاربر</th><th>{% if view == 'transactions' %}پلن{% else %}بسته{% endif %}</th><th><button type="button" class="sort-btn" data-sort="amount">مبلغ<i data-icon="chevron-up"></i></button></th><th>وضعیت</th><th>کد پیگیری</th><th><button type="button" class="sort-btn" data-sort="at">زمان<i data-icon="chevron-up"></i></button></th></tr></thead>
+      <tbody>{% for t in page_obj.object_list %}
+        <tr data-sort-amount="{{ t.amount }}" data-sort-at="{{ t.created_at|date:'U' }}">
+          <td><a class="hover:underline" href="{% url 'admin:core_user_detail' t.user_id %}">{{ t.user.name|default:'—' }}</a><p class="text-xs text-muted-foreground" dir="ltr">{{ t.user.phone|fa }}</p></td>
+          <td>{% if view == 'transactions' %}{{ t.plan.name }}{% else %}{{ t.pack.name }}{% endif %}</td>
+          <td class="tabular font-semibold">{{ t.amount|toman }}</td>
+          <td>{% include 'staffpanel/_parts/pay_badge.html' with s=t.status %}</td>
+          <td class="file-code">{{ t.track_id }}</td>
+          <td class="text-xs text-muted-foreground">{{ t.created_at|jdatetime }}</td>
+        </tr>{% endfor %}</tbody>
+      {% endif %}
+    </table>
+  </div>
+  {% include 'staffpanel/_parts/empty.html' with hidden=1 icon='wallet' %}
+  {% else %}{% include 'staffpanel/_parts/empty.html' with icon='wallet' text='موردی نیست' %}{% endif %}
+  {% include 'staffpanel/_parts/pager.html' %}
+</section>
+{% endblock %}

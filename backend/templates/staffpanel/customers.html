@@ -1,0 +1,67 @@
+{% extends 'staffpanel/base.html' %}{% load panel %}
+{% block breadcrumb %}{% if business %}<i data-icon="chevron-left" class="size-3"></i><a href="{% url 'staffpanel:business_detail' business.pk %}">{{ business.title }}</a>{% endif %}<i data-icon="chevron-left" class="size-3"></i><span class="text-foreground">مشتریان</span>{% endblock %}
+{% block subtitle %}<p class="mt-1.5 text-sm text-muted-foreground">{% if business %}مشتریانی که دست‌کم یک نوبت در این کسب‌وکار داشته‌اند.{% else %}همه‌ی مشتریان نوبت‌یار — یک پرونده برای هر شماره موبایل.{% endif %} جستجو با نام، موبایل یا شماره پرونده (مثل C-000123).</p>{% endblock %}
+{% block actions %}
+  {% if business %}<a href="{% url 'staffpanel:customers' %}" class="btn btn-outline"><i data-icon="users" class="size-4"></i>همه‌ی مشتریان</a>{% endif %}
+  <a href="{% url 'admin:visitor_visitor_changelist' %}" class="btn btn-outline"><i data-icon="external" class="size-4"></i>در ادمین</a>
+{% endblock %}
+{% block content %}
+<section class="card reveal overflow-hidden" data-server-table>
+  <div class="flex flex-col gap-3 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+    <div class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 xl:pb-0" role="toolbar" aria-label="وضعیت پرونده">
+      {% for key, label, count in tabs %}
+        <a class="chip" href="{% qs tab=key %}" aria-pressed="{% if key == tab %}true{% else %}false{% endif %}">{{ label }}<span class="chip-count">{{ count|fa }}</span></a>
+      {% endfor %}
+    </div>
+    <form method="get" class="flex items-center gap-2">
+      {% if business %}<input type="hidden" name="business" value="{{ business.pk }}">{% endif %}
+      <input type="hidden" name="tab" value="{{ tab }}">
+      <select name="source" class="input w-36" aria-label="منبع نوبت" onchange="this.form.submit()">
+        <option value="">همه‌ی منابع</option>
+        {% for code, label in sources %}<option value="{{ code }}"{% if code == source %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <div class="input-wrap flex-1 lg:w-72">
+        <i data-icon="search"></i>
+        <input type="search" name="q" value="{{ q }}" class="input" placeholder="موبایل، نام یا شماره پرونده…" data-live-filter aria-label="جستجو">
+      </div>
+    </form>
+  </div>
+
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      <thead><tr>
+        <th><button type="button" class="sort-btn" data-sort="name">مشتری<i data-icon="chevron-up"></i></button></th>
+        <th><button type="button" class="sort-btn" data-sort="code">پرونده<i data-icon="chevron-up"></i></button></th>
+        <th>موبایل</th>
+        <th>{% if business %}آخرین وضعیت{% else %}آخرین کسب‌وکار{% endif %}</th>
+        <th><button type="button" class="sort-btn" data-sort="last">آخرین نوبت<i data-icon="chevron-up"></i></button></th>
+        <th><button type="button" class="sort-btn" data-sort="count">نوبت‌ها<i data-icon="chevron-up"></i></button></th>
+        <th>منبع</th>
+        <th><span class="sr-only">پرونده</span></th>
+      </tr></thead>
+      <tbody>
+      {% for v in page_obj.object_list %}
+        <tr data-q="{{ v.full_name }} {{ v.phone_number }} {{ v.pk|file_code }}" data-sort-name="{{ v.full_name }}" data-sort-code="{{ v.pk }}" data-sort-last="{{ v.last_at|date:'U' }}" data-sort-count="{{ v.appointment_count }}">
+          <td><a href="{% url 'staffpanel:customer_detail' v.pk %}{% if business %}?business={{ business.pk }}{% endif %}" class="flex items-center gap-3">
+            <span class="avatar size-9 text-sm" style="background:hsl(var(--chart-{{ v.full_name|tone }}) / .14);color:hsl(var(--chart-{{ v.full_name|tone }}))">{{ v.full_name|initial }}</span>
+            <span><span class="block font-semibold">{{ v.full_name|default:'بی‌نام' }}</span>
+              {% if v.has_active %}<span class="badge badge-primary">نوبت پیش رو</span>{% elif v.marketing_opt_out %}<span class="badge badge-muted">لغو پیامک تبلیغاتی</span>{% endif %}</span>
+          </a></td>
+          <td><span class="file-code">{{ v.pk|file_code }}</span></td>
+          <td><a href="tel:{{ v.phone_number }}" class="tabular hover:underline" dir="ltr">{{ v.phone_number|fa }}</a></td>
+          <td class="text-sm">{% if business %}{{ status_labels|get:v.last_status|default:'—' }}{% else %}{{ v.last_business|default:'—' }}{% endif %}</td>
+          <td class="text-xs text-muted-foreground">{{ v.last_at|jdate }}</td>
+          <td class="tabular">{{ v.appointment_count|fa }}{% if v.completed_count %} <span class="text-xs text-muted-foreground">({{ v.completed_count|fa }} انجام)</span>{% endif %}</td>
+          <td>{% if v.last_source %}<span class="src-chip src-{{ v.last_source }}">{{ source_labels|get:v.last_source }}</span>{% else %}—{% endif %}</td>
+          <td class="text-end"><a href="{% url 'staffpanel:customer_detail' v.pk %}{% if business %}?business={{ business.pk }}{% endif %}" class="btn-icon" aria-label="باز کردن پرونده"><i data-icon="chevron-left" class="size-4"></i></a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'staffpanel/_parts/empty.html' with hidden=1 icon='users' text='در این صفحه پیدا نشد؛ Enter بزنید تا در همه جستجو شود.' %}
+  {% else %}{% include 'staffpanel/_parts/empty.html' with icon='users' text='مشتری‌ای پیدا نشد' %}{% endif %}
+  {% include 'staffpanel/_parts/pager.html' %}
+</section>
+{% endblock %}

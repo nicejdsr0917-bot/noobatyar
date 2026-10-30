@@ -1,0 +1,13 @@
+{% load panel %}<li class="overflow-hidden rounded-xl border bg-card {% if not bn.is_active %}opacity-60{% endif %}">
+  <a href="{{ bn.image.url }}" target="_blank" rel="noopener" class="block aspect-[3/1] overflow-hidden bg-muted"><img src="{{ bn.image.url }}" alt="" loading="lazy" class="size-full object-cover transition-transform duration-700 hover:scale-105"></a>
+  <div class="flex items-center gap-2 p-3 text-xs">
+    <span class="badge {% if bn.is_active %}badge-primary{% else %}badge-muted{% endif %}">{% if bn.is_active %}فعال{% else %}خاموش{% endif %}</span>
+    <span class="text-muted-foreground">{{ bn.target_label }} · ترتیب {{ bn.order|fa }}</span>
+    {% if bn.starts_at or bn.ends_at %}<span class="text-muted-foreground">· {{ bn.starts_at|jdate }} تا {{ bn.ends_at|jdate }}</span>{% endif %}
+    {% if can_change %}
+    <form method="post" action="{% url 'staffpanel:banner_toggle' bn.pk %}" class="ms-auto">{% csrf_token %}
+      <button class="btn btn-outline h-8 px-2.5 text-xs">{% if bn.is_active %}خاموش کن{% else %}روشن کن{% endif %}</button></form>
+    <a href="{% url 'admin:banners_banner_change' bn.pk %}" class="btn-icon size-8" title="ویرایش در ادمین"><i data-icon="edit" class="size-4"></i></a>
+    {% endif %}
+  </div>
+</li>

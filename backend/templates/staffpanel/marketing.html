@@ -1,0 +1,72 @@
+{% extends 'staffpanel/base.html' %}{% load panel %}
+{% block subtitle %}<p class="mt-1.5 text-sm text-muted-foreground">مراکز ثبت‌نشده‌ای که با تماس جذب می‌کنیم. «تماس امروز» یعنی پیگیری امروز یا عقب‌افتاده‌ای که هنوز بسته نشده.</p>{% endblock %}
+{% block actions %}
+  <a href="{% qs mine=mine|yesno:',1' %}" class="btn btn-outline">{% if mine %}همه‌ی کارشناسان{% else %}فقط مال من{% endif %}</a>
+  <a href="{% url 'admin:marketing_marketinglead_add' %}" class="btn btn-primary" data-ripple><i data-icon="plus" class="size-4"></i>مرکز جدید</a>
+{% endblock %}
+{% block content %}
+<section class="card reveal overflow-hidden" data-server-table>
+  {% include 'staffpanel/_parts/toolbar.html' with chips=tabs current=tab param='tab' placeholder='نام مرکز، تلفن یا شهر' %}
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      <thead><tr>
+        <th><button type="button" class="sort-btn" data-sort="title">مرکز<i data-icon="chevron-up"></i></button></th>
+        <th>تلفن</th><th>وضعیت</th>
+        <th><button type="button" class="sort-btn" data-sort="due">پیگیری<i data-icon="chevron-up"></i></button></th>
+        <th>آخرین یادداشت</th><th>کارشناس</th><th><span class="sr-only">عملیات</span></th>
+      </tr></thead>
+      <tbody>
+      {% for lead in page_obj.object_list %}{% with b=lead.business notes=lead.notes.all %}
+        <tr data-sort-title="{{ b.title }}" data-sort-due="{{ lead.next_follow_up|date:'U'|default:'9999999999' }}">
+          <td><a href="{% url 'staffpanel:business_detail' b.pk %}" class="font-semibold hover:underline">{{ b.title }}</a><p class="text-xs text-muted-foreground">{{ b.get_category_display }}{% if b.city %} · {{ b.city }}{% endif %}</p></td>
+          <td><a href="tel:{{ b.phone }}" class="btn btn-outline h-8 px-2.5 text-xs" dir="ltr"><i data-icon="phone" class="size-3.5"></i>{{ b.phone|fa }}</a></td>
+          <td><span class="badge {% if lead.status == 'JOINED' %}badge-primary{% elif lead.status == 'INTERESTED' %}badge-accent{% elif lead.status == 'NOT_INTERESTED' %}badge-muted{% elif lead.status == 'CALLED' %}badge-info{% else %}badge-warning{% endif %}">{{ lead.get_status_display }}</span></td>
+          <td class="text-xs">{% if lead.next_follow_up %}<span class="{% if lead.next_follow_up < today %}font-bold text-danger{% elif lead.next_follow_up == today %}font-bold text-warning{% else %}text-muted-foreground{% endif %}">{{ lead.next_follow_up|jdate }}</span>{% else %}—{% endif %}</td>
+          <td class="max-w-xs whitespace-normal text-xs leading-6">{% with n=notes|first %}{% if n %}{{ n.text|truncatechars:90 }}<p class="text-muted-foreground">{{ n.created_by.name|default:'' }} · {{ n.created_at|jdate }}{% if notes|length > 1 %} · {{ notes|length|fa }} یادداشت{% endif %}</p>{% else %}—{% endif %}{% endwith %}</td>
+          <td class="text-sm">{{ lead.assigned_to.name|default:'—' }}</td>
+          <td class="text-end">{% if can_change %}<button type="button" class="btn btn-primary h-9" data-call data-action="{% url 'staffpanel:lead_update' lead.pk %}" data-title="{{ b.title }}" data-status="{{ lead.status }}" data-date="{{ lead.next_follow_up|date:'Y-m-d' }}"><i data-icon="edit" class="size-4"></i>ثبت تماس</button>{% endif %}</td>
+        </tr>
+      {% endwith %}{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'staffpanel/_parts/empty.html' with hidden=1 icon='phone' %}
+  {% else %}{% include 'staffpanel/_parts/empty.html' with icon='phone' text='تماسی در این بخش نیست' %}{% endif %}
+  {% include 'staffpanel/_parts/pager.html' %}
+</section>
+{% endblock %}
+{% block modals %}
+<div class="modal-root" data-open="false" inert id="call-modal" role="dialog" aria-modal="true" aria-labelledby="call-title">
+  <div class="overlay" data-close></div>
+  <form method="post" class="modal p-6">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <div class="flex items-start justify-between"><div><h2 id="call-title" class="text-lg font-bold" data-call-title>ثبت تماس</h2><p class="text-sm text-muted-foreground">نتیجه‌ی تماس و قرار بعدی</p></div><button type="button" class="btn-icon" data-close aria-label="بستن"><i data-icon="x" class="size-5"></i></button></div>
+    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+      <div class="field"><label class="label" for="call-status">وضعیت</label>
+        <select name="status" id="call-status" class="input">{% for code, label in statuses %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
+      <div class="field"><label class="label" for="call-date">پیگیری بعدی</label><input type="date" name="next_follow_up" id="call-date" class="input" dir="ltr"><p class="hint">برای «عضو شد» و «علاقه ندارد» پاک می‌شود.</p></div>
+      <div class="field sm:col-span-2"><label class="label" for="call-note">یادداشت تماس</label><textarea name="note" id="call-note" rows="3" class="input h-auto py-2.5 leading-7" data-autofocus></textarea></div>
+    </div>
+    <div class="mt-6 flex justify-end gap-2"><button type="button" class="btn btn-outline" data-close>انصراف</button><button type="submit" class="btn btn-primary">ذخیره</button></div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    const modal = Nava.ui.overlay('call-modal');
+    const form = modal.root.querySelector('form');
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-call]');
+      if (!btn) return;
+      form.action = btn.dataset.action;
+      modal.root.querySelector('[data-call-title]').textContent = btn.dataset.title;
+      form.status.value = btn.dataset.status;
+      form.next_follow_up.value = btn.dataset.date || '';
+      form.note.value = '';
+      modal.open();
+    });
+  })();
+</script>
+{% endblock %}

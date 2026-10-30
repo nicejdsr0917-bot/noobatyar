@@ -1,0 +1,76 @@
+{% extends 'staffpanel/base.html' %}{% load panel %}
+{% block subtitle %}<p class="mt-1.5 text-sm text-muted-foreground">عکس‌هایی که مالک‌ها بارگذاری کرده‌اند تا تأیید نشوند عمومی دیده نمی‌شوند.</p>{% endblock %}
+{% block content %}
+<nav class="tabs reveal" data-tabs role="tablist" aria-label="نوع">
+  {% for k, label, count in kinds %}
+    <a role="tab" href="?kind={{ k }}" aria-selected="{% if k == kind %}true{% else %}false{% endif %}">{{ label }}{% if count %} <span class="badge badge-accent ms-1">{{ count|fa }}</span>{% endif %}</a>
+  {% endfor %}
+</nav>
+<section class="card reveal overflow-hidden" data-server-table>
+  <div class="flex flex-col gap-3 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+    <div class="-mx-1 flex gap-2 overflow-x-auto px-1" role="toolbar" aria-label="وضعیت">
+      {% for s, label, count in status_tabs %}
+        <a class="chip" href="?kind={{ kind }}&status={{ s }}" aria-pressed="{% if s == status %}true{% else %}false{% endif %}">{{ label }}<span class="chip-count">{{ count|fa }}</span></a>
+      {% endfor %}
+    </div>
+    <div class="input-wrap xl:w-72"><i data-icon="search"></i><input type="search" class="input" placeholder="فیلتر همین صفحه…" data-live-filter aria-label="فیلتر"></div>
+  </div>
+  {% if can_decide %}
+  <div class="flex flex-wrap items-center gap-2 border-t bg-accent/5 px-4 py-2.5 sm:px-5" data-bulk hidden>
+    <p class="text-sm"><span class="font-bold" data-bulk-count>۰</span> انتخاب شده</p>
+    <form method="post" action="{% url 'staffpanel:showcase_bulk' kind %}" class="ms-auto">{% csrf_token %}
+      <input type="hidden" name="ids"><input type="hidden" name="decision" value="approve"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button class="btn btn-primary h-9" data-ripple><i data-icon="check" class="size-4"></i>تأیید گروهی</button>
+    </form>
+    <button type="button" class="btn btn-outline h-9 text-danger" data-reason data-action="{% url 'staffpanel:showcase_bulk' kind %}" data-field-decision="reject" data-title="رد گروهی {{ kind_label }}" data-hint="این دلیل به مالک نشان داده می‌شود." data-submit="رد همه"><i data-icon="x" class="size-4"></i>رد گروهی</button>
+  </div>
+  {% endif %}
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      <thead><tr>
+        {% if can_decide %}<th class="w-10"><input type="checkbox" class="checkbox" data-select-all aria-label="انتخاب همه"></th>{% endif %}
+        <th>عکس</th>
+        <th><button type="button" class="sort-btn" data-sort="biz">کسب‌وکار<i data-icon="chevron-up"></i></button></th>
+        <th>{% if kind == 'portfolio' %}توضیح{% else %}عنوان مدرک{% endif %}</th>
+        <th><button type="button" class="sort-btn" data-sort="at">زمان<i data-icon="chevron-up"></i></button></th>
+        <th><span class="sr-only">عملیات</span></th>
+      </tr></thead>
+      <tbody>
+      {% for item in page_obj.object_list %}
+        <tr data-sort-biz="{{ item.business.title }}" data-sort-at="{{ forloop.counter }}">
+          {% if can_decide %}<td><input type="checkbox" class="checkbox" data-select value="{{ item.pk }}" aria-label="انتخاب"></td>{% endif %}
+          <td><a href="{{ item.image.url }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg ring-1 ring-border"><img src="{% if item.thumbnail %}{{ item.thumbnail.url }}{% else %}{{ item.image.url }}{% endif %}" alt="" loading="lazy" class="h-24 w-32 object-cover transition-transform duration-500 hover:scale-105"></a></td>
+          <td><a href="{% url 'staffpanel:business_detail' item.business_id %}" class="font-semibold hover:underline">{{ item.business.title }}</a>
+            <p class="text-xs text-muted-foreground">{{ item.business.get_category_display }}</p></td>
+          <td class="max-w-xs whitespace-normal text-sm">
+            {% if kind == 'portfolio' %}{{ item.caption|default:'—' }}{% else %}<p class="font-medium">{{ item.title }}</p><p class="text-xs text-muted-foreground">{{ item.issuer|default:'' }}{% if item.year %} · {{ item.year|fa }}{% endif %}</p>{% endif %}
+            {% if item.reject_reason %}<p class="mt-1 text-xs text-danger">دلیل رد: {{ item.reject_reason }}</p>{% endif %}
+          </td>
+          <td class="text-xs text-muted-foreground">{{ item.created_at|jdatetime }}{% if item.reviewed_by %}<br>بررسی: {{ item.reviewed_by.name }}{% endif %}</td>
+          <td>
+            {% if can_decide %}
+            <div class="flex items-center justify-end gap-1.5">
+              {% if item.status != 'APPROVED' %}
+              <form method="post" action="{% url 'staffpanel:showcase_decide' kind item.pk %}">{% csrf_token %}
+                <input type="hidden" name="decision" value="approve"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn btn-primary h-9" data-ripple><i data-icon="check" class="size-4"></i>تأیید</button>
+              </form>{% endif %}
+              {% if item.status != 'REJECTED' %}
+              <button type="button" class="btn btn-outline h-9 text-danger" data-reason data-action="{% url 'staffpanel:showcase_decide' kind item.pk %}" data-field-decision="reject" data-title="رد {{ kind_label }}" data-hint="دلیل به مالک نشان داده می‌شود." data-submit="رد کن"><i data-icon="x" class="size-4"></i>رد</button>{% endif %}
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'staffpanel/_parts/empty.html' with hidden=1 %}
+  {% else %}
+    {% include 'staffpanel/_parts/empty.html' with icon='image' text='موردی در این وضعیت نیست.' %}
+  {% endif %}
+  {% include 'staffpanel/_parts/pager.html' %}
+</section>
+{% endblock %}
+{% block modals %}{% include 'staffpanel/_parts/reason_modal.html' %}{% endblock %}

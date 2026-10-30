@@ -1,0 +1,4 @@
+<div class="{% if hidden %}hidden{% else %}flex{% endif %} flex-col items-center gap-3 py-16 text-center" {% if hidden %}data-empty{% endif %}>
+  <span class="mx-auto grid size-14 place-items-center rounded-2xl bg-muted text-muted-foreground"><i data-icon="{{ icon|default:'inbox' }}" class="size-6"></i></span>
+  <p class="font-semibold">{{ text|default:'موردی پیدا نشد' }}</p>
+</div>

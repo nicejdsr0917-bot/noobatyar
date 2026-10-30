@@ -1,0 +1,75 @@
+{% extends 'staffpanel/base.html' %}{% load panel %}
+{% block subtitle %}<p class="mt-1.5 text-sm text-muted-foreground">گزارش پیامک‌ها و سابقه‌ی کمپین‌ها. ارسال کمپین از صفحه‌های ادمین انجام می‌شود.</p>{% endblock %}
+{% block actions %}
+  <a href="{% url 'admin:visitor_smslog_report' %}" class="btn btn-outline"><i data-icon="bar-chart" class="size-4"></i>گزارش پیامک</a>
+  {% if can_segment %}<a href="{% url 'admin:core_segment_builder' %}" class="btn btn-outline"><i data-icon="filter" class="size-4"></i>گروه مخاطب</a>{% endif %}
+  {% if can_campaign %}<a href="{% url 'admin:core_campaigns' %}" class="btn btn-primary" data-ripple><i data-icon="send" class="size-4"></i>کمپین جدید</a>{% endif %}
+{% endblock %}
+{% block content %}
+{% if counts %}
+<section class="grid grid-cols-2 gap-4 xl:grid-cols-4">
+  <article class="card reveal flex items-center gap-4 p-4"><span class="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary"><i data-icon="message" class="size-5"></i></span><div><p class="text-xs text-muted-foreground">کل</p><p class="text-xl font-extrabold tabular" data-to="{{ counts.all }}">۰</p></div></article>
+  <article class="card reveal flex items-center gap-4 p-4" style="--delay:70ms"><span class="grid size-11 place-items-center rounded-xl bg-accent/10 text-accent"><i data-icon="check" class="size-5"></i></span><div><p class="text-xs text-muted-foreground">ارسال‌شده</p><p class="text-xl font-extrabold tabular" data-to="{{ counts.sent }}">۰</p></div></article>
+  <article class="card reveal flex items-center gap-4 p-4" style="--delay:140ms"><span class="grid size-11 place-items-center rounded-xl bg-danger/10 text-danger"><i data-icon="x" class="size-5"></i></span><div><p class="text-xs text-muted-foreground">ناموفق</p><p class="text-xl font-extrabold tabular" data-to="{{ counts.failed }}">۰</p></div></article>
+  <article class="card reveal flex items-center gap-4 p-4" style="--delay:210ms"><span class="grid size-11 place-items-center rounded-xl bg-warning/15 text-warning"><i data-icon="alert" class="size-5"></i></span><div><p class="text-xs text-muted-foreground">بدون اعتبار</p><p class="text-xl font-extrabold tabular" data-to="{{ counts.skipped }}">۰</p></div></article>
+</section>
+{% endif %}
+<nav class="tabs reveal" data-tabs role="tablist" aria-label="بخش">
+  {% for k, label in views %}<a role="tab" href="?view={{ k }}" aria-selected="{% if k == view %}true{% else %}false{% endif %}">{{ label }}</a>{% endfor %}
+</nav>
+<section class="card reveal overflow-hidden" data-server-table>
+  <div class="flex flex-col gap-3 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+    <div class="-mx-1 flex gap-2 overflow-x-auto px-1" role="toolbar">
+      {% if view == 'logs' %}{% for code, label in statuses %}<a class="chip" href="{% qs status=code %}" aria-pressed="{% if code == status %}true{% else %}false{% endif %}">{{ label }}</a>{% endfor %}{% endif %}
+    </div>
+    <form method="get" class="flex items-center gap-2"><input type="hidden" name="view" value="{{ view }}">{% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+      <div class="input-wrap lg:w-72"><i data-icon="search"></i><input type="search" name="q" value="{{ q }}" class="input" placeholder="شماره، کسب‌وکار یا متن" data-live-filter aria-label="جستجو"></div></form>
+  </div>
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="data-table">
+    {% if view == 'logs' %}
+      <thead><tr><th>زمان</th><th>کسب‌وکار</th><th>گیرنده</th><th>متن</th><th>وضعیت</th></tr></thead>
+      <tbody>{% for m in page_obj.object_list %}<tr>
+        <td class="text-xs text-muted-foreground">{{ m.sent_at|jdatetime }}</td>
+        <td><a class="hover:underline" href="{% url 'staffpanel:business_detail' m.business_id %}">{{ m.business.title }}</a></td>
+        <td>{% if m.visitor %}<a class="hover:underline" href="{% url 'staffpanel:customer_detail' m.visitor_id %}">{{ m.visitor.full_name }}</a><p class="text-xs text-muted-foreground" dir="ltr">{{ m.visitor.phone_number|fa }}</p>{% else %}<span class="text-xs text-muted-foreground">مالک</span>{% endif %}</td>
+        <td class="max-w-md whitespace-normal text-xs leading-6">{{ m.message_text|truncatechars:160 }}{% if m.error_detail %}<p class="text-danger">{{ m.error_detail|truncatechars:80 }}</p>{% endif %}</td>
+        <td><span class="badge {% if m.status == 'SENT' %}badge-primary{% elif m.status == 'FAILED' %}badge-danger{% else %}badge-warning{% endif %}">{% if m.status == 'SENT' %}ارسال‌شده{% elif m.status == 'FAILED' %}ناموفق{% else %}بدون اعتبار{% endif %}</span></td>
+      </tr>{% endfor %}</tbody>
+    {% elif view == 'push' %}
+      <thead><tr><th>زمان</th><th>مخاطب</th><th>عنوان و متن</th><th>واجد شرایط</th><th>رسیده</th><th>ناموفق</th><th>فرستنده</th></tr></thead>
+      <tbody>{% for p in page_obj.object_list %}<tr>
+        <td class="text-xs text-muted-foreground">{{ p.sent_at|jdatetime }}</td>
+        <td><span class="badge badge-info">{{ p.get_audience_display }}</span></td>
+        <td class="max-w-md whitespace-normal text-xs leading-6"><p class="font-semibold">{{ p.title }}</p>{{ p.body|truncatechars:120 }}</td>
+        <td class="tabular">{{ p.recipient_count|fa }}</td><td class="tabular">{{ p.delivered_count|fa }}</td><td class="tabular">{{ p.failed_count|fa }}</td>
+        <td class="text-sm">{{ p.sent_by.name|default:'—' }}</td>
+      </tr>{% endfor %}</tbody>
+    {% elif view == 'expiry' %}
+      <thead><tr><th>زمان</th><th>نوع</th><th>متن</th><th>واجد شرایط</th><th>ارسال</th><th>ناموفق</th><th>فرستنده</th></tr></thead>
+      <tbody>{% for e in page_obj.object_list %}<tr>
+        <td class="text-xs text-muted-foreground">{{ e.sent_at|jdatetime }}</td>
+        <td><span class="badge badge-muted">{{ e.get_source_display }}</span></td>
+        <td class="max-w-md whitespace-normal text-xs leading-6">{{ e.message|truncatechars:140 }}</td>
+        <td class="tabular">{{ e.matched_count|fa }}</td><td class="tabular">{{ e.sent_count|fa }}</td><td class="tabular">{{ e.failed_count|fa }}</td>
+        <td class="text-sm">{{ e.sent_by.name|default:'خودکار' }}</td>
+      </tr>{% endfor %}</tbody>
+    {% else %}
+      <thead><tr><th>زمان</th><th>کسب‌وکار</th><th>کانال</th><th>متن</th><th>وضعیت</th><th>فرستنده</th></tr></thead>
+      <tbody>{% for a in page_obj.object_list %}<tr>
+        <td class="text-xs text-muted-foreground">{{ a.sent_at|jdatetime }}</td>
+        <td><a class="hover:underline" href="{% url 'staffpanel:business_detail' a.business_id %}">{{ a.business.title }}</a></td>
+        <td><span class="badge badge-info">{{ a.get_channel_display }}</span></td>
+        <td class="max-w-md whitespace-normal text-xs leading-6">{% if a.title %}<p class="font-semibold">{{ a.title }}</p>{% endif %}{{ a.body|truncatechars:140 }}</td>
+        <td><span class="badge {% if a.status == 'SENT' %}badge-primary{% else %}badge-danger{% endif %}">{{ a.get_status_display }}</span></td>
+        <td class="text-sm">{{ a.sent_by.name|default:'—' }}</td>
+      </tr>{% endfor %}</tbody>
+    {% endif %}
+    </table>
+  </div>
+  {% include 'staffpanel/_parts/empty.html' with hidden=1 icon='message' %}
+  {% else %}{% include 'staffpanel/_parts/empty.html' with icon='message' text='موردی نیست' %}{% endif %}
+  {% include 'staffpanel/_parts/pager.html' %}
+</section>
+{% endblock %}

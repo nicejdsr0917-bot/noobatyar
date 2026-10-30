@@ -1,0 +1,44 @@
+{% extends 'staffpanel/base.html' %}{% load panel %}
+{% block subtitle %}<p class="mt-1.5 text-sm text-muted-foreground">همه‌ی کسب‌وکارها، ثبت‌نامی یا از بانک اطلاعات. جستجو با نام، تلفن، موبایل مالک، شهر یا کد صفحه.</p>{% endblock %}
+{% block actions %}<a href="{% url 'admin:business_business_changelist' %}" class="btn btn-outline"><i data-icon="external" class="size-4"></i>در ادمین</a>{% endblock %}
+{% block content %}
+<section class="card reveal overflow-hidden" data-server-table>
+  {% include 'staffpanel/_parts/toolbar.html' with chips=tabs current=tab param='tab' placeholder='نام، تلفن، موبایل مالک، شهر…' %}
+  <div class="-mt-2 flex flex-wrap items-center gap-1.5 px-4 pb-3 text-xs sm:px-5">
+    <span class="text-muted-foreground">نوع:</span>
+    <a class="chip" href="{% qs owner=None %}" aria-pressed="{% if not owner %}true{% else %}false{% endif %}">همه</a>
+    <a class="chip" href="{% qs owner='claimed' %}" aria-pressed="{% if owner == 'claimed' %}true{% else %}false{% endif %}">ثبت‌نامی</a>
+    <a class="chip" href="{% qs owner='directory' %}" aria-pressed="{% if owner == 'directory' %}true{% else %}false{% endif %}">بانک اطلاعات</a>
+  </div>
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      <thead><tr>
+        <th><button type="button" class="sort-btn" data-sort="title">کسب‌وکار<i data-icon="chevron-up"></i></button></th>
+        <th>مالک</th><th>شهر</th><th>وضعیت</th>
+        <th><button type="button" class="sort-btn" data-sort="rating">امتیاز<i data-icon="chevron-up"></i></button></th>
+        <th><button type="button" class="sort-btn" data-sort="at">ثبت<i data-icon="chevron-up"></i></button></th>
+        <th><span class="sr-only">باز کردن</span></th>
+      </tr></thead>
+      <tbody>
+      {% for b in page_obj.object_list %}
+        <tr data-sort-title="{{ b.title }}" data-sort-rating="{{ b.rating_avg }}" data-sort-at="{{ b.created_at|date:'U' }}">
+          <td><a href="{% url 'staffpanel:business_detail' b.pk %}" class="flex items-center gap-3">
+            {% if b.logo %}<img src="{{ b.logo.url }}" alt="" loading="lazy" class="size-9 rounded-lg object-cover">{% else %}<span class="avatar size-9 rounded-lg text-sm" style="background:hsl(var(--chart-{{ b.title|tone }}) / .14);color:hsl(var(--chart-{{ b.title|tone }}))">{{ b.title|initial }}</span>{% endif %}
+            <span><span class="block font-semibold">{{ b.title }}</span><span class="text-xs text-muted-foreground">{{ b.get_category_display }}</span></span></a></td>
+          <td class="text-sm">{% if b.is_claimed %}{{ b.user.name|default:'—' }}<p class="text-xs text-muted-foreground" dir="ltr">{{ b.user.phone|fa }}</p>{% else %}<span class="badge badge-muted">بانک اطلاعات</span>{% endif %}</td>
+          <td class="text-sm">{{ b.city|default:'—' }}</td>
+          <td>{% include 'staffpanel/_parts/mod_badge.html' with s=b.moderation_status %}{% if b.is_locked %} <span class="badge badge-muted">قفل</span>{% endif %}</td>
+          <td class="tabular text-sm">{% if b.rating_count %}{{ b.rating_avg|fa }}★ <span class="text-xs text-muted-foreground">({{ b.rating_count|fa }})</span>{% else %}—{% endif %}</td>
+          <td class="text-xs text-muted-foreground">{{ b.created_at|jdate }}</td>
+          <td class="text-end"><a href="{% url 'staffpanel:business_detail' b.pk %}" class="btn-icon" aria-label="جزئیات"><i data-icon="chevron-left" class="size-4"></i></a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'staffpanel/_parts/empty.html' with hidden=1 icon='building' %}
+  {% else %}{% include 'staffpanel/_parts/empty.html' with icon='building' text='کسب‌وکاری پیدا نشد' %}{% endif %}
+  {% include 'staffpanel/_parts/pager.html' %}
+</section>
+{% endblock %}

@@ -61,6 +61,21 @@ def recompute_summary(business_id):
     transaction.on_commit(lambda: public_cache.bump_business(business_id))
 
 
+def set_hidden(reviews, hidden, reason=''):
+    """Hide or show a queryset of reviews (staff moderation) and refresh each
+    affected business' rating summary. Returns the number of rows updated.
+
+    Shared by the admin actions and the staff panel."""
+    business_ids = set(reviews.values_list('business_id', flat=True))
+    count = reviews.update(
+        is_hidden=hidden,
+        hidden_reason=(reason.strip()[:255] or 'hidden by admin') if hidden else '',
+    )
+    for business_id in business_ids:
+        recompute_summary(business_id)
+    return count
+
+
 def _latest_completed_appointment(business_id, visitor_id):
     from appointment.models import Appointment
     return (Appointment.objects

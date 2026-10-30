@@ -1,0 +1,51 @@
+{% extends 'staffpanel/base.html' %}{% load panel %}
+{% block subtitle %}<p class="mt-1.5 text-sm text-muted-foreground">نظر مخفی از صفحه‌ی عمومی و میانگین امتیاز کنار می‌رود؛ مالک همچنان آن را می‌بیند.</p>{% endblock %}
+{% block content %}
+<section class="card reveal overflow-hidden" data-server-table>
+  {% include 'staffpanel/_parts/toolbar.html' with chips=tabs current=tab param='tab' placeholder='کسب‌وکار، مشتری، شماره یا متن — Enter برای همه' %}
+  <div class="-mt-2 flex flex-wrap items-center gap-1.5 px-4 pb-3 text-xs sm:px-5">
+    <span class="text-muted-foreground">امتیاز:</span>
+    <a class="chip" href="{% qs rating=None %}" aria-pressed="{% if not rating %}true{% else %}false{% endif %}">همه</a>
+    {% for r in '54321' %}<a class="chip" href="{% qs rating=r %}" aria-pressed="{% if rating == r %}true{% else %}false{% endif %}">{{ r|fa }}★</a>{% endfor %}
+  </div>
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      <thead><tr>
+        <th><button type="button" class="sort-btn" data-sort="rating">امتیاز<i data-icon="chevron-up"></i></button></th>
+        <th>نظر</th>
+        <th><button type="button" class="sort-btn" data-sort="biz">کسب‌وکار<i data-icon="chevron-up"></i></button></th>
+        <th>مشتری</th>
+        <th><button type="button" class="sort-btn" data-sort="at">تاریخ<i data-icon="chevron-up"></i></button></th>
+        <th><span class="sr-only">عملیات</span></th>
+      </tr></thead>
+      <tbody>
+      {% for r in page_obj.object_list %}
+        <tr data-sort-rating="{{ r.rating }}" data-sort-biz="{{ r.business.title }}" data-sort-at="{{ r.created_at|date:'U' }}" class="{% if r.is_hidden %}opacity-60{% endif %}">
+          <td><span class="inline-flex items-center gap-1 font-bold text-warning"><i data-icon="star" class="size-4"></i>{{ r.rating|fa }}</span></td>
+          <td class="max-w-md whitespace-normal text-sm leading-7">{{ r.text|default:'—'|truncatechars:240 }}
+            <div class="mt-1 flex flex-wrap gap-1">{% if r.is_hidden %}<span class="badge badge-muted">مخفی{% if r.hidden_reason %}: {{ r.hidden_reason|truncatechars:40 }}{% endif %}</span>{% endif %}{% if r.is_reported %}<span class="badge badge-danger">گزارش باز</span>{% endif %}</div></td>
+          <td><a href="{% url 'staffpanel:business_detail' r.business_id %}" class="hover:underline">{{ r.business.title }}</a></td>
+          <td><a href="{% url 'staffpanel:customer_detail' r.visitor_id %}" class="hover:underline">{{ r.visitor.full_name }}</a><p class="file-code">{{ r.visitor_id|file_code }}</p></td>
+          <td class="text-xs text-muted-foreground">{{ r.created_at|jdate }}</td>
+          <td class="text-end">
+            {% if can_change %}
+              {% if r.is_hidden %}
+                <form method="post" action="{% url 'staffpanel:review_visibility' r.pk %}">{% csrf_token %}<input type="hidden" name="hidden" value="0"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button class="btn btn-outline h-9"><i data-icon="eye" class="size-4"></i>نمایش</button></form>
+              {% else %}
+                <button type="button" class="btn btn-outline h-9 text-danger" data-reason data-action="{% url 'staffpanel:review_visibility' r.pk %}" data-field-hidden="1" data-title="مخفی کردن نظر" data-hint="دلیل فقط برای سابقه‌ی پشتیبانی ثبت می‌شود." data-submit="مخفی کن"><i data-icon="eye-off" class="size-4"></i>مخفی</button>
+              {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'staffpanel/_parts/empty.html' with hidden=1 %}
+  {% else %}{% include 'staffpanel/_parts/empty.html' with icon='star' text='نظری پیدا نشد' %}{% endif %}
+  {% include 'staffpanel/_parts/pager.html' %}
+</section>
+{% endblock %}
+{% block modals %}{% include 'staffpanel/_parts/reason_modal.html' %}{% endblock %}

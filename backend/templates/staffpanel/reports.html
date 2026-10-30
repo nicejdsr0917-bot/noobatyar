@@ -1,0 +1,47 @@
+{% extends 'staffpanel/base.html' %}{% load panel %}
+{% block subtitle %}<p class="mt-1.5 text-sm text-muted-foreground">گزارش‌هایی که مردم درباره‌ی کسب‌وکار یا یک نظر فرستاده‌اند. بستن گزارش دلیل لازم دارد.</p>{% endblock %}
+{% block actions %}<a href="{% url 'admin:business_contentreport_changelist' %}" class="btn btn-outline"><i data-icon="external" class="size-4"></i>در ادمین</a>{% endblock %}
+{% block content %}
+<section class="card reveal overflow-hidden" data-server-table>
+  {% include 'staffpanel/_parts/toolbar.html' with chips=tabs current=tab param='tab' placeholder='کسب‌وکار، متن یا شماره گزارش‌دهنده' %}
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="data-table">
+      <thead><tr><th>دلیل</th><th>جزئیات</th><th><button type="button" class="sort-btn" data-sort="biz">کسب‌وکار<i data-icon="chevron-up"></i></button></th><th>گزارش‌دهنده</th><th><button type="button" class="sort-btn" data-sort="at">زمان<i data-icon="chevron-up"></i></button></th><th><span class="sr-only">عملیات</span></th></tr></thead>
+      <tbody>
+      {% for rep in page_obj.object_list %}
+        <tr data-sort-biz="{{ rep.business.title }}" data-sort-at="{{ rep.created_at|date:'U' }}">
+          <td><span class="badge {% if rep.reason == 'ILLEGAL' or rep.reason == 'IMPERSONATION' %}badge-danger{% else %}badge-warning{% endif %}">{{ rep.get_reason_display }}</span>
+            {% if rep.status != 'NEW' %}<p class="mt-1 text-[11px] text-muted-foreground">{{ rep.get_status_display }}</p>{% endif %}</td>
+          <td class="max-w-md whitespace-normal text-sm leading-7">{{ rep.detail|default:'—'|truncatechars:200 }}
+            {% if rep.review %}<div class="mt-1 rounded-lg bg-muted/60 p-2 text-xs">نظر {{ rep.review.rating|fa }}★: «{{ rep.review.text|truncatechars:120 }}»{% if rep.review.is_hidden %} <span class="badge badge-muted">مخفی</span>{% endif %}</div>{% endif %}
+            {% if rep.resolution_note %}<p class="mt-1 text-xs text-muted-foreground">رسیدگی ({{ rep.resolved_by.name|default:'—' }}): {{ rep.resolution_note|truncatechars:100 }}</p>{% endif %}</td>
+          <td><a href="{% url 'staffpanel:business_detail' rep.business_id %}" class="hover:underline">{{ rep.business.title }}</a></td>
+          <td class="text-sm">{% if rep.reporter_visitor %}<a href="{% url 'staffpanel:customer_detail' rep.reporter_visitor_id %}" class="hover:underline">{{ rep.reporter_visitor.full_name }}</a>{% elif rep.reporter_user %}{{ rep.reporter_user.name }}{% else %}<span dir="ltr">{{ rep.reporter_phone|default:'ناشناس'|fa }}</span>{% endif %}</td>
+          <td class="text-xs text-muted-foreground">{{ rep.created_at|jdatetime }}</td>
+          <td>
+            <div class="flex items-center justify-end gap-1.5">
+            {% if can_change and rep.status == 'NEW' or can_change and rep.status == 'REVIEWING' %}
+              {% if rep.status == 'NEW' %}
+              <form method="post" action="{% url 'staffpanel:report_resolve' rep.pk %}">{% csrf_token %}<input type="hidden" name="status" value="reviewing"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn btn-outline h-9" title="در حال بررسی"><i data-icon="clock" class="size-4"></i></button></form>
+              {% endif %}
+              <button type="button" class="btn btn-primary h-9" data-reason data-action="{% url 'staffpanel:report_resolve' rep.pk %}" data-field-status="actioned" data-title="اقدام شد" data-hint="بنویسید چه کاری انجام شد (تماس، تعلیق، مخفی کردن نظر…)." data-submit="ببند"><i data-icon="check" class="size-4"></i>اقدام شد</button>
+              <button type="button" class="btn btn-outline h-9" data-reason data-action="{% url 'staffpanel:report_resolve' rep.pk %}" data-field-status="dismissed" data-title="رد گزارش" data-hint="چرا این گزارش وارد نیست؟" data-submit="رد کن">رد</button>
+            {% endif %}
+            {% if rep.review and can_hide_review and not rep.review.is_hidden %}
+              <button type="button" class="btn-icon text-danger" title="مخفی کردن نظر" data-reason data-action="{% url 'staffpanel:review_visibility' rep.review_id %}" data-field-hidden="1" data-title="مخفی کردن نظر گزارش‌شده" data-submit="مخفی کن"><i data-icon="eye-off" class="size-4"></i></button>
+            {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'staffpanel/_parts/empty.html' with hidden=1 %}
+  {% else %}{% include 'staffpanel/_parts/empty.html' with icon='check-circle' text='گزارشی در این وضعیت نیست' %}{% endif %}
+  {% include 'staffpanel/_parts/pager.html' %}
+</section>
+{% endblock %}
+{% block modals %}{% include 'staffpanel/_parts/reason_modal.html' %}{% endblock %}
