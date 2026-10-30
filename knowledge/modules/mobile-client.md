@@ -42,3 +42,16 @@ tags: [gf]
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
 - کد اونری حذف شد (۱۴۷ فایل). Room بدون DAO و schema نسخهٔ 17 بدون تغییر. `ClientBusinessApi`، `ClientPreferences`، `CityCatalog`، `core/config/BrandConfig.kt`.
 - تست: `bash ./gradlew :composeApp:testLocalDebugUnitTest` (۲۴ تست). iOS: `:composeApp:compileKotlinIosSimulatorArm64`. `PushMessagingService` در manifest نیست.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
+- رزرو نیتیو در `feature/booking/` (`BookingViewModel` و `BookingScreen`): خدمت ← روز و ساعت ← OTP (فقط بار اول؛ توکن در `ClientPreferences.visitorToken`) ← تأیید ← بیعانه (آنلاین، کارت با شمارهٔ پیگیری، یا حضوری). نوبت با `source=APP` ثبت می‌شود.
+- `feature/appointments/`: تب «نوبت‌های من» با لغو (دیالوگ تأیید)، پرداخت آنلاین، ثبت واریز و پرداخت حضوری. لیست روی resume تازه می‌شود.
+- API در `data/remoteDataSource/booking/BookingApi.kt` (هدر `Visitor <token>`) و `social/` (نمونه‌کار و نظرات).
+- صفحهٔ کسب‌وکار: `BusinessSocialViewModel` گالری با واترمارک، مدارک و نظرات (ثبت، ویرایش، حذف، گزارش) را می‌آورد.
+- `first_free_slot` روی `BusinessRow` با «امروز / فردا / روز هفته» نمایش داده می‌شود.
+- نکته‌ها:
+  - `AuthPlugin` به همهٔ مسیرهای `/client/` دست نمی‌زند، تا Bearer روی هدر Visitor ننشیند.
+  - Json مقدارهای پیش‌فرض را encode نمی‌کند، پس فیلدهای اجباری نباید default داشته باشند.
+  - `SystemBackHandler` به صورت expect/actual نوشته شده (navigationevent فقط روی اندروید است).
+  - شماره کارت با `formatCardNumber` (LTR isolate) نمایش داده می‌شود.
+- ریلیز: `.github/workflows/android-release-client.yml` با تگ `client-v*.*.*`. پیش‌نیازش بخش `## client-vX.Y.Z` در CHANGELOG است.

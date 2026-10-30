@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-29
+updated: 2026-10-30
 tags: [gf]
 ---
 # Ops: سرور، دیپلوی، CI، محیط محلی
@@ -37,3 +37,9 @@ tags: [gf]
 - gunicorn: `--max-requests 2000 --max-requests-jitter 200 --keep-alive 5 --worker-tmp-dir /dev/shm`. `backend/.dockerignore` اضافه شد؛ `check_db.py` و `backend_deploy.zip` حذف شدند.
 - چک‌لیست: `docs/DEPLOY_SCALE_HARDENING.md` (در worktree). تست روی Postgres: Docker Desktop + `postgres:16-alpine` روی پورت 55432.
 - وب worktree: preview `front_client_mobile_mac` روی :3010 (3000 دست کانتینر Docker کاربر است).
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
+- workflow جدای کلاینت: `android-release-client.yml` با تگ `client-v*.*.*`. assembleProdRelease می‌سازد و از secretهای اونر استفاده می‌کند. هنوز اجرا نشده.
+- محلی:
+  - وب اونر با preview `mobile_owner_web_mobile_client_mac` روی :8081 (پورت 8080 دست Docker است).
+  - اپ اونر اندروید: `sh ./gradlew :composeApp:assembleLocalSiteDebug -PlocalBaseUrl=http://127.0.0.1:8000`، سپس `adb install` نسخهٔ arm64. اول preview وب را stop کنید.

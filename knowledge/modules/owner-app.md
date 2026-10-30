@@ -33,3 +33,9 @@ tags: [gf]
 - تست: `bash ./gradlew :composeApp:testLocalSiteDebugUnitTest` (۵۰ تست؛ هرگز allTests). JAVA_HOME از jbr اندروید استودیو و ANDROID_HOME لازم است.
 - رابط‌های `SelectedBusinessStore`، `AppPreferences`، `TokenStore` و API در Koin. `DispatcherProvider`، `runCatchingCancellable`، `AppLinks`.
 - `AppointmentRepositoryImpl.serverDayWindow`: پنجرهٔ همگام‌سازی همان روز سرور است. خروج از حساب: اول API، بعد توکن، بعد `LocalCacheCleaner`.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
+- لوگو هنگام ساخت کسب‌وکار اجباری است: `isLogoMissing` در `CreateBusinessState.kt`، و فیلد `logo_required=1` در `BusinessApiService`.
+- `feature/banner/` بنر چرخشی ۳:۱ صفحهٔ اصلی است (`/api/owner/banners/`). `feature/reviews/` صفحهٔ نظرات است؛ روی اندروید، پوش `NEW_REVIEW` به آن deep link می‌شود. `feature/showcase/` نمونه‌کار و مدارک را با `RectImageCropperDialog` و `cropImageToRect` (۱:۱ و ۴:۵) مدیریت می‌کند.
+- `source` نوبت با `SourceBadge` نشان داده می‌شود. Room نسخهٔ ۲۰ است (destructive؛ Room فقط کش است).
+- ⚠️ روی wasm هیچ‌وقت از `TimeZone.of(...)` استفاده نکنید، چون دیتابیس js-joda نیست و صفحهٔ اصلی کرش می‌کرد. `SERVER_ZONE` آفست ثابت UTC+3:30 است. تست JVM آن در `androidUnitTest/.../ServerZoneMatchesTehranTest.kt` است.

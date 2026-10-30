@@ -30,3 +30,7 @@ tags: [gf]
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
 - `lib/auth.ts` (توکن مشتری)، `apiFetch` با FormData، `getPaymentResult`، `app/components/PaymentResult.tsx`. lint باید بدون خطا باشد.
 - e2e: `npm run test:e2e` (Playwright، mock API در `e2e/` روی پورت 4187، Next روی 3187).
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
+- `app/components/ShowcaseSection.tsx` و `ReviewsSection.tsx` روی `b/[slug]` رندر می‌شوند. نمونه‌کار و صفحهٔ اول نظرات سمت سرور گرفته می‌شوند، و `aggregateRating` در JSON-LD آمده.
+- رزرو با `source: 'WEB'` ثبت می‌شود. mock-api در e2e حالا showcase و reviews را هم دارد؛ ۱۳ تست Playwright.

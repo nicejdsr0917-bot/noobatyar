@@ -31,3 +31,8 @@ tags: [gf]
 - `services/client_booking.py`: book، submit_payment، cancel، deposit_returned، با side effectها در `on_commit`. `validate_client_booking`: ساعت کاری (`working_hours.py`)، تعطیلی، زمان گذشته، مدت بین ۱ و ۴۸۰.
 - `slots.py`: `build_day_slots` و `day_bounds` (دو endpoint عمداً تفاوت دارند). `selectors_stats.py`: آمار. `services/reminders.py`: یادآوری؛ دستور management فقط حلقه است.
 - سرور روز را «تاریخ UTC ← نیمه‌شب تهران» حساب می‌کند (A3، عمداً حفظ شده چون اپ اونر تقلیدش می‌کند).
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
+- `slots.py`: توابع `first_free_window(now)` و `first_free_slot_ms(business, now, busy=None)` اضافه شدند. همان قواعد grid و occupancy صفحهٔ available-slots را دارند و در ۷ روز آینده می‌گردند.
+- `cache_utils.invalidate_slots_cache` حالا `first_free_slot_key(business_id)` را هم پاک می‌کند.
+- `Appointment.source` مقدارهای WEB، APP، OWNER و UNKNOWN را دارد. پیش‌فرض سرور برای رزرو کلاینت `WEB` است، پس اپ باید `APP` را صریح بفرستد.

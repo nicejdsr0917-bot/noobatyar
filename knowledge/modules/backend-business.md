@@ -37,3 +37,8 @@ tags: [gf]
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
 - `business/cache.py` و `signals.py`: کش Redis برای لیست (۶۰ ثانیه) و جزئیات عمومی (۳۰۰ ثانیه)، فقط برای درخواست بدون `Authorization`، با version stamp. کلید شامل origin است. خاموش کردن: `PUBLIC_DIRECTORY_CACHE_ENABLED=False`.
 - `public_policy.py`، `geo.py`، `selectors.public_business_search`، `categories.py` (`Business.CATEGORY_GROUPS` به‌صورت alias). `admin/` حالا یک بسته است.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
+- `business/first_free.py` → `attach_first_free_slots(rows)`: فیلد `first_free_slot` (epoch ms یا null) را بعد از کش payload به لیست و جزئیات عمومی (`client_views.py`) اضافه می‌کند. فقط برای کسب‌وکارهای claimed با رزرو فعال. هزینه‌اش دو کوئری در هر صفحه است: یکی کسب‌وکارها، یکی همهٔ نوبت‌های پنجره. کش ۳۰ ثانیه‌ای `first_free:{id}` دارد.
+- تست‌های قرارداد (`tests_contract_shapes.py`) و تعداد کوئری (`MAX_LIST_QUERIES = 16`، و `tests_hot_endpoint_queries.py` با سقف ۱۴) برای این فیلد به‌روز شدند.
+- بنرها در `banners/` هستند و دقیقاً ۱۲۰۰×۴۰۰ پیکسل‌اند (validator). روی گروه دسته‌بندی (`BannerCategoryGroup`) یا یک دستهٔ مشخص تعریف می‌شوند. لینک مشترک‌شان `SiteSetting.banner_link_url` است.
