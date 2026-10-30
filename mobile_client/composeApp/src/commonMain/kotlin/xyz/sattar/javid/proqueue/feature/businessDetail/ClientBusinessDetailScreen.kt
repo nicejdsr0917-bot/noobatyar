@@ -54,7 +54,7 @@ import xyz.sattar.javid.proqueue.core.utils.shareText
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.discovery.ChevronIcon
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
-import xyz.sattar.javid.proqueue.feature.discovery.OWNER_LANDING_URL
+import xyz.sattar.javid.proqueue.core.config.OWNER_LANDING_URL
 import xyz.sattar.javid.proqueue.feature.discovery.SaveButton
 import xyz.sattar.javid.proqueue.feature.discovery.Space
 import xyz.sattar.javid.proqueue.feature.discovery.StateMessage

@@ -63,7 +63,7 @@ import xyz.sattar.javid.proqueue.feature.discovery.BookableCard
 import xyz.sattar.javid.proqueue.feature.discovery.BusinessRow
 import xyz.sattar.javid.proqueue.feature.discovery.CategoryGroup
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
-import xyz.sattar.javid.proqueue.feature.discovery.OWNER_LANDING_URL
+import xyz.sattar.javid.proqueue.core.config.OWNER_LANDING_URL
 import xyz.sattar.javid.proqueue.feature.discovery.OwnerInviteRow
 import xyz.sattar.javid.proqueue.feature.discovery.SectionTitle
 import xyz.sattar.javid.proqueue.feature.discovery.Space

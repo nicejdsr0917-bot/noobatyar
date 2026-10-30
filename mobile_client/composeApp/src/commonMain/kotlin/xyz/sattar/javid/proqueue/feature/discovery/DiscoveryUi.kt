@@ -81,9 +81,6 @@ object Radius {
     val md = RoundedCornerShape(12.dp)
 }
 
-/** Public web page the owner app / landing lives on — the "register your business" CTA target. */
-const val OWNER_LANDING_URL = "https://noobatyar.ir"
-
 fun logoUrl(business: Business): String? = business.logoPath.takeIf { it.isNotBlank() }?.let {
     if (it.startsWith("http")) it else "${AppConfig.baseUrl}$it"
 }

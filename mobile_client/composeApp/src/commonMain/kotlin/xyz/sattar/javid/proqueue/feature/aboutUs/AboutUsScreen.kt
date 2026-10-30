@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.aboutUs
 
+import xyz.sattar.javid.proqueue.core.config.socialChannels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -59,16 +60,20 @@ private data class Channel(
     val tile: Color,
 )
 
+private fun channelIcon(id: String) = when (id) {
+    "bale" -> Res.drawable.ic_social_bale
+    "eitaa" -> Res.drawable.ic_social_eitaa
+    "rubika" -> Res.drawable.ic_social_rubika
+    "telegram" -> Res.drawable.ic_social_telegram
+    "instagram" -> Res.drawable.ic_social_instagram
+    else -> Res.drawable.ic_social_website
+}
+
 @Composable
 fun AboutUsScreen(onNavigateBack: () -> Unit) {
-    val channels = listOf(
-        Channel("بله", "ble.ir/noobatyar", "https://ble.ir/noobatyar", painterResource(Res.drawable.ic_social_bale), Color(0xFF07A77A)),
-        Channel("ایتا", "eitaa.com/noobatyar", "https://eitaa.com/noobatyar", painterResource(Res.drawable.ic_social_eitaa), Color(0xFFEA6D0E)),
-        Channel("روبیکا", "rubika.ir/noobatyar", "https://rubika.ir/noobatyar", painterResource(Res.drawable.ic_social_rubika), Color(0xFF1C83B6)),
-        Channel("تلگرام", "t.me/noobatyar", "https://t.me/noobatyar", painterResource(Res.drawable.ic_social_telegram), Color(0xFF229ED9)),
-        Channel("اینستاگرام", "@noobatyar", "https://instagram.com/noobatyar", painterResource(Res.drawable.ic_social_instagram), Color(0xFFD62976)),
-        Channel("سایت", "noobatyar.ir", "https://noobatyar.ir", painterResource(Res.drawable.ic_social_website), Color(0xFF7C3AED)),
-    )
+    val channels = socialChannels.map { spec ->
+        Channel(spec.name, spec.handle, spec.url, painterResource(channelIcon(spec.id)), Color(spec.tile))
+    }
 
     Column(
         Modifier
