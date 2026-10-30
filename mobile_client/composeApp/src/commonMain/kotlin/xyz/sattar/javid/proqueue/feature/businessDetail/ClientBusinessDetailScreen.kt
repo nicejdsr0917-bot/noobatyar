@@ -1,6 +1,10 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.LocationOn
+import xyz.sattar.javid.proqueue.core.utils.openMap
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -217,139 +221,133 @@ internal fun DetailContent(
                 }
             )
 
-            Column(Modifier.weight(1f).verticalScroll(scroll)) {
-                Identity(business)
-                ActionRow(business, onShare = share)
-                SectionBand()
+            Column(
+                Modifier
+                    .weight(1f)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .verticalScroll(scroll),
+            ) {
+                // Header block on the plain surface; everything below sits in inset cards.
+                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+                    Identity(business)
+                    ActionRow(business, onShare = share)
+                }
+                Spacer(Modifier.height(Space.md))
+                Column(verticalArrangement = Arrangement.spacedBy(Space.md)) {
+                    var card = 0
 
-                when {
-                    business.canBookOnline -> Unit
-                    business.isClaimed -> {
-                        Notice(Icons.Outlined.Info, "نوبت‌دهی آنلاین فعلاً غیرفعال است. برای هماهنگی با مرکز تماس بگیرید.")
-                        SectionBand()
-                    }
-                    else -> {
-                        RequestOnlineSection(
-                            count = state.bookingRequestsCount,
-                            requested = state.hasRequestedBooking,
-                            loading = state.isRequestingBooking,
-                            onRequest = onRequestBooking
-                        )
-                        SectionBand()
-                    }
-                }
-
-                if (business.noticeEnabled && business.noticeMessage.isNotBlank() &&
-                    business.noticeMessage != BOOKING_BLOCKED_NOTICE
-                ) {
-                    Notice(Icons.Outlined.Campaign, business.noticeMessage, tint = WarningColor)
-                    SectionBand()
-                }
-
-                if (social.portfolio.isNotEmpty()) {
-                    PortfolioSection(social.portfolio)
-                    SectionBand()
-                }
-                if (social.certificates.isNotEmpty()) {
-                    CertificatesSection(social.certificates)
-                    SectionBand()
-                }
-                if (social.summary != null) {
-                    ReviewsSection(social, onWrite = onWriteReview, onMore = onMoreReviews, onReport = onReportReview)
-                    SectionBand()
-                }
-
-                Section("آدرس و تماس") {
-                    Text(business.address.ifBlank { "آدرس ثبت نشده" }, style = MaterialTheme.typography.bodyMedium)
-                    val phones = (listOf(business.phone) + business.extraPhones).filter { it.isNotBlank() }
-                    if (phones.isNotEmpty()) Spacer(Modifier.height(Space.sm))
-                    phones.forEach { phone ->
-                        Surface(onClick = { openPhoneDial(phone) }, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
-                            Row(Modifier.height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Call, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                                Spacer(Modifier.width(Space.md))
-                                Text(phone.toPersianDigits(), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                                Icon(ChevronIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                            }
+                    when {
+                        business.canBookOnline -> Unit
+                        business.isClaimed -> GroupCard(title = null, index = card++) {
+                            Notice(Icons.Outlined.Info, "نوبت‌دهی آنلاین فعلاً غیرفعال است. برای هماهنگی با مرکز تماس بگیرید.")
                         }
-                    }
-                }
-
-                if (business.isClaimed) {
-                    SectionBand()
-                    Section("ساعات کاری") { WeeklyHours(business) }
-                }
-
-                if (business.services.isNotEmpty()) {
-                    SectionBand()
-                    Section("خدمات") { Tags(business.services) }
-                }
-
-                val payment = if (business.isClaimed) paymentInfo(business) else null
-                if (payment != null) {
-                    SectionBand()
-                    Section("بیعانه و پرداخت") {
-                        payment.deposit?.let {
-                            Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            if (payment.methods.isNotEmpty()) Spacer(Modifier.height(Space.sm))
-                        }
-                        if (payment.methods.isNotEmpty()) Tags(payment.methods)
-                    }
-                }
-
-                if (business.insurances.isNotEmpty()) {
-                    SectionBand()
-                    Section("بیمه‌های طرف قرارداد") {
-                        Tags(business.insurances.map { it.name })
-                        if (!business.isClaimed) {
-                            Spacer(Modifier.height(Space.sm))
-                            Text(
-                                "از منابع عمومی؛ پیش از مراجعه پذیرش بیمه را با مرکز چک کنید.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> GroupCard(title = null, index = card++) {
+                            RequestOnlineSection(
+                                count = state.bookingRequestsCount,
+                                requested = state.hasRequestedBooking,
+                                loading = state.isRequestingBooking,
+                                onRequest = onRequestBooking
                             )
                         }
                     }
-                }
 
-                if (business.bio.isNotBlank()) {
-                    SectionBand()
-                    Section("درباره") { Text(business.bio, style = MaterialTheme.typography.bodyMedium) }
-                }
+                    if (business.noticeEnabled && business.noticeMessage.isNotBlank() &&
+                        business.noticeMessage != BOOKING_BLOCKED_NOTICE
+                    ) {
+                        GroupCard(title = null, index = card++) {
+                            Notice(Icons.Outlined.Campaign, business.noticeMessage, tint = WarningColor)
+                        }
+                    }
 
-                SectionBand()
-                if (!business.isClaimed) {
-                    Surface(onClick = { openUrl(OWNER_LANDING_URL) }, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(horizontal = Space.page, vertical = Space.lg), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Storefront, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(Space.lg))
-                            Column(Modifier.weight(1f)) {
-                                Text("صاحب این مرکز هستید؟", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    if (social.portfolio.isNotEmpty()) PortfolioSection(social.portfolio, card++)
+                    if (social.certificates.isNotEmpty()) CertificatesSection(social.certificates, card++)
+                    if (social.summary != null) {
+                        ReviewsSection(social, card++, onWrite = onWriteReview, onMore = onMoreReviews, onReport = onReportReview)
+                    }
+
+                    // Contact: rows that do what they say, like a native contact card.
+                    GroupCard(title = "آدرس و تماس", index = card++, bleed = {
+                        val lat = business.latitude
+                        val lng = business.longitude
+                        LinkRow(
+                            Icons.Outlined.LocationOn,
+                            business.address.ifBlank { "آدرس ثبت نشده" },
+                            subtitle = if (lat != null && lng != null) "مسیریابی" else null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            onClick = if (lat != null && lng != null) ({ openMap(lat, lng, business.title) }) else null,
+                        )
+                        val phones = (listOf(business.phone) + business.extraPhones).filter { it.isNotBlank() }
+                        phones.forEach { phone ->
+                            Hairline(Modifier.padding(start = 52.dp, end = Space.lg))
+                            LinkRow(
+                                Icons.Outlined.Call,
+                                phone.toPersianDigits(),
+                                tint = MaterialTheme.colorScheme.primary,
+                                onClick = { openPhoneDial(phone) },
+                            )
+                        }
+                    })
+
+                    if (business.isClaimed) {
+                        GroupCard(title = "ساعات کاری", index = card++) { WeeklyHours(business) }
+                    }
+
+                    if (business.services.isNotEmpty()) {
+                        GroupCard(title = "خدمات", index = card++) { Tags(business.services) }
+                    }
+
+                    val payment = if (business.isClaimed) paymentInfo(business) else null
+                    if (payment != null) {
+                        GroupCard(title = "بیعانه و پرداخت", index = card++) {
+                            payment.deposit?.let {
+                                Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                if (payment.methods.isNotEmpty()) Spacer(Modifier.height(Space.sm))
+                            }
+                            if (payment.methods.isNotEmpty()) Tags(payment.methods)
+                        }
+                    }
+
+                    if (business.insurances.isNotEmpty()) {
+                        GroupCard(title = "بیمه‌های طرف قرارداد", index = card++) {
+                            Tags(business.insurances.map { it.name })
+                            if (!business.isClaimed) {
+                                Spacer(Modifier.height(Space.sm))
                                 Text(
-                                    "مالکیت صفحه را در اپ نوبت‌یار کسب‌وکار ثبت کنید.",
+                                    "از منابع عمومی؛ پیش از مراجعه پذیرش بیمه را با مرکز چک کنید.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Icon(ChevronIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Hairline(Modifier.padding(horizontal = Space.page))
-                }
-                Column(Modifier.padding(Space.page)) {
-                    if (!business.isClaimed) {
-                        Text(
-                            "اطلاعات این صفحه از منابع عمومی گردآوری شده و ممکن است به‌روز نباشد.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                    if (business.bio.isNotBlank()) {
+                        GroupCard(title = "درباره", index = card++) {
+                            Text(business.bio, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+
+                    // Housekeeping links, grouped at the end like a settings list.
+                    GroupCard(title = null, index = card++, bleed = {
+                        if (!business.isClaimed) {
+                            LinkRow(
+                                Icons.Outlined.Storefront,
+                                "صاحب این مرکز هستید؟",
+                                subtitle = "مالکیت صفحه را در اپ نوبت‌یار کسب‌وکار ثبت کنید",
+                                onClick = { openUrl(OWNER_LANDING_URL) },
+                            )
+                            Hairline(Modifier.padding(start = 52.dp, end = Space.lg))
+                        }
+                        LinkRow(
+                            Icons.Outlined.Flag,
+                            "گزارش اطلاعات نادرست",
+                            subtitle = if (!business.isClaimed) "این صفحه از منابع عمومی گردآوری شده و ممکن است به‌روز نباشد" else null,
+                            onClick = onReport,
                         )
-                    }
-                    TextButton(onClick = onReport, contentPadding = PaddingValues(0.dp)) {
-                        Text("گزارش اطلاعات نادرست", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    })
                 }
                 // Clears the sticky action bar.
-                Spacer(Modifier.height(88.dp))
+                Spacer(Modifier.height(88.dp + Space.md))
                 Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
             }
         }

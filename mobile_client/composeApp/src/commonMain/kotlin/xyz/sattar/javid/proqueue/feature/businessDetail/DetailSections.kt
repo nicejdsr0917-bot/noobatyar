@@ -3,7 +3,6 @@ package xyz.sattar.javid.proqueue.feature.businessDetail
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,24 +29,9 @@ import xyz.sattar.javid.proqueue.feature.discovery.formatClock
 import xyz.sattar.javid.proqueue.feature.discovery.tehranNow
 import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 
-/** 8dp neutral band between sections — reads as grouping without boxing every section in a card. */
-@Composable
-internal fun SectionBand() {
-    Box(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceVariant))
-}
-
-@Composable
-internal fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = Space.page, vertical = Space.lg)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(Space.md))
-        content()
-    }
-}
-
 @Composable
 internal fun RequestOnlineSection(count: Int, requested: Boolean, loading: Boolean, onRequest: () -> Unit) {
-    Column(Modifier.padding(horizontal = Space.page, vertical = Space.lg)) {
+    Column {
         Text("این مرکز هنوز نوبت آنلاین ندارد", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(Space.xs))
         Text(
@@ -91,7 +75,17 @@ internal fun WeeklyHours(business: Business) {
                 closed -> MaterialTheme.colorScheme.onSurfaceVariant
                 else -> MaterialTheme.colorScheme.onSurface
             }
-            Row(Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(38.dp)
+                    .then(
+                        if (isToday) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), Radius.sm)
+                        else Modifier
+                    )
+                    .padding(horizontal = Space.sm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     WEEKDAY_NAMES[day],
                     style = MaterialTheme.typography.bodyMedium,
