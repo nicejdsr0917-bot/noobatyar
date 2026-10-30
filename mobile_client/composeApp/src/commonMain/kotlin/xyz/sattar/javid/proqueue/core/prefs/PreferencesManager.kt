@@ -45,6 +45,11 @@ expect object PreferencesManager {
     /** First-launch welcome screen shown once per install. */
     fun hasSeenWelcome(): Boolean
     suspend fun setWelcomeSeen()
+
+    /** The visitor session token from OTP sign-in (`Authorization: Visitor <token>`); null when signed out. */
+    val visitorToken: Flow<String?>
+    fun getVisitorToken(): String?
+    suspend fun setVisitorToken(token: String?)
 }
 
 const val MAX_RECENT_SEARCHES = 8

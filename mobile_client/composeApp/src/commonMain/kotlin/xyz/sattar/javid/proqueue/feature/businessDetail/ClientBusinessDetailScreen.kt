@@ -78,6 +78,7 @@ internal const val BOOKING_BLOCKED_NOTICE = "پذیرش نوبت جدید برا
 fun ClientBusinessDetailScreen(
     businessId: Long,
     onNavigateBack: () -> Unit,
+    onBook: (Long) -> Unit,
     viewModel: ClientBusinessDetailViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -104,6 +105,7 @@ fun ClientBusinessDetailScreen(
                 onToggleSave = viewModel::toggleSaved,
                 onRequestBooking = viewModel::requestOnlineBooking,
                 onReport = { showReport = true },
+                onBook = { onBook(business.id) },
             )
             state.isLoading -> DetailShimmer(onBack = onNavigateBack)
             else -> Column(Modifier.fillMaxSize()) {
@@ -138,7 +140,9 @@ internal fun DetailContent(
     onToggleSave: () -> Unit,
     onRequestBooking: () -> Unit,
     onReport: () -> Unit,
+    onBook: () -> Unit,
 ) {
+    // Only for sharing: booking itself happens in the app, never on the site.
     val booking = bookingUrl(business)
     val scroll = rememberScrollState()
     val pastHeader by remember { derivedStateOf { scroll.value > 180 } }
@@ -162,7 +166,7 @@ internal fun DetailContent(
                 SectionBand()
 
                 when {
-                    business.canBookOnline && booking != null -> Unit
+                    business.canBookOnline -> Unit
                     business.isClaimed -> {
                         Notice(Icons.Outlined.Info, "نوبت‌دهی آنلاین فعلاً غیرفعال است. برای هماهنگی با مرکز تماس بگیرید.")
                         SectionBand()
@@ -267,6 +271,6 @@ internal fun DetailContent(
                 Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
             }
         }
-        StickyActionBar(business, booking)
+        StickyActionBar(business, onBook)
     }
 }

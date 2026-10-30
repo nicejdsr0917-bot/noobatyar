@@ -25,6 +25,7 @@ actual object PreferencesManager {
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_RECENT_SEARCHES = "recent_searches"
     private const val KEY_WELCOME_SEEN = "welcome_seen"
+    private const val KEY_VISITOR_TOKEN = "visitor_token"
     private const val KEY_RECENT_CITIES = "recent_city_codes"
 
     private val _themeMode = MutableStateFlow(
@@ -147,5 +148,14 @@ actual object PreferencesManager {
 
     actual suspend fun setWelcomeSeen() {
         prefs.edit(commit = true) { putBoolean(KEY_WELCOME_SEEN, true) }
+    }
+
+    private val _visitorToken by lazy { MutableStateFlow(prefs.getString(KEY_VISITOR_TOKEN, null)) }
+    actual val visitorToken: Flow<String?> get() = _visitorToken
+    actual fun getVisitorToken(): String? = _visitorToken.value
+
+    actual suspend fun setVisitorToken(token: String?) {
+        prefs.edit(commit = true) { if (token == null) remove(KEY_VISITOR_TOKEN) else putString(KEY_VISITOR_TOKEN, token) }
+        _visitorToken.value = token
     }
 }
