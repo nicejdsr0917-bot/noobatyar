@@ -7,6 +7,7 @@ import xyz.sattar.javid.proqueue.feature.booking.BookingStep
 import xyz.sattar.javid.proqueue.feature.booking.DayPart
 import xyz.sattar.javid.proqueue.feature.booking.PaymentOption
 import xyz.sattar.javid.proqueue.feature.booking.bookingPhases
+import xyz.sattar.javid.proqueue.feature.booking.canSubmitCardPayment
 import xyz.sattar.javid.proqueue.feature.booking.currentPhaseIndex
 import xyz.sattar.javid.proqueue.feature.booking.dayPartOf
 import xyz.sattar.javid.proqueue.feature.booking.expectsDeposit
@@ -96,5 +97,12 @@ class BookingFlowTest {
         assertEquals(listOf(PaymentOption.ONLINE, PaymentOption.CARD, PaymentOption.CASH), paymentOptions(all, "6037991234567890"))
         assertEquals(listOf(PaymentOption.ONLINE, PaymentOption.CASH), paymentOptions(all, " "))
         assertTrue(paymentOptions(listOf("GATEWAY"), "").isEmpty())
+    }
+
+    @Test
+    fun cardPaymentNeedsAReferenceOrAReceipt() {
+        assertFalse(canSubmitCardPayment("  ", hasReceipt = false))
+        assertTrue(canSubmitCardPayment("123", hasReceipt = false))
+        assertTrue(canSubmitCardPayment("", hasReceipt = true))
     }
 }

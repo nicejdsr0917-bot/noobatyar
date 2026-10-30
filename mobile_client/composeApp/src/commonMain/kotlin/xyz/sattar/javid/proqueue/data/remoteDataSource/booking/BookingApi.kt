@@ -1,6 +1,9 @@
 package xyz.sattar.javid.proqueue.data.remoteDataSource.booking
 
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.onUpload
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -8,6 +11,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
@@ -43,6 +47,18 @@ interface BookingApi {
 
     suspend fun myAppointments(token: String): ApiResponse<AppointmentPageDto>
     suspend fun pay(token: String, appointmentId: Long, method: String, reference: String): ApiResponse<IdDto>
+    /**
+     * A card transfer with a photo of the receipt, sent as multipart. The
+     * reference may be blank when the photo is there. [onProgress] gets the
+     * sent fraction, 0..1.
+     */
+    suspend fun payWithReceipt(
+        token: String,
+        appointmentId: Long,
+        reference: String,
+        receipt: ByteArray,
+        onProgress: (Float) -> Unit,
+    ): ApiResponse<IdDto>
     suspend fun payOnline(token: String, appointmentId: Long): ApiResponse<OnlinePaymentDto>
     suspend fun cancel(token: String, appointmentId: Long): ApiResponse<IdDto>
 }
@@ -102,6 +118,29 @@ class KtorBookingApi(private val httpClient: HttpClient) : BookingApi {
                 setBody(PayRequestDto(method, reference))
             }.toApiResponse()
         }
+
+    override suspend fun payWithReceipt(
+        token: String,
+        appointmentId: Long,
+        reference: String,
+        receipt: ByteArray,
+        onProgress: (Float) -> Unit,
+    ): ApiResponse<IdDto> = safeApiCall {
+        httpClient.submitFormWithBinaryData(
+            url = "client/appointments/$appointmentId/pay/",
+            formData = formData {
+                append("method", "CARD")
+                append("payment_reference", reference)
+                append("payment_receipt", receipt, Headers.build {
+                    append(HttpHeaders.ContentType, "image/jpeg")
+                    append(HttpHeaders.ContentDisposition, "filename=\"receipt.jpg\"")
+                })
+            },
+        ) {
+            visitor(token)
+            onUpload { sent, total -> if (total != null && total > 0) onProgress(sent.toFloat() / total) }
+        }.toApiResponse()
+    }
 
     override suspend fun payOnline(token: String, appointmentId: Long): ApiResponse<OnlinePaymentDto> = safeApiCall {
         httpClient.post("client/appointments/$appointmentId/pay/online/") {

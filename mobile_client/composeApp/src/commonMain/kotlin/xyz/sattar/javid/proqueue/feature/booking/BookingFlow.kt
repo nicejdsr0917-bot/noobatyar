@@ -82,3 +82,10 @@ fun paymentOptions(methods: List<String>, cardNumber: String): List<PaymentOptio
     if ("CARD" in methods && cardNumber.isNotBlank()) add(PaymentOption.CARD)
     if ("CASH" in methods) add(PaymentOption.CASH)
 }
+
+/**
+ * A card transfer needs proof: a tracking number, a photo of the receipt, or
+ * both (the server applies the same rule).
+ */
+fun canSubmitCardPayment(reference: String, hasReceipt: Boolean): Boolean =
+    hasReceipt || reference.isNotBlank()

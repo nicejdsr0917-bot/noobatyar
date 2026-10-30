@@ -47,6 +47,30 @@ CERTIFICATE_SPEC = ImageSpec(1080, 1350, 600, 750)
 
 def process_image(uploaded, spec: ImageSpec, stem: str):
     """Return ``(main, thumb)`` as ``ContentFile`` objects named ``stem*.jpg``."""
+    img = open_upload(uploaded)
+
+    w, h = img.size
+    if w < spec.min_width or h < spec.min_height:
+        raise ImageRejected(
+            f'عکس خیلی کوچک است؛ حداقل {spec.min_width}×{spec.min_height} پیکسل لازم است.')
+    if abs((w / h) / spec.ratio - 1) > spec.tolerance:
+        raise ImageRejected(
+            f'نسبت عکس درست نیست؛ عکس باید {spec.width}×{spec.height} پیکسل (یا هم‌نسبت آن) باشد.')
+
+    img = flatten_rgb(img)
+
+    if w > spec.width or h > spec.height:
+        img.thumbnail((spec.width, spec.height), Image.LANCZOS)
+    main = encode_jpeg(img, f'{stem}.jpg')
+
+    thumb_img = img.copy()
+    thumb_img.thumbnail((THUMB_WIDTH, THUMB_WIDTH * 2), Image.LANCZOS)
+    thumb = encode_jpeg(thumb_img, f'{stem}_t.jpg')
+    return main, thumb
+
+
+def open_upload(uploaded):
+    """Open an upload as a verified, upright Pillow image (raises ImageRejected)."""
     if uploaded.size > MAX_UPLOAD_BYTES:
         raise ImageRejected('حجم عکس نباید بیشتر از ۸ مگابایت باشد.')
     try:
@@ -62,34 +86,20 @@ def process_image(uploaded, spec: ImageSpec, stem: str):
         raise
     except (UnidentifiedImageError, OSError, SyntaxError, ValueError, Image.DecompressionBombError):
         raise ImageRejected('فایل انتخاب‌شده عکس معتبر نیست.')
+    return img
 
-    w, h = img.size
-    if w < spec.min_width or h < spec.min_height:
-        raise ImageRejected(
-            f'عکس خیلی کوچک است؛ حداقل {spec.min_width}×{spec.min_height} پیکسل لازم است.')
-    if abs((w / h) / spec.ratio - 1) > spec.tolerance:
-        raise ImageRejected(
-            f'نسبت عکس درست نیست؛ عکس باید {spec.width}×{spec.height} پیکسل (یا هم‌نسبت آن) باشد.')
 
+def flatten_rgb(img):
+    """JPEG has no alpha: transparent areas become white."""
     if img.mode in ('RGBA', 'LA', 'P'):
         rgba = img.convert('RGBA')
         flat = Image.new('RGB', rgba.size, (255, 255, 255))
         flat.paste(rgba, mask=rgba.split()[-1])
-        img = flat
-    else:
-        img = img.convert('RGB')
-
-    if w > spec.width or h > spec.height:
-        img.thumbnail((spec.width, spec.height), Image.LANCZOS)
-    main = _encode(img, f'{stem}.jpg')
-
-    thumb_img = img.copy()
-    thumb_img.thumbnail((THUMB_WIDTH, THUMB_WIDTH * 2), Image.LANCZOS)
-    thumb = _encode(thumb_img, f'{stem}_t.jpg')
-    return main, thumb
+        return flat
+    return img.convert('RGB')
 
 
-def _encode(img, name):
+def encode_jpeg(img, name):
     buf = io.BytesIO()
     img.save(buf, format='JPEG', quality=JPEG_QUALITY, optimize=True)
     return ContentFile(buf.getvalue(), name=name)

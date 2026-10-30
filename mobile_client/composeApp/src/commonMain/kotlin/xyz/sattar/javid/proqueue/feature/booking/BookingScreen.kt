@@ -508,11 +508,16 @@ private fun ConfirmStep(state: BookingState, vm: BookingViewModel) {
 @Composable
 private fun PaymentStep(state: BookingState, vm: BookingViewModel) {
     var reference by remember { mutableStateOf("") }
+    var receipt by remember { mutableStateOf<ByteArray?>(null) }
     val options = paymentOptions(state.paymentMethods, state.cardNumber)
     var picked by remember(options) { mutableStateOf(options.firstOrNull()) }
     val (action, enabled, onAction) = when (picked) {
         PaymentOption.ONLINE -> Triple("پرداخت آنلاین", true, vm::payOnline)
-        PaymentOption.CARD -> Triple("ثبت واریز", reference.isNotBlank(), { vm.payByCard(reference) })
+        PaymentOption.CARD -> Triple(
+            "ثبت واریز",
+            canSubmitCardPayment(reference, receipt != null),
+            { vm.payByCard(reference, receipt) },
+        )
         PaymentOption.CASH -> Triple("پرداخت حضوری", true, vm::payCash)
         null -> Triple(null, false, {})
     }
@@ -542,16 +547,23 @@ private fun PaymentStep(state: BookingState, vm: BookingViewModel) {
             when (option) {
                 PaymentOption.ONLINE -> PaymentOptionCard("پرداخت آنلاین", "با درگاه بانکی، همین حالا", selected, onSelect, mod)
                 PaymentOption.CASH -> PaymentOptionCard("پرداخت حضوری", "هنگام مراجعه در مرکز", selected, onSelect, mod)
-                PaymentOption.CARD -> PaymentOptionCard("کارت به کارت", "واریز و ثبت شمارهٔ پیگیری", selected, onSelect, mod) {
+                PaymentOption.CARD -> PaymentOptionCard("کارت به کارت", "واریز، سپس شمارهٔ پیگیری یا عکس رسید", selected, onSelect, mod) {
                     SummaryRow("شماره کارت", formatCardNumber(state.cardNumber))
                     if (state.cardOwnerName.isNotBlank()) SummaryRow("به نام", state.cardOwnerName)
                     OutlinedTextField(
                         value = reference,
                         onValueChange = { reference = it.take(64) },
-                        label = { Text("شمارهٔ پیگیری واریز") },
+                        label = { Text(if (receipt == null) "شمارهٔ پیگیری واریز" else "شمارهٔ پیگیری (اختیاری)") },
                         singleLine = true,
+                        enabled = state.uploadProgress == null,
                         shape = Radius.md,
                         modifier = Modifier.fillMaxWidth()
+                    )
+                    ReceiptPicker(
+                        receipt = receipt,
+                        onPick = { receipt = it },
+                        onRemove = { receipt = null },
+                        progress = state.uploadProgress,
                     )
                 }
             }

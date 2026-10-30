@@ -16,12 +16,15 @@ HTTP status the view turns into the usual error response.
 """
 
 import logging
+import uuid
 from datetime import timedelta
 
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError as DRFValidationError
+
+from PIL import Image
 
 from appointment import selectors
 from appointment.cache_utils import invalidate_slots_cache
@@ -34,6 +37,7 @@ from appointment.services.notifications import (
     notify_deposit_paid,
 )
 from appointment.working_hours import LOCAL_TZ, working_window
+from showcase.images import ImageRejected, encode_jpeg, flatten_rgb, open_upload
 from appointment.services.transitions import (
     CLIENT_CANCELLABLE_STATUSES,
     appointment_cancel_by_client,
@@ -211,9 +215,23 @@ def client_book(*, business, visitor, appointment_date, duration, description=''
     return appointment, requires_payment
 
 
+# A phone photo of a bank receipt stays readable at this size.
+RECEIPT_MAX_SIDE = 1600
+
+
 def _store_receipt(appointment, receipt):
-    """Save the uploaded receipt to storage and return its name."""
-    appointment.payment_receipt.save(receipt.name, receipt, save=False)
+    """
+    Check the upload really is an image (8 MB cap), shrink it to
+    ``RECEIPT_MAX_SIDE`` and re-encode it as JPEG, then save it to storage and
+    return its name. Raises ``ClientBookingError`` before anything is written.
+    """
+    try:
+        img = flatten_rgb(open_upload(receipt))
+    except ImageRejected as exc:
+        raise ClientBookingError(str(exc), 400)
+    img.thumbnail((RECEIPT_MAX_SIDE, RECEIPT_MAX_SIDE), Image.LANCZOS)
+    content = encode_jpeg(img, f'{uuid.uuid4().hex}.jpg')
+    appointment.payment_receipt.save(content.name, content, save=False)
     return appointment.payment_receipt.name
 
 

@@ -1,6 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.appointments
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +49,8 @@ import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.core.utils.openUrl
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.ClientAppointmentDto
+import xyz.sattar.javid.proqueue.feature.booking.ReceiptPicker
+import xyz.sattar.javid.proqueue.feature.booking.canSubmitCardPayment
 import xyz.sattar.javid.proqueue.feature.booking.formatCardNumber
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.discovery.Space
@@ -71,7 +75,11 @@ fun MyAppointmentsScreen(
     LaunchedEffect(Unit) {
         viewModel.messages.collect { msg ->
             when (msg) {
-                is AppointmentsMessage.Info -> snackbar.showToasty(UiMessage.success(msg.text))
+                is AppointmentsMessage.Info -> {
+                    // A transfer with a receipt keeps its dialog open until it lands.
+                    transferFor = null
+                    snackbar.showToasty(UiMessage.success(msg.text))
+                }
                 is AppointmentsMessage.Error -> snackbar.showToasty(UiMessage.error(msg.text))
                 is AppointmentsMessage.OpenUrl -> openUrl(msg.url)
             }
@@ -131,8 +139,14 @@ fun MyAppointmentsScreen(
 
     transferFor?.let { id ->
         TransferDialog(
-            onDismiss = { transferFor = null },
-            onSubmit = { reference -> transferFor = null; viewModel.payByCard(id, reference) }
+            busy = state.busyId == id,
+            progress = state.uploadProgress,
+            onDismiss = { if (state.busyId != id) transferFor = null },
+            onSubmit = { reference, receipt ->
+                // Without a photo the call is quick: close now, as before.
+                if (receipt == null) transferFor = null
+                viewModel.payByCard(id, reference, receipt)
+            }
         )
     }
 
@@ -152,15 +166,21 @@ fun MyAppointmentsScreen(
 }
 
 @Composable
-private fun TransferDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
+private fun TransferDialog(
+    busy: Boolean,
+    progress: Float?,
+    onDismiss: () -> Unit,
+    onSubmit: (String, ByteArray?) -> Unit,
+) {
     var reference by remember { mutableStateOf("") }
+    var receipt by remember { mutableStateOf<ByteArray?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("ثبت واریز") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    "پس از کارت به کارت، شمارهٔ پیگیری یا چهار رقم آخر کارت مبدأ را وارد کنید.",
+                    "پس از کارت به کارت، شمارهٔ پیگیری را وارد کنید یا عکس رسید را بفرستید.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -168,16 +188,27 @@ private fun TransferDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
                 OutlinedTextField(
                     value = reference,
                     onValueChange = { if (it.length <= 64) reference = it },
-                    label = { Text("شمارهٔ پیگیری") },
+                    label = { Text(if (receipt == null) "شمارهٔ پیگیری" else "شمارهٔ پیگیری (اختیاری)") },
                     singleLine = true,
+                    enabled = !busy,
                     modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(Space.md))
+                ReceiptPicker(
+                    receipt = receipt,
+                    onPick = { receipt = it },
+                    onRemove = { receipt = null },
+                    progress = progress,
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSubmit(reference) }, enabled = reference.isNotBlank()) { Text("ثبت") }
+            TextButton(
+                onClick = { onSubmit(reference, receipt) },
+                enabled = !busy && canSubmitCardPayment(reference, receipt != null),
+            ) { Text(if (busy) "در حال ارسال…" else "ثبت") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("انصراف") } }
     )
 }
 

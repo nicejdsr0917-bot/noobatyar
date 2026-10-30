@@ -237,12 +237,10 @@ class ReceiptOrphanTests(Base, TestCase):
         import os
         return [f for _, _, fs in os.walk(self.media) for f in fs]
 
-    def _pay(self, a):
-        from django.core.files.uploadedfile import SimpleUploadedFile
+    def _pay(self, a, upload=None, **fields):
         return self.client.post(
             reverse('client-appointment-pay', args=[a.pk]),
-            {'method': 'CARD', 'payment_receipt': SimpleUploadedFile(
-                'r.png', b'\x89PNG\r\n\x1a\n' + b'0' * 20, content_type='image/png')},
+            {'method': 'CARD', 'payment_receipt': upload or image_upload(), **fields},
             HTTP_AUTHORIZATION=self.auth,
         )
 
@@ -259,6 +257,63 @@ class ReceiptOrphanTests(Base, TestCase):
                    return_value=False):
             r = self._pay(a)
         self.assertEqual(r.status_code, 400)
+        self.assertEqual(self._files(), [])
+
+
+def image_upload(size=(40, 30), fmt='PNG', name='r.png', mode='RGB'):
+    import io
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new(mode, size, (200, 180, 160) if mode == 'RGB' else (200, 180, 160, 0)).save(buf, format=fmt)
+    return SimpleUploadedFile(name, buf.getvalue(), content_type=f'image/{fmt.lower()}')
+
+
+class ReceiptImageTests(ReceiptOrphanTests):
+    """The receipt is checked and shrunk before it reaches storage."""
+
+    def test_large_receipt_is_downscaled_to_jpeg(self):
+        from PIL import Image
+        a = self.make(payment_reference='')
+        r = self._pay(a, upload=image_upload(size=(3000, 2000), mode='RGBA'))
+        self.assertEqual(r.status_code, 200, r.content)
+        a.refresh_from_db()
+        self.assertEqual(a.status, 'PENDING_VERIFICATION')
+        self.assertTrue(a.payment_receipt.name.endswith('.jpg'))
+        with Image.open(a.payment_receipt.path) as img:
+            self.assertEqual((img.format, img.size), ('JPEG', (1600, 1067)))
+
+    def test_receipt_alone_needs_no_reference(self):
+        a = self.make(payment_reference='')
+        self.assertEqual(self._pay(a).status_code, 200)
+        a.refresh_from_db()
+        self.assertEqual(a.payment_reference, '')
+
+    def test_receipt_and_reference_are_both_kept(self):
+        a = self.make(payment_reference='')
+        self.assertEqual(self._pay(a, payment_reference='99881').status_code, 200)
+        a.refresh_from_db()
+        self.assertEqual(a.payment_reference, '99881')
+        self.assertTrue(a.payment_receipt.name)
+
+    def test_non_image_is_refused_and_nothing_changes(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        a = self.make()
+        fake = SimpleUploadedFile('r.png', b'\x89PNG\r\n\x1a\n' + b'0' * 20, content_type='image/png')
+        r = self._pay(a, upload=fake)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('عکس معتبر نیست', r.json()['message'])
+        a.refresh_from_db()
+        self.assertEqual(a.status, 'LOCKED')
+        self.assertEqual(self._files(), [])
+
+    def test_oversized_upload_is_refused(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        a = self.make()
+        big = SimpleUploadedFile('r.jpg', b'0' * (8 * 1024 * 1024 + 1), content_type='image/jpeg')
+        r = self._pay(a, upload=big)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('۸ مگابایت', r.json()['message'])
         self.assertEqual(self._files(), [])
 
 

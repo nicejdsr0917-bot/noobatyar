@@ -15,7 +15,7 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.TimeSlotDto
 
 fun slot(time: String, available: Boolean = true) = TimeSlotDto(time = time, timestamp = time.hashCode().toLong(), available = available)
 
-class PayCall(val token: String, val id: Long, val method: String, val reference: String)
+class PayCall(val token: String, val id: Long, val method: String, val reference: String, val receipt: ByteArray? = null)
 
 class FakeBookingApi : BookingApi {
     val slotDates = mutableListOf<String>()
@@ -55,6 +55,22 @@ class FakeBookingApi : BookingApi {
     override suspend fun pay(token: String, appointmentId: Long, method: String, reference: String): ApiResponse<IdDto> {
         payments += PayCall(token, appointmentId, method, reference)
         return ApiResponse.Success(IdDto(appointmentId))
+    }
+
+    /** What [payWithReceipt] answers; progress is reported in quarters before it. */
+    var receiptResult: ApiResponse<IdDto>? = null
+    val reportedProgress = mutableListOf<Float>()
+
+    override suspend fun payWithReceipt(
+        token: String,
+        appointmentId: Long,
+        reference: String,
+        receipt: ByteArray,
+        onProgress: (Float) -> Unit,
+    ): ApiResponse<IdDto> {
+        payments += PayCall(token, appointmentId, "CARD", reference, receipt)
+        listOf(0.25f, 0.5f, 0.75f, 1f).forEach { reportedProgress += it; onProgress(it) }
+        return receiptResult ?: ApiResponse.Success(IdDto(appointmentId))
     }
 
     override suspend fun payOnline(token: String, appointmentId: Long) = online

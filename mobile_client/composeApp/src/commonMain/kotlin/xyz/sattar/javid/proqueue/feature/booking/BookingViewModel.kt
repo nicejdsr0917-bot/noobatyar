@@ -64,6 +64,8 @@ data class BookingState(
     val cardOwnerName: String = "",
     /** The deposit went to the online gateway; its result shows in «نوبت‌های من». */
     val paidOnline: Boolean = false,
+    /** Sent fraction of the receipt photo while it uploads; null otherwise. */
+    val uploadProgress: Float? = null,
 )
 
 sealed interface BookingMessage {
@@ -309,9 +311,24 @@ class BookingViewModel(
         }
     }
 
-    fun payByCard(reference: String) {
-        if (reference.isBlank()) return
-        submitPayment("CARD", reference.trim())
+    /** A card transfer, proven by a tracking number, a receipt photo, or both. */
+    fun payByCard(reference: String, receipt: ByteArray? = null) {
+        if (!canSubmitCardPayment(reference, receipt != null)) return
+        if (receipt == null) return submitPayment("CARD", reference.trim())
+        withAppointment { token, id ->
+            _state.update { it.copy(uploadProgress = 0f) }
+            val res = try {
+                bookingApi.payWithReceipt(token, id, reference.trim(), receipt) { sent ->
+                    _state.update { it.copy(uploadProgress = sent) }
+                }
+            } finally {
+                _state.update { it.copy(uploadProgress = null) }
+            }
+            when (res) {
+                is ApiResponse.Success -> _state.update { it.copy(step = BookingStep.DONE) }
+                is ApiResponse.Error -> _messages.send(BookingMessage.Error(res.message))
+            }
+        }
     }
 
     fun payCash() = submitPayment("CASH", "")

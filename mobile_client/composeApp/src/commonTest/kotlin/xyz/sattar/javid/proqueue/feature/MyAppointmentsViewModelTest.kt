@@ -157,6 +157,35 @@ class MyAppointmentsViewModelTest {
     }
 
     @Test
+    fun payByCardWithAReceiptNeedsNoReference() = runTest(main.dispatcher) {
+        prefs.token.value = "tok"
+        api.appointments = ApiResponse.Success(AppointmentPageDto(listOf(lockedApt(4, listOf("CARD")))))
+        val vm = vm()
+        vm.messages.test {
+            vm.payByCard(4, " ", receipt = byteArrayOf(7))
+            assertIs<AppointmentsMessage.Info>(awaitItem())
+        }
+        val p = api.payments.single()
+        assertEquals(listOf<Byte>(7), p.receipt?.toList())
+        assertEquals("", p.reference)
+        assertEquals(listOf(0.25f, 0.5f, 0.75f, 1f), api.reportedProgress)
+        assertNull(vm.state.value.uploadProgress)
+        assertNull(vm.state.value.busyId)
+    }
+
+    @Test
+    fun aFailedReceiptUploadReportsTheError() = runTest(main.dispatcher) {
+        prefs.token.value = "tok"
+        api.receiptResult = ApiResponse.Error("حجم عکس نباید بیشتر از ۸ مگابایت باشد.", 400)
+        val vm = vm()
+        vm.messages.test {
+            vm.payByCard(4, "", receipt = byteArrayOf(7))
+            assertEquals(AppointmentsMessage.Error("حجم عکس نباید بیشتر از ۸ مگابایت باشد."), awaitItem())
+        }
+        assertNull(vm.state.value.uploadProgress)
+    }
+
+    @Test
     fun payCashSubmitsWithAnEmptyReference() = runTest(main.dispatcher) {
         prefs.token.value = "tok"
         val vm = vm()

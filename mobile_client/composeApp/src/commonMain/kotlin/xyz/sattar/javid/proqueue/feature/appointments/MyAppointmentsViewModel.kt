@@ -17,6 +17,7 @@ import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.prefs.ClientPreferences
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.BookingApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.ClientAppointmentDto
+import xyz.sattar.javid.proqueue.feature.booking.canSubmitCardPayment
 
 /** Mirrors backend `CLIENT_CANCELLABLE_STATUSES`. */
 val CANCELLABLE_STATUSES = setOf("LOCKED", "PENDING_APPROVAL", "PENDING_VERIFICATION", "WAITING", "CONFIRMED")
@@ -51,6 +52,8 @@ data class MyAppointmentsState(
     val errorMessage: String? = null,
     /** Appointment whose cancel/pay call is in flight. */
     val busyId: Long? = null,
+    /** Sent fraction of a receipt photo while it uploads; null otherwise. */
+    val uploadProgress: Float? = null,
 )
 
 sealed interface AppointmentsMessage {
@@ -58,6 +61,8 @@ sealed interface AppointmentsMessage {
     data class Error(val text: String) : AppointmentsMessage
     data class OpenUrl(val url: String) : AppointmentsMessage
 }
+
+private const val CARD_DONE = "واریز شما ثبت شد؛ پس از تأیید مرکز نوبت قطعی می‌شود"
 
 class MyAppointmentsViewModel(
     private val bookingApi: BookingApi,
@@ -112,9 +117,26 @@ class MyAppointmentsViewModel(
     }
 
     /** Records a card-to-card transfer for a LOCKED appointment the visitor left unpaid. */
-    fun payByCard(id: Long, reference: String) {
-        if (reference.isBlank()) return
-        submitPayment(id, "CARD", reference.trim(), "واریز شما ثبت شد؛ پس از تأیید مرکز نوبت قطعی می‌شود")
+    fun payByCard(id: Long, reference: String, receipt: ByteArray? = null) {
+        if (!canSubmitCardPayment(reference, receipt != null)) return
+        if (receipt == null) return submitPayment(id, "CARD", reference.trim(), CARD_DONE)
+        act(id) { token ->
+            _state.update { it.copy(uploadProgress = 0f) }
+            val res = try {
+                bookingApi.payWithReceipt(token, id, reference.trim(), receipt) { sent ->
+                    _state.update { it.copy(uploadProgress = sent) }
+                }
+            } finally {
+                _state.update { it.copy(uploadProgress = null) }
+            }
+            when (res) {
+                is ApiResponse.Success -> {
+                    _messages.send(AppointmentsMessage.Info(CARD_DONE))
+                    refresh()
+                }
+                is ApiResponse.Error -> _messages.send(AppointmentsMessage.Error(res.message))
+            }
+        }
     }
 
     fun payCash(id: Long) = submitPayment(id, "CASH", "", "پرداخت حضوری ثبت شد")

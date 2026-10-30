@@ -212,6 +212,46 @@ class BookingViewModelTest {
         assertEquals(BookingStep.DONE, vm.state.value.step)
     }
 
+    /** Booked into a LOCKED hold whose business takes card transfers. */
+    private fun BookingViewModel.toCardPayment() {
+        repo.details[7] = ApiResponse.Success(business(methods = listOf("CARD")))
+        prefs.token.value = "tok"
+        api.bookResponse = ApiResponse.Success(BookResponseDto(id = 55, requiresPayment = true))
+        api.appointments = ApiResponse.Success(
+            AppointmentPageDto(listOf(ClientAppointmentDto(55, businessDto(7).copy(acceptedPaymentMethods = listOf("CARD")), 0, "LOCKED", cardNumber = "6037991234567890")))
+        )
+        toSlotPicked()
+        confirm()
+    }
+
+    @Test
+    fun aReceiptPhotoAloneIsEnoughAndReportsProgress() = runTest(main.dispatcher) {
+        val vm = vm()
+        vm.toCardPayment()
+        vm.payByCard("  ", receipt = byteArrayOf(1, 2, 3))
+        advanceUntilIdle()
+        val pay = api.payments.single()
+        assertEquals("", pay.reference)
+        assertEquals(listOf<Byte>(1, 2, 3), pay.receipt?.toList())
+        assertEquals(BookingStep.DONE, vm.state.value.step)
+        assertNull(vm.state.value.uploadProgress, "progress clears once the upload is done")
+        assertEquals(listOf(0.25f, 0.5f, 0.75f, 1f), api.reportedProgress)
+    }
+
+    @Test
+    fun aRefusedReceiptStaysOnPaymentAndSaysWhy() = runTest(main.dispatcher) {
+        val vm = vm()
+        vm.toCardPayment()
+        api.receiptResult = ApiResponse.Error("فایل انتخاب‌شده عکس معتبر نیست.", 400)
+        vm.messages.test {
+            vm.payByCard("123", receipt = byteArrayOf(9))
+            assertEquals(BookingMessage.Error("فایل انتخاب‌شده عکس معتبر نیست."), awaitItem())
+        }
+        assertEquals(BookingStep.PAYMENT, vm.state.value.step)
+        assertNull(vm.state.value.uploadProgress)
+        assertFalse(vm.state.value.busy)
+    }
+
     @Test
     fun onlineDepositOpensTheGateway() = runTest(main.dispatcher) {
         repo.details[7] = ApiResponse.Success(business(methods = listOf("ONLINE")))
