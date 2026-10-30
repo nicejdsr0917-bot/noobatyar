@@ -12,7 +12,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -21,7 +20,6 @@ import xyz.sattar.javid.proqueue.core.location.label
 import xyz.sattar.javid.proqueue.core.ui.components.map.distanceKmTo
 import kotlin.math.PI
 import kotlin.math.atan2
-import kotlin.math.cos
 import ovh.plrapps.mapcompose.ui.state.MapState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -87,6 +85,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.map.DisposeMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
 import xyz.sattar.javid.proqueue.core.ui.components.map.MapAttribution
 import xyz.sattar.javid.proqueue.core.ui.components.map.applyTileTint
+import xyz.sattar.javid.proqueue.core.ui.components.map.mapBackground
 import xyz.sattar.javid.proqueue.core.ui.components.map.newTileMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.toNormalized
 import xyz.sattar.javid.proqueue.core.utils.openMap
@@ -113,8 +112,6 @@ private const val DESTINATION_MARKER = "destination"
 private const val ARC_SEGMENTS = 40
 private const val ROUTE_ARROW = "route-arrow"
 
-/** The full 3D tilt; the view settles at part of it. */
-private const val MAX_TILT_DEGREES = 45f
 
 /** Where along the finished route its direction chevron sits. */
 private const val MID_ARROW_AT = 0.55f
@@ -199,21 +196,18 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
     DisposeMapState(state)
     LaunchedEffect(dark) { state.applyTileTint(dark) }
 
-    // The map fades in once tiles arrive; only then does it tilt (0 flat, 1
-    // full 3D) and the arrow fly, settling into a gentle tilt at the end.
+    // The map fades in once tiles arrive; only then does the route draw.
     val shown = remember { Animatable(if (reduced) 1f else 0f) }
-    val tilt = remember { Animatable(0f) }
     var played by remember { mutableStateOf(false) }
     var arrivedKm by remember { mutableStateOf<Double?>(null) }
 
 
     LaunchedEffect(state) {
         val (x, y) = place.toNormalized()
-        // On the map itself, so the pin's tip is exactly on its point; stood
-        // upright against the tilt. The arrival card rides above it.
+        // On the map itself, so the pin's tip is exactly on its point. The
+        // arrival card rides above it.
         state.addMarker(BUSINESS_MARKER, x, y, relativeOffset = Offset(-0.5f, -1f), clickable = false, zIndex = 3f) {
             Column(
-                Modifier.upright { tilt.value },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 arrivedKm?.let { km ->
@@ -265,7 +259,6 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
             withTimeoutOrNull(5_000) { loadedTileCount.first { it >= before + 6 } }
             shown.animateTo(1f, tween(300))
             delay(350)
-            tilt.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
             val flight = Animatable(0f)
             var drawn = 0
             flight.animateTo(1f, tween(2_000, easing = FastOutSlowInEasing)) {
@@ -273,7 +266,6 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
                 // The arrow is the line's own tip, in the line's colour.
                 state.drawChevron(arc, value, routeColor(routeColors, value))
             }
-            tilt.animateTo(0.6f, spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow))
         }
         state.clearRoute()
         state.drawRoute(arc, 1f, routeColors)
@@ -282,29 +274,15 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
         arrivedKm = me.distanceKmTo(place)
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            // A soft sky behind the tilted map's far edge.
-            .background(
-                Brush.verticalGradient(
-                    listOf(accent.copy(alpha = 0.14f), MaterialTheme.colorScheme.surfaceVariant)
-                )
-            )
-    ) {
+    Box(Modifier.fillMaxSize().background(mapBackground(dark))) {
         Box(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    val t = tilt.value
                     alpha = shown.value
-                    rotationX = MAX_TILT_DEGREES * t
-                    // A far camera keeps the perspective soft, so the far edge
-                    // narrows only a little; the scale-up covers what remains.
-                    cameraDistance = 18f * density
-                    scaleX = 1f + 0.28f * t + 0.04f * (1f - shown.value)
-                    scaleY = 1f + 0.28f * t + 0.04f * (1f - shown.value)
-                    transformOrigin = TransformOrigin(0.5f, 0.62f)
+                    // A slight settle as it appears.
+                    scaleX = 1f + 0.04f * (1f - shown.value)
+                    scaleY = 1f + 0.04f * (1f - shown.value)
                 }
         ) {
             MapUI(modifier = Modifier.fillMaxSize(), state = state)
@@ -323,17 +301,6 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
             )
         }
     }
-}
-
-/**
- * Stands a marker up on the tilted map: the tilt squashes everything on the
- * map by cos(angle) vertically, so the marker is stretched back by as much,
- * from its bottom edge (the point it marks).
- */
-private fun Modifier.upright(tilt: () -> Float): Modifier = graphicsLayer {
-    val c = cos(MAX_TILT_DEGREES * tilt() * PI / 180.0).toFloat().coerceAtLeast(0.3f)
-    scaleY = 1f / c
-    transformOrigin = TransformOrigin(0.5f, 1f)
 }
 
 private fun lerp(a: Pair<Double, Double>, b: Pair<Double, Double>, t: Double) =
