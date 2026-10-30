@@ -61,6 +61,9 @@ INSTALLED_APPS = [
     'visitor',
     'appointment',
     'bale',
+    'showcase',
+    'banners',
+    'marketing',
 ]
 
 MIDDLEWARE = [

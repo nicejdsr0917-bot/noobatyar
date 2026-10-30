@@ -34,6 +34,8 @@ urlpatterns = [
     path('api/client/appointments/', include('appointment.client_urls')),
     path('api/client/auth/', include('visitor.client_auth_urls')),
     path('api/client/activity/', include('visitor.client_activity_urls')),
+    path('api/', include('showcase.urls')),
+    path('api/owner/banners/', include('banners.urls')),
 ]
 
 handler404 = custom_404_handler

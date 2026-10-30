@@ -17,7 +17,10 @@ from .keyboards import (
     main_keyboard,
     no_keyboard,
     parse_callback,
+    parse_showcase_callback,
     reason_keyboard,
+    showcase_keyboard,
+    showcase_reason_keyboard,
 )
 from .models import PendingReason
 from .notify import (
@@ -79,6 +82,10 @@ def _handle_callback(config, query):
                 config.bot_token, query_id, 'شما اجازه‌ی این کار را ندارید', True
             )
         return
+
+    showcase = parse_showcase_callback(query.get('data'))
+    if showcase is not None:
+        return _handle_showcase(config, query_id, query, showcase)
 
     parsed = parse_callback(query.get('data'))
     if parsed is None:
@@ -338,3 +345,49 @@ def _card(business, already=False):
     but staged (pending_*) values are exactly the fields under review."""
     changed = [f[len('pending_'):] for f in _STAGED_LABELS if getattr(business, f, None)]
     return build_text(business, _kind_for(business, already), changed)
+
+
+# ── showcase review cards ───────────────────────────────────────────────────
+
+def _handle_showcase(config, query_id, query, parsed):
+    from showcase.models import ModerationStatus
+    from showcase.services import MODELS, decide
+
+    kind, action = parsed['kind'], parsed['action']
+    message_id = (query.get('message') or {}).get('message_id')
+    item = MODELS[kind].objects.select_related('business').filter(pk=parsed['item_id']).first()
+    if item is None:
+        if query_id:
+            answer_callback_query(config.bot_token, query_id, 'این مورد دیگر وجود ندارد', True)
+        return
+
+    from .notify import showcase_card_text
+    card = showcase_card_text(kind, item)
+
+    if action in ('menu', 'back'):
+        if query_id:
+            answer_callback_query(config.bot_token, query_id)
+        if message_id:
+            menu = action == 'menu'
+            edit_message_text(
+                config.bot_token, config.chat_id, message_id,
+                _cap(card + ('\n\nدلیل را انتخاب کن:' if menu else '')),
+                reply_markup=(showcase_reason_keyboard if menu else showcase_keyboard)(kind, item.pk),
+            )
+        return
+
+    to_status = ModerationStatus.APPROVED if action == 'approve' else ModerationStatus.REJECTED
+    note = parsed.get('note', '')
+    changed = decide(item, kind, to_status, actor=config.actor, reason=note)
+    label = _STATUS_LABEL[Business.MODERATION_APPROVED if action == 'approve' else Business.MODERATION_REJECTED]
+    if query_id:
+        answer_callback_query(
+            config.bot_token, query_id, label if changed else 'این تصمیم قبلاً ثبت شده است', not changed)
+    if message_id:
+        tail = label + (f'\nدلیل: {note}' if note and changed else '')
+        if not changed:
+            tail = f'{_STATUS_LABEL.get(Business.MODERATION_APPROVED if item.status == ModerationStatus.APPROVED else Business.MODERATION_REJECTED)}\n(این تصمیم قبلاً ثبت شده بود)'
+        edit_message_text(
+            config.bot_token, config.chat_id, message_id,
+            _cap(card + '\n\n' + tail), reply_markup=no_keyboard(),
+        )

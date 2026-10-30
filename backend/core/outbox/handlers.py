@@ -55,3 +55,9 @@ def push_campaign_chunk(payload):
 def expiry_sms_chunk(payload):
     from core.messaging import deliver_expiry_chunk
     deliver_expiry_chunk(payload)
+
+
+@register('bale.showcase_card')
+def bale_showcase_card(payload):
+    from bale.notify import send_showcase_card
+    send_showcase_card(payload['kind'], payload['item_id'])

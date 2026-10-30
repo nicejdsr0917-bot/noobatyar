@@ -279,3 +279,64 @@ def _admin_url(business_id):
         return ''
     admin_path = getattr(settings, 'ADMIN_URL', 'admin/')
     return f'{site}/{admin_path}business/business/{business_id}/change/'
+
+
+# ── showcase (portfolio / certificate) review cards ─────────────────────────
+
+def notify_showcase_queued(kind, item_id):
+    """Queue a Bale review card for a portfolio item / certificate (outbox,
+    written inside the caller's transaction; never raises)."""
+    try:
+        from core.outbox.service import enqueue
+        enqueue('bale.showcase_card', {'kind': kind, 'item_id': item_id})
+    except Exception:
+        logger.exception('Failed to schedule Bale showcase notification')
+
+
+def _showcase_model(kind):
+    from showcase.services import MODELS
+    return MODELS[kind]
+
+
+def showcase_card_text(kind, item) -> str:
+    biz = item.business
+    head = '🖼 نمونه‌کار جدید در انتظار تأیید' if kind == 'portfolio' else '🎓 مدرک جدید در انتظار تأیید'
+    lines = [head, '', f'کسب‌وکار: {biz.title}']
+    if biz.unique_code:
+        lines.append(f'کد: {biz.unique_code}')
+    if kind == 'portfolio':
+        if item.caption:
+            lines.append(f'توضیح: {item.caption}')
+    else:
+        lines.append(f'عنوان: {item.title}')
+        if item.issuer:
+            lines.append(f'صادرکننده: {item.issuer}')
+        if item.year:
+            lines.append(f'سال: {item.year}')
+    return '\n'.join(lines)
+
+
+def send_showcase_card(kind, item_id):
+    """Outbox handler body (``bale.showcase_card``)."""
+    try:
+        from .keyboards import showcase_keyboard
+        config = BaleSettings.load()
+        if not config.is_configured:
+            return
+        item = _showcase_model(kind).objects.select_related('business').filter(pk=item_id).first()
+        if item is None:
+            return
+        try:
+            path = item.image.path
+        except (NotImplementedError, ValueError):
+            path = None
+        if path and os.path.exists(path):
+            send_photo(config.bot_token, config.chat_id, path)
+        result = send_message(
+            config.bot_token, config.chat_id, showcase_card_text(kind, item),
+            reply_markup=showcase_keyboard(kind, item.pk),
+        )
+        if not result['success']:
+            logger.warning('Bale showcase card not delivered (%s %s): %s', kind, item_id, result.get('error'))
+    except Exception:
+        logger.exception('Bale showcase notification failed (%s %s)', kind, item_id)
