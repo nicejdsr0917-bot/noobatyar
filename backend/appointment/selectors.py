@@ -5,15 +5,52 @@ Views and services ask here for querysets / single rows; nothing in this module
 writes.
 """
 
+from datetime import timezone as dt_timezone
+
+from django.db.models import Count, IntegerField, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce, TruncDay
+
 from .models import Appointment
+
+# Statuses that hold a place in the day's queue.
+QUEUE_STATUSES = ('WAITING', 'IN_PROGRESS')
+
+
+def _ahead_in_queue():
+    """Correlated COUNT of same-business, same-(UTC)-day, earlier, still-queued
+    appointments - the value ClientAppointmentSerializer.get_queue_position()
+    used to ask for with one query per row."""
+    ahead = (
+        Appointment.objects
+        .filter(
+            business_id=OuterRef('business_id'),
+            status__in=QUEUE_STATUSES,
+            appointment_date__lt=OuterRef('appointment_date'),
+            appointment_date__gte=OuterRef('_day_start'),
+        )
+        .order_by()
+        .values('business_id')
+        .annotate(n=Count('pk'))
+        .values('n')
+    )
+    return Coalesce(Subquery(ahead, output_field=IntegerField()), Value(0))
 
 
 def appointment_list_for_visitor(*, visitor):
-    """The client's own appointments, newest first (ClientAppointmentListView)."""
+    """The client's own appointments, newest first (ClientAppointmentListView).
+
+    Everything the serializer reads per row is resolved here or in one batch per
+    page: the business insurances are prefetched and the queue position is an
+    annotation (``queue_ahead``); the owner's subscription / quota state is
+    attached per page by the serializer's list class.
+    """
     return (
         Appointment.objects
         .filter(visitor=visitor)
         .select_related('business', 'visitor')
+        .prefetch_related('business__insurances')
+        .annotate(_day_start=TruncDay('appointment_date', tzinfo=dt_timezone.utc))
+        .annotate(queue_ahead=_ahead_in_queue())
         .order_by('-appointment_date')
     )
 

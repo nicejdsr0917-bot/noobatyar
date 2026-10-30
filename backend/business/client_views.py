@@ -2,20 +2,21 @@ from adrf.views import APIView
 from asgiref.sync import sync_to_async
 from rest_framework.permissions import AllowAny
 from rest_framework.throttling import AnonRateThrottle
-from django.core.paginator import Paginator
-from django.db.models import Exists, ExpressionWrapper, F, FloatField, OuterRef, Q
+from django.db.models import F
 import hashlib
 import logging
-import math
 
 from api.phone import is_iran_phone, normalize_phone
 from api.throttles import client_ip
 from visitor.auth import VisitorTokenAuthentication
 from visitor.models import Visitor
 
-from .iran_cities import city_filter
+from . import cache as public_cache
+from .geo import MAX_RADIUS_KM, haversine_km  # noqa: F401  (re-exported for older imports)
 from .models import Business, ContentReport, Insurance, OnlineBookingRequest
-from .selectors import attach_owner_state, public_businesses
+from .selectors import (
+    PublicSearchParams, _float_or_none, public_business_detail, public_business_search,
+)
 from .serializers import PublicBusinessSerializer, InsuranceSerializer
 from api.responses import APIResponse
 
@@ -70,14 +71,6 @@ class RequestBookingRateThrottle(AnonRateThrottle):
             'ident': self.get_ident(request),
         }
 
-# Upper bound on a geo search: keeps the SQL bounding box (and the sort over
-# it) small even for a dense city.
-MAX_RADIUS_KM = 100.0
-
-# Kilometres per degree of latitude (and of longitude at the equator).
-_KM_PER_DEG = 111.195
-
-
 def request_fingerprint(request):
     """Stable, anonymised identity of the caller for de-duplicating votes.
 
@@ -92,191 +85,40 @@ def request_fingerprint(request):
     return hashlib.sha256(raw.encode('utf-8')).hexdigest()
 
 
-def haversine_km(lat1, lon1, lat2, lon2):
-    """Calculate the great circle distance between two points on the earth in kilometers."""
-    R = 6371.0
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (math.sin(dlat / 2.0) ** 2 +
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
-         math.sin(dlon / 2.0) ** 2)
-    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
-    return R * c
-
-
-def _geo_queryset(qs, lat, lng, radius_km, include_unlocated, sort):
-    """Bounding box + radius + distance ordering, all in SQL.
-
-    The distance is the squared equirectangular distance in degrees² with the
-    longitude axis scaled by cos(lat0) (a Python constant): within the 100 km
-    cap it agrees with haversine to well under 1 %, so the radius cut-off and
-    the ordering can differ from the exact value only for rows that sit within
-    that margin of the boundary / of each other. The exact haversine value is
-    still what the response reports (computed for the page's rows only).
-    """
-    cos_lat0 = max(math.cos(math.radians(lat)), 0.01)
-    dist2 = ExpressionWrapper(
-        (F('latitude') - lat) * (F('latitude') - lat)
-        + (F('longitude') - lng) * (F('longitude') - lng) * (cos_lat0 * cos_lat0),
-        output_field=FloatField(),
-    )
-    qs = qs.annotate(_dist2=dist2)
-
-    if radius_km is not None and radius_km > 0:
-        lat_delta = (radius_km / 110.5) * 1.05
-        lng_delta = (radius_km / (111.32 * cos_lat0)) * 1.05
-        bbox_q = Q(
-            latitude__gte=lat - lat_delta, latitude__lte=lat + lat_delta,
-            longitude__gte=lng - lng_delta, longitude__lte=lng + lng_delta,
-        ) & Q(_dist2__lte=(radius_km / _KM_PER_DEG) ** 2)
-        if include_unlocated:
-            bbox_q |= Q(latitude__isnull=True) | Q(longitude__isnull=True)
-        qs = qs.filter(bbox_q)
-
-    nearest_first = F('_dist2').asc(nulls_last=True)
-    if sort == 'distance':
-        return qs.order_by(nearest_first, '-is_claimed', '-created_at', '-id')
-    # Default: 'recommended' — claimed first, then nearest.
-    return qs.order_by('-is_claimed', nearest_first, '-id')
+def _origin(request):
+    """scheme://host the response's absolute URLs are built from."""
+    return f'{request.scheme}://{request.get_host()}'
 
 
 class ClientBusinessListView(APIView):
     permission_classes = [AllowAny]
 
     async def get(self, request):
-        try:
-            page = max(1, int(request.query_params.get('page', 1)))
-        except (ValueError, TypeError):
-            page = 1
-        try:
-            page_size = min(max(1, int(request.query_params.get('page_size', 10))), 100)
-        except (ValueError, TypeError):
-            page_size = 10
-
-        search_query = request.query_params.get('search', '').strip()
-        category_query = request.query_params.get('category', '').strip()
-        insurance_query = request.query_params.get('insurance', '').strip()
-        city_query = request.query_params.get('city', '').strip()
-        city_code_query = request.query_params.get('city_code', '').strip()
-        only_claimed_query = request.query_params.get('only_claimed', '').strip().lower()
-
-        lat_param = request.query_params.get('lat')
-        lng_param = request.query_params.get('lng')
-        radius_param = request.query_params.get('radius_km')
-        include_unlocated = request.query_params.get('include_unlocated', '').strip().lower() in ('true', '1')
-        sort = request.query_params.get('sort', 'recommended').strip().lower()
-
-        lat = None
-        lng = None
-        if lat_param is not None and lng_param is not None:
-            try:
-                lat = float(lat_param)
-                lng = float(lng_param)
-                if not (-90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0):
-                    lat = None
-                    lng = None
-            except (ValueError, TypeError):
-                lat = None
-                lng = None
-
-        radius_km = 50.0 if (lat is not None and lng is not None) else None
-        if radius_param:
-            try:
-                radius_km = float(radius_param)
-            except (ValueError, TypeError):
-                pass
-        if radius_km is not None:
-            radius_km = min(radius_km, MAX_RADIUS_KM) if radius_km > 0 else MAX_RADIUS_KM
-
-        # Build Q objects for filtering. public_filter() carries both reasons a
-        # business stays out of public browsing — locked (subscription
-        # downgrade) and not editorially approved.
-        filters = Business.public_filter()
-
-        if search_query:
-            filters &= (
-                Q(title__icontains=search_query) |
-                Q(unique_code__iexact=search_query) |
-                Q(address__icontains=search_query) |
-                Q(city__icontains=search_query) |
-                Q(neighborhood__icontains=search_query)
-            )
-
-        if category_query:
-            group_map = {
-                key.upper(): [code for code, _ in pairs]
-                for key, _label, pairs in Business.CATEGORY_GROUPS
-            }
-            cat_upper = category_query.upper()
-            if cat_upper in group_map:
-                filters &= Q(category__in=group_map[cat_upper])
-            else:
-                filters &= Q(category=category_query)
-
-        if insurance_query:
-            # Exists() instead of a join: a business matching several of the
-            # same insurance rows can never duplicate, so no DISTINCT is needed.
-            through = Business.insurances.through.objects.filter(business_id=OuterRef('pk'))
-            if insurance_query.isdigit():
-                through = through.filter(insurance_id=int(insurance_query))
-            else:
-                through = through.filter(insurance__slug=insurance_query)
-            filters &= Q(Exists(through))
-
-        if city_query:
-            filters &= Q(city__icontains=city_query)
-
-        if city_code_query.isdigit():
-            filters &= city_filter(int(city_code_query))
-
-        if only_claimed_query in ('true', '1'):
-            filters &= Q(is_claimed=True)
-
-        def _fetch_and_paginate():
-            qs = public_businesses(filters)
-
-            if lat is None or lng is None:
-                qs = qs.order_by('-is_claimed', '-created_at')
-            else:
-                qs = _geo_queryset(qs, lat, lng, radius_km, include_unlocated, sort)
-
-            paginator = Paginator(qs, page_size)
-            page_obj = paginator.get_page(page)
-            page_items = list(page_obj.object_list)
-            for b in page_items:
-                # Exact great-circle distance, only for the rows on this page.
-                if lat is not None and b.latitude is not None and b.longitude is not None:
-                    b.distance_km = haversine_km(lat, lng, b.latitude, b.longitude)
-                else:
-                    b.distance_km = None
-            attach_owner_state(page_items)
-            return paginator.count, paginator.num_pages, page_obj.number, (
-                page_obj.next_page_number() if page_obj.has_next() else None
-            ), (
-                page_obj.previous_page_number() if page_obj.has_previous() else None
-            ), page_items
+        params = PublicSearchParams.from_query(request.query_params)
+        # A position makes every response unique: only position-less anonymous
+        # requests share cache entries (business/cache.py).
+        use_cache = public_cache.is_cacheable_request(request) and params.lat is None
 
         def _fetch_and_serialize():
-            count, total_pages, current_page, next_page, prev_page, page_items = _fetch_and_paginate()
-            data = PublicBusinessSerializer(
-                page_items, many=True, context={'request': request}
+            key = public_cache.list_key(params, _origin(request)) if use_cache else None
+            if key is not None:
+                cached = public_cache.get(key)
+                if cached is not None:
+                    return cached
+            page = public_business_search(params)
+            results = PublicBusinessSerializer(
+                page.items, many=True, context={'request': request}
             ).data
-            return count, total_pages, current_page, next_page, prev_page, data
+            payload = page.as_payload(results)
+            if key is not None:
+                public_cache.put(key, payload, public_cache.LIST_TTL)
+            return payload
 
         # One sync hop for query + serialisation: nothing below touches the DB.
-        count, total_pages, current_page, next_page, prev_page, results = await sync_to_async(
-            _fetch_and_serialize
-        )()
+        data = await sync_to_async(_fetch_and_serialize)()
 
         return APIResponse.success(
-            data={
-                'count': count,
-                'total_pages': total_pages,
-                'current_page': current_page,
-                'next': next_page,
-                'previous': prev_page,
-                'results': results
-            },
+            data=data,
             message="لیست کسب و کارها با موفقیت دریافت شد"
         )
 
@@ -341,35 +183,43 @@ class ClientBusinessDetailView(APIView):
     permission_classes = [AllowAny]
 
     async def get(self, request, business_id):
-        lat_param = request.query_params.get('lat')
-        lng_param = request.query_params.get('lng')
+        lat = _float_or_none(request.query_params.get('lat'))
+        lng = _float_or_none(request.query_params.get('lng'))
+
+        use_cache = public_cache.is_cacheable_request(request)
 
         def _load_and_serialize():
-            business = public_businesses(Q(id=business_id)).first()
-            if not business:
-                return None
-            business.distance_km = None
-            if lat_param is not None and lng_param is not None:
-                try:
-                    lat = float(lat_param)
-                    lng = float(lng_param)
-                    if business.latitude is not None and business.longitude is not None:
-                        business.distance_km = haversine_km(lat, lng, business.latitude, business.longitude)
-                except (ValueError, TypeError):
-                    pass
-            attach_owner_state([business])
-            return PublicBusinessSerializer(business, context={'request': request}).data
+            if not use_cache:
+                business = public_business_detail(business_id, lat=lat, lng=lng)
+                return PublicBusinessSerializer(business, context={'request': request}).data
+            # Cached without the viewer's distance; it is added per request.
+            key = public_cache.detail_key(business_id, _origin(request))
+            entry = public_cache.get(key)
+            if entry is None:
+                business = public_business_detail(business_id)
+                entry = {
+                    'data': dict(PublicBusinessSerializer(business, context={'request': request}).data),
+                    'pin': (business.latitude, business.longitude),
+                }
+                public_cache.put(key, entry, public_cache.DETAIL_TTL)
+            data = dict(entry['data'])
+            pin_lat, pin_lng = entry['pin']
+            if lat is not None and lng is not None and pin_lat is not None and pin_lng is not None:
+                data['distance_km'] = round(haversine_km(lat, lng, pin_lat, pin_lng), 2)
+            return data
 
         try:
             data = await sync_to_async(_load_and_serialize)()
-        except Exception:
-            logger.exception("business detail failed (id=%s)", business_id)
-            data = None
-        if data is None:
+        except Business.DoesNotExist:
             return APIResponse.error(
                 message="کسب و کار مورد نظر یافت نشد",
                 code=404
             )
+        except Exception:
+            # Anything else is a server fault, not "not found": log it and let
+            # it surface as a 500 instead of hiding it behind a 404.
+            logger.exception("business detail failed (id=%s)", business_id)
+            raise
         return APIResponse.success(
             data=data,
             message="اطلاعات کسب و کار با موفقیت دریافت شد"
