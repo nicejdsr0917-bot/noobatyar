@@ -34,6 +34,7 @@ import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
 import xyz.sattar.javid.proqueue.feature.appointments.AppointmentDetailScreen
 import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsScreen
 import xyz.sattar.javid.proqueue.feature.booking.BookingScreen
+import xyz.sattar.javid.proqueue.feature.businessDetail.BusinessMapScreen
 import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailScreen
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.explore.ExploreScreen
@@ -76,7 +77,14 @@ fun MainNavHost() {
                     ClientBusinessDetailScreen(
                         businessId = entry.toRoute<AppScreens.ClientBusinessDetail>().businessId,
                         onNavigateBack = { navController.popBackStack() },
-                        onBook = { navController.navigate(AppScreens.Booking(it)) }
+                        onBook = { navController.navigate(AppScreens.Booking(it)) },
+                        onOpenMap = { navController.navigate(AppScreens.BusinessMap(it)) },
+                    )
+                }
+                composable<AppScreens.BusinessMap> { entry ->
+                    BusinessMapScreen(
+                        businessId = entry.toRoute<AppScreens.BusinessMap>().businessId,
+                        onNavigateBack = { navController.popBackStack() },
                     )
                 }
                 composable<AppScreens.Booking> { entry ->

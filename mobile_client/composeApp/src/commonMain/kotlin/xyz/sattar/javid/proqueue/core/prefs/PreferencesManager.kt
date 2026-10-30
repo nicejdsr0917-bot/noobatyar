@@ -50,6 +50,10 @@ expect object PreferencesManager {
     val visitorToken: Flow<String?>
     fun getVisitorToken(): String?
     suspend fun setVisitorToken(token: String?)
+
+    /** Where the user last was, saved each time they let the app take a fix. */
+    val lastLocation: Flow<SavedLocation?>
+    suspend fun saveLocation(location: SavedLocation)
 }
 
 const val MAX_RECENT_SEARCHES = 8

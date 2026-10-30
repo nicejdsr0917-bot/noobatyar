@@ -87,6 +87,7 @@ fun ClientBusinessDetailScreen(
     businessId: Long,
     onNavigateBack: () -> Unit,
     onBook: (Long) -> Unit,
+    onOpenMap: (Long) -> Unit = {},
     viewModel: ClientBusinessDetailViewModel = koinViewModel(),
     social: BusinessSocialViewModel = koinViewModel(),
 ) {
@@ -146,6 +147,7 @@ fun ClientBusinessDetailScreen(
                 onRequestBooking = viewModel::requestOnlineBooking,
                 onReport = { showReport = true },
                 onBook = { onBook(business.id) },
+                onOpenMap = { onOpenMap(business.id) },
             )
             state.isLoading -> DetailShimmer(onBack = onNavigateBack)
             else -> Column(Modifier.fillMaxSize()) {
@@ -202,6 +204,7 @@ internal fun DetailContent(
     onRequestBooking: () -> Unit,
     onReport: () -> Unit,
     onBook: () -> Unit,
+    onOpenMap: () -> Unit = {},
 ) {
     // Only for sharing: booking itself happens in the app, never on the site.
     val booking = bookingUrl(business)
@@ -269,6 +272,9 @@ internal fun DetailContent(
                     GroupCard(title = "آدرس و تماس", index = card++, bleed = {
                         val lat = business.latitude
                         val lng = business.longitude
+                        if (lat != null && lng != null) {
+                            MapPreview(business, lat, lng, onOpen = onOpenMap, modifier = Modifier.padding(horizontal = Space.lg).padding(bottom = Space.xs))
+                        }
                         LinkRow(
                             Icons.Outlined.LocationOn,
                             business.address.ifBlank { "آدرس ثبت نشده" },

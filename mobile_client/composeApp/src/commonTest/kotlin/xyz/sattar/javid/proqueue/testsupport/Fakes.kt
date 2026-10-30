@@ -10,6 +10,7 @@ import xyz.sattar.javid.proqueue.core.location.IranProvince
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.network.PaginatedResponseDto
 import xyz.sattar.javid.proqueue.core.prefs.ClientPreferences
+import xyz.sattar.javid.proqueue.core.prefs.SavedLocation
 import xyz.sattar.javid.proqueue.core.prefs.withRecent
 import xyz.sattar.javid.proqueue.core.prefs.withRecentCity
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.ClientBusinessApi
@@ -55,6 +56,10 @@ class FakeClientPreferences(
     val token = MutableStateFlow<String?>(null)
     override val visitorToken get() = token
     override suspend fun setVisitorToken(token: String?) { this.token.value = token }
+
+    val location = MutableStateFlow<SavedLocation?>(null)
+    override val lastLocation get() = location
+    override suspend fun saveLocation(location: SavedLocation) { this.location.value = location }
 }
 
 class FakeCityCatalog(private val cities: List<IranCity> = emptyList()) : CityCatalog {

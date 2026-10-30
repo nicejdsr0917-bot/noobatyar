@@ -26,6 +26,7 @@ actual object PreferencesManager {
     private const val KEY_RECENT_SEARCHES = "recent_searches"
     private const val KEY_WELCOME_SEEN = "welcome_seen"
     private const val KEY_VISITOR_TOKEN = "visitor_token"
+    private const val KEY_LAST_LOCATION = "last_location"
     private const val KEY_RECENT_CITIES = "recent_city_codes"
 
     private val _themeMode = MutableStateFlow(
@@ -157,5 +158,13 @@ actual object PreferencesManager {
     actual suspend fun setVisitorToken(token: String?) {
         prefs.edit(commit = true) { if (token == null) remove(KEY_VISITOR_TOKEN) else putString(KEY_VISITOR_TOKEN, token) }
         _visitorToken.value = token
+    }
+
+    private val _lastLocation by lazy { MutableStateFlow(decodeSavedLocation(prefs.getString(KEY_LAST_LOCATION, null))) }
+    actual val lastLocation: Flow<SavedLocation?> get() = _lastLocation
+
+    actual suspend fun saveLocation(location: SavedLocation) {
+        prefs.edit(commit = true) { putString(KEY_LAST_LOCATION, location.encode()) }
+        _lastLocation.value = location
     }
 }

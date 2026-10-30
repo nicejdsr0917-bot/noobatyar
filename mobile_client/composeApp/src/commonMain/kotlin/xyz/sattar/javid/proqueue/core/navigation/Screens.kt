@@ -40,6 +40,9 @@ sealed class AppScreens {
     data class AppointmentDetail(val appointmentId: Long) : AppScreens()
 
     @Serializable
+    data class BusinessMap(val businessId: Long) : AppScreens()
+
+    @Serializable
     object MyAppointments : AppScreens()
 }
 

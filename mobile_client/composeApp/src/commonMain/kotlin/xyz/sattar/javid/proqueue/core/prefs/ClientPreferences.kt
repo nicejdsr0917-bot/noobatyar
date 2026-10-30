@@ -24,6 +24,10 @@ interface ClientPreferences {
     /** Visitor session from OTP sign-in; null when signed out. */
     val visitorToken: Flow<String?>
     suspend fun setVisitorToken(token: String?)
+
+    /** The user's last fix, kept so distances show before a new one arrives. */
+    val lastLocation: Flow<SavedLocation?>
+    suspend fun saveLocation(location: SavedLocation)
 }
 
 /** Production [ClientPreferences]: straight delegation to the platform [PreferencesManager]. */
@@ -40,4 +44,7 @@ class PlatformClientPreferences : ClientPreferences {
 
     override val visitorToken: Flow<String?> get() = PreferencesManager.visitorToken
     override suspend fun setVisitorToken(token: String?) = PreferencesManager.setVisitorToken(token)
+
+    override val lastLocation: Flow<SavedLocation?> get() = PreferencesManager.lastLocation
+    override suspend fun saveLocation(location: SavedLocation) = PreferencesManager.saveLocation(location)
 }

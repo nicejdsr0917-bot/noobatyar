@@ -27,6 +27,7 @@ import xyz.sattar.javid.proqueue.feature.appointments.AppointmentDetailViewModel
 import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsViewModel
 import xyz.sattar.javid.proqueue.feature.booking.BookingViewModel
 import xyz.sattar.javid.proqueue.feature.businessDetail.BusinessSocialViewModel
+import xyz.sattar.javid.proqueue.feature.businessDetail.BusinessMapViewModel
 import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailViewModel
 import xyz.sattar.javid.proqueue.feature.explore.ExploreViewModel
 import xyz.sattar.javid.proqueue.feature.saved.SavedViewModel
@@ -58,6 +59,7 @@ val appModule: Module = module {
     viewModel { VersionViewModel(get()) }
     viewModel { ExploreViewModel(get(), get(), get()) }
     viewModel { ClientBusinessDetailViewModel(get(), get()) }
+    viewModel { BusinessMapViewModel(get(), get()) }
     viewModel { BusinessSocialViewModel(get(), get()) }
     viewModel { SavedViewModel(get(), get()) }
     viewModel { BookingViewModel(get(), get(), get()) }
