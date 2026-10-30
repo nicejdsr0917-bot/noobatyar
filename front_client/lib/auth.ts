@@ -20,4 +20,5 @@ export function clearVisitorToken(): void {
   localStorage.removeItem(KEY);
 }
 
-export { useVisitorToken } from '@/lib/visitorToken';
+// The React hook lives in lib/visitorToken.ts; it is not re-exported here so
+// that server modules importing api.ts never pull a hook into their graph.

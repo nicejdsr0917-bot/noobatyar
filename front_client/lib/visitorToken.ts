@@ -1,3 +1,4 @@
+"use client";
 import { useSyncExternalStore } from 'react';
 import { getVisitorToken } from '@/lib/auth';
 
