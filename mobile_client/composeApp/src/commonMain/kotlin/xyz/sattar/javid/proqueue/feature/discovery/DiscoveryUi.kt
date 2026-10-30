@@ -370,6 +370,16 @@ fun BusinessRow(
                 )
                 Spacer(Modifier.height(6.dp))
                 MetaLine(business, status)
+                val freeSlot = remember(business.firstFreeSlot) { formatFirstFreeSlot(business.firstFreeSlot) }
+                if (freeSlot != null) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "اولین نوبت خالی: $freeSlot",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
             SaveButton(saved, onToggleSave)
         }

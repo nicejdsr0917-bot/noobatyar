@@ -102,6 +102,60 @@ class DetailAndSavedViewModelTest {
         assertFalse(vm.state.value.hasRequestedBooking)
     }
 
+    // ── report a business ──
+
+    private fun loadedVm(): ClientBusinessDetailViewModel {
+        repo.details[5] = ApiResponse.Success(businessDto(5))
+        return ClientBusinessDetailViewModel(repo, FakeClientPreferences(), main.dispatcher)
+    }
+
+    @Test
+    fun reportSuccessEmitsMessageAndCallsOnDone() = runTest(main.dispatcher) {
+        val vm = loadedVm()
+        vm.load(5)
+        advanceUntilIdle()
+        var done = false
+        vm.messages.test {
+            vm.report("MISLEADING", "آدرس اشتباه است") { done = true }
+            assertIs<DetailMessage.Success>(awaitItem())
+        }
+        assertTrue(done)
+        assertEquals(Triple(5L, "MISLEADING", "آدرس اشتباه است"), repo.reports.single())
+        assertFalse(vm.state.value.isReporting)
+    }
+
+    @Test
+    fun reportServerErrorIsShownAndDoesNotComplete() = runTest(main.dispatcher) {
+        val vm = loadedVm()
+        repo.reportResponse = ApiResponse.Error("too many reports", 429)
+        vm.load(5)
+        advanceUntilIdle()
+        var done = false
+        vm.messages.test {
+            vm.report("OTHER", "") { done = true }
+            val m = awaitItem()
+            assertIs<DetailMessage.Error>(m)
+            assertEquals("too many reports", m.text)
+        }
+        assertFalse(done)
+        assertFalse(vm.state.value.isReporting)
+    }
+
+    @Test
+    fun reportingFlagIsRaisedWhileTheCallIsInFlight() = runTest(main.dispatcher) {
+        val vm = loadedVm()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        repo.reportGate = gate
+        vm.load(5)
+        advanceUntilIdle()
+        vm.report("SPAM", "") {}
+        advanceUntilIdle()
+        assertTrue(vm.state.value.isReporting)
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(vm.state.value.isReporting)
+    }
+
     // ── SavedViewModel ──
 
     @Test

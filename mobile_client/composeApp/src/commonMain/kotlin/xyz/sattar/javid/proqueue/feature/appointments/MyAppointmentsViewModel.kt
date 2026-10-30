@@ -34,6 +34,15 @@ fun statusLabel(status: String): String = when (status) {
     else -> status
 }
 
+private fun ClientAppointmentDto.acceptedMethods(): List<String> =
+    business.acceptedPaymentMethods ?: listOfNotNull(business.paymentMethod)
+
+/** A LOCKED appointment whose business takes card transfers and showed us its card. */
+fun ClientAppointmentDto.canPayByCard(): Boolean =
+    status == "LOCKED" && "CARD" in acceptedMethods() && !cardNumber.isNullOrBlank()
+
+fun ClientAppointmentDto.canPayCash(): Boolean = status == "LOCKED" && "CASH" in acceptedMethods()
+
 @Immutable
 data class MyAppointmentsState(
     val isSignedIn: Boolean = false,
@@ -98,6 +107,24 @@ class MyAppointmentsViewModel(
     fun payOnline(id: Long) = act(id) { token ->
         when (val res = bookingApi.payOnline(token, id)) {
             is ApiResponse.Success -> _messages.send(AppointmentsMessage.OpenUrl(res.data.paymentUrl))
+            is ApiResponse.Error -> _messages.send(AppointmentsMessage.Error(res.message))
+        }
+    }
+
+    /** Records a card-to-card transfer for a LOCKED appointment the visitor left unpaid. */
+    fun payByCard(id: Long, reference: String) {
+        if (reference.isBlank()) return
+        submitPayment(id, "CARD", reference.trim(), "واریز شما ثبت شد؛ پس از تأیید مرکز نوبت قطعی می‌شود")
+    }
+
+    fun payCash(id: Long) = submitPayment(id, "CASH", "", "پرداخت حضوری ثبت شد")
+
+    private fun submitPayment(id: Long, method: String, reference: String, doneText: String) = act(id) { token ->
+        when (val res = bookingApi.pay(token, id, method, reference)) {
+            is ApiResponse.Success -> {
+                _messages.send(AppointmentsMessage.Info(doneText))
+                refresh()
+            }
             is ApiResponse.Error -> _messages.send(AppointmentsMessage.Error(res.message))
         }
     }

@@ -38,13 +38,17 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
+import xyz.sattar.javid.proqueue.data.remoteDataSource.social.model.ReviewDto
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
@@ -80,12 +84,33 @@ fun ClientBusinessDetailScreen(
     onNavigateBack: () -> Unit,
     onBook: (Long) -> Unit,
     viewModel: ClientBusinessDetailViewModel = koinViewModel(),
+    social: BusinessSocialViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val socialState by social.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var showReport by remember { mutableStateOf(false) }
+    var showReviewDialog by remember { mutableStateOf(false) }
+    var reportingReview by remember { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(businessId) { viewModel.load(businessId) }
+    LaunchedEffect(businessId) {
+        viewModel.load(businessId)
+        social.load(businessId)
+    }
+    // Signing in happens inside the booking flow; pick the token up on return.
+    LifecycleResumeEffect(Unit) {
+        social.refreshAccount()
+        onPauseOrDispose { }
+    }
+    LaunchedEffect(Unit) {
+        social.messages.collect { msg ->
+            when (msg) {
+                is DetailMessage.Success -> snackbar.showToasty(UiMessage.success(msg.text))
+                is DetailMessage.Error -> snackbar.showToasty(UiMessage.error(msg.text))
+            }
+        }
+    }
     LaunchedEffect(Unit) {
         viewModel.messages.collect { msg ->
             when (msg) {
@@ -101,6 +126,17 @@ fun ClientBusinessDetailScreen(
             business != null -> DetailContent(
                 business = business,
                 state = state,
+                social = socialState,
+                onWriteReview = {
+                    if (socialState.isSignedIn) showReviewDialog = true
+                    else scope.launch {
+                        snackbar.showToasty(
+                            UiMessage.info("برای ثبت نظر باید وارد شده باشید؛ با اولین رزرو نوبت از همین اپ وارد می‌شوید.")
+                        )
+                    }
+                },
+                onMoreReviews = social::loadMoreReviews,
+                onReportReview = { reportingReview = it.id },
                 onBack = onNavigateBack,
                 onToggleSave = viewModel::toggleSaved,
                 onRequestBooking = viewModel::requestOnlineBooking,
@@ -123,6 +159,23 @@ fun ClientBusinessDetailScreen(
         ToastyHost(hostState = snackbar)
     }
 
+    if (showReviewDialog) {
+        ReviewDialog(
+            existing = socialState.myReview,
+            isSaving = socialState.isSavingReview,
+            onDismiss = { showReviewDialog = false },
+            onSubmit = { rating, text -> social.saveReview(rating, text) { showReviewDialog = false } },
+            onDelete = { social.deleteReview { showReviewDialog = false } },
+        )
+    }
+    reportingReview?.let { reviewId ->
+        ReviewReportDialog(
+            isSubmitting = socialState.isReportingReview,
+            onDismiss = { reportingReview = null },
+            onSubmit = { reason, detail -> social.reportReview(reviewId, reason, detail) { reportingReview = null } }
+        )
+    }
+
     if (showReport) {
         ReportDialog(
             isSubmitting = state.isReporting,
@@ -136,6 +189,10 @@ fun ClientBusinessDetailScreen(
 internal fun DetailContent(
     business: Business,
     state: ClientBusinessDetailState,
+    social: BusinessSocialState,
+    onWriteReview: () -> Unit,
+    onMoreReviews: () -> Unit,
+    onReportReview: (ReviewDto) -> Unit,
     onBack: () -> Unit,
     onToggleSave: () -> Unit,
     onRequestBooking: () -> Unit,
@@ -186,6 +243,19 @@ internal fun DetailContent(
                     business.noticeMessage != BOOKING_BLOCKED_NOTICE
                 ) {
                     Notice(Icons.Outlined.Campaign, business.noticeMessage, tint = WarningColor)
+                    SectionBand()
+                }
+
+                if (social.portfolio.isNotEmpty()) {
+                    PortfolioSection(social.portfolio)
+                    SectionBand()
+                }
+                if (social.certificates.isNotEmpty()) {
+                    CertificatesSection(social.certificates)
+                    SectionBand()
+                }
+                if (social.summary != null) {
+                    ReviewsSection(social, onWrite = onWriteReview, onMore = onMoreReviews, onReport = onReportReview)
                     SectionBand()
                 }
 

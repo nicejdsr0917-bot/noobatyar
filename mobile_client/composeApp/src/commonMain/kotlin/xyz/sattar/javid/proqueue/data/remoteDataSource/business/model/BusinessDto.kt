@@ -85,5 +85,8 @@ data class BusinessDto(
     @SerialName("is_claimed") val isClaimed: Boolean = true,
     @SerialName("distance_km") val distanceKm: Double? = null,
     @SerialName("online_booking_requests_count") val onlineBookingRequestsCount: Int = 0,
-    @SerialName("insurances") val insurances: List<InsuranceDto> = emptyList()
+    @SerialName("insurances") val insurances: List<InsuranceDto> = emptyList(),
+    // Start (epoch ms) of the earliest bookable slot in the next 7 days; null
+    // when none or not bookable. Older servers omit it.
+    @SerialName("first_free_slot") val firstFreeSlot: Long? = null
 )

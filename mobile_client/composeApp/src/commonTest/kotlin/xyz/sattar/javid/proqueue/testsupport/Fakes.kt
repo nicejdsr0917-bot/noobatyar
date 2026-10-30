@@ -18,8 +18,16 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.InsuranceD
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.RequestBookingResponseDto
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 
-fun businessDto(id: Long, title: String = "مرکز $id", claimed: Boolean = true, bookable: Boolean = true) =
-    BusinessDto(id = id, title = title, category = "DENTAL", isClaimed = claimed, bookingEnabled = bookable)
+fun businessDto(
+    id: Long,
+    title: String = "مرکز $id",
+    claimed: Boolean = true,
+    bookable: Boolean = true,
+    firstFreeSlot: Long? = null,
+) = BusinessDto(
+    id = id, title = title, category = "DENTAL", isClaimed = claimed, bookingEnabled = bookable,
+    firstFreeSlot = firstFreeSlot,
+)
 
 fun page(vararg items: BusinessDto, next: Int? = null) =
     ApiResponse.Success(PaginatedResponseDto(count = items.size, next = next, results = items.toList()))
@@ -64,6 +72,10 @@ class FakeBusinessRepository : BusinessRepository {
     var bookingResponse: ApiResponse<RequestBookingResponseDto> =
         ApiResponse.Success(RequestBookingResponseDto(1, 1))
     var detailCalls = mutableListOf<Long>()
+    var reportResponse: ApiResponse<Unit> = ApiResponse.Success(Unit)
+    /** When set, [reportBusiness] suspends until it completes — to observe the in-flight state. */
+    var reportGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+    val reports = mutableListOf<Triple<Long, String, String>>()
 
     override suspend fun getClientBusinesses(
         page: Int, pageSize: Int, search: String?, category: String?, insuranceSlug: String?,
@@ -81,8 +93,11 @@ class FakeBusinessRepository : BusinessRepository {
 
     override suspend fun getInsurances(): ApiResponse<List<InsuranceDto>> = ApiResponse.Success(emptyList())
     override suspend fun requestOnlineBooking(businessId: Long) = bookingResponse
-    override suspend fun reportBusiness(businessId: Long, reason: String, detail: String): ApiResponse<Unit> =
-        ApiResponse.Success(Unit)
+    override suspend fun reportBusiness(businessId: Long, reason: String, detail: String): ApiResponse<Unit> {
+        reports += Triple(businessId, reason, detail)
+        reportGate?.await()
+        return reportResponse
+    }
 }
 
 class FakeClientBusinessApi : ClientBusinessApi {
