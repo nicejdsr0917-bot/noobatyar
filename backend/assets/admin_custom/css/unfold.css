@@ -425,3 +425,10 @@ a.nb-status-card:hover {
     .nb-charts { grid-template-columns: minmax(0, 1fr); }
     .nb-cells { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Unfold spaces menu icons with mr-3 (a physical right margin). In RTL that
+   gap lands on the outer side, gluing the icon to its label. */
+[dir="rtl"] .material-symbols-outlined.mr-3 {
+    margin-right: 0;
+    margin-left: 0.75rem;
+}

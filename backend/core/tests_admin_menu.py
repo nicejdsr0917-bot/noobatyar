@@ -27,7 +27,16 @@ class AdminSidebarTests(TestCase):
                     seen += 1
         self.assertGreater(seen, 30)
 
-    def test_new_sections_present(self):
-        titles = ' '.join(g.get('title', '') for g in settings.UNFOLD['SIDEBAR']['navigation'])
-        for word in ('بررسی کسب‌وکارها', 'نمونه‌کار و مدارک', 'نظرات و گزارش‌ها', 'بنرها', 'بازاریابی', 'اشتراک و مالی', 'پیامک'):
-            self.assertIn(word, titles)
+    def test_sections_are_short_and_in_daily_order(self):
+        nav = settings.UNFOLD['SIDEBAR']['navigation']
+        titles = [g['title'] for g in nav if g.get('title')]
+        self.assertEqual(titles, ['بررسی', 'کاربران', 'رشد', 'پیام', 'مالی', 'سیستم'])
+        # Menu labels stay short; what a page is for belongs on the page.
+        for group in nav:
+            for item in group['items']:
+                self.assertLessEqual(len(item['title'].split()), 2, item['title'])
+
+    def test_p2_pages_still_reachable(self):
+        items = {i['title'] for g in settings.UNFOLD['SIDEBAR']['navigation'] for i in g['items']}
+        for title in ('صف بررسی', 'نمونه‌کارها', 'مدارک', 'تخلف‌ها', 'نظرات', 'بنرها', 'تماس‌های امروز', 'گزارش مالی', 'گزارش پیامک'):
+            self.assertIn(title, items)

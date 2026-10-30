@@ -442,6 +442,17 @@ def _changelist(app, model):
     return reverse_lazy(f'admin:{app}_{model}_changelist')
 
 
+def _versioned_static(path):
+    """static() URL with the source file's mtime as ?v=, so browsers fetch an
+    edited stylesheet instead of serving a stale cached copy."""
+    source = BASE_DIR / 'assets' / path
+    try:
+        version = int(source.stat().st_mtime)
+    except OSError:
+        return static(path)
+    return f'{static(path)}?v={version}'
+
+
 UNFOLD = {
     'SITE_TITLE': 'نوبت‌یار',
     'SITE_HEADER': 'نوبت‌یار',
@@ -450,7 +461,7 @@ UNFOLD = {
     'SITE_SYMBOL': 'event_available',
     'SHOW_VIEW_ON_SITE': False,
     'SHOW_HISTORY': True,
-    'STYLES': [lambda request: static('admin_custom/css/unfold.css')],
+    'STYLES': [lambda request: _versioned_static('admin_custom/css/unfold.css')],
     'COLORS': {
         # Brand violet (#8B5CF6 at 500), Tailwind's violet scale.
         'primary': {
@@ -470,8 +481,9 @@ UNFOLD = {
     'SIDEBAR': {
         'show_search': True,
         'show_all_applications': False,
-        # Grouped by daily work, in the order staff do it. Section titles carry
-        # a one-line hint of what the section is for.
+        # Grouped by daily work, in the order staff do it. Titles are one or
+        # two words (like the sidebar of the Nava template); what a page is for
+        # belongs on the page, not in the menu.
         'navigation': [
             {
                 'items': [
@@ -479,96 +491,77 @@ UNFOLD = {
                 ],
             },
             {
-                'title': 'بررسی کسب‌وکارها — تأیید ثبت‌نام و ویرایش‌ها',
+                'title': 'بررسی',
                 'separator': True,
-                'collapsible': True,
+                # Daily work: always open, one click to any page.
+                'collapsible': False,
                 'items': [
-                    _item('صف بررسی (اول اینجا)', 'fact_check', reverse_lazy('admin:business_business_moderation_queue'), 'business.view_business'),
-                    _item('همهٔ کسب‌وکارها', 'storefront', _changelist('business', 'business'), 'business.view_business'),
+                    _item('صف بررسی', 'fact_check', reverse_lazy('admin:business_business_moderation_queue'), 'business.view_business'),
+                    _item('کسب‌وکارها', 'storefront', _changelist('business', 'business'), 'business.view_business'),
+                    _item('نمونه‌کارها', 'photo_library', _changelist('showcase', 'portfolioitem'), 'showcase.view_portfolioitem'),
+                    _item('مدارک', 'workspace_premium', _changelist('showcase', 'certificate'), 'showcase.view_certificate'),
+                    _item('تخلف‌ها', 'flag', _changelist('business', 'contentreport'), 'business.view_contentreport'),
+                    _optional_item('نظرات', 'rate_review', 'admin:reviews_review_changelist', 'reviews.view_review'),
                     _item('سوابق بررسی', 'history', _changelist('business', 'businessmoderationlog'), 'business.view_businessmoderationlog'),
                     _item('کلمات ممنوع', 'block', _changelist('business', 'bannedkeyword'), 'business.view_bannedkeyword'),
                 ],
             },
             {
-                'title': 'نمونه‌کار و مدارک — تأیید عکس‌های اونرها',
+                'title': 'کاربران',
                 'separator': True,
-                'collapsible': True,
+                # Daily work: always open, one click to any page.
+                'collapsible': False,
                 'items': [
-                    _item('نمونه‌کارها', 'photo_library', _changelist('showcase', 'portfolioitem'), 'showcase.view_portfolioitem'),
-                    _item('مدارک و افتخارات', 'workspace_premium', _changelist('showcase', 'certificate'), 'showcase.view_certificate'),
+                    _item('حساب‌ها', 'person', _changelist('api', 'user'), 'api.view_user'),
+                    _item('مشتریان', 'groups', _changelist('visitor', 'visitor'), 'visitor.view_visitor'),
+                    _item('نوبت‌ها', 'event', _changelist('appointment', 'appointment'), 'appointment.view_appointment'),
+                    _item('دستگاه‌ها', 'smartphone', _changelist('api', 'devicetoken'), 'api.view_devicetoken'),
                 ],
             },
             {
-                'title': 'نظرات و گزارش‌ها — گزارش تخلف و نظرات کاربران',
-                'separator': True,
-                'collapsible': True,
-                'items': [
-                    _item('گزارش‌های تخلف', 'flag', _changelist('business', 'contentreport'), 'business.view_contentreport'),
-                    _optional_item('نظرات کاربران', 'rate_review', 'admin:reviews_review_changelist', 'reviews.view_review'),
-                ],
-            },
-            {
-                'title': 'بنرها — تبلیغ بالای اپ اونر (۱۲۰۰×۴۰۰)',
-                'separator': True,
-                'collapsible': True,
-                'items': [
-                    _item('بنرها', 'image', _changelist('banners', 'banner'), 'banners.view_banner'),
-                    _item('گروه دسته‌ها و تعداد اونرها', 'category', _changelist('banners', 'bannercategorygroup'), 'banners.view_bannercategorygroup'),
-                    _item('لینک مشترک بنرها', 'link', _changelist('banners', 'sitesetting'), 'banners.view_sitesetting'),
-                ],
-            },
-            {
-                'title': 'بازاریابی — جذب مراکز جدید با تماس',
+                'title': 'رشد',
                 'separator': True,
                 'collapsible': True,
                 'items': [
                     _item('تماس‌های امروز', 'call', lambda request: str(reverse_lazy('admin:marketing_marketinglead_changelist')) + '?today=1', 'marketing.view_marketinglead'),
-                    _item('مراکز بازاریابی', 'contact_phone', _changelist('marketing', 'marketinglead'), 'marketing.view_marketinglead'),
-                    _item('درخواست‌های مالکیت', 'verified_user', _changelist('business', 'businessclaimrequest'), 'business.view_businessclaimrequest'),
+                    _item('مراکز', 'contact_phone', _changelist('marketing', 'marketinglead'), 'marketing.view_marketinglead'),
+                    _item('درخواست مالکیت', 'verified_user', _changelist('business', 'businessclaimrequest'), 'business.view_businessclaimrequest'),
+                    _item('بنرها', 'image', _changelist('banners', 'banner'), 'banners.view_banner'),
+                    _item('دسته‌های بنر', 'category', _changelist('banners', 'bannercategorygroup'), 'banners.view_bannercategorygroup'),
+                    _item('لینک بنرها', 'link', _changelist('banners', 'sitesetting'), 'banners.view_sitesetting'),
                 ],
             },
             {
-                'title': 'اشتراک و مالی — پرداخت‌ها و پلن‌ها',
+                'title': 'پیام',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('گزارش پیامک', 'bar_chart', reverse_lazy('admin:visitor_smslog_report'), 'visitor.view_smslog'),
+                    _item('پیامک‌ها', 'sms', _changelist('visitor', 'smslog'), 'visitor.view_smslog'),
+                    _item('کمپین', 'campaign', reverse_lazy('admin:core_campaigns'), 'core.view_marketingpushlog'),
+                    _item('گروه مخاطب', 'filter_alt', reverse_lazy('admin:core_segment_builder'), 'core.view_audiencesegment'),
+                    _item('مخاطبان ذخیره', 'bookmarks', _changelist('core', 'audiencesegment'), 'core.view_audiencesegment'),
+                    _item('خروجی مخاطبان', 'download', _changelist('core', 'audiencesegmentexport'), 'core.view_audiencesegmentexport'),
+                    _item('پوش‌ها', 'notifications_active', _changelist('core', 'marketingpushlog'), 'core.view_marketingpushlog'),
+                    _item('پیام اونرها', 'forum', _changelist('core', 'adminmessagelog'), 'core.view_adminmessagelog'),
+                    _item('پیامک انقضا', 'mark_email_unread', _changelist('core', 'expirysmslog'), 'core.view_expirysmslog'),
+                ],
+            },
+            {
+                'title': 'مالی',
                 'separator': True,
                 'collapsible': True,
                 'items': [
                     _item('گزارش مالی', 'monitoring', reverse_lazy('admin:accounting_financial_report'), 'accounting.view_transaction'),
                     _item('اشتراک‌ها', 'card_membership', _changelist('accounting', 'subscription'), 'accounting.view_subscription'),
                     _item('تراکنش‌ها', 'receipt_long', _changelist('accounting', 'transaction'), 'accounting.view_transaction'),
-                    _item('خرید بسته‌ها', 'shopping_cart', _changelist('accounting', 'addonpurchase'), 'accounting.view_addonpurchase'),
-                    _item('خریدهای مایکت', 'store', _changelist('accounting', 'storepurchase'), 'accounting.view_storepurchase'),
+                    _item('خرید بسته', 'shopping_cart', _changelist('accounting', 'addonpurchase'), 'accounting.view_addonpurchase'),
+                    _item('مایکت', 'store', _changelist('accounting', 'storepurchase'), 'accounting.view_storepurchase'),
                     _item('دفتر اعتبار', 'account_balance_wallet', _changelist('accounting', 'creditledger'), 'accounting.view_creditledger'),
                     _item('پلن‌ها', 'sell', _changelist('accounting', 'plan'), 'accounting.view_plan'),
-                    _item('بسته‌های افزودنی', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
-                    _item('یادآوری تمدید اشتراک', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),
-                    _item('تماس کسب‌وکارهای بدون اشتراک', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
-                ],
-            },
-            {
-                'title': 'پیامک — ارسال و گزارش پیام‌ها',
-                'separator': True,
-                'collapsible': True,
-                'items': [
-                    _item('گزارش پیامک', 'bar_chart', reverse_lazy('admin:visitor_smslog_report'), 'visitor.view_smslog'),
-                    _item('پیامک‌ها', 'sms', _changelist('visitor', 'smslog'), 'visitor.view_smslog'),
-                    _item('کمپین‌ها', 'campaign', reverse_lazy('admin:core_campaigns'), 'core.view_marketingpushlog'),
-                    _item('گروه مخاطب', 'filter_alt', reverse_lazy('admin:core_segment_builder'), 'core.view_audiencesegment'),
-                    _item('گروه‌های مخاطب ذخیره‌شده', 'bookmarks', _changelist('core', 'audiencesegment'), 'core.view_audiencesegment'),
-                    _item('خروجی‌های گروه مخاطب', 'download', _changelist('core', 'audiencesegmentexport'), 'core.view_audiencesegmentexport'),
-                    _item('کمپین‌های پوش', 'notifications_active', _changelist('core', 'marketingpushlog'), 'core.view_marketingpushlog'),
-                    _item('پیام به کسب‌وکارها', 'forum', _changelist('core', 'adminmessagelog'), 'core.view_adminmessagelog'),
-                    _item('پیامک انقضای اشتراک', 'mark_email_unread', _changelist('core', 'expirysmslog'), 'core.view_expirysmslog'),
-                ],
-            },
-            {
-                'title': 'کاربران و نوبت‌ها',
-                'separator': True,
-                'collapsible': True,
-                'items': [
-                    _item('کاربران', 'person', _changelist('api', 'user'), 'api.view_user'),
-                    _item('مشتریان', 'groups', _changelist('visitor', 'visitor'), 'visitor.view_visitor'),
-                    _item('نوبت‌ها', 'event', _changelist('appointment', 'appointment'), 'appointment.view_appointment'),
-                    _item('دستگاه‌ها', 'smartphone', _changelist('api', 'devicetoken'), 'api.view_devicetoken'),
+                    _item('بسته‌ها', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
+                    _item('یادآوری تمدید', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),
+                    _item('نمایش تماس', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
                 ],
             },
             {
@@ -576,7 +569,7 @@ UNFOLD = {
                 'separator': True,
                 'collapsible': True,
                 'items': [
-                    _item('نسخه‌های اپ', 'system_update', _changelist('versions', 'appversion'), 'versions.view_appversion'),
+                    _item('نسخهٔ اپ', 'system_update', _changelist('versions', 'appversion'), 'versions.view_appversion'),
                     _item('ربات بله', 'smart_toy', _changelist('bale', 'balesettings'), 'bale.view_balesettings'),
                     _item('نقش‌ها', 'admin_panel_settings', _changelist('auth', 'group'), 'auth.view_group'),
                 ],
