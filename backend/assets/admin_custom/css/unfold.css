@@ -287,6 +287,9 @@ a.nb-status-card:hover {
 .nb-card,
 .nb-panel,
 .nb-alert {
+    /* Grid items default to min-width: auto, so a wide no-wrap table would
+       stretch its card (and the page) instead of scrolling inside it. */
+    min-width: 0;
     padding: 16px 18px;
     border-radius: 12px;
     border: 1px solid var(--border-color);
@@ -419,6 +422,6 @@ a.nb-status-card:hover {
 @media (max-width: 640px) {
     .nb-cards,
     .nb-alerts,
-    .nb-charts { grid-template-columns: 1fr; }
+    .nb-charts { grid-template-columns: minmax(0, 1fr); }
     .nb-cells { grid-template-columns: repeat(2, 1fr); }
 }
