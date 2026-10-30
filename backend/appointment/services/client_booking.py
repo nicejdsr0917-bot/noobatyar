@@ -141,8 +141,43 @@ def validate_client_booking(business, appointment_date, duration, now=None):
         raise ClientBookingError("زمان انتخاب‌شده خارج از ساعات کاری است", 400)
 
 
+# Upper bounds for the optional travel estimate: anything beyond is a bug or
+# junk, and is dropped rather than refusing the booking.
+MAX_TRAVEL_DISTANCE_M = 2_000_000
+MAX_DRIVE_MINUTES = 24 * 60
+
+
+def travel_estimate(data):
+    """
+    The optional ``travel_distance_m`` / ``drive_minutes_min`` /
+    ``drive_minutes_max`` from a booking request, as model fields. Missing,
+    non-numeric or out-of-range values are left out; a min above the max
+    drops both minutes. Never raises: the estimate must not block a booking.
+    """
+    def whole(key, upper):
+        raw = data.get(key) if hasattr(data, 'get') else None
+        if raw is None or isinstance(raw, bool):
+            return None
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            return None
+        return value if 0 <= value <= upper else None
+
+    out = {}
+    distance = whole('travel_distance_m', MAX_TRAVEL_DISTANCE_M)
+    if distance is not None:
+        out['travel_distance_m'] = distance
+    low = whole('drive_minutes_min', MAX_DRIVE_MINUTES)
+    high = whole('drive_minutes_max', MAX_DRIVE_MINUTES)
+    if low is not None and high is not None and low <= high:
+        out['drive_minutes_min'] = low
+        out['drive_minutes_max'] = high
+    return out
+
+
 def client_book(*, business, visitor, appointment_date, duration, description='', raw_services=None,
-                source=Appointment.SOURCE_WEB):
+                source=Appointment.SOURCE_WEB, travel=None):
     """
     Book ``business`` for ``visitor`` at ``appointment_date`` (aware datetime).
 
@@ -194,6 +229,10 @@ def client_book(*, business, visitor, appointment_date, duration, description=''
         if result.failure is not None:
             raise ClientBookingError("این زمان به‌تازگی رزرو شد. لطفاً زمان دیگری انتخاب کنید", 409)
         appointment = result.appointment
+        if travel:
+            Appointment.objects.filter(pk=appointment.pk).update(**travel)
+            for field, value in travel.items():
+                setattr(appointment, field, value)
         appointment.business = business
         appointment.visitor = visitor
 

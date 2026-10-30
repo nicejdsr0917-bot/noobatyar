@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.core.prefs.SavedLocation
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.AppointmentPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.BookResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.ClientAppointmentDto
@@ -328,6 +329,31 @@ class BookingViewModelTest {
         vm.toCardPayment()
         vm.payCash()
         assertFalse(vm.state.value.proofSent)
+    }
+
+    @Test
+    fun bookingCarriesTheTravelEstimateFromTheSavedLocation() = runTest(main.dispatcher) {
+        repo.details[7] = ApiResponse.Success(business().copy(latitude = 35.7448, longitude = 51.3753))
+        prefs.token.value = "tok"
+        prefs.location.value = SavedLocation(35.6997, 51.3380, 1L)
+        val vm = vm()
+        vm.toSlotPicked()
+        vm.confirm()
+        val req = api.booked.single().second
+        assertTrue(req.travelDistanceM!! in 5_700..6_300, "about 6 km: ${req.travelDistanceM}")
+        assertEquals(30, req.driveMinutesMax!! - req.driveMinutesMin!!)
+    }
+
+    @Test
+    fun bookingWithoutASavedLocationSendsNoEstimate() = runTest(main.dispatcher) {
+        repo.details[7] = ApiResponse.Success(business().copy(latitude = 35.7448, longitude = 51.3753))
+        prefs.token.value = "tok"
+        val vm = vm()
+        vm.toSlotPicked()
+        vm.confirm()
+        val req = api.booked.single().second
+        assertEquals(null, req.travelDistanceM)
+        assertEquals(null, req.driveMinutesMin)
     }
 
     @Test

@@ -339,6 +339,46 @@ class BookingSlipTests(ReceiptOrphanTests):
         self.assertEqual(rows, [])
 
 
+class TravelEstimateTests(Base, TestCase):
+    """The app may send how far the visitor is; it is stored, never required."""
+
+    def book(self, **extra):
+        with patch('accounting.usage.can_book_appointment', return_value=True), \
+                patch('accounting.usage.record_appointment', return_value='monthly'), \
+                patch('appointment.services.client_booking.notify_booking_created'):
+            return self.client.post(
+                reverse('client-appointment-list'),
+                {'business_id': self.business.id,
+                 'appointment_date': int(self.when.timestamp() * 1000), **extra},
+                content_type='application/json', HTTP_AUTHORIZATION=self.auth,
+            )
+
+    def test_estimate_is_stored(self):
+        r = self.book(travel_distance_m=9000, drive_minutes_min=20, drive_minutes_max=50)
+        self.assertEqual(r.status_code, 200, r.content)
+        a = Appointment.objects.get()
+        self.assertEqual((a.travel_distance_m, a.drive_minutes_min, a.drive_minutes_max), (9000, 20, 50))
+
+    def test_booking_without_estimate_leaves_it_empty(self):
+        self.assertEqual(self.book().status_code, 200)
+        a = Appointment.objects.get()
+        self.assertEqual((a.travel_distance_m, a.drive_minutes_min, a.drive_minutes_max), (None, None, None))
+
+    def test_junk_estimate_is_dropped_not_refused(self):
+        r = self.book(travel_distance_m='far', drive_minutes_min=50, drive_minutes_max=20)
+        self.assertEqual(r.status_code, 200, r.content)
+        a = Appointment.objects.get()
+        self.assertEqual((a.travel_distance_m, a.drive_minutes_min, a.drive_minutes_max), (None, None, None))
+
+    def test_estimate_parser_bounds(self):
+        from .services.client_booking import travel_estimate
+        self.assertEqual(travel_estimate({'travel_distance_m': -1}), {})
+        self.assertEqual(travel_estimate({'travel_distance_m': 3_000_000}), {})
+        self.assertEqual(travel_estimate({'drive_minutes_min': 5}), {}, 'a range needs both ends')
+        self.assertEqual(travel_estimate({'drive_minutes_min': True, 'drive_minutes_max': 9}), {})
+        self.assertEqual(travel_estimate(None), {})
+
+
 class BookingGuardTests(Base, TestCase):
     def book(self, ts=None):
         return self.client.post(

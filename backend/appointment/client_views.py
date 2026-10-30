@@ -11,6 +11,7 @@ from .services.client_booking import (
     LOCK_EXPIRED_MESSAGE as _LOCK_EXPIRED_MESSAGE,
     ClientBookingError,
     client_book,
+    travel_estimate,
     client_cancel,
     client_deposit_returned,
     client_submit_payment,
@@ -80,6 +81,7 @@ class ClientAppointmentListView(APIView):
                 description=serializer.validated_data.get('description', ''),
                 raw_services=serializer.validated_data.get('selected_services'),
                 source=serializer.validated_data.get('source', 'WEB'),
+                travel=travel_estimate(request.data),
             )
         except ClientBookingError as exc:
             return APIResponse.error(message=exc.message, code=exc.code)

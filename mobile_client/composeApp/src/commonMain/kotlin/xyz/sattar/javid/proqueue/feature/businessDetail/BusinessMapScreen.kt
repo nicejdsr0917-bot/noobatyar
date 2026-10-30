@@ -1,6 +1,38 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.runtime.MutableLongState
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.Dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import xyz.sattar.javid.proqueue.core.ui.components.map.loadedTileCount
+import kotlin.math.roundToInt
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.material.icons.rounded.Navigation
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import ovh.plrapps.mapcompose.api.moveMarker
+import xyz.sattar.javid.proqueue.core.location.driveEstimate
+import xyz.sattar.javid.proqueue.core.location.label
+import xyz.sattar.javid.proqueue.core.ui.components.map.distanceKmTo
+import kotlin.math.PI
+import kotlin.math.atan2
 import ovh.plrapps.mapcompose.ui.state.MapState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -83,6 +115,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 private const val BUSINESS_MARKER = "business"
 private const val ME_MARKER = "me"
 private const val LINE_PATH = "line"
+private const val ARROW_MARKER = "arrow"
 
 /** Share of the screen the bottom card leaves for the map. */
 private const val MAP_VISIBLE_FRACTION = 0.62f
@@ -150,19 +183,44 @@ fun BusinessMapScreen(
 private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
     val density = LocalDensity.current.density
     val dark = LocalIsDarkTheme.current
-    val line = MaterialTheme.colorScheme.primary
+    val reduced = LocalReducedMotion.current
+    val accent = MaterialTheme.colorScheme.primary
     val state = remember(place) { newTileMapState(place, 16.0, density) }
     DisposeMapState(state)
     LaunchedEffect(dark) { state.applyTileTint(dark) }
+
+    // The map fades in once tiles arrive; only then does it tilt (0 flat, 1
+    // full 3D) and the arrow fly, settling into a gentle tilt at the end.
+    val shown = remember { Animatable(if (reduced) 1f else 0f) }
+    val tilt = remember { Animatable(0f) }
+    var played by remember { mutableStateOf(false) }
+    var flying by remember { mutableStateOf(false) }
+    var heading by remember { mutableStateOf(0f) }
+    var arrivedKm by remember { mutableStateOf<Double?>(null) }
+
+    // Invisible anchors inside the tilted map; the upright overlays are placed
+    // where those anchors land on screen after the 3D transform.
+    val anchors = remember { mutableStateMapOf<String, LayoutCoordinates>() }
+    var root by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val frame = remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) { while (true) withFrameNanos { frame.longValue = it } }
+
     LaunchedEffect(state) {
         val (x, y) = place.toNormalized()
-        state.addMarker(BUSINESS_MARKER, x, y, relativeOffset = Offset(-0.5f, -1f), clickable = false, zIndex = 1f) {
-            BusinessPin(business, selected = true)
+        state.addMarker(BUSINESS_MARKER, x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false) {
+            Anchor { anchors[BUSINESS_MARKER] = it }
         }
+    }
+    LaunchedEffect(state) {
+        val start = loadedTileCount.value
+        withTimeoutOrNull(4_000) { loadedTileCount.first { it >= start + 4 } }
+        shown.animateTo(1f, tween(450))
     }
     LaunchedEffect(state, me) {
         state.removeMarker(ME_MARKER)
+        state.removeMarker(ARROW_MARKER)
         state.removePath(LINE_PATH)
+        arrivedKm = null
         val target = place.toNormalized()
         if (me == null) {
             // Above the bottom card, at street level.
@@ -171,22 +229,216 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
         }
         val mine = me.toNormalized()
         state.addMarker(ME_MARKER, mine.first, mine.second, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = 0f) {
-            MyLocationDot()
+            Box(Modifier.onGloballyPositioned { anchors[ME_MARKER] = it }) { MyLocationDot() }
         }
-        // The straight line the distance measures.
-        state.addPath(LINE_PATH, width = 3.dp, color = line.copy(alpha = 0.7f)) {
-            addPoints(listOf(mine, target))
-        }
+        val before = loadedTileCount.value
         fitBoth(state, mine, target)
+
+        if (!reduced && !played) {
+            played = true
+            // The map first: wait for this view's tiles, and for the fade-in.
+            withTimeoutOrNull(5_000) { loadedTileCount.first { it >= before + 6 } }
+            shown.animateTo(1f, tween(300))
+            delay(350)
+            tilt.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
+            heading = screenHeading(root, anchors[ME_MARKER], anchors[BUSINESS_MARKER])
+                ?: (atan2(target.second - mine.second, target.first - mine.first) * 180.0 / PI).toFloat()
+            state.addMarker(ARROW_MARKER, mine.first, mine.second, relativeOffset = Offset(-0.5f, -0.5f), clickable = false) {
+                Anchor { anchors[ARROW_MARKER] = it }
+            }
+            flying = true
+            val flight = Animatable(0f)
+            flight.animateTo(1f, tween(1_800, easing = FastOutSlowInEasing)) {
+                val at = lerp(mine, target, value.toDouble())
+                state.removePath(LINE_PATH)
+                state.addPath(LINE_PATH, width = 5.dp, color = accent) { addPoints(listOf(mine, at)) }
+                state.moveMarker(ARROW_MARKER, at.first, at.second)
+            }
+            flying = false
+            state.removeMarker(ARROW_MARKER)
+            anchors.remove(ARROW_MARKER)
+            tilt.animateTo(0.6f, spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow))
+        }
+        state.removePath(LINE_PATH)
+        state.addPath(LINE_PATH, width = 5.dp, color = accent.copy(alpha = 0.8f)) { addPoints(listOf(mine, target)) }
+        arrivedKm = me.distanceKmTo(place)
     }
-    MapUI(modifier = Modifier.fillMaxSize(), state = state)
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            // A soft sky behind the tilted map's far edge.
+            .background(
+                Brush.verticalGradient(
+                    listOf(accent.copy(alpha = 0.14f), MaterialTheme.colorScheme.surfaceVariant)
+                )
+            )
+            .onGloballyPositioned { root = it }
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val t = tilt.value
+                    alpha = shown.value
+                    rotationX = 45f * t
+                    // A far camera keeps the perspective soft, so the far edge
+                    // narrows only a little; the scale-up covers what remains.
+                    cameraDistance = 18f * density
+                    scaleX = 1f + 0.28f * t + 0.04f * (1f - shown.value)
+                    scaleY = 1f + 0.28f * t + 0.04f * (1f - shown.value)
+                    transformOrigin = TransformOrigin(0.5f, 0.62f)
+                }
+        ) {
+            MapUI(modifier = Modifier.fillMaxSize(), state = state)
+        }
+
+        // Upright, like signs standing on the map: never tilted with it.
+        val r = root
+        // The compact pin: the name is in the bottom card, and a wide labelled
+        // bubble would cover the route at this zoom.
+        Standing(r, anchors[BUSINESS_MARKER], frame, alignBottom = true, alpha = shown.value) {
+            Box(Modifier.scale(1.35f)) { BusinessPin(business, selected = false) }
+        }
+        if (flying) {
+            Standing(r, anchors[ARROW_MARKER], frame, alignBottom = false) { ArrowHead(heading) }
+        }
+        arrivedKm?.let { km ->
+            Standing(r, anchors[BUSINESS_MARKER], frame, alignBottom = true, lift = 58.dp, keepOnScreen = true) { ArrivalLabel(km) }
+        }
+        if (shown.value < 1f) {
+            Text(
+                "در حال بارگذاری نقشه…",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .graphicsLayer { alpha = 1f - shown.value }
+                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                    .padding(horizontal = Space.lg, vertical = Space.sm),
+            )
+        }
+    }
+}
+
+/** A 1 dp point in the map that reports where it is. */
+@Composable
+private fun Anchor(onPlaced: (LayoutCoordinates) -> Unit) {
+    Box(Modifier.size(1.dp).onGloballyPositioned(onPlaced))
+}
+
+/** Where [anchor]'s centre is on screen, after the map layer's 3D transform. */
+private fun projected(root: LayoutCoordinates?, anchor: LayoutCoordinates?): Offset? {
+    if (root == null || anchor == null || !root.isAttached || !anchor.isAttached) return null
+    return root.localPositionOf(anchor, Offset(anchor.size.width / 2f, anchor.size.height / 2f))
+}
+
+/** The on-screen direction from [from] to [to], in degrees from "right". */
+private fun screenHeading(root: LayoutCoordinates?, from: LayoutCoordinates?, to: LayoutCoordinates?): Float? {
+    val a = projected(root, from) ?: return null
+    val b = projected(root, to) ?: return null
+    if (a == b) return null
+    return (atan2((b.y - a.y).toDouble(), (b.x - a.x).toDouble()) * 180.0 / PI).toFloat()
 }
 
 /**
- * Frames the user and the business above the bottom card. Wider margins than
- * the explore map's fit: the business pin is a labelled bubble about 220 dp
- * wide (over half the screen), centred on its point, so the points stay in
- * the middle third.
+ * Places [content] upright at [anchor]'s projected point, re-placed every
+ * frame so it follows the map's pans and tilt: bottom-centre on the point
+ * when [alignBottom], centred otherwise, raised by [lift].
+ */
+@Composable
+private fun Standing(
+    root: LayoutCoordinates?,
+    anchor: LayoutCoordinates?,
+    frame: MutableLongState,
+    alignBottom: Boolean,
+    lift: Dp = 0.dp,
+    alpha: Float = 1f,
+    keepOnScreen: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    if (root == null || anchor == null) return
+    val liftPx = with(LocalDensity.current) { lift.roundToPx() }
+    Box(
+        Modifier
+            .graphicsLayer { this.alpha = alpha }
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+                // Full size, so the origin is the screen's: a content-sized box
+                // would be put at the start edge, the right side in RTL.
+                layout(constraints.maxWidth, constraints.maxHeight) {
+                    frame.longValue // re-place on every frame
+                    val at = projected(root, anchor) ?: return@layout
+                    val centred = at.x.roundToInt() - placeable.width / 2
+                    // A card slides inwards rather than being cut by the screen edge.
+                    val margin = 12.dp.roundToPx()
+                    val x = if (keepOnScreen) {
+                        centred.coerceIn(margin, maxOf(margin, constraints.maxWidth - placeable.width - margin))
+                    } else centred
+                    val y = if (alignBottom) at.y.roundToInt() - placeable.height - liftPx
+                    else at.y.roundToInt() - placeable.height / 2
+                    placeable.place(x, y)
+                }
+            }
+    ) { content() }
+}
+
+private fun lerp(a: Pair<Double, Double>, b: Pair<Double, Double>, t: Double) =
+    a.first + (b.first - a.first) * t to a.second + (b.second - a.second) * t
+
+/** The travelling arrowhead: a violet disc with a white arrow pointing along the flight. */
+@Composable
+private fun ArrowHead(headingDegrees: Float) {
+    Box(
+        Modifier
+            .size(34.dp)
+            .shadow(8.dp, CircleShape, ambientColor = MaterialTheme.colorScheme.primary, spotColor = MaterialTheme.colorScheme.primary)
+            .background(MaterialTheme.colorScheme.primary, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        // The glyph points up; screen headings are measured from "right".
+        Icon(
+            Icons.Rounded.Navigation,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(20.dp).rotate(headingDegrees + 90f),
+        )
+    }
+}
+
+/** Pops in over the destination once the arrow lands. */
+@Composable
+private fun ArrivalLabel(straightKm: Double) {
+    val reduced = LocalReducedMotion.current
+    val pop = remember { Animatable(if (reduced) 1f else 0f) }
+    LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) }
+    val drive = remember(straightKm) { driveEstimate(straightKm) }
+    Column(
+        Modifier
+            .graphicsLayer {
+                scaleX = 0.6f + 0.4f * pop.value
+                scaleY = 0.6f + 0.4f * pop.value
+                alpha = pop.value.coerceIn(0f, 1f)
+                transformOrigin = TransformOrigin(0.5f, 1f)
+            }
+            .shadow(10.dp, RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+            .padding(horizontal = Space.md, vertical = Space.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(formatDistance(straightKm), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(
+            "مسیر حدودی ${formatDistance(drive.roadKm)}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(drive.label(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
+    }
+}
+
+/**
+ * Frames the user and the business above the bottom card, with room on the
+ * sides for the arrival card (about 180 dp wide) centred over the business.
  */
 private suspend fun fitBoth(state: MapState, a: Pair<Double, Double>, b: Pair<Double, Double>) {
     val w = maxOf(kotlin.math.abs(a.first - b.first), 0.00002)
@@ -194,7 +446,9 @@ private suspend fun fitBoth(state: MapState, a: Pair<Double, Double>, b: Pair<Do
     val span = maxOf(w, h)
     val cx = (a.first + b.first) / 2
     val cy = (a.second + b.second) / 2
-    val halfW = span * 1.6
+    // Room for the arrival card over the business; the tilt's scale-up
+    // spreads the points outwards a little too.
+    val halfW = span * 1.5
     // Room above for the bubble, below for the dot; then stretch down under the card.
     val top = cy - h / 2 - span * 0.55
     val visibleBottom = cy + h / 2 + span * 0.35
@@ -265,7 +519,7 @@ private fun BottomCard(
 
 private sealed interface DistanceView {
     data object Locating : DistanceView
-    data class Known(val text: String, val fromSaved: Boolean) : DistanceView
+    data class Known(val text: String, val drive: String, val fromSaved: Boolean) : DistanceView
     data class Problem(val result: LocationResult) : DistanceView
 }
 
@@ -273,7 +527,9 @@ private sealed interface DistanceView {
 private fun DistanceBlock(state: BusinessMapState, onLocate: () -> Unit, onSettings: () -> Unit) {
     val km = state.distanceKm()
     val view = when {
-        km != null -> DistanceView.Known(formatDistance(km), fromSaved = !state.fresh)
+        km != null -> driveEstimate(km).let { d ->
+            DistanceView.Known(formatDistance(km), "مسیر حدودی ${formatDistance(d.roadKm)} · ${d.label()}", fromSaved = !state.fresh)
+        }
         state.locationProblem != null -> DistanceView.Problem(state.locationProblem)
         else -> DistanceView.Locating
     }
@@ -297,6 +553,7 @@ private fun DistanceBlock(state: BusinessMapState, onLocate: () -> Unit, onSetti
                 is DistanceView.Known -> {
                     Text("فاصلهٔ مستقیم شما تا مرکز", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(v.text, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(v.drive, style = MaterialTheme.typography.bodyMedium)
                     if (v.fromSaved) {
                         Text(
                             "بر اساس آخرین موقعیت ذخیره‌شدهٔ شما",

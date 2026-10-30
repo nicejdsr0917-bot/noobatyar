@@ -72,6 +72,10 @@ data class BookRequestDto(
     @SerialName("service_duration") val serviceDuration: Int? = null,
     val description: String? = null,
     @SerialName("selected_services") val selectedServices: List<String>? = null,
+    // Optional travel estimate from the visitor's last saved position.
+    @SerialName("travel_distance_m") val travelDistanceM: Int? = null,
+    @SerialName("drive_minutes_min") val driveMinutesMin: Int? = null,
+    @SerialName("drive_minutes_max") val driveMinutesMax: Int? = null,
 )
 
 @Serializable

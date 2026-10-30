@@ -4,6 +4,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import xyz.sattar.javid.proqueue.core.location.LocationResult
+import xyz.sattar.javid.proqueue.core.location.driveEstimate
+import xyz.sattar.javid.proqueue.core.location.label
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.prefs.SavedLocation
 import xyz.sattar.javid.proqueue.core.prefs.decodeSavedLocation
@@ -83,5 +85,16 @@ class BusinessMapTest {
         assertEquals(LocationResult.PermissionDenied, vm.state.value.locationProblem)
         assertFalse(vm.state.value.locating)
         assertNull(prefs.location.value)
+    }
+
+    @Test
+    fun driveEstimateIsAThirtyMinuteRange() {
+        val nine = driveEstimate(9.0)
+        assertEquals(20, nine.minMinutes)
+        assertEquals(50, nine.maxMinutes)
+        assertTrue(abs(nine.roadKm - 12.15) < 0.01)
+        val near = driveEstimate(0.3)
+        assertEquals(5 to 35, near.minMinutes to near.maxMinutes)
+        assertEquals("حدود ۲۰ تا ۵۰ دقیقه با ماشین", nine.label())
     }
 }

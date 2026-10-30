@@ -202,6 +202,19 @@ class Appointment(models.Model):
         verbose_name='منبع نوبت',
     )
 
+    # How far the visitor was when booking from the app, and a rough drive
+    # time as a range: an estimate from their last saved position, never
+    # required (null when the app had no position or an older client booked).
+    travel_distance_m = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name='فاصلهٔ مستقیم مراجع (متر)',
+    )
+    drive_minutes_min = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='زمان تقریبی رانندگی، از (دقیقه)',
+    )
+    drive_minutes_max = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='زمان تقریبی رانندگی، تا (دقیقه)',
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 

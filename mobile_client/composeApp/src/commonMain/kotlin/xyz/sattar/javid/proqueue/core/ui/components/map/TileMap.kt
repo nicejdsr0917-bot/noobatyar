@@ -22,6 +22,8 @@ import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readBuffer
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import ovh.plrapps.mapcompose.api.addLayer
@@ -84,6 +86,13 @@ private val tileClient by lazy {
     }
 }
 
+/**
+ * How many tiles have arrived since launch. A screen that animates over the
+ * map waits for this to move, so the motion starts on a drawn map rather than
+ * on the blank ground.
+ */
+val loadedTileCount = MutableStateFlow(0)
+
 private val osmTiles = TileStreamProvider { row, col, zoom ->
     runCatching {
         tileClient.prepareGet(MapTiles.url(zoom, col, row)).execute { response ->
@@ -91,6 +100,7 @@ private val osmTiles = TileStreamProvider { row, col, zoom ->
             // Restyled on the way in (see TileRecolor) — before the tile is decoded or cached.
             val png = response.bodyAsChannel().readBuffer().readByteArray()
             Buffer().apply { write(TileRecolor.recolor(png)) }
+                .also { loadedTileCount.update { n -> n + 1 } }
         }
     }.getOrNull()
 }

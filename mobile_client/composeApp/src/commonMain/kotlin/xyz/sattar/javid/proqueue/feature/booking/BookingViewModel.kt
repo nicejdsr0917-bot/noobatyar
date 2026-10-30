@@ -30,7 +30,12 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.TimeSlotDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.toDomain
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.domain.model.business.Business
+import kotlin.math.roundToInt
 import kotlin.time.Clock
+import xyz.sattar.javid.proqueue.core.location.DriveEstimate
+import xyz.sattar.javid.proqueue.core.location.driveEstimate
+import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
+import xyz.sattar.javid.proqueue.core.ui.components.map.distanceKmTo
 
 /** How many days ahead the day strip offers. */
 const val BOOKING_DAYS_AHEAD = 7
@@ -276,6 +281,7 @@ class BookingViewModel(
                 _state.update { it.copy(step = BookingStep.PHONE) }
                 return@busy
             }
+            val travel = travelFrom(business)
             val request = BookRequestDto(
                 businessId = business.id,
                 appointmentDate = slot.timestamp,
@@ -283,6 +289,9 @@ class BookingViewModel(
                 serviceDuration = business.defaultServiceDuration.takeIf { it > 0 },
                 description = s.description.trim().ifBlank { null },
                 selectedServices = s.selectedServices.ifEmpty { null },
+                travelDistanceM = travel?.first,
+                driveMinutesMin = travel?.second?.minMinutes,
+                driveMinutesMax = travel?.second?.maxMinutes,
             )
             when (val res = bookingApi.book(token, request)) {
                 is ApiResponse.Success -> {
@@ -304,6 +313,18 @@ class BookingViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * Straight-line metres and a drive estimate from the visitor's last saved
+     * position, for the owner to see; null when there is no position yet.
+     */
+    private suspend fun travelFrom(business: Business): Pair<Int, DriveEstimate>? {
+        val me = preferences.lastLocation.first() ?: return null
+        val lat = business.latitude ?: return null
+        val lng = business.longitude ?: return null
+        val km = GeoPoint(me.latitude, me.longitude).distanceKmTo(GeoPoint(lat, lng))
+        return (km * 1000).roundToInt() to driveEstimate(km)
     }
 
     /**
