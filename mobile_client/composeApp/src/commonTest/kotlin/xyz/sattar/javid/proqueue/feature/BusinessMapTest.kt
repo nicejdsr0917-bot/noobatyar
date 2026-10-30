@@ -90,14 +90,14 @@ class BusinessMapTest {
     }
 
     @Test
-    fun driveEstimateIsAThirtyMinuteRange() {
+    fun driveEstimateIsTheTypicalDriveTenMinutesEitherSide() {
         val nine = driveEstimate(9.0)
         assertEquals(20, nine.minMinutes)
-        assertEquals(50, nine.maxMinutes)
+        assertEquals(40, nine.maxMinutes)
         assertTrue(abs(nine.roadKm - 12.15) < 0.01)
         val near = driveEstimate(0.3)
-        assertEquals(5 to 35, near.minMinutes to near.maxMinutes)
-        assertEquals("حدود ۲۰ تا ۵۰ دقیقه با ماشین", nine.label())
+        assertEquals(5 to 15, near.minMinutes to near.maxMinutes)
+        assertEquals("حدود ۲۰ تا ۴۰ دقیقه با ماشین", nine.label())
     }
 
     @Test
