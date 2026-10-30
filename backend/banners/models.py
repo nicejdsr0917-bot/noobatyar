@@ -131,3 +131,59 @@ class SiteSetting(models.Model):
 
     def __str__(self):
         return 'تنظیمات سایت'
+
+
+class ClientPromo(models.Model):
+    """
+    A one-line promo strip in the client app (like a ride app's offer bar):
+    on the explore screen's list sheet, on the business map, or both. A tap
+    opens [business] in the app, or [link_url], or nothing.
+    """
+
+    PLACEMENT_EXPLORE = 'EXPLORE'
+    PLACEMENT_BUSINESS_MAP = 'BUSINESS_MAP'
+    PLACEMENT_ALL = 'ALL'
+    PLACEMENT_CHOICES = [
+        (PLACEMENT_EXPLORE, 'صفحهٔ کاوش (بالای لیست)'),
+        (PLACEMENT_BUSINESS_MAP, 'نقشهٔ مرکز'),
+        (PLACEMENT_ALL, 'هر دو'),
+    ]
+
+    text = models.CharField(max_length=120, verbose_name='متن')
+    action_label = models.CharField(
+        max_length=24, blank=True, default='', verbose_name='متن دکمه',
+        help_text='مثلاً «مشاهده»؛ خالی یعنی بدون دکمه')
+    business = models.ForeignKey(
+        'business.Business', null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+        verbose_name='مرکز', help_text='با لمس، صفحهٔ این مرکز در اپ باز می‌شود')
+    link_url = models.URLField(
+        max_length=500, blank=True, default='', verbose_name='لینک',
+        help_text='اگر مرکزی انتخاب نشده، این لینک باز می‌شود')
+    placement = models.CharField(
+        max_length=16, choices=PLACEMENT_CHOICES, default=PLACEMENT_ALL, verbose_name='محل نمایش')
+    order = models.PositiveIntegerField(default=0, verbose_name='ترتیب')
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name='فعال')
+    starts_at = models.DateTimeField(null=True, blank=True, verbose_name='شروع نمایش')
+    ends_at = models.DateTimeField(null=True, blank=True, verbose_name='پایان نمایش')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+
+    class Meta:
+        db_table = 'banners_client_promo'
+        verbose_name = 'نوار تبلیغ اپ مشتری'
+        verbose_name_plural = 'نوارهای تبلیغ اپ مشتری'
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return self.text
+
+    def clean(self):
+        if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
+            raise ValidationError('پایان نمایش باید بعد از شروع باشد.')
+
+    @classmethod
+    def active_for(cls, placement):
+        now = timezone.now()
+        return (cls.objects.filter(is_active=True, placement__in=[placement, cls.PLACEMENT_ALL])
+                .filter(models.Q(starts_at__isnull=True) | models.Q(starts_at__lte=now))
+                .filter(models.Q(ends_at__isnull=True) | models.Q(ends_at__gte=now))
+                .order_by('order', 'id'))

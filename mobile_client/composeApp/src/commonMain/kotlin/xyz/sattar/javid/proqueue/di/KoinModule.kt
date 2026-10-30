@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.di
 
+import xyz.sattar.javid.proqueue.data.remoteDataSource.promo.KtorPromoApi
+import xyz.sattar.javid.proqueue.data.remoteDataSource.promo.PromoApi
+import xyz.sattar.javid.proqueue.feature.promo.PromoViewModel
 import io.ktor.client.HttpClient
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
@@ -42,6 +45,7 @@ val appModule: Module = module {
     single<ClientBusinessApi> { KtorClientBusinessApi(get()) }
     single<BookingApi> { KtorBookingApi(get()) }
     single<BusinessSocialApi> { KtorBusinessSocialApi(get()) }
+    single<PromoApi> { KtorPromoApi(get()) }
 
     // --- Platform seams ---
     single<ClientPreferences> { PlatformClientPreferences() }
@@ -60,6 +64,7 @@ val appModule: Module = module {
     viewModel { ExploreViewModel(get(), get(), get()) }
     viewModel { ClientBusinessDetailViewModel(get(), get()) }
     viewModel { BusinessMapViewModel(get(), get()) }
+    viewModel { PromoViewModel(get()) }
     viewModel { BusinessSocialViewModel(get(), get()) }
     viewModel { SavedViewModel(get(), get()) }
     viewModel { BookingViewModel(get(), get(), get()) }

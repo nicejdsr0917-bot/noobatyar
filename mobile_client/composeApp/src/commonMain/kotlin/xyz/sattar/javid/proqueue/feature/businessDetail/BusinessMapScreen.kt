@@ -1,38 +1,27 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.runtime.MutableLongState
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.unit.Dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import xyz.sattar.javid.proqueue.core.ui.components.map.loadedTileCount
-import kotlin.math.roundToInt
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import ovh.plrapps.mapcompose.api.moveMarker
 import xyz.sattar.javid.proqueue.core.location.driveEstimate
 import xyz.sattar.javid.proqueue.core.location.label
 import xyz.sattar.javid.proqueue.core.ui.components.map.distanceKmTo
 import kotlin.math.PI
 import kotlin.math.atan2
+import kotlin.math.cos
 import ovh.plrapps.mapcompose.ui.state.MapState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -91,6 +80,8 @@ import ovh.plrapps.mapcompose.api.scale
 import ovh.plrapps.mapcompose.api.scrollTo
 import ovh.plrapps.mapcompose.ui.MapUI
 import xyz.sattar.javid.proqueue.core.location.LocationResult
+import xyz.sattar.javid.proqueue.data.remoteDataSource.promo.PromoPlacement
+import xyz.sattar.javid.proqueue.feature.promo.PromoStrip
 import xyz.sattar.javid.proqueue.core.location.rememberLocationRequester
 import xyz.sattar.javid.proqueue.core.ui.components.map.DisposeMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
@@ -114,8 +105,19 @@ import androidx.compose.runtime.CompositionLocalProvider
 
 private const val BUSINESS_MARKER = "business"
 private const val ME_MARKER = "me"
-private const val LINE_PATH = "line"
-private const val ARROW_MARKER = "arrow"
+private const val ROUTE_PATH = "route"
+private const val ROUTE_HEAD = "route-head"
+private const val DESTINATION_MARKER = "destination"
+
+/** Straight segments the curve is drawn with; enough to look smooth at any zoom here. */
+private const val ARC_SEGMENTS = 40
+private const val ROUTE_ARROW = "route-arrow"
+
+/** The full 3D tilt; the view settles at part of it. */
+private const val MAX_TILT_DEGREES = 45f
+
+/** Where along the finished route its direction chevron sits. */
+private const val MID_ARROW_AT = 0.55f
 
 /** Share of the screen the bottom card leaves for the map. */
 private const val MAP_VISIBLE_FRACTION = 0.62f
@@ -129,6 +131,7 @@ private const val MAP_VISIBLE_FRACTION = 0.62f
 fun BusinessMapScreen(
     businessId: Long,
     onNavigateBack: () -> Unit,
+    onOpenBusiness: (Long) -> Unit = {},
     viewModel: BusinessMapViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -172,6 +175,7 @@ fun BusinessMapScreen(
                     state = state,
                     onLocate = locate,
                     onSettings = locator::openSettings,
+                    onOpenBusiness = onOpenBusiness,
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
@@ -185,6 +189,12 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
     val dark = LocalIsDarkTheme.current
     val reduced = LocalReducedMotion.current
     val accent = MaterialTheme.colorScheme.primary
+    // Grey where the trip starts, dark through the middle, violet at the end.
+    val routeColors = Triple(
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+        MaterialTheme.colorScheme.onSurface,
+        accent,
+    )
     val state = remember(place) { newTileMapState(place, 16.0, density) }
     DisposeMapState(state)
     LaunchedEffect(dark) { state.applyTileTint(dark) }
@@ -194,21 +204,36 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
     val shown = remember { Animatable(if (reduced) 1f else 0f) }
     val tilt = remember { Animatable(0f) }
     var played by remember { mutableStateOf(false) }
-    var flying by remember { mutableStateOf(false) }
-    var heading by remember { mutableStateOf(0f) }
     var arrivedKm by remember { mutableStateOf<Double?>(null) }
 
-    // Invisible anchors inside the tilted map; the upright overlays are placed
-    // where those anchors land on screen after the 3D transform.
-    val anchors = remember { mutableStateMapOf<String, LayoutCoordinates>() }
-    var root by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    val frame = remember { mutableLongStateOf(0L) }
-    LaunchedEffect(Unit) { while (true) withFrameNanos { frame.longValue = it } }
 
     LaunchedEffect(state) {
         val (x, y) = place.toNormalized()
-        state.addMarker(BUSINESS_MARKER, x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false) {
-            Anchor { anchors[BUSINESS_MARKER] = it }
+        // On the map itself, so the pin's tip is exactly on its point; stood
+        // upright against the tilt. The arrival card rides above it.
+        state.addMarker(BUSINESS_MARKER, x, y, relativeOffset = Offset(-0.5f, -1f), clickable = false, zIndex = 3f) {
+            Column(
+                Modifier.upright { tilt.value },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                arrivedKm?.let { km ->
+                    ArrivalLabel(km)
+                    Spacer(Modifier.height(Space.sm))
+                }
+                // The compact pin: the name is in the bottom card, and a wide
+                // labelled bubble would cover the route at this zoom.
+                Box(
+                    Modifier.graphicsLayer {
+                        scaleX = 1.3f
+                        scaleY = 1.3f
+                        transformOrigin = TransformOrigin(0.5f, 1f)
+                    }
+                ) { BusinessPin(business, selected = false) }
+            }
+        }
+        // The destination on the ground, under the standing pin's tip.
+        state.addMarker(DESTINATION_MARKER, x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = 2f) {
+            DestinationSquare()
         }
     }
     LaunchedEffect(state) {
@@ -218,8 +243,7 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
     }
     LaunchedEffect(state, me) {
         state.removeMarker(ME_MARKER)
-        state.removeMarker(ARROW_MARKER)
-        state.removePath(LINE_PATH)
+        state.clearRoute()
         arrivedKm = null
         val target = place.toNormalized()
         if (me == null) {
@@ -229,10 +253,11 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
         }
         val mine = me.toNormalized()
         state.addMarker(ME_MARKER, mine.first, mine.second, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = 0f) {
-            Box(Modifier.onGloballyPositioned { anchors[ME_MARKER] = it }) { MyLocationDot() }
+            MyLocationDot()
         }
         val before = loadedTileCount.value
         fitBoth(state, mine, target)
+        val arc = arcPoints(mine, target)
 
         if (!reduced && !played) {
             played = true
@@ -241,26 +266,19 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
             shown.animateTo(1f, tween(300))
             delay(350)
             tilt.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
-            heading = screenHeading(root, anchors[ME_MARKER], anchors[BUSINESS_MARKER])
-                ?: (atan2(target.second - mine.second, target.first - mine.first) * 180.0 / PI).toFloat()
-            state.addMarker(ARROW_MARKER, mine.first, mine.second, relativeOffset = Offset(-0.5f, -0.5f), clickable = false) {
-                Anchor { anchors[ARROW_MARKER] = it }
-            }
-            flying = true
             val flight = Animatable(0f)
-            flight.animateTo(1f, tween(1_800, easing = FastOutSlowInEasing)) {
-                val at = lerp(mine, target, value.toDouble())
-                state.removePath(LINE_PATH)
-                state.addPath(LINE_PATH, width = 5.dp, color = accent) { addPoints(listOf(mine, at)) }
-                state.moveMarker(ARROW_MARKER, at.first, at.second)
+            var drawn = 0
+            flight.animateTo(1f, tween(2_000, easing = FastOutSlowInEasing)) {
+                drawn = state.drawRoute(arc, value, routeColors, alreadyDrawn = drawn)
+                // The arrow is the line's own tip, in the line's colour.
+                state.drawChevron(arc, value, routeColor(routeColors, value))
             }
-            flying = false
-            state.removeMarker(ARROW_MARKER)
-            anchors.remove(ARROW_MARKER)
             tilt.animateTo(0.6f, spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow))
         }
-        state.removePath(LINE_PATH)
-        state.addPath(LINE_PATH, width = 5.dp, color = accent.copy(alpha = 0.8f)) { addPoints(listOf(mine, target)) }
+        state.clearRoute()
+        state.drawRoute(arc, 1f, routeColors)
+        // Arrived: the square marks the end, a chevron mid-way shows the direction.
+        state.drawChevron(arc, MID_ARROW_AT, routeColor(routeColors, MID_ARROW_AT))
         arrivedKm = me.distanceKmTo(place)
     }
 
@@ -273,7 +291,6 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
                     listOf(accent.copy(alpha = 0.14f), MaterialTheme.colorScheme.surfaceVariant)
                 )
             )
-            .onGloballyPositioned { root = it }
     ) {
         Box(
             Modifier
@@ -281,7 +298,7 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
                 .graphicsLayer {
                     val t = tilt.value
                     alpha = shown.value
-                    rotationX = 45f * t
+                    rotationX = MAX_TILT_DEGREES * t
                     // A far camera keeps the perspective soft, so the far edge
                     // narrows only a little; the scale-up covers what remains.
                     cameraDistance = 18f * density
@@ -293,19 +310,6 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
             MapUI(modifier = Modifier.fillMaxSize(), state = state)
         }
 
-        // Upright, like signs standing on the map: never tilted with it.
-        val r = root
-        // The compact pin: the name is in the bottom card, and a wide labelled
-        // bubble would cover the route at this zoom.
-        Standing(r, anchors[BUSINESS_MARKER], frame, alignBottom = true, alpha = shown.value) {
-            Box(Modifier.scale(1.35f)) { BusinessPin(business, selected = false) }
-        }
-        if (flying) {
-            Standing(r, anchors[ARROW_MARKER], frame, alignBottom = false) { ArrowHead(heading) }
-        }
-        arrivedKm?.let { km ->
-            Standing(r, anchors[BUSINESS_MARKER], frame, alignBottom = true, lift = 58.dp, keepOnScreen = true) { ArrivalLabel(km) }
-        }
         if (shown.value < 1f) {
             Text(
                 "در حال بارگذاری نقشه…",
@@ -321,89 +325,126 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
     }
 }
 
-/** A 1 dp point in the map that reports where it is. */
-@Composable
-private fun Anchor(onPlaced: (LayoutCoordinates) -> Unit) {
-    Box(Modifier.size(1.dp).onGloballyPositioned(onPlaced))
-}
-
-/** Where [anchor]'s centre is on screen, after the map layer's 3D transform. */
-private fun projected(root: LayoutCoordinates?, anchor: LayoutCoordinates?): Offset? {
-    if (root == null || anchor == null || !root.isAttached || !anchor.isAttached) return null
-    return root.localPositionOf(anchor, Offset(anchor.size.width / 2f, anchor.size.height / 2f))
-}
-
-/** The on-screen direction from [from] to [to], in degrees from "right". */
-private fun screenHeading(root: LayoutCoordinates?, from: LayoutCoordinates?, to: LayoutCoordinates?): Float? {
-    val a = projected(root, from) ?: return null
-    val b = projected(root, to) ?: return null
-    if (a == b) return null
-    return (atan2((b.y - a.y).toDouble(), (b.x - a.x).toDouble()) * 180.0 / PI).toFloat()
-}
-
 /**
- * Places [content] upright at [anchor]'s projected point, re-placed every
- * frame so it follows the map's pans and tilt: bottom-centre on the point
- * when [alignBottom], centred otherwise, raised by [lift].
+ * Stands a marker up on the tilted map: the tilt squashes everything on the
+ * map by cos(angle) vertically, so the marker is stretched back by as much,
+ * from its bottom edge (the point it marks).
  */
-@Composable
-private fun Standing(
-    root: LayoutCoordinates?,
-    anchor: LayoutCoordinates?,
-    frame: MutableLongState,
-    alignBottom: Boolean,
-    lift: Dp = 0.dp,
-    alpha: Float = 1f,
-    keepOnScreen: Boolean = false,
-    content: @Composable () -> Unit,
-) {
-    if (root == null || anchor == null) return
-    val liftPx = with(LocalDensity.current) { lift.roundToPx() }
-    Box(
-        Modifier
-            .graphicsLayer { this.alpha = alpha }
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
-                // Full size, so the origin is the screen's: a content-sized box
-                // would be put at the start edge, the right side in RTL.
-                layout(constraints.maxWidth, constraints.maxHeight) {
-                    frame.longValue // re-place on every frame
-                    val at = projected(root, anchor) ?: return@layout
-                    val centred = at.x.roundToInt() - placeable.width / 2
-                    // A card slides inwards rather than being cut by the screen edge.
-                    val margin = 12.dp.roundToPx()
-                    val x = if (keepOnScreen) {
-                        centred.coerceIn(margin, maxOf(margin, constraints.maxWidth - placeable.width - margin))
-                    } else centred
-                    val y = if (alignBottom) at.y.roundToInt() - placeable.height - liftPx
-                    else at.y.roundToInt() - placeable.height / 2
-                    placeable.place(x, y)
-                }
-            }
-    ) { content() }
+private fun Modifier.upright(tilt: () -> Float): Modifier = graphicsLayer {
+    val c = cos(MAX_TILT_DEGREES * tilt() * PI / 180.0).toFloat().coerceAtLeast(0.3f)
+    scaleY = 1f / c
+    transformOrigin = TransformOrigin(0.5f, 1f)
 }
 
 private fun lerp(a: Pair<Double, Double>, b: Pair<Double, Double>, t: Double) =
     a.first + (b.first - a.first) * t to a.second + (b.second - a.second) * t
 
-/** The travelling arrowhead: a violet disc with a white arrow pointing along the flight. */
+/**
+ * The trip as a gentle arc rather than a ruler line: a quadratic curve whose
+ * control point sits off the chord's middle by a fifth of its length, on the
+ * side that bows up the screen.
+ */
+internal fun arcPoints(a: Pair<Double, Double>, b: Pair<Double, Double>, segments: Int = ARC_SEGMENTS): List<Pair<Double, Double>> {
+    val dx = b.first - a.first
+    val dy = b.second - a.second
+    val len = kotlin.math.sqrt(dx * dx + dy * dy)
+    if (len == 0.0) return listOf(a, b)
+    // Unit normal; pick the one pointing up (map y grows downwards).
+    var nx = -dy / len
+    var ny = dx / len
+    if (ny > 0) { nx = -nx; ny = -ny }
+    val bow = len * 0.2
+    val c = (a.first + b.first) / 2 + nx * bow to (a.second + b.second) / 2 + ny * bow
+    return (0..segments).map { i ->
+        val t = i.toDouble() / segments
+        val u = 1 - t
+        u * u * a.first + 2 * u * t * c.first + t * t * b.first to
+            u * u * a.second + 2 * u * t * c.second + t * t * b.second
+    }
+}
+
+/** The point [t] (0..1) of the way along [arc]. */
+internal fun pointOnArc(arc: List<Pair<Double, Double>>, t: Float): Pair<Double, Double> {
+    val pos = t.coerceIn(0f, 1f) * (arc.size - 1)
+    val i = pos.toInt().coerceAtMost(arc.size - 2)
+    return lerp(arc[i], arc[i + 1], (pos - i).toDouble())
+}
+
+/** Colour of the route [t] of the way along: start → middle → end. */
+private fun routeColor(colors: Triple<Color, Color, Color>, t: Float): Color =
+    if (t < 0.5f) androidx.compose.ui.graphics.lerp(colors.first, colors.second, t * 2)
+    else androidx.compose.ui.graphics.lerp(colors.second, colors.third, (t - 0.5f) * 2)
+
+/**
+ * Draws [arc] up to [progress] as short segments in a colour ramp, adding
+ * only the segments not drawn yet ([alreadyDrawn]) plus a moving head piece.
+ * Returns how many whole segments are now drawn.
+ */
+private fun MapState.drawRoute(
+    arc: List<Pair<Double, Double>>,
+    progress: Float,
+    colors: Triple<Color, Color, Color>,
+    alreadyDrawn: Int = 0,
+): Int {
+    val segments = arc.size - 1
+    val whole = (progress.coerceIn(0f, 1f) * segments).toInt().coerceAtMost(segments)
+    for (i in alreadyDrawn until whole) {
+        addPath("$ROUTE_PATH$i", width = 5.dp, color = routeColor(colors, (i + 0.5f) / segments)) {
+            addPoints(listOf(arc[i], arc[i + 1]))
+        }
+    }
+    removePath(ROUTE_HEAD)
+    if (whole < segments) {
+        val head = pointOnArc(arc, progress)
+        addPath(ROUTE_HEAD, width = 5.dp, color = routeColor(colors, progress)) { addPoints(listOf(arc[whole], head)) }
+    }
+    return whole
+}
+
+private fun MapState.clearRoute() {
+    for (i in 0 until ARC_SEGMENTS) removePath("$ROUTE_PATH$i")
+    removePath(ROUTE_HEAD)
+    removePath(ROUTE_ARROW)
+}
+
+/**
+ * An open arrowhead drawn into the route at [t], pointing along it: two short
+ * strokes meeting at the route, sized to the trip so it reads the same at the
+ * zoom the trip is framed at.
+ */
+private fun MapState.drawChevron(arc: List<Pair<Double, Double>>, t: Float, color: Color) {
+    removePath(ROUTE_ARROW)
+    if (t < 0.06f) return
+    val tip = pointOnArc(arc, t)
+    val back = pointOnArc(arc, (t - 0.03f).coerceAtLeast(0f))
+    var dx = tip.first - back.first
+    var dy = tip.second - back.second
+    val d = kotlin.math.sqrt(dx * dx + dy * dy)
+    if (d == 0.0) return
+    dx /= d
+    dy /= d
+    val chord = kotlin.math.sqrt(
+        (arc.last().first - arc.first().first).let { it * it } + (arc.last().second - arc.first().second).let { it * it }
+    )
+    val length = chord * 0.028
+    val half = chord * 0.018
+    val baseX = tip.first - dx * length
+    val baseY = tip.second - dy * length
+    addPath(ROUTE_ARROW, width = 4.dp, color = color) {
+        addPoints(listOf(baseX - dy * half to baseY + dx * half, tip, baseX + dy * half to baseY - dx * half))
+    }
+}
+
+/** The destination as a small square on the ground, like a ride app's drop-off. */
 @Composable
-private fun ArrowHead(headingDegrees: Float) {
+private fun DestinationSquare() {
     Box(
         Modifier
-            .size(34.dp)
-            .shadow(8.dp, CircleShape, ambientColor = MaterialTheme.colorScheme.primary, spotColor = MaterialTheme.colorScheme.primary)
-            .background(MaterialTheme.colorScheme.primary, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        // The glyph points up; screen headings are measured from "right".
-        Icon(
-            Icons.Rounded.Navigation,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(20.dp).rotate(headingDegrees + 90f),
-        )
-    }
+            .size(14.dp)
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(3.dp))
+            .padding(3.dp)
+            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(1.dp))
+    )
 }
 
 /** Pops in over the destination once the arrow lands. */
@@ -436,19 +477,16 @@ private fun ArrivalLabel(straightKm: Double) {
     }
 }
 
-/**
- * Frames the user and the business above the bottom card, with room on the
- * sides for the arrival card (about 180 dp wide) centred over the business.
- */
+/** Frames the user and the business above the bottom card, as close as both fit. */
 private suspend fun fitBoth(state: MapState, a: Pair<Double, Double>, b: Pair<Double, Double>) {
     val w = maxOf(kotlin.math.abs(a.first - b.first), 0.00002)
     val h = maxOf(kotlin.math.abs(a.second - b.second), 0.00002)
     val span = maxOf(w, h)
     val cx = (a.first + b.first) / 2
     val cy = (a.second + b.second) / 2
-    // Room for the arrival card over the business; the tilt's scale-up
-    // spreads the points outwards a little too.
-    val halfW = span * 1.5
+    // Street level: the trip fills most of the width, so street and area
+    // names show (the arrival card keeps itself on screen).
+    val halfW = span * 0.92
     // Room above for the bubble, below for the dot; then stretch down under the card.
     val top = cy - h / 2 - span * 0.55
     val visibleBottom = cy + h / 2 + span * 0.35
@@ -462,10 +500,18 @@ private fun BottomCard(
     state: BusinessMapState,
     onLocate: () -> Unit,
     onSettings: () -> Unit,
+    onOpenBusiness: (Long) -> Unit,
     modifier: Modifier,
 ) {
     Column(modifier.fillMaxWidth()) {
         MapAttribution(Modifier.padding(start = Space.md, bottom = Space.sm))
+        // Tucked behind the card's rounded top, like a ride app's offer bar.
+        PromoStrip(
+            PromoPlacement.BUSINESS_MAP,
+            onOpenBusiness = onOpenBusiness,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            overlap = 24.dp,
+        )
         Surface(
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             color = MaterialTheme.colorScheme.surface,

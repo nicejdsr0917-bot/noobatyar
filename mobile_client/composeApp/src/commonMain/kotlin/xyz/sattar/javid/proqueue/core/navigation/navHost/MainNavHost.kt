@@ -85,6 +85,7 @@ fun MainNavHost() {
                     BusinessMapScreen(
                         businessId = entry.toRoute<AppScreens.BusinessMap>().businessId,
                         onNavigateBack = { navController.popBackStack() },
+                        onOpenBusiness = openDetail,
                     )
                 }
                 composable<AppScreens.Booking> { entry ->

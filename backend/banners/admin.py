@@ -5,7 +5,7 @@ from unfold.admin import ModelAdmin, TabularInline
 from business.models import Business
 
 from .models import (
-    BANNER_HEIGHT, BANNER_WIDTH, GROUP_BY_CATEGORY, Banner, BannerCategoryGroup, SiteSetting,
+    BANNER_HEIGHT, BANNER_WIDTH, GROUP_BY_CATEGORY, Banner, BannerCategoryGroup, ClientPromo, SiteSetting,
     categories_of_group,
 )
 
@@ -86,3 +86,20 @@ class SiteSettingAdmin(ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         SiteSetting.load()
         return super().changelist_view(request, extra_context)
+
+
+@admin.register(ClientPromo)
+class ClientPromoAdmin(ModelAdmin):
+    list_display = ('text', 'placement', 'business', 'order', 'is_active', 'starts_at', 'ends_at')
+    list_filter = ('is_active', 'placement')
+    list_editable = ('order', 'is_active')
+    list_select_related = ('business',)
+    autocomplete_fields = ('business',)
+    fieldsets = (
+        (None, {
+            'description': 'یک خط کوتاه بالای لیست کاوش یا روی نقشهٔ مرکز در اپ مشتری. '
+                           'با لمس، مرکز انتخاب‌شده در اپ باز می‌شود؛ اگر مرکزی نیست، لینک.',
+            'fields': ('text', 'action_label', 'business', 'link_url', 'placement',
+                       'order', 'is_active', 'starts_at', 'ends_at'),
+        }),
+    )

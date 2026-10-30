@@ -1,5 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
+import kotlin.math.roundToInt
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.draw.clipToBounds
+import xyz.sattar.javid.proqueue.data.remoteDataSource.promo.PromoPlacement
+import xyz.sattar.javid.proqueue.feature.promo.PromoStrip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -233,7 +239,27 @@ fun ExploreScreen(
                 sheetContainerColor = MaterialTheme.colorScheme.background,
                 sheetShadowElevation = 16.dp * (1f - merge),
                 sheetShape = RoundedCornerShape(topStart = corner, topEnd = corner),
-                sheetDragHandle = { SheetHandle(alpha = 1f - merge) },
+                sheetDragHandle = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        // The offer bar rides the sheet's top edge, like a ride app's.
+                        PromoStrip(
+                            PromoPlacement.EXPLORE,
+                            onOpenBusiness = openDetail,
+                            shape = RoundedCornerShape(topStart = corner, topEnd = corner),
+                            // Fades and folds away as the sheet reaches the top, so
+                            // the expanded list starts right under the toolbar.
+                            modifier = Modifier
+                                .clipToBounds()
+                                .layout { measurable, constraints ->
+                                    val placeable = measurable.measure(constraints)
+                                    val height = (placeable.height * (1f - merge)).roundToInt()
+                                    layout(placeable.width, height) { placeable.place(0, 0) }
+                                }
+                                .graphicsLayer { alpha = 1f - merge },
+                        )
+                        SheetHandle(alpha = 1f - merge)
+                    }
+                },
                 sheetContent = {
                     ResultsList(
                         state = state,

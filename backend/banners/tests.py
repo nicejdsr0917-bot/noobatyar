@@ -103,3 +103,49 @@ class BannerTests(TestCase):
         for name in ('banners_banner_changelist', 'banners_sitesetting_changelist'):
             self.assertEqual(self.client.get(reverse(f'admin:{name}')).status_code, 200)
         self.assertEqual(SiteSetting.objects.count(), 1)
+
+
+class ClientPromoTests(TestCase):
+    url = '/api/client/promos/'
+
+    def promo(self, **kw):
+        from .models import ClientPromo
+        defaults = dict(text='۳۰٪ تخفیف تا امشب', placement=ClientPromo.PLACEMENT_ALL)
+        defaults.update(kw)
+        return ClientPromo.objects.create(**defaults)
+
+    def get(self, placement):
+        return self.client.get(self.url, {'placement': placement})
+
+    def test_placement_filters_and_all_shows_everywhere(self):
+        from .models import ClientPromo
+        both = self.promo(order=2)
+        explore = self.promo(text='کاوش', placement=ClientPromo.PLACEMENT_EXPLORE, order=1)
+        self.promo(text='نقشه', placement=ClientPromo.PLACEMENT_BUSINESS_MAP)
+        ids = [p['id'] for p in self.get('EXPLORE').json()['data']['promos']]
+        self.assertEqual(ids, [explore.id, both.id])
+
+    def test_inactive_and_out_of_window_are_hidden(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        now = timezone.now()
+        self.promo(is_active=False)
+        self.promo(starts_at=now + timedelta(hours=1))
+        self.promo(ends_at=now - timedelta(hours=1))
+        live = self.promo(starts_at=now - timedelta(hours=1), ends_at=now + timedelta(hours=1))
+        promos = self.get('BUSINESS_MAP').json()['data']['promos']
+        self.assertEqual([p['id'] for p in promos], [live.id])
+
+    def test_shape_and_public_access(self):
+        self.promo(action_label='مشاهده', link_url='https://noobatyar.ir/off')
+        r = self.get('explore')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(
+            r.json()['data']['promos'][0],
+            {'id': r.json()['data']['promos'][0]['id'], 'text': '۳۰٪ تخفیف تا امشب',
+             'action_label': 'مشاهده', 'business_id': None, 'link_url': 'https://noobatyar.ir/off'},
+        )
+
+    def test_unknown_placement_is_refused(self):
+        self.assertEqual(self.get('HOME').status_code, 400)
+        self.assertEqual(self.client.get(self.url).status_code, 400)

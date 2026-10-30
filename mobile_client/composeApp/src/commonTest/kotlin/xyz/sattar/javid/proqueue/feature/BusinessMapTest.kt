@@ -11,6 +11,8 @@ import xyz.sattar.javid.proqueue.core.prefs.SavedLocation
 import xyz.sattar.javid.proqueue.core.prefs.decodeSavedLocation
 import xyz.sattar.javid.proqueue.core.prefs.encode
 import xyz.sattar.javid.proqueue.feature.businessDetail.BusinessMapViewModel
+import xyz.sattar.javid.proqueue.feature.businessDetail.arcPoints
+import xyz.sattar.javid.proqueue.feature.businessDetail.pointOnArc
 import xyz.sattar.javid.proqueue.feature.businessDetail.distanceKm
 import xyz.sattar.javid.proqueue.testsupport.FakeBusinessRepository
 import xyz.sattar.javid.proqueue.testsupport.FakeClientPreferences
@@ -96,5 +98,22 @@ class BusinessMapTest {
         val near = driveEstimate(0.3)
         assertEquals(5 to 35, near.minMinutes to near.maxMinutes)
         assertEquals("حدود ۲۰ تا ۵۰ دقیقه با ماشین", nine.label())
+    }
+
+    @Test
+    fun theRouteArcStartsAndEndsOnThePointsAndBowsUp() {
+        val a = 0.40 to 0.50
+        val b = 0.60 to 0.50
+        val arc = arcPoints(a, b)
+        assertEquals(a, arc.first())
+        assertEquals(b, arc.last())
+        val middle = arc[arc.size / 2]
+        assertTrue(middle.second < 0.50, "bows up the screen: ${middle.second}")
+        assertEquals(a, pointOnArc(arc, 0f))
+        assertEquals(b, pointOnArc(arc, 1f))
+        // A vertical trip still bows (sideways) and still ends on its points.
+        val down = arcPoints(0.5 to 0.4, 0.5 to 0.6)
+        assertEquals(0.5 to 0.6, down.last())
+        assertTrue(abs(down[down.size / 2].first - 0.5) > 0.01)
     }
 }
