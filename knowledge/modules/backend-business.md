@@ -53,3 +53,7 @@ tags: [gf]
 
 ## احراز Visitor روی API عمومی (2026-10-31)
 - `ClientBusinessListView` و `ClientBusinessDetailView` (`client_views.py`): `authentication_classes = [VisitorTokenAuthentication, JWTAuthentication]`. مشتری واردشده «نمایش به مهمان خاموش» مالک را دور می‌زند؛ توکن بد ۴۰۱ می‌دهد. درخواست دارای Authorization کش عمومی را رد می‌کند. تست: `tests_contact_policy`.
+
+## فرمان‌های seed (2026-10-31 شب)
+- `seed_insurances` (از `business/insurance_catalog.py`): ۱۹ بیمهٔ تکمیلی و ۳ پایه؛ idempotent؛ روی سرور اجرا شود.
+- `seed_demo_businesses --count N`: کسب‌وکار `DEMO0001…` در همهٔ گروه‌ها با صاحب و اشتراک؛ فقط محلی/staging.

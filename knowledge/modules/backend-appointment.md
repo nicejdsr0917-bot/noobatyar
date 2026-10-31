@@ -46,3 +46,6 @@ tags: [gf]
 - **فیلدهای سفر:**
   - `Appointment.travel_distance_m`، `drive_minutes_min`، `drive_minutes_max` (nullable، migration `0017`).
   - `travel_estimate(request.data)` مقدارهای خراب را دور می‌ریزد و ثبت نوبت هرگز به‌خاطر آن رد نمی‌شود.
+
+## فاصله و زمان رانندگی روی نوبت
+- `travel_distance_m`، `drive_minutes_min/max` را اپ کلاینت موقع رزرو می‌فرستد (از آخرین موقعیت ذخیره‌شده)؛ مختصات کاربر ذخیره نمی‌شود. هنوز در سریالایزر نوبت، ادمین و اپ اونر نمایش داده نمی‌شود.

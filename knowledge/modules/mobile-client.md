@@ -90,3 +90,9 @@ tags: [gf]
 - `ui/theme/Typography.kt`: Yekan Bakh، بدون `letterSpacing`؛ `bodyMedium` پیش‌فرض متن و فیلدها (`Theme.kt`).
 - آیکن‌ها: Lucide (`com.composables:icons-lucide-cmp`)، پر با `ImageVector.filled()`. پیکان‌های RTL دستی برعکس‌اند.
 - متن اپ: کوتاه و بدون ئ ء ٔ أ. `PersianDigits` برای ارقام فیلدهای عددی.
+
+## کاوش، ناحیه، مسیریابی (2026-10-31 شب)
+- `CategoryGroup.supportsInsurance`: فیلتر بیمه فقط برای ALL/MEDICAL/DENTAL/HEALTH؛ `selectCategory` بیمهٔ انتخاب‌شده را برای صنف بی‌بیمه پاک می‌کند.
+- `ExploreMap`: برای هر ناحیه (شهر، نزدیک من، Picked، شعاع) `fitArea` با حاشیهٔ کم؛ نشان کمرنگ با Canvas در مرکز حلقه. فقط «همه شهرها» روی پین‌ها فیت می‌شود.
+- `core/location/DirectionsGate.kt` (`rememberDirections()`): همهٔ دکمه‌های مسیریابی؛ بدون موقعیت نقشه باز نمی‌شود؛ موقعیت را ذخیره می‌کند. پرچم `awaitingSettings` با `LifecycleResumeEffect(Unit)` (کلید دیگر نگذار).
+- موقعیت کاربر ذخیره نمی‌شود؛ فقط `travel_distance_m` و بازهٔ رانندگی روی نوبت (به اونر نشان داده نمی‌شود).
