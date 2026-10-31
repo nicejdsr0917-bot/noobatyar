@@ -15,6 +15,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +41,7 @@ import xyz.sattar.javid.proqueue.feature.booking.BookingScreen
 import xyz.sattar.javid.proqueue.feature.businessDetail.BusinessMapScreen
 import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailScreen
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
+import xyz.sattar.javid.proqueue.feature.discovery.LocalMyInsuranceSlug
 import xyz.sattar.javid.proqueue.feature.explore.ExploreScreen
 import xyz.sattar.javid.proqueue.feature.more.MoreScreen
 import xyz.sattar.javid.proqueue.feature.saved.SavedScreen
@@ -48,6 +51,7 @@ private val tabs = listOf(MainTab.Explore, MainTab.Appointments, MainTab.Saved, 
 @Composable
 fun MainNavHost() {
     val navController = rememberNavController()
+    val myInsurance by PreferencesManager.myInsuranceSlug.collectAsState(initial = null)
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
 
@@ -66,6 +70,7 @@ fun MainNavHost() {
     // Surface (not a bare background) so LocalContentColor follows the theme:
     // without it every Text that doesn't pick a colour renders black, which is
     // invisible in dark mode.
+    CompositionLocalProvider(LocalMyInsuranceSlug provides myInsurance) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             NavHost(
@@ -167,6 +172,7 @@ fun MainNavHost() {
                 )
             }
         }
+    }
     }
 }
 

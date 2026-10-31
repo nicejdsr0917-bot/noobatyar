@@ -21,6 +21,7 @@ actual object PreferencesManager {
     private const val KEY_WELCOME_SEEN = "welcome_seen"
     private const val KEY_VISITOR_TOKEN = "visitor_token"
     private const val KEY_LAST_LOCATION = "last_location"
+    private const val KEY_MY_INSURANCE = "my_insurance"
     private const val KEY_RECENT_CITIES = "recent_city_codes"
 
     private val _themeMode = MutableStateFlow(
@@ -156,6 +157,14 @@ actual object PreferencesManager {
     actual suspend fun setVisitorToken(token: String?) {
         if (token == null) defaults.removeObjectForKey(KEY_VISITOR_TOKEN) else defaults.setObject(token, KEY_VISITOR_TOKEN)
         _visitorToken.value = token
+    }
+
+    private val _myInsurance = MutableStateFlow(defaults.stringForKey(KEY_MY_INSURANCE))
+    actual val myInsuranceSlug: Flow<String?> get() = _myInsurance
+
+    actual suspend fun setMyInsuranceSlug(slug: String?) {
+        if (slug == null) defaults.removeObjectForKey(KEY_MY_INSURANCE) else defaults.setObject(slug, KEY_MY_INSURANCE)
+        _myInsurance.value = slug
     }
 
     private val _lastLocation = MutableStateFlow(decodeSavedLocation(defaults.stringForKey(KEY_LAST_LOCATION)))

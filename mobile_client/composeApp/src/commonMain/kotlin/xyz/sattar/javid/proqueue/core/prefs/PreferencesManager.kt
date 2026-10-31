@@ -51,6 +51,10 @@ expect object PreferencesManager {
     fun getVisitorToken(): String?
     suspend fun setVisitorToken(token: String?)
 
+    /** The user's own insurance, as an insurance slug; null until they set one. */
+    val myInsuranceSlug: Flow<String?>
+    suspend fun setMyInsuranceSlug(slug: String?)
+
     /** Where the user last was, saved each time they let the app take a fix. */
     val lastLocation: Flow<SavedLocation?>
     suspend fun saveLocation(location: SavedLocation)

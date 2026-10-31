@@ -25,6 +25,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.composables.icons.lucide.ShieldPlus
+import xyz.sattar.javid.proqueue.feature.explore.InsuranceSheet
+import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -50,7 +56,14 @@ import xyz.sattar.javid.proqueue.feature.discovery.Space
 import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 
 @Composable
-fun MoreScreen(onOpenAbout: () -> Unit, onSignIn: () -> Unit, bottomPadding: Dp) {
+fun MoreScreen(
+    onOpenAbout: () -> Unit,
+    onSignIn: () -> Unit,
+    bottomPadding: Dp,
+    myInsurance: MyInsuranceViewModel = koinViewModel(),
+) {
+    val insurance by myInsurance.state.collectAsState()
+    var pickInsurance by remember { mutableStateOf(false) }
     val themeMode by ThemeStateHolder.themeMode.collectAsState()
     val signedIn by PreferencesManager.visitorToken.collectAsState(initial = PreferencesManager.getVisitorToken())
     val scope = rememberCoroutineScope()
@@ -86,6 +99,14 @@ fun MoreScreen(onOpenAbout: () -> Unit, onSignIn: () -> Unit, bottomPadding: Dp)
         }
         Hairline()
 
+        GroupTitle("بیمه")
+        Hairline()
+        ListRow(
+            Lucide.ShieldPlus, "بیمه تکمیلی من", value = insurance.mine?.name ?: "تعیین نشده",
+            onClick = { pickInsurance = true },
+        )
+        Hairline()
+
         GroupTitle("ظاهر")
         ThemeSegmentedControl(
             selected = themeMode,
@@ -111,6 +132,21 @@ fun MoreScreen(onOpenAbout: () -> Unit, onSignIn: () -> Unit, bottomPadding: Dp)
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = Space.xl)
+        )
+    }
+
+    if (pickInsurance) {
+        InsuranceSheet(
+            insurances = insurance.insurances,
+            selectedSlug = insurance.mySlug,
+            onDismiss = { pickInsurance = false },
+            onSelect = {
+                myInsurance.select(it)
+                pickInsurance = false
+            },
+            title = "بیمه تکمیلی من",
+            subtitle = "پزشک‌های نزدیک که بیمه شما را اعلام کرده‌اند، در کاوش پیش‌فرض نشان داده می‌شوند.",
+            noneLabel = "ندارم یا نمی‌خواهم",
         )
     }
 }

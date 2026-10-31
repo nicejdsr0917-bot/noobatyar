@@ -150,6 +150,65 @@ class ExploreViewModelTest {
     }
 
     @Test
+    fun myInsuranceFiltersTheInsuredCategoriesByItself() = runTest(main.dispatcher) {
+        val prefs = FakeClientPreferences(cities = listOf(301))
+        prefs.myInsurance.value = "dana"
+        val vm = vm(prefs)
+        advanceUntilIdle()
+        // «همه» also holds salons, which have no insurance: it is not narrowed.
+        assertNull(vm.state.value.insuranceSlug)
+
+        vm.selectCategory(CategoryGroup.DENTAL)
+        advanceUntilIdle()
+        assertEquals("dana", vm.state.value.insuranceSlug)
+        assertEquals("dana", repo.searches.last().insuranceSlug)
+
+        vm.selectCategory(CategoryGroup.BEAUTY)
+        advanceUntilIdle()
+        assertNull(vm.state.value.insuranceSlug)
+        vm.selectCategory(CategoryGroup.MEDICAL)
+        advanceUntilIdle()
+        assertEquals("dana", vm.state.value.insuranceSlug)
+    }
+
+    @Test
+    fun choosingAllInsurancesOnPurposeStopsTheAutoFilterUntilCleared() = runTest(main.dispatcher) {
+        val prefs = FakeClientPreferences(cities = listOf(301))
+        prefs.myInsurance.value = "dana"
+        val vm = vm(prefs)
+        advanceUntilIdle()
+        vm.selectCategory(CategoryGroup.DENTAL)
+        vm.selectInsurance(null)
+        advanceUntilIdle()
+        assertNull(repo.searches.last().insuranceSlug)
+
+        vm.selectCategory(CategoryGroup.MEDICAL)
+        advanceUntilIdle()
+        assertNull(vm.state.value.insuranceSlug)
+
+        vm.clearFilters()
+        vm.selectCategory(CategoryGroup.DENTAL)
+        advanceUntilIdle()
+        assertEquals("dana", vm.state.value.insuranceSlug)
+    }
+
+    @Test
+    fun settingMyInsuranceInADoctorCategoryAppliesAtOnce() = runTest(main.dispatcher) {
+        val prefs = FakeClientPreferences(cities = listOf(301))
+        val vm = vm(prefs)
+        advanceUntilIdle()
+        vm.selectCategory(CategoryGroup.MEDICAL)
+        advanceUntilIdle()
+        assertNull(vm.state.value.insuranceSlug)
+
+        vm.selectInsurance("asia")
+        vm.saveMyInsurance("asia")
+        advanceUntilIdle()
+        assertEquals("asia", prefs.myInsurance.value)
+        assertEquals("asia", vm.state.value.myInsuranceSlug)
+    }
+
+    @Test
     fun failedSearchSurfacesTheMessage() = runTest(main.dispatcher) {
         repo.listResponse = { ApiResponse.Error("offline", 0) }
         val vm = vm()

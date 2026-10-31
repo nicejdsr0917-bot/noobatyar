@@ -37,6 +37,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import xyz.sattar.javid.proqueue.ui.theme.SuccessColorDark
+import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
+import xyz.sattar.javid.proqueue.ui.theme.SuccessColor
+import xyz.sattar.javid.proqueue.feature.discovery.LocalMyInsuranceSlug
+import xyz.sattar.javid.proqueue.domain.model.business.acceptsInsurance
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -332,6 +337,19 @@ internal fun DetailContent(
 
                     if (business.insurances.isNotEmpty()) {
                         GroupCard(title = "بیمه‌های طرف قرارداد", index = card++) {
+                            val mine = LocalMyInsuranceSlug.current
+                            if (mine != null) {
+                                val accepts = business.acceptsInsurance(mine)
+                                Text(
+                                    if (accepts) "بیمه شما را قبول می‌کند" else "بیمه شما در این فهرست نیست؛ قبل از مراجعه هماهنگ کنید.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (accepts) {
+                                        if (LocalIsDarkTheme.current) SuccessColorDark else SuccessColor
+                                    } else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.height(Space.sm))
+                            }
                             Tags(business.insurances.map { it.name })
                             if (!business.isClaimed) {
                                 Spacer(Modifier.height(Space.sm))

@@ -52,6 +52,7 @@ internal fun FilterSheet(
     onSelectSort: (SortMode) -> Unit,
     onToggleOnline: () -> Unit,
     onOpenInsurance: () -> Unit,
+    onSaveMyInsurance: () -> Unit,
     onClear: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -80,6 +81,20 @@ internal fun FilterSheet(
                         selected = state.insuranceSlug != null,
                         onClick = onOpenInsurance
                     )
+                }
+                if (state.insuranceSlug != null) {
+                    if (state.insuranceSlug == state.myInsuranceSlug) {
+                        Text(
+                            "بیمه من",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = Space.page, top = Space.xs)
+                        )
+                    } else {
+                        TextButton(onClick = onSaveMyInsurance, modifier = Modifier.padding(start = Space.sm)) {
+                            Text("ذخیره به‌عنوان بیمه من")
+                        }
+                    }
                 }
             }
 
@@ -133,6 +148,9 @@ internal fun InsuranceSheet(
     selectedSlug: String?,
     onDismiss: () -> Unit,
     onSelect: (String?) -> Unit,
+    title: String = "بیمه",
+    subtitle: String = "مراکزی که این بیمه را اعلام کرده‌اند؛ قبل از مراجعه هماهنگ کنید.",
+    noneLabel: String = "همه بیمه‌ها",
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -142,14 +160,14 @@ internal fun InsuranceSheet(
         LazyColumn(contentPadding = PaddingValues(bottom = Space.xl), modifier = Modifier.navigationBarsPadding()) {
             item {
                 Column(Modifier.padding(horizontal = Space.page, vertical = Space.sm)) {
-                    Text("بیمه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        "مراکزی که این بیمه را اعلام کرده‌اند؛ قبل از مراجعه هماهنگ کنید.",
+                        subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                OptionRow("همه بیمه‌ها", selectedSlug == null) { onSelect(null) }
+                OptionRow(noneLabel, selectedSlug == null) { onSelect(null) }
             }
             val groups = insurances.groupBy { it.insuranceType }
             listOf("SUPPLEMENTARY" to "بیمه‌های تکمیلی", "BASIC" to "بیمه‌های پایه").forEach { (type, title) ->

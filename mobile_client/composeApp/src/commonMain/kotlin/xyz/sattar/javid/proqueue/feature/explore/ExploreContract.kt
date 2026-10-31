@@ -69,6 +69,10 @@ data class ExploreState(
     val query: String = "",
     val category: CategoryGroup = CategoryGroup.ALL,
     val insuranceSlug: String? = null,
+    /** The user's own insurance, once they set it. In a doctor-like category it filters by itself. */
+    val myInsuranceSlug: String? = null,
+    /** They chose «همه بیمه‌ها» on purpose, so [myInsuranceSlug] stops filtering until the filters are cleared. */
+    val insuranceOptedOut: Boolean = false,
     val onlyOnline: Boolean = false,
     val sort: SortMode = SortMode.RECOMMENDED,
 
@@ -91,6 +95,12 @@ data class ExploreState(
 ) {
     val hasLocation: Boolean get() = area !is SearchArea.Anywhere
     val selectedInsurance: Insurance? get() = insurances.firstOrNull { it.slug == insuranceSlug }
+
+    /** [category] is one whose businesses take insurance, and the user has set theirs: filter by it. */
+    internal fun withMyInsurance(): ExploreState =
+        if (insuranceSlug == null && !insuranceOptedOut && myInsuranceSlug != null &&
+            category != CategoryGroup.ALL && category.supportsInsurance
+        ) copy(insuranceSlug = myInsuranceSlug) else this
     val hasActiveFilters: Boolean
         get() = query.isNotBlank() || category != CategoryGroup.ALL || insuranceSlug != null || onlyOnline
 }

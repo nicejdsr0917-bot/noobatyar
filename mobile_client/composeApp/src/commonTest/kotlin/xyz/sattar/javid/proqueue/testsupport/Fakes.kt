@@ -57,6 +57,10 @@ class FakeClientPreferences(
     override val visitorToken get() = token
     override suspend fun setVisitorToken(token: String?) { this.token.value = token }
 
+    val myInsurance = MutableStateFlow<String?>(null)
+    override val myInsuranceSlug get() = myInsurance
+    override suspend fun setMyInsuranceSlug(slug: String?) { myInsurance.value = slug }
+
     val location = MutableStateFlow<SavedLocation?>(null)
     override val lastLocation get() = location
     override suspend fun saveLocation(location: SavedLocation) { this.location.value = location }
@@ -68,7 +72,10 @@ class FakeCityCatalog(private val cities: List<IranCity> = emptyList()) : CityCa
     override suspend fun city(id: Int) = cities.firstOrNull { it.id == id }?.let { it to province }
 }
 
-class SearchCall(val search: String?, val cityCode: Int?, val category: String?, val onlyClaimed: Boolean, val page: Int)
+class SearchCall(
+    val search: String?, val cityCode: Int?, val category: String?, val onlyClaimed: Boolean, val page: Int,
+    val insuranceSlug: String? = null,
+)
 
 class FakeBusinessRepository : BusinessRepository {
     val searches = mutableListOf<SearchCall>()
@@ -86,7 +93,7 @@ class FakeBusinessRepository : BusinessRepository {
         page: Int, pageSize: Int, search: String?, category: String?, insuranceSlug: String?,
         lat: Double?, lng: Double?, radiusKm: Double?, cityCode: Int?, onlyClaimed: Boolean, sort: String?,
     ): ApiResponse<PaginatedResponseDto<BusinessDto>> {
-        val call = SearchCall(search, cityCode, category, onlyClaimed, page)
+        val call = SearchCall(search, cityCode, category, onlyClaimed, page, insuranceSlug)
         searches += call
         return listResponse(call)
     }

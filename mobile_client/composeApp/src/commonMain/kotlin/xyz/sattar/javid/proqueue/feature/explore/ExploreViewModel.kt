@@ -53,6 +53,13 @@ class ExploreViewModel(
             preferences.recentSearches.collect { r -> _state.update { it.copy(recentSearches = r) } }
         }
         viewModelScope.launch(dispatcher) {
+            preferences.myInsuranceSlug.collect { slug ->
+                val before = _state.value.insuranceSlug
+                _state.update { it.copy(myInsuranceSlug = slug).withMyInsurance() }
+                if (_state.value.insuranceSlug != before) search()
+            }
+        }
+        viewModelScope.launch(dispatcher) {
             when (val res = businessRepository.getInsurances()) {
                 is ApiResponse.Success -> _state.update { s -> s.copy(insurances = res.data.map { it.toDomain() }) }
                 is ApiResponse.Error -> Unit
@@ -164,14 +171,19 @@ class ExploreViewModel(
         if (group == _state.value.category) return
         // A filter the new category does not have must not stay on, unseen.
         _state.update {
-            it.copy(category = group, insuranceSlug = it.insuranceSlug.takeIf { group.supportsInsurance })
+            it.copy(category = group, insuranceSlug = it.insuranceSlug.takeIf { group.supportsInsurance }).withMyInsurance()
         }
         search()
     }
 
     fun selectInsurance(slug: String?) {
-        _state.update { it.copy(insuranceSlug = slug) }
+        _state.update { it.copy(insuranceSlug = slug, insuranceOptedOut = slug == null) }
         search()
+    }
+
+    /** «ذخیره به‌عنوان بیمه من»: the insurance picked in the filter becomes the user's own. */
+    fun saveMyInsurance(slug: String?) {
+        viewModelScope.launch(dispatcher) { preferences.setMyInsuranceSlug(slug) }
     }
 
     fun toggleOnlyOnline() {
@@ -187,7 +199,7 @@ class ExploreViewModel(
 
     fun clearFilters() {
         _state.update {
-            it.copy(query = "", category = CategoryGroup.ALL, insuranceSlug = null, onlyOnline = false)
+            it.copy(query = "", category = CategoryGroup.ALL, insuranceSlug = null, insuranceOptedOut = false, onlyOnline = false)
         }
         search()
     }

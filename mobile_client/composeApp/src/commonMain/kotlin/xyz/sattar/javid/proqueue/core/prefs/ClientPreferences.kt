@@ -25,6 +25,10 @@ interface ClientPreferences {
     val visitorToken: Flow<String?>
     suspend fun setVisitorToken(token: String?)
 
+    /** The user's own insurance (an insurance slug), null until they set one. */
+    val myInsuranceSlug: Flow<String?>
+    suspend fun setMyInsuranceSlug(slug: String?)
+
     /** The user's last fix, kept so distances show before a new one arrives. */
     val lastLocation: Flow<SavedLocation?>
     suspend fun saveLocation(location: SavedLocation)
@@ -44,6 +48,9 @@ class PlatformClientPreferences : ClientPreferences {
 
     override val visitorToken: Flow<String?> get() = PreferencesManager.visitorToken
     override suspend fun setVisitorToken(token: String?) = PreferencesManager.setVisitorToken(token)
+
+    override val myInsuranceSlug: Flow<String?> get() = PreferencesManager.myInsuranceSlug
+    override suspend fun setMyInsuranceSlug(slug: String?) = PreferencesManager.setMyInsuranceSlug(slug)
 
     override val lastLocation: Flow<SavedLocation?> get() = PreferencesManager.lastLocation
     override suspend fun saveLocation(location: SavedLocation) = PreferencesManager.saveLocation(location)

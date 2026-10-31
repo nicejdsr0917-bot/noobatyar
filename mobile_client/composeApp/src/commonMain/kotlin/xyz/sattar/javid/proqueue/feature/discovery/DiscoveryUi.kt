@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.discovery
 
+import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.ArrowRight
 import com.composables.icons.lucide.BadgeCheck
@@ -57,6 +58,7 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.ui.theme.ErrorColor
 import xyz.sattar.javid.proqueue.ui.theme.ErrorColorDark
 import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
+import xyz.sattar.javid.proqueue.domain.model.business.acceptsInsurance
 import xyz.sattar.javid.proqueue.ui.theme.SuccessColor
 import xyz.sattar.javid.proqueue.ui.theme.SuccessColorDark
 import xyz.sattar.javid.proqueue.ui.theme.WarningColor
@@ -392,28 +394,42 @@ fun BusinessRow(
     }
 }
 
+/** The user's own insurance (a slug), for the «بیمه شما را قبول می‌کند» marks; set once at the nav host. */
+val LocalMyInsuranceSlug = androidx.compose.runtime.compositionLocalOf<String?> { null }
+
 /** distance · open status · insurances, with the online badge leading when bookable. */
 @Composable
 private fun MetaLine(business: Business, status: OpenStatus?) {
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (business.canBookOnline) OnlineBadge()
-        val parts = buildList {
-            business.distanceKm?.let { add(formatDistance(it)) }
-            if (business.insurances.isNotEmpty()) add("${business.insurances.size.toPersianDigits()} بیمه")
+    val accepts = business.acceptsInsurance(LocalMyInsuranceSlug.current)
+    val success = if (LocalIsDarkTheme.current) SuccessColorDark else SuccessColor
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (business.canBookOnline) OnlineBadge()
+            val parts = buildList {
+                business.distanceKm?.let { add(formatDistance(it)) }
+                if (business.insurances.isNotEmpty() && !accepts) add("${business.insurances.size.toPersianDigits()} بیمه")
+            }
+            if (status != null) {
+                OpenStatusText(status)
+                if (parts.isNotEmpty()) Text("·", color = secondary, style = MaterialTheme.typography.bodySmall)
+            }
+            if (parts.isNotEmpty()) {
+                Text(
+                    parts.joinToString(" · "),
+                    color = secondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
-        if (status != null) {
-            OpenStatusText(status)
-            if (parts.isNotEmpty()) Text("·", color = secondary, style = MaterialTheme.typography.bodySmall)
-        }
-        if (parts.isNotEmpty()) {
-            Text(
-                parts.joinToString(" · "),
-                color = secondary,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        // The user's own insurance is accepted: its own line, so it never crowds the status.
+        if (accepts) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Lucide.Check, contentDescription = null, tint = success, modifier = Modifier.size(14.dp))
+                Text("بیمه شما قبول است", color = success, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 1)
+            }
         }
     }
 }

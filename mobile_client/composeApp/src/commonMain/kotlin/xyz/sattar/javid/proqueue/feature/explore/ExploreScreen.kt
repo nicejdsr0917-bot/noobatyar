@@ -343,6 +343,7 @@ fun ExploreScreen(
             onSelectSort = viewModel::selectSort,
             onToggleOnline = viewModel::toggleOnlyOnline,
             onOpenInsurance = { showInsuranceSheet = true },
+            onSaveMyInsurance = { viewModel.saveMyInsurance(state.insuranceSlug) },
             onClear = viewModel::clearFilters,
         )
     }
