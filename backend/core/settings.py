@@ -438,6 +438,20 @@ def _optional_item(title, icon, url_name, perm):
     }
 
 
+# (proxy model name, short title, icon) per guild: the «ثبت مرکز» sidebar section.
+# Mirrors business.models.guilds.GUILDS (settings cannot import models; a test checks they agree).
+_GUILD_MENU = [
+    ('medicallisting', 'پزشکی', 'stethoscope'),
+    ('dentallisting', 'دندان‌پزشکی', 'medical_services'),
+    ('healthlisting', 'سلامت', 'psychology'),
+    ('beautylisting', 'زیبایی', 'content_cut'),
+    ('professionallisting', 'حرفه‌ای', 'work'),
+    ('educationlisting', 'آموزش', 'school'),
+    ('tradeslisting', 'فنی', 'build'),
+    ('otherlisting', 'سایر', 'category'),
+]
+
+
 def _changelist(app, model):
     return reverse_lazy(f'admin:{app}_{model}_changelist')
 
@@ -504,6 +518,16 @@ UNFOLD = {
                     _optional_item('نظرات', 'rate_review', 'admin:reviews_review_changelist', 'reviews.view_review'),
                     _item('سوابق بررسی', 'history', _changelist('business', 'businessmoderationlog'), 'business.view_businessmoderationlog'),
                     _item('کلمات ممنوع', 'block', _changelist('business', 'bannedkeyword'), 'business.view_bannedkeyword'),
+                ],
+            },
+            {
+                'title': 'ثبت مرکز',
+                'separator': True,
+                # One list and one add form per guild (business/admin/guilds.py).
+                'collapsible': True,
+                'items': [
+                    _item(title, icon, _changelist('business', name), f'business.view_{name}')
+                    for name, title, icon in _GUILD_MENU
                 ],
             },
             {

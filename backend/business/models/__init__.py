@@ -10,6 +10,7 @@ from .moderation import BannedKeyword, BusinessModerationLog, ContentReport
 from .catalog import ServiceCatalogItem
 from .booking import BusinessClaimRequest, OnlineBookingRequest
 from .promo import PromoCampaign, PromoCampaignRecipient
+from .guilds import GUILDS  # noqa: F401  (registers the per-guild proxy models)
 
 __all__ = [
     'BIO_MAX_LENGTH', 'User',

@@ -30,7 +30,7 @@ class AdminSidebarTests(TestCase):
     def test_sections_are_short_and_in_daily_order(self):
         nav = settings.UNFOLD['SIDEBAR']['navigation']
         titles = [g['title'] for g in nav if g.get('title')]
-        self.assertEqual(titles, ['بررسی', 'کاربران', 'رشد', 'پیام', 'مالی', 'سیستم'])
+        self.assertEqual(titles, ['بررسی', 'ثبت مرکز', 'کاربران', 'رشد', 'پیام', 'مالی', 'سیستم'])
         # Menu labels stay short; what a page is for belongs on the page.
         for group in nav:
             for item in group['items']:

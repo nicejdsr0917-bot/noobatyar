@@ -24,7 +24,7 @@ The package is split by concern (``business`` = Business + moderation queue,
 ``insurance``); importing every module here is what registers the admins.
 """
 
-from . import business, claims, insurance, moderation, reports  # noqa: F401
+from . import business, claims, guilds, insurance, moderation, reports  # noqa: F401
 from .business import BusinessAdmin, BusinessModerationLogInline  # noqa: F401
 from .claims import BusinessClaimRequestAdmin  # noqa: F401
 from .insurance import InsuranceAdmin  # noqa: F401
