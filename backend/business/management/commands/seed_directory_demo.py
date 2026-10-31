@@ -11,32 +11,10 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from business.insurance_catalog import INSURANCES
 from business.models import Business, Insurance
 
 User = get_user_model()
-
-
-INSURANCES = [
-    # Supplementary (تکمیلی)
-    ('بیمه دانا', 'dana', 'SUPPLEMENTARY', 1),
-    ('بیمه آسیا', 'asia', 'SUPPLEMENTARY', 2),
-    ('بیمه البرز', 'alborz', 'SUPPLEMENTARY', 3),
-    ('بیمه سامان', 'saman', 'SUPPLEMENTARY', 4),
-    ('بیمه ملت', 'mellat', 'SUPPLEMENTARY', 5),
-    ('بیمه ایران', 'iran', 'SUPPLEMENTARY', 6),
-    ('بیمه پاسارگاد', 'pasargad', 'SUPPLEMENTARY', 7),
-    ('بیمه کوثر', 'kosar', 'SUPPLEMENTARY', 8),
-    ('بیمه دی', 'dey', 'SUPPLEMENTARY', 9),
-    ('بیمه آتیه‌سازان حافظ', 'atiyeh', 'SUPPLEMENTARY', 10),
-    ('بیمه کارآفرین', 'karafarin', 'SUPPLEMENTARY', 11),
-    ('بیمه پارسیان', 'parsian', 'SUPPLEMENTARY', 12),
-    ('بیمه سینا', 'sina', 'SUPPLEMENTARY', 13),
-    ('بیمه معلم', 'moallem', 'SUPPLEMENTARY', 14),
-    # Basic (پایه)
-    ('تامین اجتماعی', 'tamin', 'BASIC', 20),
-    ('بیمه سلامت', 'salamat', 'BASIC', 21),
-    ('نیروهای مسلح', 'armed-forces', 'BASIC', 22),
-]
 
 
 BUSINESSES = [

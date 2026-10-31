@@ -15,6 +15,7 @@ import random
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -127,6 +128,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, count, **options):
         rng = random.Random(20261031)
+        if not Insurance.objects.exists():
+            call_command('seed_insurances', verbosity=0)
         insurances = list(Insurance.objects.filter(is_active=True))
         plan = Plan.objects.filter(is_active=True).order_by('-price').first() or Plan.objects.create(
             name='نمایشی', price=0, duration_value=12, duration_unit='month',
