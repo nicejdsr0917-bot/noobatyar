@@ -78,20 +78,36 @@ def canonical_row(raw):
     return out
 
 
-def template_csv():
-    """The downloadable sample: Persian headers, two example rows, UTF-8 with BOM for Excel."""
-    labels = [COLUMNS[k][0] for k in ('title', 'category', 'city', 'province', 'neighborhood', 'address',
-                                     'phone', 'latitude', 'longitude', 'services', 'insurances', 'bio')]
-    rows = [
-        ['کلینیک دندان‌پزشکی نمونه', 'دندان‌پزشکی', 'تهران', 'تهران', 'ونک', 'خیابان ملاصدرا، پلاک ۱۰',
-         '02188000000', '35.7580', '51.4105', 'جرم‌گیری، ترمیم، ایمپلنت', 'بیمه دانا، تامین اجتماعی', ''],
-        ['سالن زیبایی نمونه', 'آرایشگاه و سالن زیبایی', 'اصفهان', '', '', '', '', '', '', '', '', ''],
-    ]
+def template_csv(guild=None):
+    """The downloadable sample: Persian headers, two example rows, UTF-8 with BOM for Excel.
+
+    For a guild the sample uses its own services and drops the insurance column
+    where the guild has none.
+    """
+    from .categories import CATEGORY_GROUPS
+    from .models.guilds import SERVICE_EXAMPLES, TAKES_INSURANCE
+
+    insured = guild is None or guild in TAKES_INSURANCE
+    keys = ['title', 'category', 'city', 'province', 'neighborhood', 'address', 'phone',
+            'latitude', 'longitude', 'services'] + (['insurances'] if insured else []) + ['bio']
+    labels = [COLUMNS[k][0] for k in keys]
+    if guild:
+        first_label = next(pairs[0][1] for key, _l, pairs in CATEGORY_GROUPS if key == guild)
+        services = SERVICE_EXAMPLES.get(guild, '').replace('، ', '، ')
+    else:
+        first_label, services = 'دندان‌پزشکی', 'جرم‌گیری، ترمیم، ایمپلنت'
+    example = {
+        'title': 'نمونه ۱', 'category': first_label, 'city': 'تهران', 'province': 'تهران', 'neighborhood': 'ونک',
+        'address': 'خیابان ملاصدرا، پلاک ۱۰', 'phone': '02188000000', 'latitude': '35.7580',
+        'longitude': '51.4105', 'services': services, 'insurances': 'بیمه دانا، تامین اجتماعی', 'bio': '',
+    }
+    bare = {'title': 'نمونه ۲ (بدون تلفن و موقعیت)', 'city': 'اصفهان'}
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(labels)
-    writer.writerows(rows)
-    return '﻿' + buf.getvalue()
+    writer.writerow([example.get(k, '') for k in keys])
+    writer.writerow([bare.get(k, '') for k in keys])
+    return '\ufeff' + buf.getvalue()
 
 
 # ── Reading ─────────────────────────────────────────────────────────────────
@@ -244,11 +260,13 @@ def get_system_user():
     )[0]
 
 
-def run_import(rows, source, *, dry_run=False, require_city=True, batch_size=500, start_row=2):
+def run_import(rows, source, *, dry_run=False, require_city=True, batch_size=500, start_row=2, default_category=None):
     """Imports (or, with ``dry_run``, only checks) [rows]; returns an :class:`ImportReport`.
 
     [rows] are raw dicts as read from the file; [start_row] is the spreadsheet row
     of the first one, so a problem is reported at the row the person sees.
+    [default_category] is the category of a row that names none (or one that is
+    unknown); a guild's bulk page passes its own, so its file needs no category column.
     """
     report = ImportReport(dry_run=dry_run)
     lookups = _Lookups()
@@ -312,8 +330,13 @@ def run_import(rows, source, *, dry_run=False, require_city=True, batch_size=500
         raw_category = str(row.get('category') or '').strip()
         category = lookups.category(raw_category)
         if category is None:
-            category = 'OTHER'
-            warnings.append(f'صنف «{raw_category}» ناشناخته (سایر)' if raw_category else 'بدون صنف (سایر)')
+            fallback = default_category if default_category in lookups.category_labels else 'OTHER'
+            category = fallback
+            label = lookups.category_labels[fallback]
+            if raw_category:
+                warnings.append(f'صنف «{raw_category}» ناشناخته ({label})')
+            elif fallback == 'OTHER':
+                warnings.append('بدون صنف (سایر)')
 
         lat = _coord(row.get('latitude'), -90.0, 90.0)
         lng = _coord(row.get('longitude'), -180.0, 180.0)

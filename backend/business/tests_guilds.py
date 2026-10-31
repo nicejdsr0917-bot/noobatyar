@@ -69,3 +69,59 @@ class GuildAdminTests(TestCase):
         self.assertFalse(biz.is_claimed)
         self.assertEqual(biz.moderation_status, Business.MODERATION_APPROVED)
         self.assertEqual(biz.city_code, 6)
+
+
+class GuildBulkEntryTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_superuser(phone='09120000396', password='x', name='ادمین')
+        self.client.force_login(self.staff)
+        self.url = reverse('admin:business_business_import_file')
+
+    def test_a_guild_list_links_to_its_bulk_page(self):
+        page = self.client.get(reverse('admin:business_beautylisting_changelist'))
+        self.assertContains(page, f'{self.url}?guild=BEAUTY')
+
+    def test_the_bulk_page_offers_only_the_guilds_categories(self):
+        page = self.client.get(self.url, {'guild': 'BEAUTY'})
+        self.assertEqual(page.status_code, 200)
+        codes = {c for c, _l in page.context['default_category_options']}
+        self.assertIn('BARBERSHOP', codes)
+        self.assertNotIn('DENTIST', codes)
+        self.assertNotIn('بیمه‌ها', [c[0] for c in page.context['columns']])
+        medical = self.client.get(self.url, {'guild': 'MEDICAL'})
+        self.assertIn('بیمه‌ها', [c[0] for c in medical.context['columns']])
+
+    def test_each_guilds_sample_matches_the_guild(self):
+        template = reverse('admin:business_business_import_template')
+        beauty = self.client.get(template, {'guild': 'BEAUTY'}).content.decode('utf-8-sig')
+        self.assertNotIn('بیمه‌ها', beauty.splitlines()[0])
+        self.assertIn('کوتاهی مو', beauty)
+        self.assertIn('بیمه‌ها', self.client.get(template, {'guild': 'DENTAL'}).content.decode('utf-8-sig').splitlines()[0])
+
+    def test_rows_pasted_from_excel_become_that_guilds_listings(self):
+        pasted = 'نام\tشهر\tتلفن\nسالن آ\tتهران\t02111111111\nسالن ب\tشیراز\t\nسالن ج\tتهران\t\tنامعلوم\n'
+        preview = self.client.post(self.url, {'guild': 'BEAUTY', 'default_category': 'BEAUTY_SALON', 'pasted': pasted})
+        self.assertEqual(preview.status_code, 200)
+        self.assertEqual(preview.context['report'].created, 3)
+        self.assertEqual(Business.objects.count(), 0)
+        token = preview.context['token']
+
+        done = self.client.post(self.url, {
+            'token': token, 'guild': 'BEAUTY', 'default_category': 'BEAUTY_SALON', 'source': 'سالن‌های تست',
+        })
+        self.assertRedirects(done, reverse('admin:business_beautylisting_changelist') + '?is_claimed__exact=0',
+                             fetch_redirect_response=False)
+        listed = Business.objects.filter(external_source='سالن‌های تست')
+        self.assertEqual(listed.count(), 3)
+        self.assertEqual({b.category for b in listed}, {'BEAUTY_SALON'})
+        self.assertFalse(any(b.is_claimed for b in listed))
+
+
+class DefaultCategoryTests(TestCase):
+    def test_a_missing_or_unknown_category_takes_the_default(self):
+        rows = [{'title': 'الف', 'city': 'تهران'}, {'title': 'ب', 'city': 'تهران', 'category': 'فضانوردی'},
+                {'title': 'ج', 'city': 'تهران', 'category': 'DENTIST'}]
+        report = directory_import.run_import(rows, 's', default_category='NAIL_SALON')
+        cats = {b.title: b.category for b in Business.objects.all()}
+        self.assertEqual(cats, {'الف': 'NAIL_SALON', 'ب': 'NAIL_SALON', 'ج': 'DENTIST'})
+        self.assertEqual(sum('ناشناخته' in w for w in report.warnings), 1)

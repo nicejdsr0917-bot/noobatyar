@@ -82,3 +82,18 @@ GUILDS = {
     'TRADES': (TradesListing, 'فنی', 'build'),
     'OTHER': (OtherListing, 'سایر', 'category'),
 }
+
+
+# Examples shown under «خدمات» (and in the guild's sample file).
+SERVICE_EXAMPLES = {
+    'MEDICAL': 'ویزیت، نوار قلب، سونوگرافی',
+    'DENTAL': 'جرم‌گیری، ترمیم، عصب‌کشی، ایمپلنت',
+    'HEALTH': 'جلسه مشاوره، فیزیوتراپی، آزمایش خون',
+    'BEAUTY': 'کوتاهی مو، رنگ و مش، کراتین، مانیکور، میکاپ',
+    'PROFESSIONAL': 'مشاوره اولیه، تنظیم قرارداد',
+    'EDUCATION': 'جلسه آشنایی، کلاس خصوصی',
+    'TRADES': 'تعویض روغن، تعمیر موبایل',
+    'OTHER': '',
+}
+# The guilds whose businesses take insurance: only they get the insurance column and picker.
+TAKES_INSURANCE = {'MEDICAL', 'DENTAL', 'HEALTH'}

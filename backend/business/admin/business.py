@@ -225,37 +225,58 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
     def import_template_view(self, request):
         if not self.has_add_permission(request):
             raise PermissionDenied
-        response = HttpResponse(directory_import.template_csv(), content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = 'attachment; filename="directory-template.csv"'
+        guild = self._guild(request)
+        response = HttpResponse(directory_import.template_csv(guild or None), content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="directory-template{"-" + guild.lower() if guild else ""}.csv"'
         return response
 
-    def import_file_view(self, request):
-        """Upload → check (nothing saved) → confirm. The checked file is kept
-        server-side under a token, so confirming imports exactly what was shown."""
-        if not self.has_add_permission(request):
-            raise PermissionDenied
+    @staticmethod
+    def _guild(request):
+        """The guild whose bulk page this is (``?guild=BEAUTY``), or '' for all categories."""
+        from ..models.guilds import GUILDS
+        key = request.GET.get('guild') or request.POST.get('guild') or ''
+        return key if key in GUILDS else ''
 
-        context = {
+    def _import_context(self, request):
+        from ..categories import CATEGORY_GROUPS
+        from ..models.guilds import GUILDS, SERVICE_EXAMPLES, TAKES_INSURANCE
+        guild = self._guild(request)
+        codes = {code for key, _l, pairs in CATEGORY_GROUPS if key == guild for code, _ in pairs}
+        options = [(c, l) for c, l in Business.CATEGORY_CHOICES if not guild or c in codes]
+        chosen = request.POST.get('default_category') or (options[0][0] if guild else '')
+        template_url = reverse('admin:business_business_import_template', current_app=self.admin_site.name)
+        columns = [
+            ('نام', True, 'نام مرکز'),
+            ('شهر', True, 'برای نمایش در فهرست شهر و تشخیص کد شهر'),
+            ('صنف', False, 'نام فارسی یا کد صنف' + ('؛ خالی یعنی صنف پیش‌فرض بالا' if guild else '؛ ناشناخته یعنی «سایر»')),
+            ('استان', False, 'برای شهرهای هم‌نام'),
+            ('محله', False, ''),
+            ('آدرس', False, 'خالی باشد از شهر و محله ساخته می‌شود'),
+            ('تلفن', False, 'بدون تلفن هم ثبت می‌شود (دکمه تماس نمایش داده نمی‌شود)'),
+            ('عرض جغرافیایی / طول جغرافیایی', False, 'هر دو یا هیچ‌کدام؛ بدون آن‌ها روی نقشه نمی‌آید'),
+            ('خدمات', False, 'با ویرگول جدا شود' + (f'؛ مثلاً {SERVICE_EXAMPLES[guild]}' if SERVICE_EXAMPLES.get(guild) else '')),
+        ]
+        if not guild or guild in TAKES_INSURANCE:
+            columns.append(('بیمه‌ها', False, 'نام بیمه، با ویرگول جدا شود'))
+        columns.append(('معرفی', False, ''))
+        return {
             **self.admin_site.each_context(request),
-            'title': 'ورود از فایل',
+            'title': f'ورود گروهی: {GUILDS[guild][0]._meta.verbose_name_plural}' if guild else 'ورود از فایل',
             'opts': self.model._meta,
-            'template_url': reverse('admin:business_business_import_template', current_app=self.admin_site.name),
-            'columns': [
-                ('نام', True, 'نام مرکز'),
-                ('شهر', True, 'برای نمایش در فهرست شهر و تشخیص کد شهر'),
-                ('صنف', False, 'نام فارسی یا کد صنف؛ ناشناخته یعنی «سایر»'),
-                ('استان', False, 'برای شهرهای هم‌نام'),
-                ('محله', False, ''),
-                ('آدرس', False, 'خالی باشد از شهر و محله ساخته می‌شود'),
-                ('تلفن', False, 'بدون تلفن هم ثبت می‌شود (دکمه تماس نمایش داده نمی‌شود)'),
-                ('عرض جغرافیایی / طول جغرافیایی', False, 'هر دو یا هیچ‌کدام؛ بدون آن‌ها روی نقشه نمی‌آید'),
-                ('خدمات', False, 'با ویرگول جدا شود'),
-                ('بیمه‌ها', False, 'نام بیمه، با ویرگول جدا شود'),
-                ('معرفی', False, ''),
-            ],
-            'categories': [label for _code, label in Business.CATEGORY_CHOICES],
+            'guild': guild,
+            'default_category_options': options,
+            'default_category': chosen,
+            'template_url': template_url + (f'?guild={guild}' if guild else ''),
+            'columns': columns,
+            'categories': [label for _code, label in options],
         }
 
+    def import_file_view(self, request):
+        """Upload a file or paste rows → check (nothing saved) → confirm. The checked
+        data is kept server-side under a token, so confirming imports exactly what was shown."""
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        context = self._import_context(request)
         if request.method == 'POST':
             token = request.POST.get('token', '')
             source = (request.POST.get('source') or '').strip()[:100]
@@ -265,40 +286,54 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
         return TemplateResponse(request, 'admin/business/import_file.html', context)
 
     def _import_preview(self, request, source, context):
+        render = lambda: TemplateResponse(request, 'admin/business/import_file.html', context)  # noqa: E731
         upload = request.FILES.get('file')
-        if upload is None:
-            context['error'] = 'فایلی انتخاب نشده است.'
-            return TemplateResponse(request, 'admin/business/import_file.html', context)
-        ext = Path(upload.name).suffix.lower()
-        if ext not in directory_import.READERS:
-            context['error'] = 'فقط فایل CSV، JSON یا JSONL پذیرفته می‌شود. در اکسل: Save As ← CSV UTF-8.'
-            return TemplateResponse(request, 'admin/business/import_file.html', context)
-        if upload.size > self.IMPORT_MAX_BYTES:
-            context['error'] = 'حجم فایل بیشتر از ۲۰ مگابایت است؛ آن را به چند فایل تقسیم کنید.'
-            return TemplateResponse(request, 'admin/business/import_file.html', context)
+        pasted = (request.POST.get('pasted') or '').strip()
+        if upload is None and not pasted:
+            context['error'] = 'فایلی انتخاب نشده و متنی چسبانده نشده است.'
+            return render()
+        if upload is not None:
+            ext = Path(upload.name).suffix.lower()
+            if ext not in directory_import.READERS:
+                context['error'] = 'فقط فایل CSV، JSON یا JSONL پذیرفته می‌شود. در اکسل: Save As ← CSV UTF-8.'
+                return render()
+            if upload.size > self.IMPORT_MAX_BYTES:
+                context['error'] = 'حجم فایل بیشتر از ۲۰ مگابایت است؛ آن را به چند فایل تقسیم کنید.'
+                return render()
+            label = upload.name
+        else:
+            ext, label = '.csv', 'متن چسبانده‌شده'
+            if len(pasted.encode('utf-8')) > self.IMPORT_MAX_BYTES:
+                context['error'] = 'متن بیش از حد بزرگ است؛ از فایل استفاده کنید.'
+                return render()
 
         self._drop_old_imports()
         token = uuid.uuid4().hex
         path = self._import_dir() / f'{token}{ext}'
         with open(path, 'wb') as out:
-            for chunk in upload.chunks():
-                out.write(chunk)
+            if upload is not None:
+                for chunk in upload.chunks():
+                    out.write(chunk)
+            else:
+                out.write(pasted.encode('utf-8'))
+        default_category = context['default_category'] or None
         try:
             report = directory_import.run_import(
-                directory_import.read_rows(path), source or Path(upload.name).stem, dry_run=True,
+                directory_import.read_rows(path), source or Path(label).stem, dry_run=True,
+                default_category=default_category,
             )
         except (ValueError, UnicodeDecodeError, _csv.Error, _json.JSONDecodeError) as exc:
             path.unlink(missing_ok=True)
             context['error'] = f'فایل خوانده نشد: {exc}'
-            return TemplateResponse(request, 'admin/business/import_file.html', context)
+            return render()
 
         context.update({
             'report': report,
             'token': token,
-            'source': source or Path(upload.name).stem[:100],
-            'file_name': upload.name,
+            'source': source or Path(label).stem[:100],
+            'file_name': label,
         })
-        return TemplateResponse(request, 'admin/business/import_file.html', context)
+        return render()
 
     def _import_confirm(self, request, token, source, context):
         match = re.fullmatch(r'[0-9a-f]{32}', token)
@@ -308,7 +343,10 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
             return TemplateResponse(request, 'admin/business/import_file.html', context)
         try:
             with transaction.atomic():
-                report = directory_import.run_import(directory_import.read_rows(path), source or 'directory_import')
+                report = directory_import.run_import(
+                    directory_import.read_rows(path), source or 'directory_import',
+                    default_category=context['default_category'] or None,
+                )
         except (ValueError, UnicodeDecodeError, _csv.Error, _json.JSONDecodeError) as exc:
             context['error'] = f'فایل خوانده نشد: {exc}'
             return TemplateResponse(request, 'admin/business/import_file.html', context)
@@ -320,9 +358,12 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
             f'{report.created} مرکز ثبت شد (منبع: {source or "directory_import"}). '
             f'{report.duplicates} تکراری و {report.invalid} ردیف نامعتبر رد شد.',
         )
-        return redirect(
-            reverse('admin:business_business_changelist', current_app=self.admin_site.name) + '?is_claimed__exact=0'
+        from ..models.guilds import GUILDS
+        guild = context['guild']
+        target = (
+            f'admin:business_{GUILDS[guild][0].__name__.lower()}_changelist' if guild else 'admin:business_business_changelist'
         )
+        return redirect(reverse(target, current_app=self.admin_site.name) + '?is_claimed__exact=0')
 
     # ── The review queue ──────────────────────────────────────────────────
 
