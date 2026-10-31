@@ -212,6 +212,39 @@ class BusinessAdmin(_BulkConfirmMixin, ModelAdmin):
         initial.setdefault('work_end_hour', 18)
         return initial
 
+    # What a directory listing needs, in the order a person fills it (the fields a
+    # public directory such as nobat.ir shows: name and specialty, phone and
+    # address with a map pin, services and hours). Everything else is on the
+    # form too, folded away: it is required by the model and prefilled.
+    ADD_SECTIONS = (
+        ('اطلاعات اصلی', ('title', 'category', 'bio')),
+        ('تماس و نشانی', (
+            'phone', 'extra_phones', 'province', 'city', 'neighborhood', 'address', 'latitude', 'longitude',
+        )),
+        ('خدمات و ساعت کار', ('services', 'insurances', 'work_start_hour', 'work_end_hour', 'closed_weekdays')),
+        ('تصویر', ('logo',)),
+    )
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        if obj is not None:
+            return fieldsets
+        available = [
+            name for _title, options in fieldsets for entry in options['fields']
+            for name in ((entry,) if isinstance(entry, str) else entry)
+        ]
+        used = set()
+        sections = []
+        for title, names in self.ADD_SECTIONS:
+            names = [n for n in names if n in available]
+            used.update(names)
+            sections.append((title, {'fields': names}))
+        sections.append((
+            'تنظیمات دیگر (معمولاً دست نزنید)',
+            {'fields': [n for n in available if n not in used], 'classes': ['collapse']},
+        ))
+        return sections
+
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
         for name, label in self.FORM_LABELS.items():

@@ -142,6 +142,9 @@ class AdminAddFormTests(TestCase):
         system = User.objects.get(phone=directory_import.SYSTEM_USER_PHONE)
         self.assertEqual(page.context['adminform'].form.initial['user'], system.pk)
         self.assertFalse(page.context['adminform'].form.initial['is_claimed'])
+        titles = [fs[0] for fs in page.context['adminform'].fieldsets]
+        self.assertEqual(titles[:4], ['اطلاعات اصلی', 'تماس و نشانی', 'خدمات و ساعت کار', 'تصویر'])
+        self.assertTrue(titles[-1].startswith('تنظیمات دیگر'))
 
     def test_a_listing_added_by_hand_is_public_with_its_city_code(self):
         # What the browser would post: the form's own initial values, plus what the person typed.
