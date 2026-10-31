@@ -3,7 +3,7 @@ package xyz.sattar.javid.proqueue.feature.explore
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.ArrowLeft
 import com.composables.icons.lucide.Check
-import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.ChevronLeft
 import com.composables.icons.lucide.Search
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -186,7 +186,7 @@ private fun CityRow(
             when {
                 selected -> Icon(Lucide.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 drillDown -> Icon(
-                    Lucide.ChevronRight,
+                    Lucide.ChevronLeft,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
