@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-31
+updated: 2026-11-01
 tags: [gf]
 ---
 # backend: business
@@ -57,3 +57,9 @@ tags: [gf]
 ## فرمان‌های seed (2026-10-31 شب)
 - `seed_insurances` (از `business/insurance_catalog.py`): ۱۹ بیمهٔ تکمیلی و ۳ پایه؛ idempotent؛ روی سرور اجرا شود.
 - `seed_demo_businesses --count N`: کسب‌وکار `DEMO0001…` در همهٔ گروه‌ها با صاحب و اشتراک؛ فقط محلی/staging.
+
+## ورود از فایل و فرم هر صنف (2026-11-01)
+- `directory_import.run_import(rows, source, dry_run, require_city, default_category)`: هستهٔ مشترک ادمین و `import_directory`. مراکز بی‌تیک (`is_claimed=False`، رزرو خاموش، کاربر سیستمی). گزارش: `ImportReport` (تکراری، نامعتبر با شمارهٔ ردیف، `warning_list`).
+- ادمین: `/admin/business/business/import-file/?guild=KEY` (بارگذاری یا چسباندن از اکسل، پیش‌نمایش، توکن تأیید، فایل در `MEDIA_ROOT/tmp_imports` تا ۲۴ ساعت) و قالب نمونه (`?guild=` برای هر صنف).
+- `DirectoryFormMixin` (`admin/directory_form.py`): فرم افزودن بخش‌بندی‌شده، پیش‌فرض‌ها، `city_code` از نام شهر، تأیید خودکار مرکز بی‌تیک.
+- هشت proxy (`models/guilds.py`، `GUILDS`) با ادمین جدا (`admin/guilds.py`) و بخش «ثبت مرکز» در منو. `_GUILD_MENU` در `settings.py` دستی است (تست مقایسه می‌کند).

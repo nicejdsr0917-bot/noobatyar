@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-31
+updated: 2026-11-01
 tags: [gf]
 ---
 # اپ موبایل مشتری (mobile_client — برنچ `mobile-client`)
@@ -96,3 +96,8 @@ tags: [gf]
 - `ExploreMap`: برای هر ناحیه (شهر، نزدیک من، Picked، شعاع) `fitArea` با حاشیهٔ کم؛ نشان کمرنگ با Canvas در مرکز حلقه. فقط «همه شهرها» روی پین‌ها فیت می‌شود.
 - `core/location/DirectionsGate.kt` (`rememberDirections()`): همهٔ دکمه‌های مسیریابی؛ بدون موقعیت نقشه باز نمی‌شود؛ موقعیت را ذخیره می‌کند. پرچم `awaitingSettings` با `LifecycleResumeEffect(Unit)` (کلید دیگر نگذار).
 - موقعیت کاربر ذخیره نمی‌شود؛ فقط `travel_distance_m` و بازهٔ رانندگی روی نوبت (به اونر نشان داده نمی‌شود).
+
+## «بیمه من» (2026-11-01)
+- `PreferencesManager.myInsuranceSlug` / `setMyInsuranceSlug`؛ `MyInsuranceViewModel` و ردیف «بیمه تکمیلی من» در `MoreScreen` (با `InsuranceSheet`).
+- `ExploreState.withMyInsurance()`: فقط دسته‌های پزشکی (نه «همه») خودکار با بیمهٔ من فیلتر می‌شوند؛ `insuranceOptedOut` وقتی کاربر عمداً «همه بیمه‌ها» را می‌زند.
+- `LocalMyInsuranceSlug` (در `MainNavHost`) و `Business.acceptsInsurance(slug)`: خط «بیمه شما قبول است» روی کارت (`MetaLine`) و یادداشت در کارت بیمهٔ صفحهٔ مرکز.
