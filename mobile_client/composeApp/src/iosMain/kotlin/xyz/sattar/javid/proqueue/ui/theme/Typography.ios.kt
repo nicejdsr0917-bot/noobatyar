@@ -13,5 +13,6 @@ import proqueue.composeapp.generated.resources.yekan_regular
 actual fun yakanFontFamily() = FontFamily(
     Font(Res.font.yekan_regular, FontWeight.Normal),
     Font(Res.font.yakan_medium, FontWeight.Medium),
+    Font(Res.font.yakan_medium, FontWeight.SemiBold),
     Font(Res.font.yakan_bold, FontWeight.Bold)
 )

@@ -1,5 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.LocateFixed
+import com.composables.icons.lucide.Search
+import com.composables.icons.lucide.SlidersHorizontal
+import com.composables.icons.lucide.X
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,12 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.MyLocation
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -91,7 +91,7 @@ internal fun Header(
                         else -> area.label
                     }
                     Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Icon(Icons.Outlined.ExpandMore, contentDescription = "تغییر موقعیت", modifier = Modifier.size(20.dp))
+                    Icon(Lucide.ChevronDown, contentDescription = "تغییر موقعیت", modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -139,7 +139,7 @@ internal fun FilterButton(count: Int, onClick: () -> Unit) {
             modifier = Modifier.size(48.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.Tune, contentDescription = "فیلترها", tint = MaterialTheme.colorScheme.onPrimary)
+                Icon(Lucide.SlidersHorizontal, contentDescription = "فیلترها", tint = MaterialTheme.colorScheme.onPrimary)
             }
         }
         if (count > 0) {
@@ -185,7 +185,7 @@ internal fun SearchField(
             .padding(horizontal = Space.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Lucide.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(Space.sm))
         Box(Modifier.weight(1f)) {
             if (query.isEmpty()) {
@@ -211,7 +211,7 @@ internal fun SearchField(
         AnimatedVisibility(visible = query.isNotEmpty()) {
             Surface(onClick = { onQueryChange("") }, shape = CircleShape, color = Color.Transparent) {
                 Icon(
-                    Icons.Outlined.Close,
+                    Lucide.X,
                     contentDescription = "پاک کردن",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(Space.xs).size(18.dp)
@@ -232,7 +232,7 @@ internal fun LocationNotice(status: LocationStatus, onLocate: () -> Unit, onOpen
         LocationStatus.Disabled -> "موقعیت‌یاب گوشی خاموش است."
         LocationStatus.Unavailable -> "موقعیت شما پیدا نشد."
         LocationStatus.Locating -> "در حال یافتن موقعیت…"
-        else -> "برای دیدن نزدیک‌ترین مراکز، موقعیت را فعال کنید."
+        else -> "برای نزدیک‌ترین مراکز، موقعیت را فعال کنید."
     }
     Row(
         Modifier
@@ -242,7 +242,7 @@ internal fun LocationNotice(status: LocationStatus, onLocate: () -> Unit, onOpen
             .padding(start = Space.md, end = Space.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Outlined.MyLocation, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        Icon(Lucide.LocateFixed, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(Space.md))
         Text(text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f).padding(vertical = Space.md))
         if (status == LocationStatus.Locating) {

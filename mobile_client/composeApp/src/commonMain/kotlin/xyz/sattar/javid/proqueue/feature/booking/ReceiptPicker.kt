@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.booking
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ImagePlus
+import com.composables.icons.lucide.X
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -26,9 +29,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AddPhotoAlternate
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -130,13 +130,13 @@ private fun EmptyReceipt(onClick: () -> Unit) {
                 Modifier.size(44.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), Radius.md),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.AddPhotoAlternate, null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Lucide.ImagePlus, null, tint = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.width(Space.md))
             Column {
                 Text("افزودن عکس رسید", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    "با عکس رسید، شمارهٔ پیگیری اختیاری است",
+                    "با عکس رسید، شماره پیگیری اختیاری است",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -207,7 +207,7 @@ private fun ReceiptPreview(bytes: ByteArray, progress: Float?, onChange: () -> U
                     contentColor = Color.White,
                     modifier = Modifier.align(Alignment.TopEnd).size(32.dp),
                 ) {
-                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Close, "حذف عکس", Modifier.size(18.dp)) }
+                    Box(contentAlignment = Alignment.Center) { Icon(Lucide.X, "حذف عکس", Modifier.size(18.dp)) }
                 }
                 Surface(
                     onClick = onChange,

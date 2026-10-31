@@ -24,9 +24,9 @@ val CANCELLABLE_STATUSES = setOf("LOCKED", "PENDING_APPROVAL", "PENDING_VERIFICA
 
 fun statusLabel(status: String): String = when (status) {
     "LOCKED" -> "در انتظار پرداخت بیعانه"
-    "PENDING_VERIFICATION" -> "در انتظار تأیید واریز"
-    "PENDING_APPROVAL" -> "در انتظار تأیید مرکز"
-    "CONFIRMED" -> "تأیید شده"
+    "PENDING_VERIFICATION" -> "در انتظار تایید واریز"
+    "PENDING_APPROVAL" -> "در انتظار تایید مرکز"
+    "CONFIRMED" -> "تایید شده"
     "WAITING" -> "در صف"
     "IN_PROGRESS" -> "در حال انجام"
     "COMPLETED" -> "انجام شده"
@@ -62,7 +62,7 @@ sealed interface AppointmentsMessage {
     data class OpenUrl(val url: String) : AppointmentsMessage
 }
 
-private const val CARD_DONE = "واریز شما ثبت شد؛ پس از تأیید مرکز نوبت قطعی می‌شود"
+private const val CARD_DONE = "واریز ثبت شد؛ با تایید مرکز قطعی می‌شود"
 
 class MyAppointmentsViewModel(
     private val bookingApi: BookingApi,

@@ -1,14 +1,10 @@
 package xyz.sattar.javid.proqueue.core.navigation
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.Event
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Menu
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Menu
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Bookmark
+import com.composables.icons.lucide.CalendarDays
+import com.composables.icons.lucide.Compass
+import com.composables.icons.lucide.Menu
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 
@@ -58,29 +54,29 @@ sealed interface MainTab {
 
     data object Explore : MainTab {
         override val title = "کاوش"
-        override val iconSelected = Icons.Rounded.Explore
-        override val iconUnSelected = Icons.Outlined.Explore
+        override val iconSelected = Lucide.Compass
+        override val iconUnSelected = Lucide.Compass
         override val route = AppScreens.Explore
     }
 
     data object Appointments : MainTab {
         override val title = "نوبت‌های من"
-        override val iconSelected = Icons.Rounded.Event
-        override val iconUnSelected = Icons.Outlined.Event
+        override val iconSelected = Lucide.CalendarDays
+        override val iconUnSelected = Lucide.CalendarDays
         override val route = AppScreens.MyAppointments
     }
 
     data object Saved : MainTab {
         override val title = "نشان‌شده‌ها"
-        override val iconSelected = Icons.Rounded.Bookmark
-        override val iconUnSelected = Icons.Outlined.BookmarkBorder
+        override val iconSelected = Lucide.Bookmark
+        override val iconUnSelected = Lucide.Bookmark
         override val route = AppScreens.Saved
     }
 
     data object More : MainTab {
         override val title = "بیشتر"
-        override val iconSelected = Icons.Rounded.Menu
-        override val iconUnSelected = Icons.Outlined.Menu
+        override val iconSelected = Lucide.Menu
+        override val iconUnSelected = Lucide.Menu
         override val route = AppScreens.More
     }
 }

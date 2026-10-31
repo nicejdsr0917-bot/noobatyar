@@ -1,5 +1,16 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Briefcase
+import com.composables.icons.lucide.GraduationCap
+import com.composables.icons.lucide.HeartPulse
+import com.composables.icons.lucide.LocateFixed
+import com.composables.icons.lucide.MapPinPen
+import com.composables.icons.lucide.Scissors
+import com.composables.icons.lucide.Stethoscope
+import com.composables.icons.lucide.Store
+import com.composables.icons.lucide.X
+import com.composables.icons.lucide.Zap
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -20,17 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentCut
-import androidx.compose.material.icons.rounded.EditLocationAlt
-import androidx.compose.material.icons.rounded.MedicalServices
-import androidx.compose.material.icons.rounded.MonitorHeart
-import androidx.compose.material.icons.rounded.MyLocation
-import androidx.compose.material.icons.rounded.School
-import androidx.compose.material.icons.rounded.Storefront
-import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -73,13 +73,13 @@ import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 internal data class PinStyle(val color: Color, val icon: ImageVector)
 
 internal fun Business.pinStyle(): PinStyle = when (BusinessCategory.fromString(category).group) {
-    BusinessCategoryGroup.MEDICAL -> PinStyle(Color(0xFF0D9488), Icons.Rounded.MedicalServices)
+    BusinessCategoryGroup.MEDICAL -> PinStyle(Color(0xFF0D9488), Lucide.Stethoscope)
     BusinessCategoryGroup.DENTAL -> PinStyle(Color(0xFF2563EB), ToothFilled)
-    BusinessCategoryGroup.HEALTH -> PinStyle(Color(0xFF16A34A), Icons.Rounded.MonitorHeart)
-    BusinessCategoryGroup.BEAUTY -> PinStyle(Color(0xFFDB2777), Icons.Rounded.ContentCut)
-    BusinessCategoryGroup.PROFESSIONAL -> PinStyle(Color(0xFFD97706), Icons.Rounded.Work)
-    BusinessCategoryGroup.EDUCATION -> PinStyle(Color(0xFF7C3AED), Icons.Rounded.School)
-    BusinessCategoryGroup.TRADES, BusinessCategoryGroup.OTHER -> PinStyle(Color(0xFF475569), Icons.Rounded.Storefront)
+    BusinessCategoryGroup.HEALTH -> PinStyle(Color(0xFF16A34A), Lucide.HeartPulse)
+    BusinessCategoryGroup.BEAUTY -> PinStyle(Color(0xFFDB2777), Lucide.Scissors)
+    BusinessCategoryGroup.PROFESSIONAL -> PinStyle(Color(0xFFD97706), Lucide.Briefcase)
+    BusinessCategoryGroup.EDUCATION -> PinStyle(Color(0xFF7C3AED), Lucide.GraduationCap)
+    BusinessCategoryGroup.TRADES, BusinessCategoryGroup.OTHER -> PinStyle(Color(0xFF475569), Lucide.Store)
 }
 
 // ── Pins & overlays ──────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ internal fun BusinessPin(business: Business, selected: Boolean) {
             )
             if (bookable) {
                 Spacer(Modifier.width(4.dp))
-                Icon(Icons.Rounded.Bolt, contentDescription = "نوبت آنلاین", tint = style.color, modifier = Modifier.size(16.dp))
+                Icon(Lucide.Zap, contentDescription = "نوبت آنلاین", tint = style.color, modifier = Modifier.size(16.dp))
             }
         }
         return
@@ -315,7 +315,7 @@ internal fun MapControls(
             )
             ControlButton(onClick = onTogglePickMode, background = activeBg) {
                 Icon(
-                    if (pickMode) Icons.Rounded.Close else Icons.Rounded.EditLocationAlt,
+                    if (pickMode) Lucide.X else Lucide.MapPinPen,
                     contentDescription = if (pickMode) "لغو انتخاب روی نقشه" else "انتخاب محل روی نقشه",
                     tint = activeFg,
                     modifier = Modifier.size(22.dp)
@@ -324,7 +324,7 @@ internal fun MapControls(
             Box(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
             ControlButton(onClick = onLocate) {
                 if (locating) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Icon(Icons.Rounded.MyLocation, contentDescription = "موقعیت من", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                else Icon(Lucide.LocateFixed, contentDescription = "موقعیت من", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
             }
         }
     }

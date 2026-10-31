@@ -1,5 +1,10 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ArrowLeft
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.Search
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -15,11 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,7 +84,7 @@ fun CityPickerSheet(
                 val province = openProvince
                 if (province != null && query.isBlank()) {
                     IconButton(onClick = { openProvince = null }) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "بازگشت")
+                        Icon(Lucide.ArrowLeft, contentDescription = "بازگشت")
                     }
                 }
                 Text(
@@ -130,7 +130,7 @@ fun CityPickerSheet(
                                 }
                             }
                         }
-                        item(key = "all-title") { SheetSection("همهٔ شهرها") }
+                        item(key = "all-title") { SheetSection("همه شهرها") }
                         item(key = "all-iran") {
                             CityRow("کل ایران", selected = selectedCode == ALL_IRAN) { onPick(SearchArea.Anywhere) }
                         }
@@ -184,9 +184,9 @@ private fun CityRow(
                 }
             }
             when {
-                selected -> Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                selected -> Icon(Lucide.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 drillDown -> Icon(
-                    Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                    Lucide.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -206,7 +206,7 @@ private fun CitySearchField(query: String, onQueryChange: (String) -> Unit, modi
             .padding(horizontal = Space.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Lucide.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(Space.sm))
         Box(Modifier.weight(1f)) {
             if (query.isEmpty()) {

@@ -1,5 +1,9 @@
 package xyz.sattar.javid.proqueue.feature.welcome
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Building2
+import com.composables.icons.lucide.ShieldPlus
+import com.composables.icons.lucide.Zap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -19,10 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.HealthAndSafety
-import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -79,9 +79,9 @@ fun WelcomeScreen(onDone: () -> Unit) {
                 )
                 Spacer(Modifier.height(40.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(Space.xl)) {
-                    Feature(Icons.Outlined.LocationCity, "شهر شما", "مراکز نوبت‌یار در شهری که انتخاب می‌کنید")
-                    Feature(Icons.Outlined.HealthAndSafety, "بیمه تکمیلی", "مراکزی که بیمه شما را می‌پذیرند")
-                    Feature(Icons.Outlined.Bolt, "رزرو آنلاین", "در مراکز نوبت‌یار، بدون تماس تلفنی")
+                    Feature(Lucide.Building2, "شهر شما", "مراکز نوبت‌یار در شهری که انتخاب می‌کنید")
+                    Feature(Lucide.ShieldPlus, "بیمه تکمیلی", "مراکزی که بیمه شما را می‌پذیرند")
+                    Feature(Lucide.Zap, "رزرو آنلاین", "در مراکز نوبت‌یار، بدون تماس تلفنی")
                 }
             }
         }

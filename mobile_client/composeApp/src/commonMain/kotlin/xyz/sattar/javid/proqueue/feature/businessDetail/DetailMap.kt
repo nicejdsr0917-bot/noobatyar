@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Navigation
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,8 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Directions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -84,7 +84,7 @@ internal fun MapPreview(business: Business, latitude: Double, longitude: Double,
             .height(176.dp)
             .pressScale(interaction, 0.985f)
             .clip(Radius.md)
-            .semantics { contentDescription = "نقشهٔ محل ${business.title}؛ برای دیدن نقشه و فاصله لمس کنید" }
+            .semantics { contentDescription = "نقشه محل ${business.title}؛ برای باز کردن لمس کنید" }
     ) {
         MapUI(modifier = Modifier.fillMaxSize(), state = state)
         // Swallows every touch, so the map never steals the page's scroll.
@@ -102,7 +102,7 @@ internal fun MapPreview(business: Business, latitude: Double, longitude: Double,
                 .padding(horizontal = Space.md, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.Directions, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            Icon(Lucide.Navigation, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(4.dp))
             Text("مسیریابی", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         }

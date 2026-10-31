@@ -1,11 +1,11 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.WifiOff
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -55,7 +55,7 @@ fun NoInternetDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.WifiOff,
+                        imageVector = Lucide.WifiOff,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(40.dp)

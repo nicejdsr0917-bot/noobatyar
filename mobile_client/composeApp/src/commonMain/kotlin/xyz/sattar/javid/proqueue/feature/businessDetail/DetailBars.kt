@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Navigation
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -17,8 +19,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Directions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -124,7 +124,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(busines
                     contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.size(48.dp)
                 ) {
-                    Icon(Icons.Outlined.Directions, contentDescription = "مسیریابی")
+                    Icon(Lucide.Navigation, contentDescription = "مسیریابی")
                 }
             }
         }

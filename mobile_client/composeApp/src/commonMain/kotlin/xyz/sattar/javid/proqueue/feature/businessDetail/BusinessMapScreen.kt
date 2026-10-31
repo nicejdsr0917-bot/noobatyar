@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.LocateFixed
+import com.composables.icons.lucide.Navigation
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.layout.layout
 import kotlinx.coroutines.delay
@@ -45,9 +48,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Directions
-import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -159,7 +159,7 @@ fun BusinessMapScreen(
                 FullMap(business, GeoPoint(lat, lng), state.me)
             } else if (!state.isLoading) {
                 Text(
-                    state.errorMessage ?: "موقعیت این مرکز روی نقشه ثبت نشده است",
+                    state.errorMessage ?: "موقعیت مرکز ثبت نشده",
                     modifier = Modifier.align(Alignment.Center).padding(Space.xl),
                 )
             }
@@ -528,7 +528,7 @@ private fun BottomCard(
                         shape = Radius.md,
                         modifier = Modifier.weight(1f).height(48.dp),
                     ) {
-                        Icon(Icons.Outlined.Directions, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Lucide.Navigation, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(Space.sm))
                         Text("مسیریابی", fontWeight = FontWeight.Bold)
                     }
@@ -540,7 +540,7 @@ private fun BottomCard(
                         modifier = Modifier.size(48.dp),
                     ) {
                         if (state.locating) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        else Icon(Icons.Outlined.MyLocation, contentDescription = "موقعیت من")
+                        else Icon(Lucide.LocateFixed, contentDescription = "موقعیت من")
                     }
                 }
             }
@@ -582,12 +582,12 @@ private fun DistanceBlock(state: BusinessMapState, onLocate: () -> Unit, onSetti
                     Text("در حال پیدا کردن موقعیت شما…", style = MaterialTheme.typography.bodyMedium)
                 }
                 is DistanceView.Known -> {
-                    Text("فاصلهٔ مستقیم شما تا مرکز", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("فاصله مستقیم تا مرکز", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(v.text, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(v.drive, style = MaterialTheme.typography.bodyMedium)
                     if (v.fromSaved) {
                         Text(
-                            "بر اساس آخرین موقعیت ذخیره‌شدهٔ شما",
+                            "بر اساس آخرین موقعیت ذخیره‌شده",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -596,7 +596,7 @@ private fun DistanceBlock(state: BusinessMapState, onLocate: () -> Unit, onSetti
                 is DistanceView.Problem -> {
                     Text(
                         when (v.result) {
-                            LocationResult.PermissionDenied -> "برای دیدن فاصله، اجازهٔ دسترسی به موقعیت را بدهید"
+                            LocationResult.PermissionDenied -> "برای فاصله، دسترسی به موقعیت را بدهید"
                             LocationResult.Disabled -> "موقعیت‌یاب گوشی خاموش است"
                             else -> "موقعیت شما پیدا نشد"
                         },

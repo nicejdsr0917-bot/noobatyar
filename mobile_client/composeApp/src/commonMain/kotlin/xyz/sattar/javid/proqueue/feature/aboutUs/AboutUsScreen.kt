@@ -102,8 +102,8 @@ fun AboutUsScreen(onNavigateBack: () -> Unit) {
                 )
                 Spacer(Modifier.height(Space.lg))
                 Text(
-                    "نوبت‌یار کمک می‌کند نزدیک‌ترین پزشک، دندان‌پزشک، سالن زیبایی و مشاور را پیدا کنید، " +
-                        "ببینید کدام مراکز بیمه شما را می‌پذیرند، و در مراکزی که در نوبت‌یار ثبت شده‌اند بدون تماس تلفنی نوبت بگیرید.",
+                    "نزدیک‌ترین پزشک، سالن و مشاور را پیدا کنید، " +
+                        "بیمه‌های پذیرفته‌شده را ببینید و بدون تماس نوبت بگیرید.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center

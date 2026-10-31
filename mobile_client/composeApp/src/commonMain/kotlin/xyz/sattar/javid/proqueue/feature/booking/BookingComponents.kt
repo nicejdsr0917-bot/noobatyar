@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.booking
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Check
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -38,8 +40,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -140,7 +140,7 @@ private fun StepDot(index: Int, label: String, done: Boolean, active: Boolean) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.semantics {
-            contentDescription = "مرحلهٔ ${(index + 1).toPersianDigits()}: $label" + if (done) "، انجام شد" else ""
+            contentDescription = "مرحله ${(index + 1).toPersianDigits()}: $label" + if (done) "، انجام شد" else ""
             selected = active
         },
     ) {
@@ -164,7 +164,7 @@ private fun StepDot(index: Int, label: String, done: Boolean, active: Boolean) {
                     label = "dotContent",
                 ) { isDone ->
                     if (isDone) {
-                        Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+                        Icon(Lucide.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
                     } else {
                         Text(
                             (index + 1).toPersianDigits(),
@@ -265,7 +265,7 @@ private fun CheckCircle(checked: Boolean, reduced: Boolean) {
             .then(if (checked) Modifier else Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp).scale(iconScale))
+        Icon(Lucide.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp).scale(iconScale))
     }
 }
 

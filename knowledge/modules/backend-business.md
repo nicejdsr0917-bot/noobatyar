@@ -50,3 +50,6 @@ tags: [gf]
 - **اپ `banners`، مدل `ClientPromo`** (migration `0002`):
   - فیلدها: متن، متن دکمه، مرکز یا لینک، محل نمایش (`EXPLORE` / `BUSINESS_MAP` / `ALL`)، و زمان‌بندی.
   - API: `GET /api/client/promos/?placement=` (عمومی). در ادمین زیر «نوارهای تبلیغ اپ مشتری» است.
+
+## احراز Visitor روی API عمومی (2026-10-31)
+- `ClientBusinessListView` و `ClientBusinessDetailView` (`client_views.py`): `authentication_classes = [VisitorTokenAuthentication, JWTAuthentication]`. مشتری واردشده «نمایش به مهمان خاموش» مالک را دور می‌زند؛ توکن بد ۴۰۱ می‌دهد. درخواست دارای Authorization کش عمومی را رد می‌کند. تست: `tests_contact_policy`.

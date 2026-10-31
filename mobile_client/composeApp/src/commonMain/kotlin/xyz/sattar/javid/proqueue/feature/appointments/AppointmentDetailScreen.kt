@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.appointments
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.BellRing
+import com.composables.icons.lucide.MessageSquare
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,9 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.NotificationsActive
-import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -111,7 +111,7 @@ fun AppointmentDetailScreen(
     CompositionLocalProvider(LocalReducedMotion provides rememberReducedMotion()) {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             Column(Modifier.fillMaxSize()) {
-                TopBar(title = "جزئیات نوبت", showDivider = true, onBack = onNavigateBack)
+                TopBar(title = "جزییات نوبت", showDivider = true, onBack = onNavigateBack)
                 val apt = state.appointment
                 when {
                     state.isLoading && apt == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -136,7 +136,7 @@ fun AppointmentDetailScreen(
         AlertDialog(
             onDismissRequest = { confirmCancel = false },
             title = { Text("لغو نوبت") },
-            text = { Text("این نوبت لغو شود؟ این کار برگشت‌پذیر نیست.") },
+            text = { Text("نوبت لغو شود؟ بازگشتی ندارد.") },
             confirmButton = {
                 TextButton(onClick = { confirmCancel = false; viewModel.cancel() }) {
                     Text("بله، لغو شود", color = MaterialTheme.colorScheme.error)
@@ -237,8 +237,8 @@ private fun Slip(
                 apt.description?.takeIf { it.isNotBlank() }?.let { Field("توضیح", it) }
                 if (apt.reminderPushSent || apt.reminderSmsSent) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                        if (apt.reminderPushSent) InfoChip(Icons.Outlined.NotificationsActive, "اعلان یادآوری فرستاده شد")
-                        if (apt.reminderSmsSent) InfoChip(Icons.Outlined.Sms, "پیامک یادآوری فرستاده شد")
+                        if (apt.reminderPushSent) InfoChip(Lucide.BellRing, "اعلان یادآوری فرستاده شد")
+                        if (apt.reminderSmsSent) InfoChip(Lucide.MessageSquare, "پیامک یادآوری فرستاده شد")
                     }
                 }
             }
@@ -249,7 +249,7 @@ private fun Slip(
             if (method != null || reference != null || receipt != null) {
                 Section("پرداخت بیعانه", 2) {
                     method?.let { Field("روش", it) }
-                    reference?.let { Field("شمارهٔ پیگیری", it.toPersianDigits(), ltr = true) }
+                    reference?.let { Field("شماره پیگیری", it.toPersianDigits(), ltr = true) }
                     if (receipt != null) {
                         Text("عکس رسید", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         AnimatedVisibility(visible = true, enter = fadeIn() + scaleIn(initialScale = 0.96f), exit = fadeOut()) {
@@ -302,7 +302,7 @@ private fun Slip(
                 }
             }
             OutlinedButton(onClick = onOpenBusiness, shape = Radius.md, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Text("صفحهٔ مرکز")
+                Text("صفحه مرکز")
             }
             if (apt.canCancelAt(now)) {
                 TextButton(onClick = onCancel, enabled = !cancelling, modifier = Modifier.fillMaxWidth()) {

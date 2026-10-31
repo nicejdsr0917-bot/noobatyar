@@ -337,7 +337,7 @@ class BookingViewModel(
             ?.data?.results?.firstOrNull { it.id == appointmentId }
         if (own != null && own.status != "LOCKED") {
             // Paid, cancelled or expired meanwhile (a resumed hold): nothing to pay.
-            _messages.send(BookingMessage.Error("این نوبت دیگر در انتظار پرداخت نیست"))
+            _messages.send(BookingMessage.Error("نوبت منتظر پرداخت نیست"))
             _state.update { it.copy(released = true) }
             return
         }

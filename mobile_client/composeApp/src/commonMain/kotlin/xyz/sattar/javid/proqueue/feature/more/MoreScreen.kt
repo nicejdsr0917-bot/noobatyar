@@ -1,5 +1,11 @@
 package xyz.sattar.javid.proqueue.feature.more
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Info
+import com.composables.icons.lucide.LogIn
+import com.composables.icons.lucide.LogOut
+import com.composables.icons.lucide.Share2
+import com.composables.icons.lucide.ShieldCheck
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -15,12 +21,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Login
-import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.PrivacyTip
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -78,11 +78,11 @@ fun MoreScreen(onOpenAbout: () -> Unit, onSignIn: () -> Unit, bottomPadding: Dp)
         GroupTitle("حساب کاربری")
         Hairline()
         if (signedIn != null) {
-            ListRow(Icons.AutoMirrored.Outlined.Logout, "خروج از حساب", showChevron = false, onClick = {
+            ListRow(Lucide.LogOut, "خروج از حساب", showChevron = false, onClick = {
                 scope.launch { PreferencesManager.setVisitorToken(null) }
             })
         } else {
-            ListRow(Icons.AutoMirrored.Outlined.Login, "ورود یا ثبت‌نام", onClick = onSignIn)
+            ListRow(Lucide.LogIn, "ورود یا ثبت‌نام", onClick = onSignIn)
         }
         Hairline()
 
@@ -97,13 +97,13 @@ fun MoreScreen(onOpenAbout: () -> Unit, onSignIn: () -> Unit, bottomPadding: Dp)
 
         GroupTitle("نوبت‌یار")
         Hairline()
-        ListRow(Icons.Outlined.Share, "معرفی به دوستان", onClick = {
+        ListRow(Lucide.Share2, "معرفی به دوستان", onClick = {
             shareText("نوبت‌یار — پزشک، سالن و مشاور نزدیکت را پیدا کن و آنلاین نوبت بگیر:\n$OWNER_LANDING_URL")
         })
         Hairline(Modifier.padding(start = 54.dp))
-        ListRow(Icons.Outlined.PrivacyTip, "حریم خصوصی", onClick = { openUrl("${AppConfig.bookingBaseUrl}/privacy") })
+        ListRow(Lucide.ShieldCheck, "حریم خصوصی", onClick = { openUrl("${AppConfig.bookingBaseUrl}/privacy") })
         Hairline(Modifier.padding(start = 54.dp))
-        ListRow(Icons.Outlined.Info, "درباره ما", onClick = onOpenAbout)
+        ListRow(Lucide.Info, "درباره ما", onClick = onOpenAbout)
         Hairline()
 
         Text(

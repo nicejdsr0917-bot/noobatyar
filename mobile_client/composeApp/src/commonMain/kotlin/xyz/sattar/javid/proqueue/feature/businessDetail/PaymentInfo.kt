@@ -24,8 +24,8 @@ internal fun paymentInfo(business: Business): PaymentInfo? {
     val amount = business.depositAmount ?: 0
     val deposit = when {
         amount <= 0 -> null
-        business.depositMode == DEPOSIT_MANDATORY -> "بیعانهٔ ${formatToman(amount)} هنگام رزرو"
-        business.depositMode == DEPOSIT_OPTIONAL -> "بیعانهٔ اختیاری ${formatToman(amount)}"
+        business.depositMode == DEPOSIT_MANDATORY -> "بیعانه ${formatToman(amount)} هنگام رزرو"
+        business.depositMode == DEPOSIT_OPTIONAL -> "بیعانه اختیاری ${formatToman(amount)}"
         else -> null
     }
     val methods = (business.acceptedPaymentMethods ?: listOfNotNull(business.paymentMethod))

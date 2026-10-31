@@ -1,5 +1,9 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Navigation
+import com.composables.icons.lucide.Phone
+import com.composables.icons.lucide.Share2
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,10 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Call
-import androidx.compose.material.icons.outlined.Directions
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -106,13 +106,13 @@ internal fun ActionRow(business: Business, onShare: () -> Unit) {
         Modifier.padding(start = Space.page, end = Space.page, bottom = Space.lg),
         horizontalArrangement = Arrangement.spacedBy(Space.sm)
     ) {
-        ActionButton(Icons.Outlined.Call, "تماس", business.phone.isNotBlank(), Modifier.weight(1f)) {
+        ActionButton(Lucide.Phone, "تماس", business.phone.isNotBlank(), Modifier.weight(1f)) {
             openPhoneDial(business.phone)
         }
-        ActionButton(Icons.Outlined.Directions, "مسیریابی", lat != null && lng != null, Modifier.weight(1f)) {
+        ActionButton(Lucide.Navigation, "مسیریابی", lat != null && lng != null, Modifier.weight(1f)) {
             if (lat != null && lng != null) openMap(lat, lng, business.title)
         }
-        ActionButton(Icons.Outlined.Share, "اشتراک", true, Modifier.weight(1f), onShare)
+        ActionButton(Lucide.Share2, "اشتراک", true, Modifier.weight(1f), onShare)
     }
 }
 

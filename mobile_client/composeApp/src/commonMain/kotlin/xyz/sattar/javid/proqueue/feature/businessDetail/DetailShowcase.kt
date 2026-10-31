@@ -1,13 +1,17 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.EllipsisVertical
+import com.composables.icons.lucide.Flag
+import com.composables.icons.lucide.MessageSquareText
+import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.Star
+import com.composables.icons.lucide.X
+import xyz.sattar.javid.proqueue.core.ui.icons.filled
 import androidx.compose.foundation.Image
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.LaunchedEffect
@@ -36,10 +40,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -212,7 +212,7 @@ private fun PortfolioViewer(items: List<PortfolioItemDto>, startIndex: Int, onCl
                 }
             }
             IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopEnd).padding(Space.md)) {
-                Icon(Icons.Outlined.Close, contentDescription = "بستن", tint = Color.White)
+                Icon(Lucide.X, contentDescription = "بستن", tint = Color.White)
             }
             Column(Modifier.align(Alignment.BottomCenter).padding(Space.lg), horizontalAlignment = Alignment.CenterHorizontally) {
                 items[pager.currentPage].caption?.takeIf { it.isNotBlank() }?.let {
@@ -295,7 +295,7 @@ internal fun StarRow(rating: Int, size: Dp = 16.dp) {
     Row {
         repeat(5) { i ->
             Icon(
-                if (i < rating) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                if (i < rating) Lucide.Star.filled() else Lucide.Star,
                 contentDescription = null,
                 tint = WarningColor,
                 modifier = Modifier.size(size)
@@ -318,14 +318,14 @@ internal fun ReviewsSection(
         index = index,
         trailing = {
             TextButton(onClick = onWrite, contentPadding = PaddingValues(horizontal = Space.sm)) {
-                Icon(Icons.Outlined.RateReview, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Lucide.MessageSquareText, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(Space.xs))
                 Text(if (state.myReview != null) "ویرایش نظر من" else "ثبت نظر")
             }
         },
     ) {
         if (summary.count > 0) ReviewSummary(summary)
-        else Text("هنوز نظری ثبت نشده است؛ اولین نفر باشید.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else Text("نظری ثبت نشده؛ اولین نفر باشید.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         state.reviews.forEachIndexed { i, review ->
             Spacer(Modifier.height(Space.md))
             Hairline()
@@ -444,19 +444,19 @@ private fun ReviewRow(review: ReviewDto, isMine: Boolean, modifier: Modifier, on
         }
         Box {
             IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Outlined.MoreVert, contentDescription = "گزینه‌ها", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Icon(Lucide.EllipsisVertical, contentDescription = "گزینه‌ها", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (isMine) {
                     DropdownMenuItem(
                         text = { Text("ویرایش نظر") },
-                        leadingIcon = { Icon(Icons.Outlined.Edit, null) },
+                        leadingIcon = { Icon(Lucide.Pencil, null) },
                         onClick = { menu = false; onEdit() },
                     )
                 } else {
                     DropdownMenuItem(
                         text = { Text("گزارش این نظر") },
-                        leadingIcon = { Icon(Icons.Outlined.Flag, null) },
+                        leadingIcon = { Icon(Lucide.Flag, null) },
                         onClick = { menu = false; onReport() },
                     )
                 }
@@ -485,7 +485,7 @@ internal fun ReviewDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
                     for (star in 1..5) {
                         Icon(
-                            if (star <= rating) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                            if (star <= rating) Lucide.Star.filled() else Lucide.Star,
                             contentDescription = "${star.toPersianDigits()} ستاره",
                             tint = WarningColor,
                             modifier = Modifier.size(36.dp).clickable { rating = star }

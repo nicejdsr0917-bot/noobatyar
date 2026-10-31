@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.RefreshCw
+import com.composables.icons.lucide.Search
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -20,9 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -278,7 +278,7 @@ fun ExploreMap(
             ) {
                 MapPill(
                     text = "جستجو در این محدوده",
-                    icon = Icons.Outlined.Refresh,
+                    icon = Lucide.RefreshCw,
                     onClick = {
                         scope.launch {
                             offerSearchHere = false
@@ -320,7 +320,7 @@ fun ExploreMap(
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
                     modifier = Modifier.height(48.dp)
                 ) {
-                    Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(Lucide.Search, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("جستجو در این نقطه", fontWeight = FontWeight.Bold)
                 }

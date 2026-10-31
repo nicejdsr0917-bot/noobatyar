@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.CloudOff
+import com.composables.icons.lucide.SearchX
 import kotlin.math.roundToInt
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.clipToBounds
@@ -27,10 +30,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudOff
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -444,7 +443,7 @@ internal fun ResultsList(
 
             state.errorMessage != null && state.results.isEmpty() -> item(key = "error") {
                 StateMessage(
-                    icon = Icons.Outlined.CloudOff,
+                    icon = Lucide.CloudOff,
                     title = "ارتباط برقرار نشد",
                     body = state.errorMessage ?: "",
                     actionLabel = "تلاش دوباره",
@@ -457,10 +456,10 @@ internal fun ResultsList(
                 val canWiden = (state.area is SearchArea.NearMe || state.area is SearchArea.Picked) &&
                     state.radiusKm < radiusOptionsKm.last()
                 StateMessage(
-                    icon = Icons.Outlined.SearchOff,
+                    icon = Lucide.SearchX,
                     title = "نتیجه‌ای پیدا نشد",
-                    body = if (canWiden) "محدوده جستجو را بزرگ‌تر کنید یا فیلترها را تغییر دهید."
-                    else "عبارت دیگری را امتحان کنید یا فیلترها را بردارید.",
+                    body = if (canWiden) "محدوده را بزرگ‌تر یا فیلترها را عوض کنید."
+                    else "عبارت دیگری امتحان کنید یا فیلترها را بردارید.",
                     actionLabel = if (canWiden) "جستجو تا ${radiusOptionsKm.last().toInt().toPersianDigits()} کیلومتر"
                     else "پاک کردن فیلترها",
                     onAction = if (canWiden) onWiden else onClearFilters

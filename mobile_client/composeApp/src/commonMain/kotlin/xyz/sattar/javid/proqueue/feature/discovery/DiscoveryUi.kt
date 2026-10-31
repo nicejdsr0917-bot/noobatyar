@@ -1,5 +1,17 @@
 package xyz.sattar.javid.proqueue.feature.discovery
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.ArrowRight
+import com.composables.icons.lucide.BadgeCheck
+import com.composables.icons.lucide.Bookmark
+import com.composables.icons.lucide.Brain
+import com.composables.icons.lucide.Briefcase
+import com.composables.icons.lucide.ChevronLeft
+import com.composables.icons.lucide.Dumbbell
+import com.composables.icons.lucide.LayoutGrid
+import com.composables.icons.lucide.Scissors
+import com.composables.icons.lucide.Stethoscope
+import xyz.sattar.javid.proqueue.core.ui.icons.filled
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -16,18 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.BusinessCenter
-import androidx.compose.material.icons.outlined.ContentCut
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.MedicalServices
-import androidx.compose.material.icons.outlined.Psychology
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -99,13 +99,13 @@ val Business.canBookOnline: Boolean get() = isClaimed && bookingEnabled
  * family and all one colour; the label carries the meaning.
  */
 enum class CategoryGroup(val key: String?, val label: String, val icon: ImageVector) {
-    ALL(null, "همه", Icons.Outlined.GridView),
-    MEDICAL("MEDICAL", "پزشک", Icons.Outlined.MedicalServices),
+    ALL(null, "همه", Lucide.LayoutGrid),
+    MEDICAL("MEDICAL", "پزشک", Lucide.Stethoscope),
     DENTAL("DENTAL", "دندان‌پزشک", ToothOutlined),
-    BEAUTY("BEAUTY", "زیبایی", Icons.Outlined.ContentCut),
-    HEALTH("HEALTH", "سلامت و مشاوره", Icons.Outlined.Psychology),
-    PROFESSIONAL("PROFESSIONAL", "خدمات حرفه‌ای", Icons.Outlined.BusinessCenter),
-    EDUCATION("EDUCATION", "آموزش و ورزش", Icons.Outlined.FitnessCenter);
+    BEAUTY("BEAUTY", "زیبایی", Lucide.Scissors),
+    HEALTH("HEALTH", "سلامت و مشاوره", Lucide.Brain),
+    PROFESSIONAL("PROFESSIONAL", "خدمات حرفه‌ای", Lucide.Briefcase),
+    EDUCATION("EDUCATION", "آموزش و ورزش", Lucide.Dumbbell);
 
     companion object {
         fun fromKey(key: String?): CategoryGroup = entries.firstOrNull { it.key == key } ?: ALL
@@ -233,7 +233,7 @@ fun OnlineBadge() {
 @Composable
 fun VerifiedMark(size: Dp = 16.dp) {
     Icon(
-        Icons.Rounded.Verified,
+        Lucide.BadgeCheck,
         contentDescription = "ثبت‌شده در نوبت‌یار",
         tint = MaterialTheme.colorScheme.primary,
         modifier = Modifier.size(size)
@@ -247,16 +247,16 @@ fun SaveButton(saved: Boolean, onToggle: () -> Unit) {
     )
     IconButton(onClick = onToggle) {
         Icon(
-            if (saved) Icons.Rounded.Bookmark else Icons.Outlined.BookmarkBorder,
+            if (saved) Lucide.Bookmark.filled() else Lucide.Bookmark,
             contentDescription = if (saved) "حذف از نشان‌شده‌ها" else "نشان کردن",
             tint = tint
         )
     }
 }
 
-val BackIcon = Icons.AutoMirrored.Outlined.ArrowBack
+val BackIcon = Lucide.ArrowRight
 /** "Go into" chevron — AutoMirrored, so it points left in RTL. */
-val ChevronIcon = Icons.AutoMirrored.Outlined.KeyboardArrowRight
+val ChevronIcon = Lucide.ChevronLeft
 
 @Composable
 fun Hairline(modifier: Modifier = Modifier) {
@@ -470,7 +470,7 @@ fun OwnerInviteRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 Text("صاحب کسب‌وکار هستید؟", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "مرکزتان را در نوبت‌یار ثبت کنید و آنلاین نوبت بدهید.",
+                    "مرکزتان را ثبت کنید و آنلاین نوبت بدهید.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

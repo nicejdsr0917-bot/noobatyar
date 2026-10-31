@@ -7,108 +7,37 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+/** Yekan Bakh: Regular, SemiBold (as Medium and SemiBold) and Bold. */
 @Composable
 expect fun yakanFontFamily(): FontFamily
 
+/**
+ * The app's one type scale. Every style is Yekan Bakh and none is tracked:
+ * letter spacing pulls the joined letters of Persian script apart. The theme
+ * also makes [bodyMedium] the default style (see AppTheme), so a Text or a text
+ * field that names no style still looks like the rest.
+ */
 @Composable
-fun appTypography() = Typography(
-    displayLarge = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Bold,
-        fontSize = 57.sp,
-        lineHeight = 64.sp,
-        letterSpacing = (-0.25).sp
-    ),
-    displayMedium = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Bold,
-        fontSize = 45.sp,
-        lineHeight = 52.sp
-    ),
-    displaySmall = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 44.sp
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.15.sp
-    ),
-    titleSmall = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.25.sp
-    ),
-    bodySmall = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.4.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
-    ),
-    labelMedium = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = yakanFontFamily(),
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
+fun appTypography(): Typography {
+    val font = yakanFontFamily()
+    fun style(weight: FontWeight, size: Int, line: Int) =
+        TextStyle(fontFamily = font, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp, letterSpacing = 0.sp)
+
+    return Typography(
+        displayLarge = style(FontWeight.Bold, 57, 64),
+        displayMedium = style(FontWeight.Bold, 45, 52),
+        displaySmall = style(FontWeight.Bold, 36, 44),
+        headlineLarge = style(FontWeight.Bold, 32, 40),
+        headlineMedium = style(FontWeight.Bold, 28, 36),
+        headlineSmall = style(FontWeight.Bold, 24, 32),
+        titleLarge = style(FontWeight.Bold, 22, 28),
+        titleMedium = style(FontWeight.SemiBold, 16, 24),
+        titleSmall = style(FontWeight.Medium, 14, 20),
+        bodyLarge = style(FontWeight.Normal, 16, 24),
+        bodyMedium = style(FontWeight.Normal, 14, 20),
+        bodySmall = style(FontWeight.Normal, 12, 16),
+        labelLarge = style(FontWeight.Medium, 14, 20),
+        labelMedium = style(FontWeight.Medium, 12, 16),
+        labelSmall = style(FontWeight.Medium, 11, 16),
     )
-)
+}

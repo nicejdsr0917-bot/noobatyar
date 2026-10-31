@@ -83,3 +83,10 @@ tags: [gf]
 - **نکته‌ها:**
   - overlay پین‌ها باید اندازهٔ کامل والد را بگیرد (مشکل RTL).
   - lifecycle 2.10.0 است.
+
+## لاگین، تایپوگرافی، آیکن (2026-10-31)
+- `feature/auth/LoginScreen.kt` + `LoginViewModel` — شماره، کد ۶ رقمی (تایید خودکار)، نام؛ مسیر `AppScreens.Login(bookBusinessId)`. رزرو بدون توکن Visitor به لاگین می‌رود (`MainNavHost`)؛ صفحهٔ مرکز برای مهمان کارت قفل نشان می‌دهد.
+- `KtorClientBusinessApi` توکن Visitor را روی لیست و جزییات می‌فرستد؛ با ۴۰۱ توکن را پاک و دوباره مهمان می‌خواند.
+- `ui/theme/Typography.kt`: Yekan Bakh، بدون `letterSpacing`؛ `bodyMedium` پیش‌فرض متن و فیلدها (`Theme.kt`).
+- آیکن‌ها: Lucide (`com.composables:icons-lucide-cmp`)، پر با `ImageVector.filled()`. پیکان‌های RTL دستی برعکس‌اند.
+- متن اپ: کوتاه و بدون ئ ء ٔ أ. `PersianDigits` برای ارقام فیلدهای عددی.

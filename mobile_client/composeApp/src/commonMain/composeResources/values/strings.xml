@@ -61,7 +61,7 @@
     <string name="to_label">تا</string>
 
     <!-- Visitor Details Screen -->
-    <string name="visitor_details_title">جزئیات مراجع</string>
+    <string name="visitor_details_title">جزییات مراجع</string>
     <string name="history_title">سوابق</string>
     <string name="messages_tab">پیام‌ها</string>
     <string name="appointments_tab">نوبت‌ها</string>
@@ -138,7 +138,7 @@
     <string name="service_duration_error">مدت زمان سرویس باید عدد باشد</string>
     <string name="conflict_dialog_title">تداخل نوبت</string>
     <string name="conflict_dialog_message_prefix">شما قبلا برای کاربر با نام </string>
-    <string name="conflict_dialog_message_suffix"> نوبت ثبت کردید. آیا مطمئن هستید که می‌خواهید در همین بازه نوبت جدید ثبت کنید؟</string>
+    <string name="conflict_dialog_message_suffix"> نوبت ثبت کردید. آیا مطمین هستید که می‌خواهید در همین بازه نوبت جدید ثبت کنید؟</string>
     <string name="yes_force_create">بله، ثبت شود</string>
     <string name="no">خیر</string>
     <string name="select_business_error">لطفاً ابتدا یک کسب‌وکار انتخاب کنید</string>
@@ -209,7 +209,7 @@
     <string name="tracking_number_label">شماره پیگیری</string>
     <string name="click_to_view_full">برای مشاهده کامل، روی تصویر بزنید</string>
     <string name="reject_action">رد کردن</string>
-    <string name="verify_receipt">تأیید فیش</string>
+    <string name="verify_receipt">تایید فیش</string>
     <string name="approve_action">تایید</string>
 
     <!-- No Internet -->
@@ -279,7 +279,7 @@
     <!-- Emergency notice (public) -->
     <string name="notice_section_title">پیام اضطراری</string>
     <string name="notice_switch_label">نمایش پیام اضطراری</string>
-    <string name="notice_switch_description">اگر مشکلی پیش آمده (تعطیلی ناگهانی، قطعی برق، تأخیر)، پیام را روشن کنید تا مشتری‌ها بی‌دلیل نوبت نگیرند. با خاموش بودن این کلید، هیچ پیامی نمایش داده نمی‌شود.</string>
+    <string name="notice_switch_description">اگر مشکلی پیش آمده (تعطیلی ناگهانی، قطعی برق، تاخیر)، پیام را روشن کنید تا مشتری‌ها بی‌دلیل نوبت نگیرند. با خاموش بودن این کلید، هیچ پیامی نمایش داده نمی‌شود.</string>
     <string name="notice_message_label">متن پیام اضطراری</string>
     <string name="notice_message_public_warning">این متن برای همه‌ی مراجعین در صفحه‌ی عمومی نوبت‌گیری نمایش داده می‌شود.</string>
     <string name="notice_settings_subtitle">اطلاع‌رسانی تعطیلی یا مشکل موقت به مراجعین</string>

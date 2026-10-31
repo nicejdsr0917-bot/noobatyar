@@ -1,5 +1,10 @@
 package xyz.sattar.javid.proqueue.core.ui.components
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.CircleAlert
+import com.composables.icons.lucide.CircleCheck
+import com.composables.icons.lucide.Info
+import com.composables.icons.lucide.TriangleAlert
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,11 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -179,22 +179,22 @@ private fun getToastyColorsAndIcon(type: ToastyType): Triple<Color, Color, Image
         ToastyType.Success -> Triple(
             Color(0xFF4CAF50),
             Color.White,
-            Icons.Rounded.CheckCircle
+            Lucide.CircleCheck
         )
         ToastyType.Error -> Triple(
             MaterialTheme.colorScheme.error,
             MaterialTheme.colorScheme.onError,
-            Icons.Rounded.ErrorOutline
+            Lucide.CircleAlert
         )
         ToastyType.Info -> Triple(
             Color(0xFF2196F3),
             Color.White,
-            Icons.Rounded.Info
+            Lucide.Info
         )
         ToastyType.Warning -> Triple(
             Color(0xFFFFC107),
             Color.Black,
-            Icons.Rounded.Warning
+            Lucide.TriangleAlert
         )
     }
 }

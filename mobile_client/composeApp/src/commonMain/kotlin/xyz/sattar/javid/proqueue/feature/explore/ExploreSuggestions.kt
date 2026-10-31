@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.History
+import com.composables.icons.lucide.TrendingUp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,9 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.TrendingUp
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -61,7 +61,7 @@ internal fun SearchSuggestions(recent: List<String>, onPick: (String) -> Unit, o
                 )
                 TextButton(onClick = onClearRecent) { Text("پاک کردن") }
             }
-            recent.forEach { q -> SuggestionRow(Icons.Outlined.History, q) { onPick(q) } }
+            recent.forEach { q -> SuggestionRow(Lucide.History, q) { onPick(q) } }
             Spacer(Modifier.height(Space.md))
         }
         Text(
@@ -70,7 +70,7 @@ internal fun SearchSuggestions(recent: List<String>, onPick: (String) -> Unit, o
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Space.page, vertical = Space.sm)
         )
-        popularSearches.forEach { q -> SuggestionRow(Icons.AutoMirrored.Outlined.TrendingUp, q) { onPick(q) } }
+        popularSearches.forEach { q -> SuggestionRow(Lucide.TrendingUp, q) { onPick(q) } }
         Hairline(Modifier.padding(top = Space.sm))
     }
 }

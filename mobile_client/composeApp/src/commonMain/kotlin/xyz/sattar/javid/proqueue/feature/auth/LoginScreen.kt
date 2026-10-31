@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import org.koin.compose.viewmodel.koinViewModel
+import xyz.sattar.javid.proqueue.core.ui.components.PersianDigits
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
@@ -89,23 +90,24 @@ fun LoginScreen(
 private fun PhoneStep(state: LoginState, vm: LoginViewModel) {
     val focus = rememberAutoFocus()
     val wrong = state.phone.length == 11 && !vm.isPhoneValid
-    StepScaffold(action = "دریافت کد تأیید", actionEnabled = vm.isPhoneValid, busy = state.busy, onAction = vm::sendCode) {
-        StepTitle("شمارهٔ موبایل خود را وارد کنید", "کد تأیید برایتان پیامک می‌شود؛ اگر حساب ندارید، همین‌جا ساخته می‌شود")
+    StepScaffold(action = "دریافت کد", actionEnabled = vm.isPhoneValid, busy = state.busy, onAction = vm::sendCode) {
+        StepTitle("شماره موبایل", "کد تایید برایتان پیامک می‌شود")
         OutlinedTextField(
             value = state.phone,
             onValueChange = vm::setPhone,
             placeholder = { Text("۰۹۱۲ ۰۰۰ ۰۰۰۰", style = ltrInput, modifier = Modifier.fillMaxWidth()) },
             singleLine = true,
             isError = wrong,
-            supportingText = if (wrong) ({ Text("شماره باید با ۰۹ شروع شود و ۱۱ رقم باشد") }) else null,
+            supportingText = if (wrong) ({ Text("شماره ۱۱ رقمی و با ۰۹ شروع شود") }) else null,
             textStyle = ltrInput,
+            visualTransformation = PersianDigits,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { vm.sendCode() }),
             shape = Radius.md,
             modifier = Modifier.fillMaxWidth().focusRequester(focus).enterStagger(1),
         )
         Text(
-            "با ادامه دادن، شرایط استفاده و حریم خصوصی نوبت‌یار را می‌پذیرید.",
+            "با ادامه، شرایط و حریم خصوصی را می‌پذیرید.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -118,17 +120,18 @@ private fun PhoneStep(state: LoginState, vm: LoginViewModel) {
 private fun CodeStep(state: LoginState, vm: LoginViewModel) {
     val focus = rememberAutoFocus()
     StepScaffold(
-        action = "تأیید و ورود",
+        action = "تایید و ورود",
         actionEnabled = state.code.length == OTP_LENGTH,
         busy = state.busy,
         onAction = vm::verifyCode,
     ) {
-        StepTitle("کد تأیید", "کد ${OTP_LENGTH.toString().toPersianDigits()} رقمی که به ${state.phone.toPersianDigits()} پیامک شد")
+        StepTitle("کد تایید", "کد پیامک‌شده به ${state.phone.toPersianDigits()}")
         OutlinedTextField(
             value = state.code,
             onValueChange = vm::setCode,
             singleLine = true,
             textStyle = ltrInput.copy(fontSize = 26.sp, letterSpacing = 10.sp, fontWeight = FontWeight.Bold),
+            visualTransformation = PersianDigits,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { vm.verifyCode() }),
             shape = Radius.md,
@@ -137,8 +140,8 @@ private fun CodeStep(state: LoginState, vm: LoginViewModel) {
         Row(Modifier.enterStagger(2), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = vm::resend, enabled = !state.busy && state.resendIn == 0) {
                 Text(
-                    if (state.resendIn > 0) "ارسال دوباره تا ${state.resendIn.toString().toPersianDigits()} ثانیه دیگر"
-                    else "ارسال دوبارهٔ کد"
+                    if (state.resendIn > 0) "ارسال دوباره (${state.resendIn.toString().toPersianDigits()} ثانیه)"
+                    else "ارسال دوباره"
                 )
             }
             TextButton(onClick = { vm.back() }, enabled = !state.busy) { Text("تغییر شماره") }
@@ -150,7 +153,7 @@ private fun CodeStep(state: LoginState, vm: LoginViewModel) {
 private fun NameStep(state: LoginState, vm: LoginViewModel) {
     val focus = rememberAutoFocus()
     StepScaffold(action = "ثبت‌نام و ورود", actionEnabled = state.name.isNotBlank(), busy = state.busy, onAction = vm::register) {
-        StepTitle("خوش آمدید", "نام خود را بنویسید؛ مرکز با این نام نوبت شما را می‌بیند")
+        StepTitle("خوش آمدید", "مرکز نوبت را با این نام می‌بیند")
         OutlinedTextField(
             value = state.name,
             onValueChange = vm::setName,

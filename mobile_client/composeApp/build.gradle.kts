@@ -96,6 +96,7 @@ kotlin {
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(compose.materialIconsExtended)
+            implementation(libs.lucide.icons)
             implementation(libs.kotlinx.datetime)
 
             // navigation

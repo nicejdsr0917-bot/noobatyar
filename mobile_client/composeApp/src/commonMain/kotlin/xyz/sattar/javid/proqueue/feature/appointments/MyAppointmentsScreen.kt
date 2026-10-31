@@ -1,5 +1,9 @@
 package xyz.sattar.javid.proqueue.feature.appointments
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.BellRing
+import com.composables.icons.lucide.Clock
+import com.composables.icons.lucide.MessageSquare
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -27,10 +31,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.NotificationsActive
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -130,7 +130,7 @@ fun MyAppointmentsScreen(
                     ) {
                         Text("برای دیدن نوبت‌هایتان وارد شوید", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            "نوبت‌هایی که از همین اپ می‌گیرید اینجا می‌آید.",
+                            "نوبت‌هایتان اینجا نمایش داده می‌شود.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
@@ -300,9 +300,9 @@ private fun AppointmentCard(
             val now = Clock.System.now().toEpochMilliseconds()
             if (showsCountdown(apt.status) || apt.reminderPushSent || apt.reminderSmsSent) {
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                    if (showsCountdown(apt.status)) InfoChip(Icons.Outlined.Schedule, timeLeftLabel(now, apt.appointmentDate))
-                    if (apt.reminderPushSent) InfoChip(Icons.Outlined.NotificationsActive, "یادآور اعلان")
-                    if (apt.reminderSmsSent) InfoChip(Icons.Outlined.Sms, "یادآور پیامک")
+                    if (showsCountdown(apt.status)) InfoChip(Lucide.Clock, timeLeftLabel(now, apt.appointmentDate))
+                    if (apt.reminderPushSent) InfoChip(Lucide.BellRing, "یادآور اعلان")
+                    if (apt.reminderSmsSent) InfoChip(Lucide.MessageSquare, "یادآور پیامک")
                 }
             }
             if (apt.status == "LOCKED") {

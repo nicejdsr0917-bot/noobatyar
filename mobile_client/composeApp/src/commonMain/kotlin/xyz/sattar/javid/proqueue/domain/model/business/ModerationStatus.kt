@@ -10,9 +10,9 @@ package xyz.sattar.javid.proqueue.domain.model.business
  * for the owner ("not reviewed yet" vs. "your plan lapsed").
  */
 enum class ModerationStatus(val value: String, val persianName: String) {
-    PENDING("PENDING", "در انتظار تأیید"),
-    APPROVED("APPROVED", "تأیید شده"),
-    REJECTED("REJECTED", "تأیید نشده"),
+    PENDING("PENDING", "در انتظار تایید"),
+    APPROVED("APPROVED", "تایید شده"),
+    REJECTED("REJECTED", "تایید نشده"),
     SUSPENDED("SUSPENDED", "تعلیق شده");
 
     /** Whether the content review alone allows public visibility.

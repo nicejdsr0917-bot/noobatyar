@@ -42,7 +42,7 @@ sealed interface DetailMessage {
 /** Report reasons offered to clients — a subset of ContentReport.REASON_CHOICES. */
 val reportReasons = listOf(
     "MISLEADING" to "اطلاعات نادرست یا قدیمی (آدرس، تلفن، بیمه)",
-    "IMPERSONATION" to "این مرکز متعلق به من است و بدون اجازه منتشر شده",
+    "IMPERSONATION" to "مرکز مال من است و بدون اجازه ثبت شده",
     "INAPPROPRIATE" to "محتوای نامناسب",
     "OTHER" to "سایر",
 )
@@ -118,7 +118,7 @@ class ClientBusinessDetailViewModel(
                     _messages.send(
                         DetailMessage.Success(
                             if (res.data.alreadyRequested) "درخواست شما قبلاً ثبت شده بود"
-                            else "درخواست شما ثبت شد؛ به مرکز اطلاع می‌دهیم"
+                            else "درخواست ثبت شد؛ به مرکز اطلاع می‌دهیم"
                         )
                     )
                 }
@@ -135,7 +135,7 @@ class ClientBusinessDetailViewModel(
             _state.update { it.copy(isReporting = true) }
             when (val res = businessRepository.reportBusiness(businessId, reason, detail)) {
                 is ApiResponse.Success -> {
-                    _messages.send(DetailMessage.Success("گزارش شما ثبت شد؛ تیم نوبت‌یار بررسی می‌کند"))
+                    _messages.send(DetailMessage.Success("گزارش ثبت شد؛ بررسی می‌کنیم"))
                     onDone()
                 }
                 is ApiResponse.Error -> _messages.send(DetailMessage.Error(res.message))

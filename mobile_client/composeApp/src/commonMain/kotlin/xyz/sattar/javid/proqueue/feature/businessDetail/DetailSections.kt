@@ -35,7 +35,7 @@ internal fun RequestOnlineSection(count: Int, requested: Boolean, loading: Boole
         Text("این مرکز هنوز نوبت آنلاین ندارد", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(Space.xs))
         Text(
-            "درخواست بدهید تا به مرکز اطلاع دهیم مراجعانش منتظر نوبت‌دهی آنلاین هستند.",
+            "درخواست دهید تا به مرکز بگوییم نوبت آنلاین می‌خواهید.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

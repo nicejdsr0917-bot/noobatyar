@@ -24,13 +24,13 @@ class PaymentInfoTest {
     @Test
     fun mandatoryDepositAndMethodsAreListed() {
         val info = paymentInfo(business("MANDATORY", 50000, listOf("ONLINE", "CASH")))!!
-        assertEquals("بیعانهٔ ۵۰٬۰۰۰ تومان هنگام رزرو", info.deposit)
+        assertEquals("بیعانه ۵۰٬۰۰۰ تومان هنگام رزرو", info.deposit)
         assertEquals(listOf("پرداخت آنلاین", "پرداخت حضوری"), info.methods)
     }
 
     @Test
     fun optionalDepositIsMarkedOptional() {
-        assertEquals("بیعانهٔ اختیاری ۲۰٬۰۰۰ تومان", paymentInfo(business("OPTIONAL", 20000, null))!!.deposit)
+        assertEquals("بیعانه اختیاری ۲۰٬۰۰۰ تومان", paymentInfo(business("OPTIONAL", 20000, null))!!.deposit)
     }
 
     @Test

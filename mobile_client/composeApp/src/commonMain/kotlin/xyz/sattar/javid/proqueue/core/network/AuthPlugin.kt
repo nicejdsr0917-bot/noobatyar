@@ -159,9 +159,9 @@ val AuthInterceptor = createClientPlugin("AuthInterceptor") {
         if (call.response.status == HttpStatusCode.TooManyRequests) {
             val message = try {
                 call.response.body<NetworkResponse<Unit>>().message
-                    ?: "تعداد درخواست‌های شما بیش از حد مجاز است."
+                    ?: "درخواست‌ها زیاد بود؛ کمی بعد تلاش کنید."
             } catch (e: Exception) {
-                "تعداد درخواست‌های شما بیش از حد مجاز است."
+                "درخواست‌ها زیاد بود؛ کمی بعد تلاش کنید."
             }
             GlobalErrorManager.emitError(GlobalError.RateLimit(message))
         }

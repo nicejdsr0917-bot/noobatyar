@@ -1,10 +1,17 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.CloudOff
+import com.composables.icons.lucide.Flag
+import com.composables.icons.lucide.Info
+import com.composables.icons.lucide.Lock
+import com.composables.icons.lucide.MapPin
+import com.composables.icons.lucide.Megaphone
+import com.composables.icons.lucide.Phone
+import com.composables.icons.lucide.Share2
+import com.composables.icons.lucide.Store
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LocationOn
 import xyz.sattar.javid.proqueue.core.utils.openMap
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,13 +29,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Call
-import androidx.compose.material.icons.outlined.Campaign
-import androidx.compose.material.icons.outlined.CloudOff
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -138,7 +138,7 @@ fun ClientBusinessDetailScreen(
                     if (socialState.isSignedIn) showReviewDialog = true
                     else scope.launch {
                         snackbar.showToasty(
-                            UiMessage.info("برای ثبت نظر باید وارد شده باشید؛ از «بیشتر» یا هنگام رزرو نوبت وارد شوید.")
+                            UiMessage.info("برای ثبت نظر، از تب «بیشتر» وارد شوید")
                         )
                     }
                 },
@@ -156,7 +156,7 @@ fun ClientBusinessDetailScreen(
             else -> Column(Modifier.fillMaxSize()) {
                 TopBar(title = null, showDivider = false, onBack = onNavigateBack)
                 StateMessage(
-                    icon = Icons.Outlined.CloudOff,
+                    icon = Lucide.CloudOff,
                     title = "اطلاعات مرکز دریافت نشد",
                     body = state.errorMessage.orEmpty(),
                     actionLabel = "تلاش دوباره",
@@ -223,7 +223,7 @@ internal fun DetailContent(
                 showDivider = scroll.value > 0,
                 onBack = onBack,
                 actions = {
-                    IconButton(onClick = share) { Icon(Icons.Outlined.Share, contentDescription = "اشتراک‌گذاری") }
+                    IconButton(onClick = share) { Icon(Lucide.Share2, contentDescription = "اشتراک‌گذاری") }
                     SaveButton(state.isSaved, onToggleSave)
                 }
             )
@@ -246,7 +246,7 @@ internal fun DetailContent(
                     when {
                         business.canBookOnline -> Unit
                         business.isClaimed -> GroupCard(title = null, index = card++) {
-                            Notice(Icons.Outlined.Info, "نوبت‌دهی آنلاین فعلاً غیرفعال است. برای هماهنگی با مرکز تماس بگیرید.")
+                            Notice(Lucide.Info, "نوبت‌دهی آنلاین غیرفعال است؛ با مرکز تماس بگیرید.")
                         }
                         else -> GroupCard(title = null, index = card++) {
                             RequestOnlineSection(
@@ -262,7 +262,7 @@ internal fun DetailContent(
                         business.noticeMessage != BOOKING_BLOCKED_NOTICE
                     ) {
                         GroupCard(title = null, index = card++) {
-                            Notice(Icons.Outlined.Campaign, business.noticeMessage, tint = WarningColor)
+                            Notice(Lucide.Megaphone, business.noticeMessage, tint = WarningColor)
                         }
                     }
 
@@ -284,15 +284,15 @@ internal fun DetailContent(
                         val guestLocked = !state.isSignedIn && !business.allowAnonymousView && business.address.isBlank() && business.phone.isBlank()
                         if (guestLocked) {
                             LinkRow(
-                                Icons.Outlined.Lock,
-                                "آدرس و شمارهٔ تماس این مرکز فقط برای کاربران واردشده نمایش داده می‌شود",
+                                Lucide.Lock,
+                                "آدرس و تلفن فقط بعد از ورود نمایش داده می‌شود",
                                 subtitle = "ورود یا ثبت‌نام",
                                 tint = MaterialTheme.colorScheme.primary,
                                 onClick = onSignIn,
                             )
                         }
                         if (!guestLocked) LinkRow(
-                            Icons.Outlined.LocationOn,
+                            Lucide.MapPin,
                             business.address.ifBlank { "آدرس ثبت نشده" },
                             subtitle = if (lat != null && lng != null) "مسیریابی" else null,
                             tint = MaterialTheme.colorScheme.primary,
@@ -302,7 +302,7 @@ internal fun DetailContent(
                         phones.forEach { phone ->
                             Hairline(Modifier.padding(start = 52.dp, end = Space.lg))
                             LinkRow(
-                                Icons.Outlined.Call,
+                                Lucide.Phone,
                                 phone.toPersianDigits(),
                                 tint = MaterialTheme.colorScheme.primary,
                                 onClick = { openPhoneDial(phone) },
@@ -335,7 +335,7 @@ internal fun DetailContent(
                             if (!business.isClaimed) {
                                 Spacer(Modifier.height(Space.sm))
                                 Text(
-                                    "از منابع عمومی؛ پیش از مراجعه پذیرش بیمه را با مرکز چک کنید.",
+                                    "از منابع عمومی؛ قبل از مراجعه بیمه را چک کنید.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -353,7 +353,7 @@ internal fun DetailContent(
                     GroupCard(title = null, index = card++, bleed = {
                         if (!business.isClaimed) {
                             LinkRow(
-                                Icons.Outlined.Storefront,
+                                Lucide.Store,
                                 "صاحب این مرکز هستید؟",
                                 subtitle = "مالکیت صفحه را در اپ نوبت‌یار کسب‌وکار ثبت کنید",
                                 onClick = { openUrl(OWNER_LANDING_URL) },
@@ -361,9 +361,9 @@ internal fun DetailContent(
                             Hairline(Modifier.padding(start = 52.dp, end = Space.lg))
                         }
                         LinkRow(
-                            Icons.Outlined.Flag,
+                            Lucide.Flag,
                             "گزارش اطلاعات نادرست",
-                            subtitle = if (!business.isClaimed) "این صفحه از منابع عمومی گردآوری شده و ممکن است به‌روز نباشد" else null,
+                            subtitle = if (!business.isClaimed) "اطلاعات از منابع عمومی است و ممکن است قدیمی باشد" else null,
                             onClick = onReport,
                         )
                     })

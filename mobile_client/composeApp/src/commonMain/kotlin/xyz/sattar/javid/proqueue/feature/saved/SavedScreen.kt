@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.saved
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Bookmark
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,8 +15,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,9 +71,9 @@ fun SavedScreen(
             }
             state.businesses.isEmpty() -> item {
                 StateMessage(
-                    icon = Icons.Outlined.BookmarkBorder,
+                    icon = Lucide.Bookmark,
                     title = "هنوز مرکزی نشان نکرده‌اید",
-                    body = "با زدن علامت نشان کنار هر مرکز، آن را اینجا نگه دارید تا همیشه در دسترس باشد.",
+                    body = "مرکزها را با علامت نشان ذخیره کنید تا اینجا باشند.",
                     modifier = Modifier.padding(top = 60.dp)
                 )
             }

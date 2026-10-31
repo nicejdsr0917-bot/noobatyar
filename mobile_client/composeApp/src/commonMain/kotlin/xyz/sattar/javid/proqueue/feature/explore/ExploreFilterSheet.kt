@@ -1,5 +1,10 @@
 package xyz.sattar.javid.proqueue.feature.explore
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.ShieldPlus
+import com.composables.icons.lucide.Zap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,11 +15,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.HealthAndSafety
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -67,15 +67,15 @@ internal fun FilterSheet(
 
             FilterSection("نوبت‌دهی")
             Row(Modifier.padding(horizontal = Space.page), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                FilterChip(label = "فقط نوبت آنلاین", icon = Icons.Outlined.Bolt, selected = state.onlyOnline, onClick = onToggleOnline)
+                FilterChip(label = "فقط نوبت آنلاین", icon = Lucide.Zap, selected = state.onlyOnline, onClick = onToggleOnline)
             }
 
             FilterSection("بیمه")
             Row(Modifier.padding(horizontal = Space.page)) {
                 FilterChip(
                     label = state.selectedInsurance?.name ?: "همه بیمه‌ها",
-                    icon = Icons.Outlined.HealthAndSafety,
-                    trailingIcon = Icons.Outlined.ExpandMore,
+                    icon = Lucide.ShieldPlus,
+                    trailingIcon = Lucide.ChevronDown,
                     selected = state.insuranceSlug != null,
                     onClick = onOpenInsurance
                 )
@@ -142,7 +142,7 @@ internal fun InsuranceSheet(
                 Column(Modifier.padding(horizontal = Space.page, vertical = Space.sm)) {
                     Text("بیمه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        "مراکزی که این بیمه را اعلام کرده‌اند. پیش از مراجعه با مرکز هماهنگ کنید.",
+                        "مراکزی که این بیمه را اعلام کرده‌اند؛ قبل از مراجعه هماهنگ کنید.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -179,7 +179,7 @@ internal fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
-            if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            if (selected) Icon(Lucide.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

@@ -206,7 +206,7 @@ class BusinessSocialViewModel(
             _state.update { it.copy(isReportingReview = false) }
             when (res) {
                 is ApiResponse.Success -> {
-                    _messages.send(DetailMessage.Success("گزارش شما ثبت شد؛ تیم نوبت‌یار بررسی می‌کند"))
+                    _messages.send(DetailMessage.Success("گزارش ثبت شد؛ بررسی می‌کنیم"))
                     onDone()
                 }
                 is ApiResponse.Error -> _messages.send(DetailMessage.Error(res.message))

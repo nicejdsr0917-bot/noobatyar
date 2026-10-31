@@ -7,13 +7,13 @@ import xyz.sattar.javid.proqueue.feature.businessDetail.DEPOSIT_OPTIONAL
 
 /**
  * What the step indicator shows. Coarser than [BookingStep]: the one-time
- * sign-in screens belong to «تأیید», so a returning visitor and a new one see
+ * sign-in screens belong to «تایید», so a returning visitor and a new one see
  * the same few stages.
  */
 enum class BookingPhase(val label: String) {
     SERVICE("خدمت"),
     TIME("زمان"),
-    CONFIRM("تأیید"),
+    CONFIRM("تایید"),
     PAY("پرداخت"),
 }
 

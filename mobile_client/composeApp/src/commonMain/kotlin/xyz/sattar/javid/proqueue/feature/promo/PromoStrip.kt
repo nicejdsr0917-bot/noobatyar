@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.promo
 
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Tag
+import com.composables.icons.lucide.X
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -22,9 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -135,7 +135,7 @@ private fun StripBody(promo: PromoDto, shape: Shape, bottomPadding: Dp, onClick:
             Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(start = Space.lg, end = Space.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.LocalOffer, contentDescription = null, tint = primary, modifier = Modifier.size(18.dp))
+            Icon(Lucide.Tag, contentDescription = null, tint = primary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(Space.sm))
             Text(
                 promo.text,
@@ -163,7 +163,7 @@ private fun StripBody(promo: PromoDto, shape: Shape, bottomPadding: Dp, onClick:
                     .graphicsLayer { alpha = 0.7f },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.Close, contentDescription = "بستن", modifier = Modifier.size(16.dp))
+                Icon(Lucide.X, contentDescription = "بستن", modifier = Modifier.size(16.dp))
             }
         }
     }
