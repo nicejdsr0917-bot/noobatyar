@@ -220,9 +220,9 @@ fun ExploreMap(
             b to GeoPoint(lat, lng).toNormalized()
         }
     }
-    // The area the user chose: a city shows its own radius, "near me" and the radius
-    // chips show theirs. A point picked on the map keeps the camera where the user put it.
-    val areaCenter = area.takeIf { it !is SearchArea.Picked }?.latitude?.let { GeoPoint(it, area.longitude!!) }
+    // The area the user chose: a city shows its own radius; "near me", a point picked
+    // on the map and the radius chips show theirs.
+    val areaCenter = area.latitude?.let { GeoPoint(it, area.longitude!!) }
     val areaRadiusKm = (area as? SearchArea.City)?.radiusKm ?: radiusKm
     val fitsArea = areaCenter != null
     val me = (area as? SearchArea.NearMe)?.let { GeoPoint(it.latitude, it.longitude).toNormalized() }
@@ -257,8 +257,8 @@ fun ExploreMap(
                 BusinessPin(business, selected = selectedId.value == business.id)
             }
         }
-        // A chosen area already placed the camera (below), and so did a picked point.
-        if (picked == null && !fitsArea) {
+        // A chosen area places the camera itself (below); only the whole directory fits to its pins.
+        if (!fitsArea) {
             fitCamera(state, placed.map { it.second } + listOfNotNull(me), fraction)
         }
         userMoved = false
@@ -286,7 +286,7 @@ fun ExploreMap(
     // businesses load in the list and show up as pins.
     LaunchedEffect(areaCenter, areaRadiusKm) {
         val c = areaCenter ?: return@LaunchedEffect
-        fitCamera(state, circlePoints(c, areaRadiusKm), fraction)
+        fitArea(state, c, areaRadiusKm, fraction)
         userMoved = false
     }
 

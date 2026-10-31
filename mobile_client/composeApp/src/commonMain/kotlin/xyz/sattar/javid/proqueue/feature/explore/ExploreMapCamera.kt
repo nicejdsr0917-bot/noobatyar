@@ -89,3 +89,27 @@ internal suspend fun fitCamera(
     )
     state.scrollTo(box, animationSpec = tween(450))
 }
+
+/**
+ * Zooms onto a chosen area: the ring of [radiusKm] around [center] fills the strip the
+ * sheet leaves uncovered, with only a thin margin (no pins to leave room for).
+ */
+internal suspend fun fitArea(state: MapState, center: GeoPoint, radiusKm: Double, visibleFraction: Float) {
+    val ring = circlePoints(center, radiusKm)
+    val left = ring.minOf { it.first }
+    val right = ring.maxOf { it.first }
+    val top = ring.minOf { it.second }
+    val bottom = ring.maxOf { it.second }
+    val w = right - left
+    val h = bottom - top
+    val margin = 0.08
+    val yTop = top - h * margin
+    val visibleHeight = h * (1 + 2 * margin)
+    val box = BoundingBox(
+        xLeft = left - w * margin,
+        yTop = yTop,
+        xRight = right + w * margin,
+        yBottom = yTop + visibleHeight / visibleFraction.coerceIn(0.2f, 1f),
+    )
+    state.scrollTo(box, animationSpec = tween(450))
+}
