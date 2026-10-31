@@ -43,7 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import xyz.sattar.javid.proqueue.core.ui.components.ShimmerBox
-import xyz.sattar.javid.proqueue.core.utils.openMap
+import xyz.sattar.javid.proqueue.core.location.rememberDirections
 import xyz.sattar.javid.proqueue.core.utils.openPhoneDial
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.discovery.BackIcon
@@ -90,6 +90,7 @@ internal fun TopBar(
  */
 @Composable
 internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(business: Business, onBook: () -> Unit, signedIn: Boolean = true) {
+    val directions = rememberDirections()
     val canBook = business.canBookOnline
     val canCall = business.phone.isNotBlank()
     if (!canBook && !canCall) return
@@ -119,7 +120,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(busines
             if (lat != null && lng != null) {
                 Spacer(Modifier.width(Space.sm))
                 OutlinedButton(
-                    onClick = { openMap(lat, lng, business.title) },
+                    onClick = { directions(lat, lng, business.title) },
                     shape = Radius.md,
                     contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.size(48.dp)

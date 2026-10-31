@@ -33,7 +33,7 @@ import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
-import xyz.sattar.javid.proqueue.core.utils.openMap
+import xyz.sattar.javid.proqueue.core.location.rememberDirections
 import xyz.sattar.javid.proqueue.core.utils.openPhoneDial
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.discovery.BusinessAvatar
@@ -100,6 +100,7 @@ internal fun Identity(business: Business) {
 
 @Composable
 internal fun ActionRow(business: Business, onShare: () -> Unit) {
+    val directions = rememberDirections()
     val lat = business.latitude
     val lng = business.longitude
     Row(
@@ -110,7 +111,7 @@ internal fun ActionRow(business: Business, onShare: () -> Unit) {
             openPhoneDial(business.phone)
         }
         ActionButton(Lucide.Navigation, "مسیریابی", lat != null && lng != null, Modifier.weight(1f)) {
-            if (lat != null && lng != null) openMap(lat, lng, business.title)
+            if (lat != null && lng != null) directions(lat, lng, business.title)
         }
         ActionButton(Lucide.Share2, "اشتراک", true, Modifier.weight(1f), onShare)
     }

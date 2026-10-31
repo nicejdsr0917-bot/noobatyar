@@ -12,7 +12,7 @@ import com.composables.icons.lucide.Share2
 import com.composables.icons.lucide.Store
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import xyz.sattar.javid.proqueue.core.utils.openMap
+import xyz.sattar.javid.proqueue.core.location.rememberDirections
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -210,6 +210,7 @@ internal fun DetailContent(
     onOpenMap: () -> Unit = {},
     onSignIn: () -> Unit = {},
 ) {
+    val directions = rememberDirections()
     // Only for sharing: booking itself happens in the app, never on the site.
     val booking = bookingUrl(business)
     val scroll = rememberScrollState()
@@ -296,7 +297,7 @@ internal fun DetailContent(
                             business.address.ifBlank { "آدرس ثبت نشده" },
                             subtitle = if (lat != null && lng != null) "مسیریابی" else null,
                             tint = MaterialTheme.colorScheme.primary,
-                            onClick = if (lat != null && lng != null) ({ openMap(lat, lng, business.title) }) else null,
+                            onClick = if (lat != null && lng != null) ({ directions(lat, lng, business.title) }) else null,
                         )
                         val phones = (listOf(business.phone) + business.extraPhones).filter { it.isNotBlank() }
                         phones.forEach { phone ->

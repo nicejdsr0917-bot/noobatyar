@@ -60,7 +60,7 @@ import xyz.sattar.javid.proqueue.core.utils.AppConfig
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyHost
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
-import xyz.sattar.javid.proqueue.core.utils.openMap
+import xyz.sattar.javid.proqueue.core.location.rememberDirections
 import xyz.sattar.javid.proqueue.core.utils.openPhoneDial
 import xyz.sattar.javid.proqueue.core.utils.rememberReducedMotion
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.ClientAppointmentDto
@@ -202,6 +202,7 @@ private fun Slip(
     onCancel: () -> Unit,
     onZoomReceipt: (String) -> Unit,
 ) {
+    val directions = rememberDirections()
     val business = remember(apt.business) { apt.business.toDomain() }
     val now = Clock.System.now().toEpochMilliseconds()
     Column(Modifier.fillMaxSize()) {
@@ -277,7 +278,7 @@ private fun Slip(
                     "آدرس",
                     address ?: "ثبت نشده",
                     accent = address != null && lat != null && lng != null,
-                    onClick = if (lat != null && lng != null) ({ openMap(lat, lng, business.title) }) else null,
+                    onClick = if (lat != null && lng != null) ({ directions(lat, lng, business.title) }) else null,
                 )
                 val phone = apt.business.phone?.takeIf { it.isNotBlank() }
                 Field(

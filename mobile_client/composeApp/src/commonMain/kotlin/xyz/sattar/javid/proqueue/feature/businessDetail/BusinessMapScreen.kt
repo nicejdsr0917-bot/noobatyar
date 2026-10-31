@@ -90,7 +90,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.map.mapBackground
 import xyz.sattar.javid.proqueue.core.ui.components.map.newTileMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.scaleForZoom
 import xyz.sattar.javid.proqueue.core.ui.components.map.toNormalized
-import xyz.sattar.javid.proqueue.core.utils.openMap
+import xyz.sattar.javid.proqueue.core.location.rememberDirections
 import xyz.sattar.javid.proqueue.core.utils.rememberReducedMotion
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.booking.LocalReducedMotion
@@ -488,6 +488,7 @@ private fun BottomCard(
     onOpenBusiness: (Long) -> Unit,
     modifier: Modifier,
 ) {
+    val directions = rememberDirections()
     Column(modifier.fillMaxWidth()) {
         MapAttribution(Modifier.padding(start = Space.md, bottom = Space.sm))
         // Tucked behind the card's rounded top, like a ride app's offer bar.
@@ -524,7 +525,7 @@ private fun BottomCard(
                     val lat = business.latitude
                     val lng = business.longitude
                     Button(
-                        onClick = { if (lat != null && lng != null) openMap(lat, lng, business.title) },
+                        onClick = { if (lat != null && lng != null) directions(lat, lng, business.title) },
                         shape = Radius.md,
                         modifier = Modifier.weight(1f).height(48.dp),
                     ) {
