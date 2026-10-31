@@ -20,6 +20,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -74,6 +80,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.map.DisposeMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
 import xyz.sattar.javid.proqueue.core.ui.components.map.MapAttribution
 import xyz.sattar.javid.proqueue.core.ui.components.map.MapTiles
+import ovh.plrapps.mapcompose.ui.state.MapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.applyTileTint
 import xyz.sattar.javid.proqueue.core.ui.components.map.geoPointFromNormalized
 import xyz.sattar.javid.proqueue.core.ui.components.map.mapBackground
@@ -87,6 +94,44 @@ import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 internal const val ME_MARKER = "me"
 internal const val CLUSTERER = "results"
 internal const val RADIUS_PATH = "radius"
+internal const val AREA_LOGO_MARKER = "area-logo"
+
+/** The area's mark is this share of the ring's diameter, and barely there. */
+private const val AREA_LOGO_SHARE = 0.5f
+private const val AREA_LOGO_ALPHA = 0.10f
+private const val WORLD_PX = MapTiles.TILE_SIZE.toDouble() * (1 shl MapTiles.MAX_ZOOM)
+
+@Composable
+private fun AreaLogo(state: MapState, center: GeoPoint, radiusKm: Double) {
+    val density = LocalDensity.current.density
+    // Kilometres to the map's own pixels: the world is WORLD_PX wide at scale 1.
+    val kmPerWorld = 40_075.0 * kotlin.math.cos(center.latitude * kotlin.math.PI / 180.0)
+    val diameterPx = radiusKm * 2 / kmPerWorld * WORLD_PX * state.scale
+    val size = (diameterPx / density * AREA_LOGO_SHARE).toFloat().coerceIn(32f, 1_200f).dp
+    NoobatyarMark(MaterialTheme.colorScheme.primary.copy(alpha = AREA_LOGO_ALPHA), Modifier.size(size))
+}
+
+/**
+ * The brand mark drawn as lines (an open ring, a tick and a dot), so a faint tint
+ * of it reads as a watermark; the app icon is a solid square and would show as one.
+ */
+@Composable
+private fun NoobatyarMark(color: Color, modifier: Modifier) {
+    Canvas(modifier) {
+        val s = size.minDimension
+        val c = Offset(s / 2, s / 2)
+        val stroke = Stroke(width = s * 0.07f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val r = s * 0.37f
+        drawArc(color, startAngle = -68f, sweepAngle = 316f, useCenter = false, topLeft = Offset(c.x - r, c.y - r), size = Size(2 * r, 2 * r), style = stroke)
+        val tick = Path().apply {
+            moveTo(c.x - s * 0.186f, c.y + s * 0.029f)
+            lineTo(c.x - s * 0.057f, c.y + s * 0.157f)
+            lineTo(c.x + s * 0.2f, c.y - s * 0.1f)
+        }
+        drawPath(tick, color, style = stroke)
+        drawCircle(color, radius = s * 0.045f, center = Offset(c.x, c.y - s * 0.4f))
+    }
+}
 
 /** Smallest box the camera fits to, in normalized units (≈ 2 km): one pin
  *  alone shouldn't zoom the map down to the building. */
@@ -175,11 +220,23 @@ fun ExploreMap(
             b to GeoPoint(lat, lng).toNormalized()
         }
     }
+    // The area the user chose: a city shows its own radius, "near me" and the radius
+    // chips show theirs. A point picked on the map keeps the camera where the user put it.
+    val areaCenter = area.takeIf { it !is SearchArea.Picked }?.latitude?.let { GeoPoint(it, area.longitude!!) }
+    val areaRadiusKm = (area as? SearchArea.City)?.radiusKm ?: radiusKm
+    val fitsArea = areaCenter != null
     val me = (area as? SearchArea.NearMe)?.let { GeoPoint(it.latitude, it.longitude).toNormalized() }
     val picked = (area as? SearchArea.Picked)?.let { GeoPoint(it.latitude, it.longitude).toNormalized() }
 
-    LaunchedEffect(placed, me, picked) {
+    LaunchedEffect(placed, me, picked, areaCenter, areaRadiusKm) {
         state.removeAllMarkers()
+        // The area carries a faint Noobatyar mark, sized to the ring so it grows with the zoom.
+        areaCenter?.let { c ->
+            val (x, y) = c.toNormalized()
+            state.addMarker(AREA_LOGO_MARKER, x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = -1f) {
+                AreaLogo(state, c, areaRadiusKm)
+            }
+        }
         me?.let { (x, y) ->
             state.addMarker(ME_MARKER, x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = 0f) {
                 MyLocationDot()
@@ -200,8 +257,8 @@ fun ExploreMap(
                 BusinessPin(business, selected = selectedId.value == business.id)
             }
         }
-        // A picked point already has the camera where the user wants it.
-        if (picked == null) {
+        // A chosen area already placed the camera (below), and so did a picked point.
+        if (picked == null && !fitsArea) {
             fitCamera(state, placed.map { it.second } + listOfNotNull(me), fraction)
         }
         userMoved = false
@@ -210,7 +267,8 @@ fun ExploreMap(
     // The search area as a soft ring: what "۱۰ کیلومتر" means, drawn on the map.
     val ringColor = MaterialTheme.colorScheme.primary
     val center = area.latitude?.let { GeoPoint(it, area.longitude!!) }
-    LaunchedEffect(center, radiusKm, ringColor) {
+    val ringKm = areaRadiusKm
+    LaunchedEffect(center, ringKm, ringColor) {
         state.removePath(RADIUS_PATH)
         center ?: return@LaunchedEffect
         state.addPath(
@@ -220,8 +278,16 @@ fun ExploreMap(
             width = 2.dp,
             color = ringColor.copy(alpha = 0.55f),
         ) {
-            addPoints(circlePoints(center, radiusKm))
+            addPoints(circlePoints(center, ringKm))
         }
+    }
+
+    // Choosing an area (a city, "near me", another radius) zooms the map onto it; its
+    // businesses load in the list and show up as pins.
+    LaunchedEffect(areaCenter, areaRadiusKm) {
+        val c = areaCenter ?: return@LaunchedEffect
+        fitCamera(state, circlePoints(c, areaRadiusKm), fraction)
+        userMoved = false
     }
 
     // The selected pin draws over its neighbours, never folds into a cluster,
