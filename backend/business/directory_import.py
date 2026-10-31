@@ -21,6 +21,7 @@ import os
 import re
 from collections import Counter
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -186,6 +187,29 @@ class ImportReport:
         return self.duplicates + self.invalid
 
 
+@lru_cache(maxsize=1)
+def _city_index():
+    index = {}
+    for city_id, city in cities_by_id().items():
+        index.setdefault(_plain(city['name']), []).append((city_id, _plain(city['province'])))
+    return index
+
+
+def _match_city(index, city, province):
+    matches = index.get(_plain(city), [])
+    if len(matches) == 1:
+        return matches[0][0]
+    for city_id, prov in matches:
+        if province and _plain(province) == prov:
+            return city_id
+    return matches[0][0] if matches and not province else None
+
+
+def city_code_for(city, province=''):
+    """The city's id in ``iran_cities.json`` from its name (the province tells same-named cities apart), or None."""
+    return _match_city(_city_index(), city, province) if city else None
+
+
 class _Lookups:
     """Everything a row is matched against, loaded once."""
 
@@ -203,22 +227,14 @@ class _Lookups:
         self.category_by_code = {code.upper(): code for code, _ in choices}
         self.category_by_label = {_plain(label): code for code, label in choices}
 
-        self.cities = {}
-        for city_id, city in cities_by_id().items():
-            self.cities.setdefault(_plain(city['name']), []).append((city_id, _plain(city['province'])))
+        self.cities = _city_index()
 
     def category(self, raw):
         raw = str(raw or '').strip()
         return self.category_by_code.get(raw.upper()) or self.category_by_label.get(_plain(raw))
 
     def city_code(self, city, province):
-        matches = self.cities.get(_plain(city), [])
-        if len(matches) == 1:
-            return matches[0][0]
-        for city_id, prov in matches:
-            if province and _plain(province) == prov:
-                return city_id
-        return matches[0][0] if matches and not province else None
+        return _match_city(self.cities, city, province)
 
 
 def get_system_user():

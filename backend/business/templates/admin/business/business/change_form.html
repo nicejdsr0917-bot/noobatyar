@@ -1,0 +1,21 @@
+{% extends "admin/change_form.html" %}
+
+{% comment %} ---------------------------------------------------------------------------
+  The add page points at the bulk path: someone with a list of centres should not
+  type them in one at a time. `import_file_url` / `is_add_form` come from
+  BusinessAdmin.changeform_view().
+--------------------------------------------------------------------------- {% endcomment %}
+
+{% block form_top %}
+  {{ block.super }}
+  {% if is_add_form %}
+    <div class="module" style="padding:12px 16px;margin-block-end:16px">
+      <strong>چند مرکز دارید؟</strong>
+      به‌جای ثبت تک‌به‌تک، فایل CSV را
+      <a href="{{ import_file_url }}"><strong>از فایل وارد کنید</strong></a>.
+      <div class="help" style="margin-block-start:4px">
+        مرکزی که اینجا ثبت می‌کنید هم، تا صاحب نداشته باشد، بدون تیک نوبت‌یار و بدون رزرو می‌ماند و صاحبش کاربر سیستمی است.
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

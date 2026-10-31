@@ -19,6 +19,7 @@ from django.db.models import F
 from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html
 from django.views.decorators.http import require_POST
@@ -188,6 +189,62 @@ class BusinessAdmin(_BulkConfirmMixin, ModelAdmin):
             ),
         ]
         return custom + super().get_urls()
+
+    # ── Adding by hand ────────────────────────────────────────────────────
+
+    FORM_LABELS = {
+        'province': 'استان',
+        'city': 'شهر',
+        'neighborhood': 'محله',
+        'is_claimed': 'ثبت‌شده توسط صاحب (تیک نوبت‌یار)',
+    }
+
+    def get_changeform_initial_data(self, request):
+        """A listing added here has no owner yet: it belongs to the system user and
+        is unclaimed (no tick, booking off) until someone claims it."""
+        initial = super().get_changeform_initial_data(request)
+        initial.setdefault('user', directory_import.get_system_user().pk)
+        initial.setdefault('is_claimed', False)
+        initial.setdefault('booking_enabled', False)
+        # Required on the model but pointless to ask for a listing: the same defaults the import uses.
+        initial.setdefault('default_service_duration', 30)
+        initial.setdefault('work_start_hour', 9)
+        initial.setdefault('work_end_hour', 18)
+        return initial
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        for name, label in self.FORM_LABELS.items():
+            if name in form.base_fields:
+                form.base_fields[name].label = label
+        if 'user' in form.base_fields and obj is None:
+            form.base_fields['user'].help_text = (
+                'برای مرکزی که صاحبش را ندارید، «بانک اطلاعاتی نوبت‌یار» بماند؛ بعداً با ادعای مالکیت منتقل می‌شود.'
+            )
+        if 'phone' in form.base_fields:
+            # A directory listing often has no number; the client then shows no call button.
+            form.base_fields['phone'].required = False
+        if 'city_code' in form.base_fields:
+            form.base_fields['city_code'].help_text = 'خالی بگذارید تا از نام شهر تعیین شود.'
+        return form
+
+    def save_model(self, request, obj, form, change):
+        if obj.city and not obj.city_code:
+            obj.city_code = directory_import.city_code_for(obj.city, obj.province)
+        if not change and not obj.is_claimed:
+            # Moderation exists for what owners type; a listing the staff adds
+            # is already vetted, and would otherwise wait in the queue, unseen.
+            obj.moderation_status = Business.MODERATION_APPROVED
+            obj.first_approved_at = timezone.now()
+        super().save_model(request, obj, form, change)
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['import_file_url'] = reverse(
+            'admin:business_business_import_file', current_app=self.admin_site.name
+        )
+        extra_context['is_add_form'] = object_id is None
+        return super().changeform_view(request, object_id, form_url, extra_context)
 
     def changelist_view(self, request, extra_context=None):
         # Feeds the "صف بررسی" button in the overridden change_list template.

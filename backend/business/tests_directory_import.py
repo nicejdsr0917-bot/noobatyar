@@ -128,3 +128,38 @@ class ImportAdminPageTests(TestCase):
     def test_needs_staff(self):
         self.client.logout()
         self.assertEqual(self.client.get(self.url).status_code, 302)
+
+
+class AdminAddFormTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_superuser(phone='09120000398', password='x', name='ادمین')
+        self.client.force_login(self.staff)
+        self.add_url = reverse('admin:business_business_add')
+
+    def test_add_page_links_to_the_import_and_defaults_to_the_system_user(self):
+        page = self.client.get(self.add_url)
+        self.assertContains(page, reverse('admin:business_business_import_file'))
+        system = User.objects.get(phone=directory_import.SYSTEM_USER_PHONE)
+        self.assertEqual(page.context['adminform'].form.initial['user'], system.pk)
+        self.assertFalse(page.context['adminform'].form.initial['is_claimed'])
+
+    def test_a_listing_added_by_hand_is_public_with_its_city_code(self):
+        # What the browser would post: the form's own initial values, plus what the person typed.
+        page = self.client.get(self.add_url)
+        form = page.context['adminform'].form
+        data = {name: form[name].value() for name in form.fields
+                if form[name].value() is not None and form[name].value() is not False}
+        data.update({'title': 'مطب دستی', 'category': 'DENTIST', 'phone': '', 'address': 'خ ۱', 'city': 'اصفهان'})
+        data.pop('is_claimed', None)
+        for inline in page.context['inline_admin_formsets']:
+            management = inline.formset.management_form
+            data.update({management.add_prefix(n): management[n].value() for n in management.fields})
+        response = self.client.post(self.add_url, data)
+        if response.status_code == 200:
+            self.fail(response.context['adminform'].form.errors.as_text())
+        biz = Business.objects.get(title='مطب دستی')
+        self.assertFalse(biz.is_claimed)
+        self.assertEqual(biz.phone, '')
+        self.assertEqual(biz.moderation_status, Business.MODERATION_APPROVED)
+        self.assertEqual(biz.city_code, 4)
+        self.assertIsNone(biz.latitude)
