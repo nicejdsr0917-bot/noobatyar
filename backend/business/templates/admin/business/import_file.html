@@ -1,0 +1,108 @@
+{% extends "admin/base_site.html" %}
+
+{% comment %} ---------------------------------------------------------------------------
+  «ورود از فایل»: upload a spreadsheet of businesses, see what would happen
+  (nothing is saved at this step), then confirm. The checked file is kept on the
+  server under `token`, so confirming imports exactly what was shown.
+--------------------------------------------------------------------------- {% endcomment %}
+
+{% block content %}
+<div id="content-main" style="max-width:960px">
+
+  <p>
+    مراکز واردشده <strong>بدون تیک نوبت‌یار و بدون رزرو</strong> ثبت می‌شوند و صاحبشان کاربر سیستمی است.
+    بعداً هر مرکز با «ادعای مالکیت» به صاحب واقعی منتقل می‌شود و لینک و جایگاهش در جستجو می‌ماند.
+  </p>
+
+  {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
+
+  {% if report %}
+    <h2>نتیجهٔ بررسی «{{ file_name }}» <small style="color:var(--body-quiet-color)">(هنوز چیزی ثبت نشده)</small></h2>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-block:12px">
+      <div class="module" style="padding:12px 18px"><strong style="font-size:24px">{{ report.created }}</strong><br>مرکز جدید</div>
+      <div class="module" style="padding:12px 18px"><strong style="font-size:24px">{{ report.duplicates }}</strong><br>تکراری (رد می‌شود)</div>
+      <div class="module" style="padding:12px 18px"><strong style="font-size:24px">{{ report.invalid }}</strong><br>نامعتبر (رد می‌شود)</div>
+      <div class="module" style="padding:12px 18px"><strong style="font-size:24px">{{ report.total }}</strong><br>کل ردیف‌ها</div>
+    </div>
+
+    {% if report.warning_list %}
+      <h3>نکته‌ها (این مراکز ثبت می‌شوند، ولی ناقص‌اند)</h3>
+      <ul>
+        {% for text, count in report.warning_list %}<li>{{ count }} مرکز: {{ text }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if report.problems %}
+      <h3>ردیف‌های نامعتبر</h3>
+      <table style="width:100%">
+        <thead><tr><th>ردیف</th><th>نام</th><th>دلیل</th></tr></thead>
+        <tbody>
+          {% for number, title, reason in report.problems %}
+            <tr><td>{{ number }}</td><td>{{ title|default:"—" }}</td><td>{{ reason }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% if report.samples %}
+      <h3>نمونهٔ مراکزی که ثبت می‌شوند</h3>
+      <table style="width:100%">
+        <thead><tr><th>نام</th><th>شهر</th><th>صنف</th><th>نکته‌ها</th></tr></thead>
+        <tbody>
+          {% for title, city, category, notes in report.samples %}
+            <tr>
+              <td>{{ title }}</td><td>{{ city }}</td><td>{{ category }}</td>
+              <td style="color:var(--body-quiet-color)">{{ notes|join:"، " }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    <form method="post" style="margin-block:20px">
+      {% csrf_token %}
+      <input type="hidden" name="token" value="{{ token }}">
+      <label for="id_source"><strong>نام دسته (منبع)</strong></label>
+      <p class="help" style="margin-block:4px">برای شناختن و گروه‌بندی این مراکز بعداً؛ مثلاً «سازمان نظام پزشکی ۱۴۰۵».</p>
+      <input id="id_source" type="text" name="source" value="{{ source }}" maxlength="100" style="width:100%;max-width:420px">
+      <div class="submit-row" style="margin-block-start:16px">
+        {% if report.created %}
+          <input type="submit" value="ثبت {{ report.created }} مرکز" class="default">
+        {% else %}
+          <span>مرکز جدیدی برای ثبت نیست.</span>
+        {% endif %}
+        <a href="{% url 'admin:business_business_import_file' %}">فایل دیگر</a>
+      </div>
+    </form>
+    <hr>
+  {% endif %}
+
+  <h2>{% if report %}بارگذاری فایل دیگر{% else %}بارگذاری فایل{% endif %}</h2>
+  <form method="post" enctype="multipart/form-data" style="margin-block:12px">
+    {% csrf_token %}
+    <p><input type="file" name="file" accept=".csv,.json,.jsonl" required></p>
+    <p class="help">CSV (در اکسل: Save As ← CSV UTF-8)، JSON یا JSONL، تا ۲۰ مگابایت.</p>
+    <div class="submit-row"><input type="submit" value="بررسی فایل" class="default"></div>
+  </form>
+
+  <p><a href="{{ template_url }}">دانلود فایل نمونه (CSV)</a></p>
+
+  <h2>ستون‌ها</h2>
+  <p class="help">سرستون هر ستون را با همین نام فارسی یا نام انگلیسی‌اش (title، city، …) بنویسید. ترتیب مهم نیست.</p>
+  <table style="width:100%">
+    <thead><tr><th>ستون</th><th>الزامی</th><th>توضیح</th></tr></thead>
+    <tbody>
+      {% for name, required, note in columns %}
+        <tr><td>{{ name }}</td><td>{% if required %}بله{% else %}—{% endif %}</td><td>{{ note }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <details style="margin-block:16px">
+    <summary>صنف‌های قابل قبول ({{ categories|length }})</summary>
+    <p>{{ categories|join:"، " }}</p>
+  </details>
+
+</div>
+{% endblock %}

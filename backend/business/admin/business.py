@@ -1,9 +1,20 @@
 """BusinessAdmin: the moderation review queue and bulk decisions (see package docstring)."""
 
+import csv as _csv
+import json as _json
+import re
+import time
+import uuid
+from pathlib import Path
+
 from api.jalali import format_datetime
+from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db import transaction
+from django.http import HttpResponse
+from django.shortcuts import redirect
 from django.db.models import F
 from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
@@ -12,7 +23,7 @@ from django.utils.decorators import method_decorator
 from django.utils.html import format_html
 from django.views.decorators.http import require_POST
 from unfold.admin import ModelAdmin, TabularInline
-from .. import moderation
+from .. import directory_import, moderation
 from ..models import BannedKeyword, Business, BusinessModerationLog
 from ..services import apply_bulk_moderation_decision, apply_moderation_decision
 from ._common import QUEUE_PAGE_SIZE, MODERATED_FIELD_LABELS, _STATUS_BADGE, _badge, _highlight, _safe_redirect, _BulkConfirmMixin
@@ -165,6 +176,16 @@ class BusinessAdmin(_BulkConfirmMixin, ModelAdmin):
                 self.admin_site.admin_view(self.moderation_decide_view),
                 name='business_business_moderation_decide',
             ),
+            path(
+                'import-file/',
+                self.admin_site.admin_view(self.import_file_view),
+                name='business_business_import_file',
+            ),
+            path(
+                'import-file/template.csv',
+                self.admin_site.admin_view(self.import_template_view),
+                name='business_business_import_template',
+            ),
         ]
         return custom + super().get_urls()
 
@@ -174,10 +195,132 @@ class BusinessAdmin(_BulkConfirmMixin, ModelAdmin):
         extra_context['moderation_pending_count'] = Business.objects.filter(
             moderation_status=Business.MODERATION_PENDING
         ).count()
+        extra_context['import_file_url'] = reverse(
+            'admin:business_business_import_file', current_app=self.admin_site.name
+        )
         extra_context['moderation_queue_url'] = reverse(
             'admin:business_business_moderation_queue', current_app=self.admin_site.name
         )
         return super().changelist_view(request, extra_context)
+
+    # ── Import from a file ────────────────────────────────────────────────
+
+    IMPORT_MAX_BYTES = 20 * 1024 * 1024
+    IMPORT_KEEP_SECONDS = 24 * 3600
+
+    @staticmethod
+    def _import_dir():
+        path = Path(settings.MEDIA_ROOT) / 'tmp_imports'
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _drop_old_imports(self):
+        cutoff = time.time() - self.IMPORT_KEEP_SECONDS
+        for f in self._import_dir().iterdir():
+            if f.is_file() and f.stat().st_mtime < cutoff:
+                f.unlink(missing_ok=True)
+
+    def import_template_view(self, request):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        response = HttpResponse(directory_import.template_csv(), content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="directory-template.csv"'
+        return response
+
+    def import_file_view(self, request):
+        """Upload → check (nothing saved) → confirm. The checked file is kept
+        server-side under a token, so confirming imports exactly what was shown."""
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+
+        context = {
+            **self.admin_site.each_context(request),
+            'title': 'ورود از فایل',
+            'opts': self.model._meta,
+            'template_url': reverse('admin:business_business_import_template', current_app=self.admin_site.name),
+            'columns': [
+                ('نام', True, 'نام مرکز'),
+                ('شهر', True, 'برای نمایش در فهرست شهر و تشخیص کد شهر'),
+                ('صنف', False, 'نام فارسی یا کد صنف؛ ناشناخته یعنی «سایر»'),
+                ('استان', False, 'برای شهرهای هم‌نام'),
+                ('محله', False, ''),
+                ('آدرس', False, 'خالی باشد از شهر و محله ساخته می‌شود'),
+                ('تلفن', False, 'بدون تلفن هم ثبت می‌شود (دکمه تماس نمایش داده نمی‌شود)'),
+                ('عرض جغرافیایی / طول جغرافیایی', False, 'هر دو یا هیچ‌کدام؛ بدون آن‌ها روی نقشه نمی‌آید'),
+                ('خدمات', False, 'با ویرگول جدا شود'),
+                ('بیمه‌ها', False, 'نام بیمه، با ویرگول جدا شود'),
+                ('معرفی', False, ''),
+            ],
+            'categories': [label for _code, label in Business.CATEGORY_CHOICES],
+        }
+
+        if request.method == 'POST':
+            token = request.POST.get('token', '')
+            source = (request.POST.get('source') or '').strip()[:100]
+            if token:
+                return self._import_confirm(request, token, source, context)
+            return self._import_preview(request, source, context)
+        return TemplateResponse(request, 'admin/business/import_file.html', context)
+
+    def _import_preview(self, request, source, context):
+        upload = request.FILES.get('file')
+        if upload is None:
+            context['error'] = 'فایلی انتخاب نشده است.'
+            return TemplateResponse(request, 'admin/business/import_file.html', context)
+        ext = Path(upload.name).suffix.lower()
+        if ext not in directory_import.READERS:
+            context['error'] = 'فقط فایل CSV، JSON یا JSONL پذیرفته می‌شود. در اکسل: Save As ← CSV UTF-8.'
+            return TemplateResponse(request, 'admin/business/import_file.html', context)
+        if upload.size > self.IMPORT_MAX_BYTES:
+            context['error'] = 'حجم فایل بیشتر از ۲۰ مگابایت است؛ آن را به چند فایل تقسیم کنید.'
+            return TemplateResponse(request, 'admin/business/import_file.html', context)
+
+        self._drop_old_imports()
+        token = uuid.uuid4().hex
+        path = self._import_dir() / f'{token}{ext}'
+        with open(path, 'wb') as out:
+            for chunk in upload.chunks():
+                out.write(chunk)
+        try:
+            report = directory_import.run_import(
+                directory_import.read_rows(path), source or Path(upload.name).stem, dry_run=True,
+            )
+        except (ValueError, UnicodeDecodeError, _csv.Error, _json.JSONDecodeError) as exc:
+            path.unlink(missing_ok=True)
+            context['error'] = f'فایل خوانده نشد: {exc}'
+            return TemplateResponse(request, 'admin/business/import_file.html', context)
+
+        context.update({
+            'report': report,
+            'token': token,
+            'source': source or Path(upload.name).stem[:100],
+            'file_name': upload.name,
+        })
+        return TemplateResponse(request, 'admin/business/import_file.html', context)
+
+    def _import_confirm(self, request, token, source, context):
+        match = re.fullmatch(r'[0-9a-f]{32}', token)
+        path = next(self._import_dir().glob(f'{token}.*'), None) if match else None
+        if path is None:
+            context['error'] = 'این فایل دیگر در دسترس نیست؛ دوباره آن را بارگذاری کنید.'
+            return TemplateResponse(request, 'admin/business/import_file.html', context)
+        try:
+            with transaction.atomic():
+                report = directory_import.run_import(directory_import.read_rows(path), source or 'directory_import')
+        except (ValueError, UnicodeDecodeError, _csv.Error, _json.JSONDecodeError) as exc:
+            context['error'] = f'فایل خوانده نشد: {exc}'
+            return TemplateResponse(request, 'admin/business/import_file.html', context)
+        finally:
+            path.unlink(missing_ok=True)
+
+        messages.success(
+            request,
+            f'{report.created} مرکز ثبت شد (منبع: {source or "directory_import"}). '
+            f'{report.duplicates} تکراری و {report.invalid} ردیف نامعتبر رد شد.',
+        )
+        return redirect(
+            reverse('admin:business_business_changelist', current_app=self.admin_site.name) + '?is_claimed__exact=0'
+        )
 
     # ── The review queue ──────────────────────────────────────────────────
 
