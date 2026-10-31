@@ -162,7 +162,10 @@ class ExploreViewModel(
 
     fun selectCategory(group: CategoryGroup) {
         if (group == _state.value.category) return
-        _state.update { it.copy(category = group) }
+        // A filter the new category does not have must not stay on, unseen.
+        _state.update {
+            it.copy(category = group, insuranceSlug = it.insuranceSlug.takeIf { group.supportsInsurance })
+        }
         search()
     }
 

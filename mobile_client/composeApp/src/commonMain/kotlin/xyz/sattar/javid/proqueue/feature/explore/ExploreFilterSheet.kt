@@ -70,15 +70,17 @@ internal fun FilterSheet(
                 FilterChip(label = "فقط نوبت آنلاین", icon = Lucide.Zap, selected = state.onlyOnline, onClick = onToggleOnline)
             }
 
-            FilterSection("بیمه")
-            Row(Modifier.padding(horizontal = Space.page)) {
-                FilterChip(
-                    label = state.selectedInsurance?.name ?: "همه بیمه‌ها",
-                    icon = Lucide.ShieldPlus,
-                    trailingIcon = Lucide.ChevronDown,
-                    selected = state.insuranceSlug != null,
-                    onClick = onOpenInsurance
-                )
+            if (state.category.supportsInsurance) {
+                FilterSection("بیمه")
+                Row(Modifier.padding(horizontal = Space.page)) {
+                    FilterChip(
+                        label = state.selectedInsurance?.name ?: "همه بیمه‌ها",
+                        icon = Lucide.ShieldPlus,
+                        trailingIcon = Lucide.ChevronDown,
+                        selected = state.insuranceSlug != null,
+                        onClick = onOpenInsurance
+                    )
+                }
             }
 
             if (state.hasLocation) {

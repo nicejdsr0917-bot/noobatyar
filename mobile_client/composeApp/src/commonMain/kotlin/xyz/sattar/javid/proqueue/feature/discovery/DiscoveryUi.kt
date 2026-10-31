@@ -98,12 +98,18 @@ val Business.canBookOnline: Boolean get() = isClaimed && bookingEnabled
  * accepts a group key and expands it server-side. Icons are all one outlined
  * family and all one colour; the label carries the meaning.
  */
-enum class CategoryGroup(val key: String?, val label: String, val icon: ImageVector) {
-    ALL(null, "همه", Lucide.LayoutGrid),
-    MEDICAL("MEDICAL", "پزشک", Lucide.Stethoscope),
-    DENTAL("DENTAL", "دندان‌پزشک", ToothOutlined),
+enum class CategoryGroup(
+    val key: String?,
+    val label: String,
+    val icon: ImageVector,
+    /** Whether the insurance filter means anything here: a salon or a school has none. */
+    val supportsInsurance: Boolean = false,
+) {
+    ALL(null, "همه", Lucide.LayoutGrid, supportsInsurance = true),
+    MEDICAL("MEDICAL", "پزشک", Lucide.Stethoscope, supportsInsurance = true),
+    DENTAL("DENTAL", "دندان‌پزشک", ToothOutlined, supportsInsurance = true),
     BEAUTY("BEAUTY", "زیبایی", Lucide.Scissors),
-    HEALTH("HEALTH", "سلامت و مشاوره", Lucide.Brain),
+    HEALTH("HEALTH", "سلامت و مشاوره", Lucide.Brain, supportsInsurance = true),
     PROFESSIONAL("PROFESSIONAL", "خدمات حرفه‌ای", Lucide.Briefcase),
     EDUCATION("EDUCATION", "آموزش و ورزش", Lucide.Dumbbell);
 

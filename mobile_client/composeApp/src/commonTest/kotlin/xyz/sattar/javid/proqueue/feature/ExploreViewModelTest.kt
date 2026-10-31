@@ -121,6 +121,19 @@ class ExploreViewModelTest {
     }
 
     @Test
+    fun onlyMedicalLikeCategoriesHaveAnInsuranceFilter() = runTest(main.dispatcher) {
+        val vm = vm()
+        vm.selectInsurance("tamin")
+        vm.selectCategory(CategoryGroup.DENTAL)
+        assertEquals("tamin", vm.state.value.insuranceSlug)
+
+        vm.selectCategory(CategoryGroup.BEAUTY)
+        assertNull(vm.state.value.insuranceSlug)
+        assertFalse(vm.state.value.category.supportsInsurance)
+        assertTrue(CategoryGroup.entries.filter { it.supportsInsurance }.containsAll(listOf(CategoryGroup.ALL, CategoryGroup.MEDICAL, CategoryGroup.DENTAL)))
+    }
+
+    @Test
     fun categoryAndOnlineFiltersReachTheRepository() = runTest(main.dispatcher) {
         val vm = vm()
         advanceUntilIdle()
