@@ -13,8 +13,14 @@ from api.pagination import StandardPagination
 from api.responses import APIResponse
 
 from .auth import IsVisitorAuthenticated, VisitorTokenAuthentication
+from rest_framework.parsers import MultiPartParser
+
+from showcase.images import ImageRejected, encode_jpeg, flatten_rgb, open_upload
+
 from .models import VisitorActivity, VisitorDeviceToken
-from .serializers import VisitorActivitySerializer, VisitorSerializer
+from .serializers import ClientMeSerializer, ClientMeUpdateSerializer, VisitorActivitySerializer
+
+AVATAR_SIZE = 512
 
 
 class ClientMeView(APIView):
@@ -30,9 +36,76 @@ class ClientMeView(APIView):
 
     async def get(self, request):
         return APIResponse.success(
-            data=VisitorSerializer(request.user).data,
+            data=ClientMeSerializer(request.user, context={'request': request}).data,
             message="اطلاعات حساب شما با موفقیت دریافت شد",
         )
+
+    async def patch(self, request):
+        """Rename: the only thing a visitor edits about themselves here."""
+        serializer = ClientMeUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            first = next(iter(serializer.errors.values()))[0]
+            return APIResponse.error(str(first), data=serializer.errors)
+        visitor = request.user
+        visitor.full_name = serializer.validated_data['full_name']
+        await sync_to_async(visitor.save)(update_fields=['full_name', 'updated_at'])
+        return APIResponse.success(
+            data=ClientMeSerializer(visitor, context={'request': request}).data,
+            message="نام شما ذخیره شد",
+        )
+
+
+class ClientAvatarView(APIView):
+    """POST sets the visitor's profile photo (multipart ``avatar``), DELETE removes it.
+
+    The app crops to a square before upload; the server still re-opens the
+    file, centre-crops it square, scales it to 512 px and re-encodes it as JPEG.
+    """
+
+    authentication_classes = [VisitorTokenAuthentication]
+    permission_classes = [IsVisitorAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    async def post(self, request):
+        upload = request.FILES.get('avatar')
+        if upload is None:
+            return APIResponse.error("عکسی ارسال نشد", code=400)
+        try:
+            content = await sync_to_async(_square_avatar)(upload, request.user.pk)
+        except ImageRejected as exc:
+            return APIResponse.error(str(exc), code=400)
+        await sync_to_async(_replace_avatar)(request.user, content)
+        return APIResponse.success(
+            data=ClientMeSerializer(request.user, context={'request': request}).data,
+            message="عکس پروفایل ذخیره شد",
+        )
+
+    async def delete(self, request):
+        await sync_to_async(_replace_avatar)(request.user, None)
+        return APIResponse.success(
+            data=ClientMeSerializer(request.user, context={'request': request}).data,
+            message="عکس پروفایل حذف شد",
+        )
+
+
+def _square_avatar(upload, visitor_id):
+    from PIL import Image, ImageOps
+
+    img = flatten_rgb(open_upload(upload))
+    img = ImageOps.fit(img, (AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
+    return encode_jpeg(img, f'v{visitor_id}.jpg')
+
+
+def _replace_avatar(visitor, content):
+    old = visitor.avatar.name if visitor.avatar else None
+    if content is None:
+        visitor.avatar = None
+        visitor.save(update_fields=['avatar', 'updated_at'])
+    else:
+        visitor.avatar.save(content.name, content, save=False)
+        visitor.save(update_fields=['avatar', 'updated_at'])
+    if old and old != (visitor.avatar.name if visitor.avatar else None):
+        visitor.avatar.storage.delete(old)
 
 
 class ClientActivityView(APIView):

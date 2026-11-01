@@ -35,6 +35,10 @@ class Visitor(models.Model):
     # Set whenever phone_number changes: client tokens signed before this moment
     # belong to whoever held the old number and are refused (visitor/auth.py).
     phone_changed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # The visitor's own profile photo, set from the client app's profile tab.
+    # Only the visitor sees it (it is not in VisitorSerializer, which owners
+    # read), so it needs no moderation queue.
+    avatar = models.ImageField(upload_to='visitor_avatars/', null=True, blank=True, verbose_name='عکس پروفایل')
     # Last successful client-app OTP login/registration; proof the person uses
     # this row themselves, so an owner may no longer re-number it.
     last_client_login_at = models.DateTimeField(null=True, blank=True, editable=False)
