@@ -42,6 +42,17 @@ const val BOOKING_DAYS_AHEAD = 7
 
 enum class BookingStep { SERVICES, SLOT, PHONE, CODE, NAME, CONFIRM, PAYMENT, DONE }
 
+/** The days the strip offers, from [start]; the business page shows the same ones. */
+fun bookingDays(business: Business, start: LocalDate): List<BookingDay> {
+    val zone = TimeZone.currentSystemDefault()
+    return (0 until BOOKING_DAYS_AHEAD).map { offset ->
+        val date = start.plus(DatePeriod(days = offset))
+        // closed_weekdays uses Python's date.weekday(): Monday = 0.
+        val pyWeekday = date.dayOfWeek.isoDayNumber - 1
+        BookingDay(date, date.atStartOfDayIn(zone).toEpochMilliseconds(), pyWeekday in business.closedWeekdays)
+    }
+}
+
 @Immutable
 data class BookingDay(val date: LocalDate, val startMillis: Long, val closed: Boolean)
 
@@ -106,19 +117,25 @@ class BookingViewModel(
 
     private var registerToken: String? = null
     private var slotsJob: Job? = null
+    /** A slot picked on the business page, applied once its day's slots arrive. */
+    private var pendingSlotAt: Long = 0
 
     /**
      * [resumeAppointmentId] reopens the payment step of a hold made earlier
      * («تکمیل پرداخت» in the appointments list), like the web's checkout link.
+     * [preDate] (ISO date) and [preSlotAt] carry a time already picked on the
+     * business page; the strip and grid open on it.
      */
-    fun load(businessId: Long, resumeAppointmentId: Long = 0) {
+    fun load(businessId: Long, resumeAppointmentId: Long = 0, preDate: String = "", preSlotAt: Long = 0) {
+        pendingSlotAt = preSlotAt
         viewModelScope.launch(dispatcher) {
             _state.update { it.copy(isLoading = true, loadError = null) }
             when (val res = businessRepository.getClientBusinessDetail(businessId)) {
                 is ApiResponse.Success -> {
                     val business = res.data.toDomain()
                     val days = buildDays(business)
-                    val first = days.indexOfFirst { !it.closed }.coerceAtLeast(0)
+                    val picked = days.indexOfFirst { it.date.toString() == preDate }
+                    val first = if (picked >= 0) picked else days.indexOfFirst { !it.closed }.coerceAtLeast(0)
                     _state.update {
                         it.copy(
                             isLoading = false,
@@ -143,16 +160,7 @@ class BookingViewModel(
         }
     }
 
-    private fun buildDays(business: Business): List<BookingDay> {
-        val zone = TimeZone.currentSystemDefault()
-        val start = today()
-        return (0 until BOOKING_DAYS_AHEAD).map { offset ->
-            val date = start.plus(DatePeriod(days = offset))
-            // closed_weekdays uses Python's date.weekday(): Monday = 0.
-            val pyWeekday = date.dayOfWeek.isoDayNumber - 1
-            BookingDay(date, date.atStartOfDayIn(zone).toEpochMilliseconds(), pyWeekday in business.closedWeekdays)
-        }
-    }
+    private fun buildDays(business: Business): List<BookingDay> = bookingDays(business, today())
 
     // ── Services ──
 
@@ -187,12 +195,17 @@ class BookingViewModel(
         slotsJob = viewModelScope.launch(dispatcher) {
             _state.update { it.copy(slotsLoading = true, slots = emptyList(), dayClosed = day.closed) }
             when (val res = bookingApi.availableSlots(business.id, day.date.toString())) {
-                is ApiResponse.Success -> _state.update {
-                    it.copy(
-                        slotsLoading = false,
-                        slots = res.data.slots,
-                        dayClosed = day.closed || res.data.closed,
-                    )
+                is ApiResponse.Success -> {
+                    val pre = res.data.slots.firstOrNull { it.available && it.timestamp == pendingSlotAt }
+                    pendingSlotAt = 0
+                    _state.update {
+                        it.copy(
+                            slotsLoading = false,
+                            slots = res.data.slots,
+                            dayClosed = day.closed || res.data.closed,
+                            selectedSlot = pre ?: it.selectedSlot,
+                        )
+                    }
                 }
                 is ApiResponse.Error -> {
                     _state.update { it.copy(slotsLoading = false) }

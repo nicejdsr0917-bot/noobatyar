@@ -51,6 +51,7 @@ import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.discovery.Radius
 import xyz.sattar.javid.proqueue.feature.discovery.Space
 import xyz.sattar.javid.proqueue.feature.discovery.canBookOnline
+import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 
 @Composable
 internal fun TopBar(
@@ -89,7 +90,13 @@ internal fun TopBar(
  * business takes online bookings, otherwise call — with directions beside it.
  */
 @Composable
-internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(business: Business, onBook: () -> Unit, signedIn: Boolean = true) {
+internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(
+    business: Business,
+    onBook: () -> Unit,
+    signedIn: Boolean = true,
+    /** A time picked on the page ("10:30"); the button names it, and the deposit if one is due. */
+    picked: String? = null,
+) {
     val directions = rememberDirections()
     val canBook = business.canBookOnline
     val canCall = business.phone.isNotBlank()
@@ -115,7 +122,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(busines
                 colors = ButtonDefaults.buttonColors(),
                 modifier = Modifier.weight(1f).height(48.dp)
             ) {
-                Text(if (canBook) (if (signedIn) "رزرو نوبت" else "ورود و رزرو نوبت") else "تماس با مرکز", fontWeight = FontWeight.Bold)
+                Text(bookLabel(business, canBook, signedIn, picked), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (lat != null && lng != null) {
                 Spacer(Modifier.width(Space.sm))
@@ -130,6 +137,15 @@ internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(busines
             }
         }
     }
+}
+
+private fun bookLabel(business: Business, canBook: Boolean, signedIn: Boolean, picked: String?): String {
+    if (!canBook) return "تماس با مرکز"
+    if (!signedIn) return "ورود و رزرو نوبت"
+    if (picked == null) return "رزرو نوبت"
+    val deposit = business.depositAmount ?: 0
+    val price = if (business.depositMode == DEPOSIT_MANDATORY && deposit > 0) " · بیعانه ${formatToman(deposit)}" else ""
+    return "رزرو ساعت ${picked.toPersianDigits()}$price"
 }
 
 @Composable

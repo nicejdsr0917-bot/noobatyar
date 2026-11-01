@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,15 @@ import xyz.sattar.javid.proqueue.core.prefs.ClientPreferences
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.toDomain
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.domain.model.business.Business
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
+import kotlin.time.Clock
+import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.BookingApi
+import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.TimeSlotDto
+import xyz.sattar.javid.proqueue.feature.booking.BookingDay
+import xyz.sattar.javid.proqueue.feature.booking.bookingDays
+import xyz.sattar.javid.proqueue.feature.discovery.canBookOnline
 
 @Immutable
 data class ClientBusinessDetailState(
@@ -32,6 +42,14 @@ data class ClientBusinessDetailState(
     val isReporting: Boolean = false,
     /** Whether a visitor is signed in; a guest may be shown less than the owner allows. */
     val isSignedIn: Boolean = false,
+    /** Quick pick on the page itself: the booking flow's days and the picked day's free times. */
+    val days: List<BookingDay> = emptyList(),
+    val selectedDay: Int = 0,
+    val slots: List<TimeSlotDto> = emptyList(),
+    val slotsLoading: Boolean = false,
+    val selectedSlot: TimeSlotDto? = null,
+    /** Pull-to-refresh in progress; the page stays on screen meanwhile. */
+    val isRefreshing: Boolean = false,
 )
 
 sealed interface DetailMessage {
@@ -51,6 +69,9 @@ class ClientBusinessDetailViewModel(
     private val businessRepository: BusinessRepository,
     private val preferences: ClientPreferences,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+    /** Null leaves the quick pick off (tests that only cover the page). */
+    private val bookingApi: BookingApi? = null,
+    private val today: () -> LocalDate = { Clock.System.todayIn(TimeZone.currentSystemDefault()) },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ClientBusinessDetailState())
@@ -60,6 +81,7 @@ class ClientBusinessDetailViewModel(
     val messages = _messages.receiveAsFlow()
 
     private var businessId: Long = 0
+    private var slotsJob: Job? = null
 
     fun load(id: Long) {
         businessId = id
@@ -85,6 +107,7 @@ class ClientBusinessDetailViewModel(
             when (val res = businessRepository.getClientBusinessDetail(businessId)) {
                 is ApiResponse.Success -> {
                     val business = res.data.toDomain()
+                    val firstLoad = _state.value.days.isEmpty()
                     _state.update {
                         it.copy(
                             isLoading = false,
@@ -92,9 +115,60 @@ class ClientBusinessDetailViewModel(
                             bookingRequestsCount = business.onlineBookingRequestsCount,
                         )
                     }
+                    if (firstLoad && business.canBookOnline && bookingApi != null) {
+                        val days = bookingDays(business, today())
+                        val first = days.indexOfFirst { !it.closed }.coerceAtLeast(0)
+                        _state.update { it.copy(days = days, selectedDay = first) }
+                        loadSlots()
+                    }
                 }
                 is ApiResponse.Error -> _state.update { it.copy(isLoading = false, errorMessage = res.message) }
             }
+        }
+    }
+
+    /** Pull-to-refresh: the business and the picked day's times, without the loading shimmer. */
+    fun refresh() {
+        if (_state.value.isRefreshing || businessId == 0L) return
+        viewModelScope.launch(dispatcher) {
+            _state.update { it.copy(isRefreshing = true) }
+            when (val res = businessRepository.getClientBusinessDetail(businessId)) {
+                is ApiResponse.Success -> {
+                    val business = res.data.toDomain()
+                    _state.update { it.copy(business = business, bookingRequestsCount = business.onlineBookingRequestsCount) }
+                }
+                is ApiResponse.Error -> _messages.send(DetailMessage.Error(res.message))
+            }
+            loadSlots()
+            slotsJob?.join()
+            _state.update { it.copy(isRefreshing = false) }
+        }
+    }
+
+    fun selectDay(index: Int) {
+        if (index !in _state.value.days.indices || index == _state.value.selectedDay) return
+        _state.update { it.copy(selectedDay = index, selectedSlot = null) }
+        loadSlots()
+    }
+
+    fun selectSlot(slot: TimeSlotDto) {
+        if (!slot.available) return
+        _state.update { it.copy(selectedSlot = if (it.selectedSlot == slot) null else slot) }
+    }
+
+    private fun loadSlots() {
+        val api = bookingApi ?: return
+        val day = _state.value.days.getOrNull(_state.value.selectedDay) ?: return
+        slotsJob?.cancel()
+        if (day.closed) {
+            _state.update { it.copy(slots = emptyList(), slotsLoading = false) }
+            return
+        }
+        slotsJob = viewModelScope.launch(dispatcher) {
+            _state.update { it.copy(slotsLoading = true, slots = emptyList()) }
+            // A failed fetch just leaves the row empty; the booking flow still works.
+            val slots = (api.availableSlots(businessId, day.date.toString()) as? ApiResponse.Success)?.data?.slots.orEmpty()
+            _state.update { it.copy(slotsLoading = false, slots = slots) }
         }
     }
 

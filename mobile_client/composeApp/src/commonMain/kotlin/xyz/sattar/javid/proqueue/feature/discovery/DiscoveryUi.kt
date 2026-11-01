@@ -1,5 +1,35 @@
 package xyz.sattar.javid.proqueue.feature.discovery
 
+import xyz.sattar.javid.proqueue.ui.theme.AccentSoftDark
+import xyz.sattar.javid.proqueue.ui.theme.AccentSoft
+import xyz.sattar.javid.proqueue.feature.booking.pressScale
+import xyz.sattar.javid.proqueue.core.utils.rememberReducedMotion
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.Button
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable
+import com.composables.icons.lucide.RefreshCw
+import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategoryGroup
+import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
+import com.composables.icons.lucide.Store
+import com.composables.icons.lucide.GraduationCap
+import com.composables.icons.lucide.HeartPulse
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.ArrowRight
@@ -184,14 +214,27 @@ fun BusinessAvatar(business: Business, size: Dp) {
                 modifier = Modifier.size(size)
             )
         } else {
-            Text(
-                business.monogram(),
-                fontSize = (size.value * 0.38f).sp,
-                fontWeight = FontWeight.Bold,
-                color = if (claimed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            // No logo: the category's icon (the same ones as the map pins and
+            // filter chips) says more than a first letter.
+            Icon(
+                business.categoryIcon(),
+                contentDescription = null,
+                tint = if (claimed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(size * 0.46f)
             )
         }
     }
+}
+
+/** One outlined icon per category group, shared by avatars without a logo. */
+fun Business.categoryIcon(): ImageVector = when (BusinessCategory.fromString(category).group) {
+    BusinessCategoryGroup.MEDICAL -> Lucide.Stethoscope
+    BusinessCategoryGroup.DENTAL -> ToothOutlined
+    BusinessCategoryGroup.HEALTH -> Lucide.HeartPulse
+    BusinessCategoryGroup.BEAUTY -> Lucide.Scissors
+    BusinessCategoryGroup.PROFESSIONAL -> Lucide.Briefcase
+    BusinessCategoryGroup.EDUCATION -> Lucide.GraduationCap
+    BusinessCategoryGroup.TRADES, BusinessCategoryGroup.OTHER -> Lucide.Store
 }
 
 @Composable
@@ -504,6 +547,12 @@ fun OwnerInviteRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /** Icon · title · body · one action. Used for empty, error and permission states. */
+/**
+ * An empty or error state with some life in it: the icon springs into a soft
+ * accent disc that breathes with slow rings while it floats, the text rises
+ * in after it, and the action's arrow does a full turn when tapped. Still
+ * with the system's reduce-motion setting.
+ */
 @Composable
 fun StateMessage(
     icon: ImageVector,
@@ -513,27 +562,114 @@ fun StateMessage(
     onAction: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val reduced = rememberReducedMotion()
+    val accent = MaterialTheme.colorScheme.primary
+    val soft = if (LocalIsDarkTheme.current) AccentSoftDark else AccentSoft
+
+    // Entrance: disc, then title, body and button, each a beat after the last.
+    val enter = remember { List(4) { Animatable(if (reduced) 1f else 0f) } }
+    LaunchedEffect(Unit) {
+        enter.forEachIndexed { i, a ->
+            launch {
+                delay(90L * i)
+                a.animateTo(1f, if (i == 0) spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow) else tween(420, easing = FastOutSlowInEasing))
+            }
+        }
+    }
+    val loop = rememberInfiniteTransition(label = "stateMessage")
+    val ring by loop.animateFloat(0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "ring")
+    val bob by loop.animateFloat(-1f, 1f, infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "bob")
+    val lift = with(LocalDensity.current) { 4.dp.toPx() }
+    val rise = with(LocalDensity.current) { 14.dp.toPx() }
+
+    fun Modifier.rise(a: Animatable<Float, *>) = graphicsLayer {
+        alpha = a.value
+        translationY = (1f - a.value) * rise
+    }
+
     Column(
         modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
+        Box(
+            Modifier
+                .size(120.dp)
+                .graphicsLayer {
+                    val e = enter[0].value
+                    alpha = e.coerceIn(0f, 1f)
+                    scaleX = 0.6f + 0.4f * e
+                    scaleY = 0.6f + 0.4f * e
+                }
+                .drawBehind {
+                    if (reduced) return@drawBehind
+                    // Two rings leaving the disc, half a cycle apart.
+                    val base = 44.dp.toPx()
+                    for (k in 0..1) {
+                        val t = (ring + k * 0.5f) % 1f
+                        drawCircle(accent.copy(alpha = 0.18f * (1f - t)), radius = base + t * 16.dp.toPx(), style = Stroke(1.5.dp.toPx()))
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                Modifier
+                    .size(88.dp)
+                    .graphicsLayer { if (!reduced) translationY = bob * lift }
+                    .background(soft, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .graphicsLayer { if (!reduced) rotationZ = bob * 4f }
+                )
+            }
+        }
         Spacer(Modifier.height(Space.lg))
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.rise(enter[1])
+        )
         Spacer(Modifier.height(Space.xs))
         Text(
             body,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.rise(enter[2])
         )
         if (actionLabel != null) {
-            Spacer(Modifier.height(Space.lg))
-            OutlinedButton(
-                onClick = onAction,
-                shape = Radius.md,
-                contentPadding = PaddingValues(horizontal = Space.xl, vertical = Space.sm)
-            ) { Text(actionLabel) }
+            Spacer(Modifier.height(Space.xl))
+            val scope = rememberCoroutineScope()
+            val turn = remember { Animatable(0f) }
+            val interaction = remember { MutableInteractionSource() }
+            Button(
+                onClick = {
+                    if (!reduced) scope.launch {
+                        turn.snapTo(0f)
+                        turn.animateTo(360f, tween(650, easing = FastOutSlowInEasing))
+                    }
+                    onAction()
+                },
+                shape = CircleShape,
+                interactionSource = interaction,
+                contentPadding = PaddingValues(horizontal = Space.xl, vertical = Space.sm),
+                modifier = Modifier.rise(enter[3]).pressScale(interaction, 0.94f)
+            ) {
+                Icon(
+                    Lucide.RefreshCw,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = turn.value }
+                )
+                Spacer(Modifier.width(Space.sm))
+                Text(actionLabel, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

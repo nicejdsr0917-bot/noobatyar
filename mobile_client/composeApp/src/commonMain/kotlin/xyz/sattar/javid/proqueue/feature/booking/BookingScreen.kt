@@ -100,13 +100,15 @@ fun BookingScreen(
     onNavigateBack: () -> Unit,
     onOpenMyAppointments: () -> Unit,
     resumeAppointmentId: Long = 0,
+    preDate: String = "",
+    preSlotAt: Long = 0,
     viewModel: BookingViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val haptic = LocalHapticFeedback.current
 
-    LaunchedEffect(businessId) { viewModel.load(businessId, resumeAppointmentId) }
+    LaunchedEffect(businessId) { viewModel.load(businessId, resumeAppointmentId, preDate, preSlotAt) }
     LaunchedEffect(state.released) { if (state.released) onNavigateBack() }
     var confirmRelease by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {

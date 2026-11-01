@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -66,6 +67,10 @@ private val IndicatorSize = 44.dp
  *
  * Replaces the toolbar refresh buttons that used to sit next to the profile
  * avatar on the home / appointments screens.
+ *
+ * [floatingIndicator] is for pages whose top is a full-bleed header under a
+ * pinned bar (the business page): the page stays put and the badge slides
+ * down over it as a floating circle, [indicatorTopPadding] below the top.
  */
 @Composable
 fun PullToRefreshBox(
@@ -73,6 +78,7 @@ fun PullToRefreshBox(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     indicatorTopPadding: Dp = 0.dp,
+    floatingIndicator: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
@@ -155,18 +161,100 @@ fun PullToRefreshBox(
     }
 
     Box(modifier = modifier.nestedScroll(connection)) {
-        PullIndicator(
-            offset = offset.value,
-            thresholdPx = thresholdPx,
-            isRefreshing = isRefreshing && userTriggered,
-            topPadding = indicatorTopPadding
-        )
+        if (!floatingIndicator) {
+            PullIndicator(
+                offset = offset.value,
+                thresholdPx = thresholdPx,
+                isRefreshing = isRefreshing && userTriggered,
+                topPadding = indicatorTopPadding
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationY = offset.value }
+                .graphicsLayer { if (!floatingIndicator) translationY = offset.value }
         ) {
             content()
+        }
+        if (floatingIndicator) {
+            FloatingPullIndicator(
+                offset = offset.value,
+                thresholdPx = thresholdPx,
+                isRefreshing = isRefreshing && userTriggered,
+                topPadding = indicatorTopPadding
+            )
+        }
+    }
+}
+
+/**
+ * The badge alone, on a raised circle that slides down from under the top as
+ * the pull grows and grows to full size at the threshold; no label, since it
+ * floats over a photo or colour where text would not read.
+ */
+@Composable
+private fun FloatingPullIndicator(
+    offset: Float,
+    thresholdPx: Float,
+    isRefreshing: Boolean,
+    topPadding: Dp
+) {
+    if (offset <= 0.5f && !isRefreshing) return
+    val progress = (offset / thresholdPx).coerceIn(0f, 1f)
+    val readyToRelease = offset >= thresholdPx
+    val spin by rememberInfiniteTransition(label = "pull-spin").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart),
+        label = "spin"
+    )
+    val sizePx = with(LocalDensity.current) { IndicatorSize.toPx() }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = topPadding),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Box(
+            modifier = Modifier
+                .graphicsLayer {
+                    // Starts tucked just above the top edge and travels with the finger.
+                    translationY = (offset * 0.6f - sizePx).coerceAtLeast(-sizePx)
+                    val s = 0.6f + 0.4f * progress
+                    scaleX = s
+                    scaleY = s
+                    alpha = if (isRefreshing) 1f else progress.coerceAtLeast(0.2f)
+                }
+                .shadow(6.dp, CircleShape)
+                .size(IndicatorSize)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isRefreshing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(IndicatorSize - 6.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .size(IndicatorSize - 6.dp)
+                        .rotate(if (readyToRelease) spin else 0f),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
+            }
+            Image(
+                painter = painterResource(Res.drawable.main_icon),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(18.dp)
+                    .scale(if (isRefreshing) 1f else 0.7f + progress * 0.3f)
+            )
         }
     }
 }

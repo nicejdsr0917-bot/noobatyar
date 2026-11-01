@@ -43,7 +43,25 @@ import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailScre
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.discovery.LocalMyInsuranceSlug
 import xyz.sattar.javid.proqueue.feature.explore.ExploreScreen
-import xyz.sattar.javid.proqueue.feature.more.MoreScreen
+import xyz.sattar.javid.proqueue.feature.profile.ProfileScreen
+import xyz.sattar.javid.proqueue.feature.profile.ProfileTabIcon
+import xyz.sattar.javid.proqueue.feature.profile.ProfileViewModel
+import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import xyz.sattar.javid.proqueue.core.location.IranCities
+import xyz.sattar.javid.proqueue.core.prefs.ALL_IRAN
+import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
+import xyz.sattar.javid.proqueue.core.ui.components.map.MapTiles
+import xyz.sattar.javid.proqueue.core.ui.components.map.prefetchTilesAround
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
 import xyz.sattar.javid.proqueue.feature.saved.SavedScreen
 
 private val tabs = listOf(MainTab.Explore, MainTab.Appointments, MainTab.Saved, MainTab.More)
@@ -57,6 +75,26 @@ fun MainNavHost() {
 
     val selectedTab = tabs.firstOrNull { tab ->
         destination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true
+    }
+    // Warms the tile cache around the browsed city (again whenever it changes),
+    // a moment after launch so it never competes with the first screen.
+    val cityCode by remember { PreferencesManager.recentCityCodes.map { it.firstOrNull() } }.collectAsState(initial = null)
+    LaunchedEffect(cityCode) {
+        delay(3_000)
+        val city = cityCode?.takeIf { it != ALL_IRAN }?.let { IranCities.city(it)?.first }
+        val center = city?.let { GeoPoint(it.lat, it.lng) } ?: MapTiles.DEFAULT_CENTER
+        withContext(Dispatchers.Default) { prefetchTilesAround(center) }
+    }
+
+    // Shared by the profile tab and the tab bar's avatar, so both follow sign-in and photo changes.
+    val profile: ProfileViewModel = koinViewModel()
+    val profileState by profile.state.collectAsState()
+    val selectTab: (MainTab) -> Unit = { tab ->
+        navController.navigate(tab.route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
     }
     val openDetail: (Long) -> Unit = { navController.navigate(AppScreens.ClientBusinessDetail(it)) }
     val signIn: () -> Unit = { navController.navigate(AppScreens.Login()) }
@@ -85,13 +123,24 @@ fun MainNavHost() {
                     SavedScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp)
                 }
                 composable<AppScreens.More> {
-                    MoreScreen(onOpenAbout = { navController.navigate(AppScreens.AboutUs) }, onSignIn = signIn, bottomPadding = 0.dp)
+                    ProfileScreen(
+                        profile = profile,
+                        onOpenAbout = { navController.navigate(AppScreens.AboutUs) },
+                        onSignIn = signIn,
+                        onOpenAppointments = { selectTab(MainTab.Appointments) },
+                        onOpenSaved = { selectTab(MainTab.Saved) },
+                    )
                 }
                 composable<AppScreens.ClientBusinessDetail> { entry ->
                     ClientBusinessDetailScreen(
                         businessId = entry.toRoute<AppScreens.ClientBusinessDetail>().businessId,
                         onNavigateBack = { navController.popBackStack() },
                         onBook = book,
+                        onBookSlot = { id, date, slotAt ->
+                            // A guest signs in first; the picked time is not carried through sign-in.
+                            if (PreferencesManager.getVisitorToken() != null) navController.navigate(AppScreens.Booking(id, date = date, slotAt = slotAt))
+                            else book(id)
+                        },
                         onSignIn = signIn,
                         onOpenMap = { navController.navigate(AppScreens.BusinessMap(it)) },
                     )
@@ -108,6 +157,8 @@ fun MainNavHost() {
                     BookingScreen(
                         businessId = route.businessId,
                         resumeAppointmentId = route.resumeAppointmentId,
+                        preDate = route.date,
+                        preSlotAt = route.slotAt,
                         onNavigateBack = { navController.popBackStack() },
                         onOpenMyAppointments = {
                             // Booked: drop the finished flow first. Otherwise it is
@@ -160,15 +211,8 @@ fun MainNavHost() {
             if (selectedTab != null) {
                 TabBar(
                     selected = selectedTab,
-                    onSelect = { tab ->
-                        if (tab != selectedTab) {
-                            navController.navigate(tab.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    }
+                    avatarUrl = profileState.me?.avatar,
+                    onSelect = { tab -> if (tab != selectedTab) selectTab(tab) }
                 )
             }
         }
@@ -178,11 +222,12 @@ fun MainNavHost() {
 
 /**
  * Standard bottom navigation: attached to the edge, hairline on top, every
- * label always visible. The selected tab is told apart by the filled icon and
- * the accent colour — no pill, no shadow, nothing floating.
+ * label always visible. The selected tab is told apart by the accent colour
+ * and a small bounce of its icon; the profile tab shows the visitor's photo,
+ * ringed when open, like Instagram.
  */
 @Composable
-private fun TabBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
+private fun TabBar(selected: MainTab, avatarUrl: String?, onSelect: (MainTab) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(Modifier.navigationBarsPadding()) {
             Hairline()
@@ -199,12 +244,25 @@ private fun TabBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Icon(
-                                if (isSelected) tab.iconSelected else tab.iconUnSelected,
-                                contentDescription = null,
-                                tint = color,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            // Pops when its tab is picked: shrinks a touch and springs back.
+                            val pop = remember { Animatable(1f) }
+                            LaunchedEffect(isSelected) {
+                                if (isSelected) {
+                                    pop.snapTo(0.78f)
+                                    pop.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = Spring.StiffnessMedium))
+                                }
+                            }
+                            val iconModifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value }
+                            if (tab == MainTab.More) {
+                                ProfileTabIcon(avatarUrl, isSelected, iconModifier)
+                            } else {
+                                Icon(
+                                    if (isSelected) tab.iconSelected else tab.iconUnSelected,
+                                    contentDescription = null,
+                                    tint = color,
+                                    modifier = iconModifier.size(24.dp)
+                                )
+                            }
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 tab.title,

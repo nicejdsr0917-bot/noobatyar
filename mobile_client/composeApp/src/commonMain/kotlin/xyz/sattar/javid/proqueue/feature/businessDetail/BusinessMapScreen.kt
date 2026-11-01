@@ -103,6 +103,14 @@ import xyz.sattar.javid.proqueue.feature.explore.BusinessPin
 import xyz.sattar.javid.proqueue.feature.explore.MyLocationDot
 import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.vector.ImageVector
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import xyz.sattar.javid.proqueue.feature.discovery.categoryIcon
+import xyz.sattar.javid.proqueue.feature.explore.ControlButton
 
 private const val BUSINESS_MARKER = "business"
 private const val ME_MARKER = "me"
@@ -156,7 +164,7 @@ fun BusinessMapScreen(
             val lat = business?.latitude
             val lng = business?.longitude
             if (business != null && lat != null && lng != null) {
-                FullMap(business, GeoPoint(lat, lng), state.me)
+                FullMap(business, GeoPoint(lat, lng), state.me, locating = state.locating, onLocate = locate)
             } else if (!state.isLoading) {
                 Text(
                     state.errorMessage ?: "موقعیت مرکز ثبت نشده",
@@ -189,7 +197,7 @@ fun BusinessMapScreen(
 }
 
 @Composable
-private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
+private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?, locating: Boolean, onLocate: () -> Unit) {
     val density = LocalDensity.current.density
     val dark = LocalIsDarkTheme.current
     val reduced = LocalReducedMotion.current
@@ -202,6 +210,31 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
     )
     val state = remember(place) { newTileMapState(place, 16.0, density) }
     DisposeMapState(state)
+    val scope = rememberCoroutineScope()
+    var flight by remember { mutableStateOf<Job?>(null) }
+    // Origin or destination: pull back to show the whole trip, then dive in on
+    // the chosen end with the same easing as the arrival zoom. A new tap
+    // replaces a flight still in the air.
+    val flyTo: (GeoPoint) -> Unit = { end ->
+        flight?.cancel()
+        flight = scope.launch {
+            val target = end.toNormalized()
+            val dest = place.toNormalized()
+            val mine = me?.toNormalized()
+            if (!reduced) {
+                if (mine != null) fitBoth(state, mine, dest)
+                else state.scrollTo(target.first, target.second, destScale = scaleForZoom(OVERVIEW_ZOOM, density), screenOffset = Offset(-0.5f, -MAP_VISIBLE_FRACTION / 2), animationSpec = tween(500))
+                delay(150)
+            }
+            state.scrollTo(
+                target.first,
+                target.second,
+                destScale = scaleForZoom(ARRIVAL_ZOOM, density),
+                screenOffset = Offset(-0.5f, -ARRIVAL_PIN_AT),
+                animationSpec = if (reduced) snap() else tween(1_100, easing = FastOutSlowInEasing),
+            )
+        }
+    }
     LaunchedEffect(dark) { state.applyTileTint(dark) }
 
     // The map fades in once tiles arrive; only then does the route draw.
@@ -304,6 +337,20 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?) {
                 }
         ) {
             MapUI(modifier = Modifier.fillMaxSize(), state = state)
+        }
+
+        // Origin and destination, above the bottom card on the side away from the back button.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            TripControls(
+                destinationIcon = business.categoryIcon(),
+                locating = locating,
+                onOrigin = { me?.let(flyTo) ?: onLocate() },
+                onDestination = { flyTo(place) },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = Space.page, bottom = maxHeight * (1f - MAP_VISIBLE_FRACTION) + Space.lg)
+                    .graphicsLayer { alpha = shown.value },
+            )
         }
 
         if (shown.value < 1f) {
@@ -459,6 +506,37 @@ private fun ArrivalLabel(straightKm: Double) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(drive.label(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** The pull-back zoom when there is no user position to frame together with the business. */
+private const val OVERVIEW_ZOOM = 12.0
+
+/** The explore map's control card, here with the trip's two ends: where you are, where you're going. */
+@Composable
+private fun TripControls(
+    destinationIcon: ImageVector,
+    locating: Boolean,
+    onOrigin: () -> Unit,
+    onDestination: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 6.dp,
+        modifier = modifier.width(48.dp),
+    ) {
+        Column {
+            ControlButton(onClick = onOrigin) {
+                if (locating) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                else Icon(Lucide.LocateFixed, contentDescription = "مبدا: موقعیت من", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+            }
+            Box(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+            ControlButton(onClick = onDestination) {
+                Icon(destinationIcon, contentDescription = "مقصد: مرکز", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+            }
+        }
     }
 }
 

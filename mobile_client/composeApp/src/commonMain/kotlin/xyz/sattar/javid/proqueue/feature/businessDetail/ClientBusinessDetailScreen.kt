@@ -11,6 +11,11 @@ import com.composables.icons.lucide.Phone
 import com.composables.icons.lucide.Share2
 import com.composables.icons.lucide.Store
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.layout.onSizeChanged
+import xyz.sattar.javid.proqueue.core.ui.components.PullToRefreshBox
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Arrangement
 import xyz.sattar.javid.proqueue.core.location.rememberDirections
 import androidx.compose.foundation.layout.Box
@@ -95,6 +100,8 @@ fun ClientBusinessDetailScreen(
     onBook: (Long) -> Unit,
     onOpenMap: (Long) -> Unit = {},
     onSignIn: () -> Unit = {},
+    /** Booking with a day (ISO date) and slot already picked on this page. */
+    onBookSlot: (id: Long, date: String, slotAt: Long) -> Unit = { id, _, _ -> onBook(id) },
     viewModel: ClientBusinessDetailViewModel = koinViewModel(),
     social: BusinessSocialViewModel = koinViewModel(),
 ) {
@@ -153,7 +160,18 @@ fun ClientBusinessDetailScreen(
                 onToggleSave = viewModel::toggleSaved,
                 onRequestBooking = viewModel::requestOnlineBooking,
                 onReport = { showReport = true },
-                onBook = { onBook(business.id) },
+                onBook = {
+                    val slot = state.selectedSlot
+                    val day = state.days.getOrNull(state.selectedDay)
+                    if (slot != null && day != null) onBookSlot(business.id, day.date.toString(), slot.timestamp)
+                    else onBook(business.id)
+                },
+                onSelectDay = viewModel::selectDay,
+                onSelectSlot = viewModel::selectSlot,
+                onRefresh = {
+                    viewModel.refresh()
+                    social.load(businessId)
+                },
                 onOpenMap = { onOpenMap(business.id) },
                 onSignIn = onSignIn,
             )
@@ -214,40 +232,51 @@ internal fun DetailContent(
     onBook: () -> Unit,
     onOpenMap: () -> Unit = {},
     onSignIn: () -> Unit = {},
+    onSelectDay: (Int) -> Unit = {},
+    onSelectSlot: (xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.TimeSlotDto) -> Unit = {},
+    onRefresh: () -> Unit = {},
 ) {
     val directions = rememberDirections()
     // Only for sharing: booking itself happens in the app, never on the site.
     val booking = bookingUrl(business)
     val scroll = rememberScrollState()
-    val pastHeader by remember { derivedStateOf { scroll.value > 180 } }
+    val collapse = remember(scroll) { HeroCollapse(scroll) }
+    val density = LocalDensity.current
+    val barPx = WindowInsets.statusBars.getTop(density) + with(density) { PinnedBarHeight.toPx() }
     val share = { shareText("${business.title}\n${business.categoryLabel}\n${booking ?: OWNER_LANDING_URL}") }
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            TopBar(
-                title = if (pastHeader) business.title else null,
-                showDivider = scroll.value > 0,
-                onBack = onBack,
-                actions = {
-                    IconButton(onClick = share) { Icon(Lucide.Share2, contentDescription = "اشتراک‌گذاری") }
-                    SaveButton(state.isSaved, onToggleSave)
-                }
-            )
-
+        // The badge floats down just under the pinned bar; the page itself stays put.
+        val topInset = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize(),
+            indicatorTopPadding = topInset + PinnedBarHeight + 8.dp,
+            floatingIndicator = true,
+        ) {
             Column(
                 Modifier
-                    .weight(1f)
+                    .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .verticalScroll(scroll),
             ) {
-                // Header block on the plain surface; everything below sits in inset cards.
-                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-                    Identity(business)
-                    ActionRow(business, onShare = share)
-                }
-                Spacer(Modifier.height(Space.md))
-                Column(verticalArrangement = Arrangement.spacedBy(Space.md)) {
+                // Brand hero, then a stats card riding its lower edge; everything
+                // below sits in inset cards.
+                DetailHero(
+                    business = business,
+                    rating = social.summary,
+                    collapse = collapse,
+                    // Collapses over its own height, less the pinned bar it tucks under.
+                    modifier = Modifier.onSizeChanged { collapse.range = it.height - barPx },
+                )
+                StatsRow(business, social.summary)
+                Column(Modifier.offset(y = (-16).dp), verticalArrangement = Arrangement.spacedBy(Space.md)) {
                     var card = 0
+
+                    if (state.days.isNotEmpty()) {
+                        QuickPickSection(state, card++, onSelectDay, onSelectSlot)
+                    }
 
                     when {
                         business.canBookOnline -> Unit
@@ -297,12 +326,13 @@ internal fun DetailContent(
                                 onClick = onSignIn,
                             )
                         }
+                        // Same as tapping the map above: the full map, with directions there.
                         if (!guestLocked) LinkRow(
                             Lucide.MapPin,
                             business.address.ifBlank { "آدرس ثبت نشده" },
-                            subtitle = if (lat != null && lng != null) "مسیریابی" else null,
+                            subtitle = if (lat != null && lng != null) "نمایش روی نقشه" else null,
                             tint = MaterialTheme.colorScheme.primary,
-                            onClick = if (lat != null && lng != null) ({ directions(lat, lng, business.title) }) else null,
+                            onClick = if (lat != null && lng != null) onOpenMap else null,
                         )
                         val phones = (listOf(business.phone) + business.extraPhones).filter { it.isNotBlank() }
                         phones.forEach { phone ->
@@ -392,6 +422,14 @@ internal fun DetailContent(
                 Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
             }
         }
-        StickyActionBar(business, onBook, signedIn = state.isSignedIn)
+        PinnedDetailBar(
+            business = business,
+            collapse = collapse,
+            isSaved = state.isSaved,
+            onBack = onBack,
+            onShare = share,
+            onToggleSave = onToggleSave,
+        )
+        StickyActionBar(business, onBook, signedIn = state.isSignedIn, picked = state.selectedSlot?.time)
     }
 }

@@ -4,7 +4,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Bookmark
 import com.composables.icons.lucide.CalendarDays
 import com.composables.icons.lucide.Compass
-import com.composables.icons.lucide.Menu
+import com.composables.icons.lucide.CircleUserRound
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 
@@ -30,7 +30,13 @@ sealed class AppScreens {
 
     /** [resumeAppointmentId] > 0 opens the payment step of an existing hold. */
     @Serializable
-    data class Booking(val businessId: Long, val resumeAppointmentId: Long = 0) : AppScreens()
+    data class Booking(
+        val businessId: Long,
+        val resumeAppointmentId: Long = 0,
+        /** A day and slot already picked on the business page (ISO date, slot timestamp). */
+        val date: String = "",
+        val slotAt: Long = 0,
+    ) : AppScreens()
 
     @Serializable
     data class AppointmentDetail(val appointmentId: Long) : AppScreens()
@@ -73,10 +79,11 @@ sealed interface MainTab {
         override val route = AppScreens.Saved
     }
 
+    /** The profile tab; the tab bar draws the visitor's photo instead of these icons. */
     data object More : MainTab {
-        override val title = "بیشتر"
-        override val iconSelected = Lucide.Menu
-        override val iconUnSelected = Lucide.Menu
+        override val title = "پروفایل"
+        override val iconSelected = Lucide.CircleUserRound
+        override val iconUnSelected = Lucide.CircleUserRound
         override val route = AppScreens.More
     }
 }

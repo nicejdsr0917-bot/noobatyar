@@ -22,7 +22,11 @@ import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readBuffer
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.update
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
@@ -56,8 +60,10 @@ data class GeoPoint(val latitude: Double, val longitude: Double)
  * tile.openstreetmap.org: measured from Iran (2026-10-27) it answered in
  * ~0.7 s while the main OSM server took 10 s or refused outright, it labels
  * streets in Persian, and its softer palette lets the pins stand out. CARTO's
- * cleaner basemaps now need an API key. For production these should go
- * through a caching proxy on our own server — change [URL] and nothing else.
+ * cleaner basemaps now need an API key. Tiles are kept on the phone for a
+ * month (TileDiskCache), so only the first look at an area waits on France.
+ * For production these could also go through a caching proxy on our own
+ * server — change [URL] and nothing else.
  */
 object MapTiles {
     const val URL = "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
@@ -93,17 +99,66 @@ private val tileClient by lazy {
  */
 val loadedTileCount = MutableStateFlow(0)
 
-private val osmTiles = TileStreamProvider { row, col, zoom ->
-    runCatching {
-        tileClient.prepareGet(MapTiles.url(zoom, col, row)).execute { response ->
-            if (!response.status.isSuccess()) return@execute null
-            // Restyled on the way in (see TileRecolor) — before the tile is decoded or cached.
-            val png = response.bodyAsChannel().readBuffer().readByteArray()
-            Buffer().apply { write(TileRecolor.recolor(png)) }
-                .also { loadedTileCount.update { n -> n + 1 } }
-        }
-    }.getOrNull()
+/** Downloads one tile and restyles it (see TileRecolor); null on any failure. */
+private suspend fun download(zoom: Int, col: Int, row: Int): ByteArray? = runCatching {
+    tileClient.prepareGet(MapTiles.url(zoom, col, row)).execute { response ->
+        if (!response.status.isSuccess()) return@execute null
+        TileRecolor.recolor(response.bodyAsChannel().readBuffer().readByteArray())
+    }
+}.getOrNull()
+
+/**
+ * A tile from the phone when a fresh copy is there, otherwise from the
+ * network (and then kept); a stale copy beats nothing when offline.
+ */
+internal suspend fun loadTile(zoom: Int, col: Int, row: Int): ByteArray? {
+    val cached = TileDiskCache.read(zoom, col, row)
+    if (cached?.fresh == true) return cached.png
+    val fresh = download(zoom, col, row)
+    if (fresh != null) {
+        TileDiskCache.write(zoom, col, row, fresh)
+        return fresh
+    }
+    return cached?.png
 }
+
+private val osmTiles = TileStreamProvider { row, col, zoom ->
+    loadTile(zoom, col, row)?.let { png ->
+        Buffer().apply { write(png) }.also { loadedTileCount.update { n -> n + 1 } }
+    }
+}
+
+/**
+ * Fetches, in the background, the tiles a first look at [center] needs —
+ * the city overview down to street level — so the explore map opens drawn.
+ * Skips tiles already fresh on the phone, so after the first run it costs
+ * nothing until they age out. Also trims the cache, once a launch.
+ */
+suspend fun prefetchTilesAround(center: GeoPoint) {
+    TileDiskCache.trim()
+    val (nx, ny) = center.toNormalized()
+    val gate = Semaphore(4)
+    coroutineScope {
+        PREFETCH_RINGS.forEach { (zoom, ring) ->
+            val n = 1 shl zoom
+            val cx = (nx * n).toInt()
+            val cy = (ny * n).toInt()
+            for (dx in -ring..ring) for (dy in -ring..ring) {
+                val x = (cx + dx).coerceIn(0, n - 1)
+                val y = (cy + dy).coerceIn(0, n - 1)
+                if (TileDiskCache.hasFresh(zoom, x, y)) continue
+                launch {
+                    gate.withPermit {
+                        download(zoom, x, y)?.let { TileDiskCache.write(zoom, x, y, it) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Zoom level to tiles each side of the centre: about 150 tiles (~3 MB) in all. */
+private val PREFETCH_RINGS = listOf(11 to 2, 12 to 2, 13 to 3, 14 to 3)
 
 /** Web Mercator, normalized to the [0..1] square MapState works in. */
 fun GeoPoint.toNormalized(): Pair<Double, Double> {

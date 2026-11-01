@@ -30,6 +30,9 @@ import xyz.sattar.javid.proqueue.feature.appointments.AppointmentDetailViewModel
 import xyz.sattar.javid.proqueue.feature.appointments.MyAppointmentsViewModel
 import xyz.sattar.javid.proqueue.feature.auth.LoginViewModel
 import xyz.sattar.javid.proqueue.feature.booking.BookingViewModel
+import xyz.sattar.javid.proqueue.feature.profile.ProfileViewModel
+import xyz.sattar.javid.proqueue.data.remoteDataSource.profile.KtorProfileApi
+import xyz.sattar.javid.proqueue.data.remoteDataSource.profile.ProfileApi
 import xyz.sattar.javid.proqueue.feature.businessDetail.BusinessSocialViewModel
 import xyz.sattar.javid.proqueue.feature.businessDetail.BusinessMapViewModel
 import xyz.sattar.javid.proqueue.feature.businessDetail.ClientBusinessDetailViewModel
@@ -48,6 +51,7 @@ val appModule: Module = module {
     single<BookingApi> { KtorBookingApi(get()) }
     single<BusinessSocialApi> { KtorBusinessSocialApi(get()) }
     single<PromoApi> { KtorPromoApi(get()) }
+    single<ProfileApi> { KtorProfileApi(get()) }
 
     // --- Platform seams ---
     single<ClientPreferences> { PlatformClientPreferences() }
@@ -64,7 +68,7 @@ val appModule: Module = module {
     // --- ViewModels ---
     viewModel { VersionViewModel(get()) }
     viewModel { ExploreViewModel(get(), get(), get()) }
-    viewModel { ClientBusinessDetailViewModel(get(), get()) }
+    viewModel { ClientBusinessDetailViewModel(get(), get(), bookingApi = get()) }
     viewModel { BusinessMapViewModel(get(), get()) }
     viewModel { PromoViewModel(get()) }
     viewModel { BusinessSocialViewModel(get(), get()) }
@@ -72,6 +76,7 @@ val appModule: Module = module {
     viewModel { BookingViewModel(get(), get(), get()) }
     viewModel { LoginViewModel(get(), get()) }
     viewModel { MyInsuranceViewModel(get(), get()) }
+    viewModel { ProfileViewModel(get(), get(), get()) }
     viewModel { MyAppointmentsViewModel(get(), get()) }
     viewModel { AppointmentDetailViewModel(get(), get()) }
 }
