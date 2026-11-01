@@ -10,7 +10,7 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
-## v1.10.0 — منتشر نشده (اپ اونر)
+## v1.10.0 — 2026-11-02 (اپ اونر)
 
 <!-- fa:start -->
 تغییرات این نسخه:
@@ -20,6 +20,9 @@
 - کارت «مشتری‌هایی که نوبت‌یار آورد» در صفحه‌ی اصلی: تعداد نوبت‌های این ماه از اپ و سایت.
 - بنرهای صفحه‌ی اصلی بر اساس دسته‌ی کسب‌وکار.
 - لوگو هنگام ساخت کسب‌وکار اجباری شد.
+- شبکه‌های اجتماعی: اینستاگرام، تلگرام، واتساپ، ایتا، بله، روبیکا و سایت‌تان را در فرم کسب‌وکار وارد کنید تا مشتری‌ها در صفحه‌تان ببینند.
+- هشدار بیعانه: بیعانه‌ی اجباری بدون کارت به کارت یا پرداخت آنلاین ذخیره نمی‌شود؛ دیگر مشتری در صفحه‌ی پرداخت گیر نمی‌کند.
+- در انتخاب شهر، لیست شهرهای هر استان از بالا شروع می‌شود.
 - رفع خطای صفحه‌ی اصلی پنل وب و چند مشکل همگام‌سازی نوبت‌ها.
 <!-- fa:end -->
 
@@ -27,10 +30,12 @@
 - Showcase: portfolio and certificate upload with crop + compression, pending/approved state; reviews page (read-only) and `NEW_REVIEW` push (Android opens the reviews page).
 - Appointment source badge (`AppointmentSource`); home `SourceSummaryCard` from `appointment/stats/` `source_counts` over the current month (`GetSourceSummaryUseCase`).
 - Rotating home banners per business category; logo required on the first create-business step.
+- Social links (`Business.socialLinks`, `SocialLinksField`; Room v21); mandatory-deposit warning in the capacity tab; city picker keeps a scroll state per list.
 - Fixes: wasm home crash on Asia/Tehran, visitor messages keyed by (visitor, business), logout/sync cache leaks, server day window mirrored.
 
 ### backend (ships with this release)
 - P2 apps: `showcase`, `reviews`, `banners`, `marketing`; `Appointment.source`; `Business.rank_score` + nightly `compute_rank_scores`; `first_free_slot`; site services under `api/public/site/`.
+- `Business.social_links` (`business/0036`); mandatory deposit with no card/online method is refused on change and no longer holds the slot.
 - `AppVersion.app` (OWNER/CLIENT): set `force_update` on the OWNER row for this version in admin when releasing.
 
 ## client-v1.0.0 — منتشر نشده (اپ مشتری)
