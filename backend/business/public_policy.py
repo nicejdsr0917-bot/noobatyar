@@ -15,6 +15,9 @@ BOOKING_BLOCKED_NOTICE = "پذیرش نوبت جدید برای این کسب‌
 def _mask_phone(data):
     data['phone'] = None
     data['extra_phones'] = []
+    # A WhatsApp number or a Telegram handle reaches the owner just as the
+    # phone does, so it is withheld under the same rules.
+    data['social_links'] = {}
 
 
 def _mask_address(data):

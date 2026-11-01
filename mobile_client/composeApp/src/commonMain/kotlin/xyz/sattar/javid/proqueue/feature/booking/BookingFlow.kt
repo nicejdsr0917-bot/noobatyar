@@ -27,7 +27,18 @@ fun BookingStep.phase(): BookingPhase? = when (this) {
 
 /** A deposit is due before the slot is final, so the flow ends in a payment step. */
 fun Business.expectsDeposit(): Boolean =
-    depositMode == DEPOSIT_MANDATORY && (depositAmount ?: 0) > 0
+    depositMode == DEPOSIT_MANDATORY && (depositAmount ?: 0) > 0 && depositCollectable()
+
+/**
+ * Whether there is a card or online way to pay a deposit. Without one the
+ * server books straight to the owner (appointment.selectors.business_requires_payment),
+ * so no payment stage is shown.
+ */
+fun Business.depositCollectable(): Boolean {
+    val methods = acceptedPaymentMethods ?: listOfNotNull(paymentMethod)
+    // No list at all is an older server; read it as card, like paymentOptions does.
+    return methods.isEmpty() || "CARD" in methods || ("ONLINE" in methods && (onlineGatewayEnabled || paymentLink.isNotBlank()))
+}
 
 /**
  * The stages this visitor will go through. Payment shows up front when the
@@ -90,6 +101,9 @@ fun paymentOptions(
     if ("ONLINE" in methods && (onlineGateway || paymentLink.isNotBlank())) add(PaymentOption.ONLINE)
     if (methods.isEmpty() || "CARD" in methods) add(PaymentOption.CARD)
     if (depositMode != DEPOSIT_MANDATORY && ("CASH" in methods || depositMode == DEPOSIT_OPTIONAL)) add(PaymentOption.CASH)
+    // A hold on a mandatory deposit nobody can pay online is settled at the
+    // visit; the server accepts cash for exactly this case.
+    if (depositMode == DEPOSIT_MANDATORY && isEmpty()) add(PaymentOption.CASH)
 }
 
 /** The owner's manual payment page, made absolute like the web does. */

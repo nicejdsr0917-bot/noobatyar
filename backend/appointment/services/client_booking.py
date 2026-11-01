@@ -304,7 +304,9 @@ def client_submit_payment(*, visitor, appointment_id, method, payment_reference,
     if method == 'CASH':
         # Paying in person: nothing to verify, so the booking goes straight
         # to the owner's approval queue instead of the receipt queue.
-        if business.deposit_mode == 'MANDATORY':
+        # A hold taken before the owner had any way to collect the deposit
+        # may still be settled in person rather than stranded.
+        if business.deposit_mode == 'MANDATORY' and selectors.deposit_collectable(business):
             raise ClientBookingError("پرداخت بیعانه برای این کسب‌وکار الزامی است", 400)
         changes = {'status': 'PENDING_APPROVAL', 'deposit_payment_method': 'NONE'}
         success_message = "نوبت شما ثبت شد و در انتظار تایید کسب‌وکار است"

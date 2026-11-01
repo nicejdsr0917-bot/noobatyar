@@ -124,6 +124,7 @@ fun CreateBusinessRoute(
     var phone by remember { mutableStateOf("") }
     // Additional contact numbers, alongside the primary `phone` above.
     var extraPhones by remember { mutableStateOf(listOf<String>()) }
+    var socialLinks by remember { mutableStateOf(mapOf<String, String>()) }
     var address by remember { mutableStateOf("") }
     // The map pin; optional, unlike the written address.
     var location by remember { mutableStateOf<GeoPoint?>(null) }
@@ -186,6 +187,7 @@ fun CreateBusinessRoute(
             category = CategoryOption(it.category, it.categoryLabel)
             phone = it.phone
             extraPhones = it.extraPhones
+            socialLinks = it.socialLinks
             address = it.address
             location = it.latitude?.let { lat -> it.longitude?.let { lng -> GeoPoint(lat, lng) } }
             city = it.cityCode?.let { code -> PickedCity(code, it.city, it.province) }
@@ -228,6 +230,8 @@ fun CreateBusinessRoute(
         phone = phone,
         extraPhones = extraPhones,
         onExtraPhones = { extraPhones = it },
+        socialLinks = socialLinks,
+        onSocialLinks = { socialLinks = it },
         address = address,
         location = location,
         onLocation = { location = it },
@@ -337,6 +341,8 @@ fun CreateBusinessScreen(
     phone: String,
     extraPhones: List<String>,
     onExtraPhones: (List<String>) -> Unit,
+    socialLinks: Map<String, String>,
+    onSocialLinks: (Map<String, String>) -> Unit,
     address: String,
     location: GeoPoint?,
     onLocation: (GeoPoint?) -> Unit,
@@ -651,6 +657,7 @@ fun CreateBusinessScreen(
                                         category = category.value,
                                         phone = p,
                                         extraPhones = extraPhones,
+                                        socialLinks = socialLinks,
                                         address = a,
                                         latitude = location?.latitude,
                                         longitude = location?.longitude,
@@ -1086,6 +1093,14 @@ fun CreateBusinessScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            SocialLinksField(
+                links = socialLinks,
+                onLinks = onSocialLinks,
+                enabled = !uiState.isLoading
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             AppTextField(
                 enabled = !uiState.isLoading,
                 value = address,
@@ -1385,6 +1400,8 @@ fun PreviewDashboardScreen() {
             phone = "",
             extraPhones = listOf(),
             onExtraPhones = {},
+            socialLinks = mapOf(),
+            onSocialLinks = {},
             address = "",
             location = null,
             onLocation = {},

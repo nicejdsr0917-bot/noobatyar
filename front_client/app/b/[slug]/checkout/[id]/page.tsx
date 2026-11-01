@@ -50,7 +50,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   const biz = appointment?.business;
   const accepted = biz?.accepted_payment_methods;
   const depositMode = biz?.deposit_mode;
-  // A mandatory deposit cannot be settled in person, so cash is not offered.
+  // A mandatory deposit cannot normally be settled in person, so cash is not offered.
   // An optional deposit always allows paying at the venue instead.
   // Online is payable either through a real Zibal gateway or, for businesses
   // without a merchant account, the older static payment link. Requiring the
@@ -58,8 +58,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   const canPayOnline =
     !!accepted?.includes('ONLINE') && (!!biz?.online_gateway_enabled || !!biz?.payment_link);
   const canPayCard = !accepted || accepted.includes('CARD');
+  // A mandatory deposit with neither a card nor an online way to pay it
+  // (configured before the server refused that) is settled at the visit
+  // instead of stranding the hold; the server accepts cash for it too.
+  const depositUncollectable = depositMode === 'MANDATORY' && !canPayOnline && !canPayCard;
   const canPayCash =
-    depositMode !== 'MANDATORY' && (!!accepted?.includes('CASH') || depositMode === 'OPTIONAL');
+    depositUncollectable ||
+    (depositMode !== 'MANDATORY' && (!!accepted?.includes('CASH') || depositMode === 'OPTIONAL'));
 
   const availableMethods: PaymentMethod[] = [
     ...(canPayOnline ? (['ONLINE'] as const) : []),

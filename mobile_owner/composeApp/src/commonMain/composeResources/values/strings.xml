@@ -1072,4 +1072,10 @@
     <string name="reviews_load_failed">نظرها بارگذاری نشد</string>
     <string name="reviews_anonymous">مشتری نوبت‌یار</string>
     <string name="home_banner_description">بنر</string>
+    <string name="social_links_title">شبکه‌های اجتماعی</string>
+    <string name="social_links_hint">آیدی یا لینک صفحه را وارد کنید؛ مشتری‌ها روی صفحه‌ی کسب‌وکارتان می‌بینند.</string>
+    <string name="social_whatsapp_hint">شماره موبایل واتساپ</string>
+    <string name="social_website_hint">example.ir</string>
+    <string name="mandatory_deposit_needs_online_method">بیعانه‌ی اجباری را فقط با کارت به کارت یا پرداخت آنلاین می‌شود گرفت. یکی از این دو را در تب «پرداخت» فعال کنید.</string>
+    <string name="open_payment_tab">رفتن به تب پرداخت</string>
 </resources>

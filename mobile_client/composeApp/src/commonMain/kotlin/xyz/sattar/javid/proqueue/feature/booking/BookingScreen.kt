@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.booking
 
+import xyz.sattar.javid.proqueue.core.ui.components.OtpCodeField
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Copy
@@ -53,6 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -490,7 +492,12 @@ internal fun rememberAutoFocus(): FocusRequester {
     return focus
 }
 
-internal val ltrInput = TextStyle(textDirection = TextDirection.Ltr, textAlign = TextAlign.Center, fontSize = 20.sp, letterSpacing = 2.sp)
+// Built on the theme's body style so the field and its hint keep the app font
+// (a bare TextStyle replaces it with the platform default).
+internal val ltrInput: TextStyle
+    @Composable @ReadOnlyComposable get() = MaterialTheme.typography.bodyLarge.merge(
+        TextStyle(textDirection = TextDirection.Ltr, textAlign = TextAlign.Center, fontSize = 20.sp, letterSpacing = 2.sp)
+    )
 
 @Composable
 private fun PhoneStep(state: BookingState, vm: BookingViewModel) {
@@ -520,16 +527,13 @@ private fun CodeStep(state: BookingState, vm: BookingViewModel) {
     val focus = rememberAutoFocus()
     StepScaffold(action = "تایید", actionEnabled = state.code.length >= 4, busy = state.busy, onAction = vm::verifyOtp) {
         StepTitle("کد تایید", "کد پیامک‌شده به ${state.phone.toPersianDigits()}")
-        OutlinedTextField(
-            value = state.code,
-            onValueChange = vm::setCode,
-            singleLine = true,
-            textStyle = ltrInput.copy(fontSize = 26.sp, letterSpacing = 10.sp, fontWeight = FontWeight.Bold),
-            visualTransformation = PersianDigits,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { vm.verifyOtp() }),
-            shape = Radius.md,
-            modifier = Modifier.fillMaxWidth().focusRequester(focus).enterStagger(1)
+        OtpCodeField(
+            code = state.code,
+            onCodeChange = vm::setCode,
+            length = 6,
+            focusRequester = focus,
+            onDone = { vm.verifyOtp() },
+            modifier = Modifier.enterStagger(1),
         )
         Row(Modifier.enterStagger(2), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = vm::sendOtp, enabled = !state.busy) { Text("ارسال دوباره") }

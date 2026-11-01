@@ -18,6 +18,8 @@ data class Business(
     /** Numbers beyond the primary [phone] — same normalization, same
      *  ۰۹۱۲۱۲۳۴۵۶۷ shape, just more than one. */
     val extraPhones: List<String> = emptyList(),
+    /** Instagram/Telegram/… handles keyed by [SocialLinks.kinds]. */
+    val socialLinks: Map<String, String> = emptyMap(),
     val address: String,
     /** The map pin, picked on LocationPickerScreen and shown to clients with
      *  "route there" links. Both or neither — the server rejects half a pair. */

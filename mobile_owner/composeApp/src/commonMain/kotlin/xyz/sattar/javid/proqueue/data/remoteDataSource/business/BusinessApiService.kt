@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.data.remoteDataSource.business
 
+import xyz.sattar.javid.proqueue.domain.model.business.SocialLinks
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -121,6 +122,9 @@ class BusinessApiService(private val httpClient: HttpClient) : BusinessApi {
                 // and remove numbers all day and the save would still only
                 // carry the single `phone` field, silently dropping the rest.
                 append("extra_phones", business.extraPhones.toJsonArrayString())
+                // A JSON object in a form field, parsed by DRF's JSONField like
+                // the arrays above; "{}" clears every link.
+                append("social_links", SocialLinks.encode(business.socialLinks))
                 append("allow_client_add_service", business.allowClientAddService.toString())
                 append("notice_enabled", business.noticeEnabled.toString())
                 append("notice_message", business.noticeMessage)

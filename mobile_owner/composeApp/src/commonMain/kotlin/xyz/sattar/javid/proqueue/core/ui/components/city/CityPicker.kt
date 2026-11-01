@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -155,6 +157,11 @@ fun CityPickerSheet(onDismiss: () -> Unit, onPick: (PickedCity) -> Unit) {
     LaunchedEffect(Unit) { provinces = IranCities.provinces() }
     var query by remember { mutableStateOf("") }
     var openProvince by remember { mutableStateOf<IranProvince?>(null) }
+    // One scroll position per list: the province list keeps its place for
+    // the way back, and each province's cities start from the top instead of
+    // inheriting wherever the province list was scrolled to.
+    val provinceListState = rememberLazyListState()
+    val cityListState = remember(openProvince) { LazyListState() }
 
     AdaptiveSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -185,7 +192,10 @@ fun CityPickerSheet(onDismiss: () -> Unit, onPick: (PickedCity) -> Unit) {
 
         val q = query.trim()
         val province = openProvince
-        LazyColumn(modifier = Modifier.fillMaxWidth().height(460.dp)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().height(460.dp),
+            state = if (province != null && query.isBlank()) cityListState else provinceListState,
+        ) {
             when {
                 q.isNotEmpty() -> {
                     val matches = provinces.flatMap { p ->

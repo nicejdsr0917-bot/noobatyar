@@ -126,7 +126,9 @@ fun AdvancedSettingsTabs(
                 depositMode = depositMode,
                 onDepositMode = onDepositMode,
                 depositAmount = depositAmount,
-                onDepositAmount = onDepositAmount
+                onDepositAmount = onDepositAmount,
+                acceptedPaymentMethods = acceptedPaymentMethods,
+                onGoToPayment = { selectedTab = 0 }
             )
             2 -> MessagingTab(
                 entitlements = entitlements,
@@ -437,6 +439,8 @@ private fun CapacityTab(
     onDepositMode: (String) -> Unit,
     depositAmount: String,
     onDepositAmount: (String) -> Unit,
+    acceptedPaymentMethods: Set<String>,
+    onGoToPayment: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         FeatureGate(
@@ -522,6 +526,23 @@ private fun CapacityTab(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // Cash is paid at the visit, so it cannot settle a deposit:
+                    // a mandatory one with only cash left clients stuck on a
+                    // payment step with nothing to pay to. The server refuses
+                    // it too (BusinessSerializer.validate).
+                    if (depositMode == DepositMode.MANDATORY.value &&
+                        "CARD" !in acceptedPaymentMethods && "ONLINE" !in acceptedPaymentMethods
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = Str.mandatory_deposit_needs_online_method,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        TextButton(onClick = onGoToPayment, enabled = !isLoading) {
+                            Text(Str.open_payment_tab, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
                 }
             }
           }

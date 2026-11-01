@@ -1023,4 +1023,10 @@
     <string name="reviews_load_failed">Couldn\'t load reviews</string>
     <string name="reviews_anonymous">Noobatyar customer</string>
     <string name="home_banner_description">Banner</string>
+    <string name="social_links_title">Social pages</string>
+    <string name="social_links_hint">Enter the handle or page link; customers see it on your business page.</string>
+    <string name="social_whatsapp_hint">WhatsApp mobile number</string>
+    <string name="social_website_hint">example.com</string>
+    <string name="mandatory_deposit_needs_online_method">A mandatory deposit can only be collected by card transfer or online payment. Turn one of them on in the Payment tab.</string>
+    <string name="open_payment_tab">Go to the Payment tab</string>
 </resources>

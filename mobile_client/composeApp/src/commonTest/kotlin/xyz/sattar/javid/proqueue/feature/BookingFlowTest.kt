@@ -59,6 +59,14 @@ class BookingFlowTest {
     }
 
     @Test
+    fun aCashOnlyMandatoryDepositHasNoPaymentStageAndPaysInPerson() {
+        val cashOnly = businessDto(1).copy(depositMode = DEPOSIT_MANDATORY, depositAmount = 50000, acceptedPaymentMethods = listOf("CASH")).toDomain()
+        assertFalse(cashOnly.expectsDeposit())
+        assertEquals(listOf(PaymentOption.CASH), paymentOptions(listOf("CASH"), DEPOSIT_MANDATORY, false, ""))
+        assertEquals(listOf(PaymentOption.CARD), paymentOptions(listOf("CARD", "CASH"), DEPOSIT_MANDATORY, false, ""))
+    }
+
+    @Test
     fun signInStepsSitUnderConfirm() {
         val phases = bookingPhases(business(listOf("ترمیم")), BookingStep.PHONE)
         listOf(BookingStep.PHONE, BookingStep.CODE, BookingStep.NAME, BookingStep.CONFIRM).forEach {

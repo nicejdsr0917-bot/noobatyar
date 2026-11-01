@@ -47,7 +47,8 @@ internal const val dbFileName = "proQueue.db"
     // 18: no schema change — forces a clean local cache on the 1.9.5 rebuild.
     // 19: BusinessEntity.latitude/longitude (the business's map pin).
     // 20: AppointmentEntity.source (where the booking came from).
-    version = 20
+    // 21: BusinessEntity.socialLinks (Instagram, Telegram, … handles).
+    version = 21
 )
 @ConstructedBy(DbFactory::class)
 abstract class AppDatabase : RoomDatabase() {

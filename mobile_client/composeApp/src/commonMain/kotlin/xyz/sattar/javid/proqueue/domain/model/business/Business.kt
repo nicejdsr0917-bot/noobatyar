@@ -18,6 +18,8 @@ data class Business(
     /** Numbers beyond the primary [phone] — same normalization, same
      *  ۰۹۱۲۱۲۳۴۵۶۷ shape, just more than one. */
     val extraPhones: List<String> = emptyList(),
+    /** {kind: handle}; see backend/business/social_links.py. Withheld with the phone. */
+    val socialLinks: Map<String, String> = emptyMap(),
     val address: String,
     val logoPath: String,
     val defaultServiceDuration: Int,

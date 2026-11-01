@@ -749,6 +749,7 @@ private fun saveCardIntent(
     category = business.category,
     phone = business.phone,
     extraPhones = business.extraPhones,
+    socialLinks = business.socialLinks,
     address = business.address,
     latitude = business.latitude,
     longitude = business.longitude,

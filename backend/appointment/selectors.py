@@ -80,6 +80,24 @@ def appointment_get_for_owner(*, appointment_id, user):
     ).get(id=appointment_id, business__user=user)
 
 
+def deposit_collectable(business):
+    """Whether the client has any way to pay a deposit before the visit.
+
+    Card-to-card needs a card number, online needs a Zibal merchant or a
+    payment link. Cash is paid at the visit, so it cannot settle a deposit.
+    A mandatory deposit on a business with none of these used to hold the
+    slot and then leave the client on a payment step with nothing to pay to.
+    """
+    accepted = business.accepted_payment_methods or []
+    if 'CARD' in accepted and (business.card_number or '').strip():
+        return True
+    if 'ONLINE' in accepted and (
+        (business.merchant_id or '').strip() or (business.payment_link or '').strip()
+    ):
+        return True
+    return False
+
+
 def business_requires_payment(business):
     """
     Whether booking this business must go through the payment step.
@@ -93,9 +111,19 @@ def business_requires_payment(business):
     owner_id = business.user_id
     accepted = business.accepted_payment_methods or []
 
-    wants_deposit = business.deposit_mode in ('MANDATORY', 'OPTIONAL')
+    collectable = deposit_collectable(business)
+
+    # An optional deposit can always be settled in cash at the payment step;
+    # a mandatory one only when there is a card or online way to pay it.
+    # Without one the booking goes straight to the owner, as with no deposit.
+    wants_deposit = business.deposit_mode == 'OPTIONAL' or (
+        business.deposit_mode == 'MANDATORY' and collectable
+    )
     if wants_deposit and entitlements.has_feature(owner_id, entitlements.FEATURE_DEPOSIT):
         return True
+
+    if not collectable:
+        return False
 
     if 'CARD' in accepted and entitlements.has_feature(owner_id, entitlements.FEATURE_DEPOSIT):
         return True

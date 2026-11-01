@@ -12,6 +12,7 @@ import BusinessMap from '@/app/components/BusinessMap';
 import LockedContact, { LockedMap, isWithheld } from '@/app/components/LockedContact';
 import { baladUrl, businessLocation, neshanUrl } from '@/lib/maps';
 import { toPersianDigits as toFa } from '@/lib/validation';
+import SocialLinks from '@/app/components/SocialLinks';
 import { useVisitorToken } from '@/lib/visitorToken';
 import { t } from '@/lib/i18n';
 
@@ -194,6 +195,9 @@ export default function BusinessProfileClient({ business, slug, children }: Prop
 
       {/* ── Owner notice — first thing under the hero, before any detail ── */}
       <BusinessNotice business={business} style={{ paddingTop: 16 }} />
+
+      {/* ── Social pages — hidden with the phone (public_policy) ── */}
+      <SocialLinks business={business} />
 
       {/* ── Stats strip ── */}
       <div className="section" style={{ paddingTop: 20, paddingBottom: 8 }}>

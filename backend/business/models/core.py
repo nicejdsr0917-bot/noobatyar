@@ -105,6 +105,13 @@ class Business(models.Model):
         help_text='شماره‌های تماس دیگر، با همان قالب «تلفن»',
         verbose_name='شماره‌های دیگر',
     )
+    # {kind: handle}; see business/social_links.py for the kinds and the
+    # stored form. Contact data: masked together with the phone.
+    social_links = models.JSONField(
+        default=dict, blank=True,
+        help_text='اینستاگرام، تلگرام، واتس‌اپ، ایتا، بله، روبیکا و وب‌سایت',
+        verbose_name='شبکه‌های اجتماعی',
+    )
     address = models.TextField(verbose_name='نشانی')
     # Where the business is on the map — picked by the owner in the app, shown
     # to clients on the booking page with "route there" links to Neshan and

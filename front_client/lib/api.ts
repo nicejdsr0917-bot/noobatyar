@@ -11,6 +11,8 @@ export function mediaUrl(path: string | null | undefined): string | null {
   return path.startsWith('http') ? path : `${BASE_URL}${path}`;
 }
 
+export type SocialKind = 'instagram' | 'telegram' | 'whatsapp' | 'eitaa' | 'bale' | 'rubika' | 'website';
+
 export interface Business {
   id: number;
   title: string;
@@ -27,6 +29,10 @@ export interface Business {
   /** Additional contact numbers beyond `phone`. Absent/empty on an older
    *  server, meaning "no extra numbers". */
   extra_phones?: string[];
+  /** {kind: handle} — instagram/telegram/eitaa/bale/rubika handles, a
+   *  09… number for whatsapp, an https URL for website. Withheld (sent as
+   *  {}) whenever the phone is. Absent on an older server. */
+  social_links?: Partial<Record<SocialKind, string>>;
   address: string | null;
   /** The owner's map pin. Null when none is set, and — like `address` —
    *  masked to null for a guest when allow_anonymous_view is off. Absent on

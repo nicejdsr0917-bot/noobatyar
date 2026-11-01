@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.auth
 
+import xyz.sattar.javid.proqueue.core.ui.components.OtpCodeField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -126,16 +127,13 @@ private fun CodeStep(state: LoginState, vm: LoginViewModel) {
         onAction = vm::verifyCode,
     ) {
         StepTitle("کد تایید", "کد پیامک‌شده به ${state.phone.toPersianDigits()}")
-        OutlinedTextField(
-            value = state.code,
-            onValueChange = vm::setCode,
-            singleLine = true,
-            textStyle = ltrInput.copy(fontSize = 26.sp, letterSpacing = 10.sp, fontWeight = FontWeight.Bold),
-            visualTransformation = PersianDigits,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { vm.verifyCode() }),
-            shape = Radius.md,
-            modifier = Modifier.fillMaxWidth().focusRequester(focus).enterStagger(1),
+        OtpCodeField(
+            code = state.code,
+            onCodeChange = vm::setCode,
+            length = OTP_LENGTH,
+            focusRequester = focus,
+            onDone = { vm.verifyCode() },
+            modifier = Modifier.enterStagger(1),
         )
         Row(Modifier.enterStagger(2), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = vm::resend, enabled = !state.busy && state.resendIn == 0) {

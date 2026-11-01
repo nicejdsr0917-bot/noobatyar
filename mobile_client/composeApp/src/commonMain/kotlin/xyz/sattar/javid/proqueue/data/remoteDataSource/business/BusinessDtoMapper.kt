@@ -27,6 +27,7 @@ fun BusinessDto.toDomain(): Business {
         uniqueCode = uniqueCode,
         phone = phone ?: "",
         extraPhones = extraPhones,
+        socialLinks = socialLinks,
         address = address ?: "",
         logoPath = logo ?: "",
         themeColor = themeColor ?: "",

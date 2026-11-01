@@ -160,6 +160,7 @@ fun AdvancedSettingsRoute(
                                     // through unchanged for the same reason as
                                     // services/allowClientAddService below.
                                     extraPhones = business.extraPhones,
+                                    socialLinks = business.socialLinks,
                                     address = business.address,
                                     latitude = business.latitude,
                                     longitude = business.longitude,

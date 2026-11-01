@@ -194,6 +194,9 @@ class Command(BaseCommand):
                 'services': services,
                 'deposit_mode': deposit,
                 'deposit_amount': rng.choice([100000, 200000, 300000]) if deposit != 'NONE' else 0,
+                # A mandatory deposit needs a way to pay it (serializers.validate).
+                **({'accepted_payment_methods': ['CARD', 'CASH'], 'card_number': '6037997599999999',
+                    'card_owner_name': owner_name} if deposit == 'MANDATORY' else {}),
             }
             business, was_created = Business.objects.update_or_create(unique_code=f'DEMO{i:04d}', defaults=fields)
             if group in INSURED_GROUPS and insurances:

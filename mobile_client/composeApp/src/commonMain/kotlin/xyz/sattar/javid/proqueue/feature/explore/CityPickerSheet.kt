@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
@@ -65,6 +67,11 @@ fun CityPickerSheet(
     LaunchedEffect(Unit) { provinces = IranCities.provinces() }
     var query by remember { mutableStateOf("") }
     var openProvince by remember { mutableStateOf<IranProvince?>(null) }
+    // One scroll position per list: the province list keeps its place for
+    // the way back, and each province's cities start from the top instead of
+    // inheriting wherever the province list was scrolled to.
+    val provinceListState = rememberLazyListState()
+    val cityListState = remember(openProvince) { LazyListState() }
 
     val pickCity: (IranCity, IranProvince) -> Unit = { city, _ -> onPick(city.toArea()) }
     val citiesById = remember(provinces) {
@@ -101,7 +108,10 @@ fun CityPickerSheet(
 
             val q = query.trim()
             val province = openProvince
-            LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+            LazyColumn(
+                Modifier.fillMaxWidth().weight(1f),
+                state = if (province != null && query.isBlank()) cityListState else provinceListState,
+            ) {
                 when {
                     q.isNotEmpty() -> {
                         val matches = provinces.flatMap { p ->

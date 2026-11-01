@@ -7,6 +7,7 @@ from visitor.models import PushLog, SmsLog
 from .iran_cities import get_city
 from .models import BIO_MAX_LENGTH, Business, Insurance, ServiceCatalogItem
 # Re-exported: the policy moved to public_policy.py (audit R11).
+from .social_links import SocialLinkError, normalize_social_links
 from .public_policy import (  # noqa: F401
     BOOKING_BLOCKED_NOTICE, PublicPayloadMixin, apply_contact_rules, apply_notice_rules,
 )
@@ -109,7 +110,7 @@ class BusinessSerializer(serializers.ModelSerializer):
         fields = [
             # Identity
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
-            'address', 'logo', 'theme_color',
+            'social_links', 'address', 'logo', 'theme_color',
             # Location & Discovery
             'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
             'is_claimed', 'online_booking_requests_count', 'insurances', 'insurance_ids',
@@ -199,6 +200,12 @@ class BusinessSerializer(serializers.ModelSerializer):
 
     def validate_services(self, value):
         return normalize_service_names(value)
+
+    def validate_social_links(self, value):
+        try:
+            return normalize_social_links(value)
+        except SocialLinkError as e:
+            raise serializers.ValidationError(str(e))
 
     def validate_extra_phones(self, value):
         """Same shape and normalization as `phone`, plural.
@@ -327,6 +334,21 @@ class BusinessSerializer(serializers.ModelSerializer):
         ):
             raise serializers.ValidationError({
                 'merchant_id': 'برای پرداخت آنلاین، مرچنت آیدی زیبال یا لینک پرداخت الزامی است'
+            })
+
+        # A mandatory deposit needs a way to pay it before the visit. Checked
+        # only when the deposit or the methods change: the owner apps post the
+        # whole business on every save, and an owner already in this state
+        # must still be able to rename the business. Booking copes with it
+        # (appointment.selectors.business_requires_payment).
+        payment_changed = self.instance is None or any(
+            current(k) != getattr(self.instance, k)
+            for k in ('deposit_mode', 'accepted_payment_methods')
+        )
+        if payment_changed and current('deposit_mode') == 'MANDATORY' \
+                and not ({'CARD', 'ONLINE'} & set(accepted)):
+            raise serializers.ValidationError({
+                'deposit_mode': 'برای بیعانه‌ی اجباری، پرداخت کارت به کارت یا آنلاین را فعال کنید'
             })
 
         if current('deposit_mode') in ('MANDATORY', 'OPTIONAL') and not current('deposit_amount'):
@@ -466,6 +488,8 @@ class PublicBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
             'distance_km',
             'phone',
             'extra_phones',
+            # Masked together with the phone (public_policy._mask_phone).
+            'social_links',
             'work_start_hour',
             'work_end_hour',
             'work_start_minute',
@@ -524,6 +548,7 @@ class ClientBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
         model = Business
         fields = [
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
+            'social_links',
             'address', 'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
             'is_claimed', 'online_booking_requests_count', 'insurances', 'distance_km',
             'logo', 'theme_color',

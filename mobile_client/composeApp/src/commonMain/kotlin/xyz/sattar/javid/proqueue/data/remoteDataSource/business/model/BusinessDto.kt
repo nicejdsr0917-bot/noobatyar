@@ -14,6 +14,7 @@ data class BusinessDto(
     // Additional contact numbers beyond `phone`. Defaulted for an older
     // backend that predates the column, same reasoning as closed_weekdays.
     @SerialName("extra_phones") val extraPhones: List<String> = emptyList(),
+    @SerialName("social_links") val socialLinks: Map<String, String> = emptyMap(),
     @SerialName("address") val address: String? = null,
     @SerialName("logo") val logo: String? = null,
     @SerialName("theme_color") val themeColor: String? = null,

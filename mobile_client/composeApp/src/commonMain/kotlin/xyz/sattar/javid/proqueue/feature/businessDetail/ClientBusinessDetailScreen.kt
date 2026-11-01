@@ -303,6 +303,7 @@ internal fun DetailContent(
 
                     if (social.portfolio.isNotEmpty()) PortfolioSection(social.portfolio, card++)
                     if (social.certificates.isNotEmpty()) CertificatesSection(social.certificates, card++)
+                    if (business.socialLinks.isNotEmpty()) SocialLinksSection(business.socialLinks, business.title, card++)
                     if (social.summary != null) {
                         ReviewsSection(social, card++, onWrite = onWriteReview, onMore = onMoreReviews, onReport = onReportReview)
                     }

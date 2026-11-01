@@ -7,6 +7,7 @@ import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
 import xyz.sattar.javid.proqueue.domain.model.business.ModerationStatus
 import xyz.sattar.javid.proqueue.domain.model.business.ReminderDelivery
 import xyz.sattar.javid.proqueue.domain.model.business.ReminderTemplates
+import xyz.sattar.javid.proqueue.domain.model.business.SocialLinks
 
 fun BusinessEntity.toDomain() = Business(
     id = id,
@@ -19,6 +20,7 @@ fun BusinessEntity.toDomain() = Business(
     uniqueCode = uniqueCode,
     phone = phone,
     extraPhones = extraPhones.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+    socialLinks = SocialLinks.decode(socialLinks),
     address = address,
     latitude = latitude,
     longitude = longitude,
@@ -67,6 +69,7 @@ fun Business.toEntity() = BusinessEntity(
     uniqueCode = uniqueCode,
     phone = phone,
     extraPhones = extraPhones.joinToString(","),
+    socialLinks = SocialLinks.encode(socialLinks),
     address = address,
     latitude = latitude,
     longitude = longitude,
@@ -112,6 +115,7 @@ fun Business.toRequestDto() = CreateBusinessRequestDto(
     category = category,
     phone = phone,
     extraPhones = extraPhones,
+    socialLinks = socialLinks,
     address = address,
     latitude = latitude,
     longitude = longitude,
@@ -156,6 +160,7 @@ fun BusinessDto.toEntity(): BusinessEntity {
         uniqueCode = uniqueCode,
         phone = phone,
         extraPhones = extraPhones.joinToString(","),
+        socialLinks = SocialLinks.encode(socialLinks),
         address = address,
         latitude = latitude,
         longitude = longitude,
