@@ -98,6 +98,30 @@ tags: [gf]
 - موقعیت کاربر ذخیره نمی‌شود؛ فقط `travel_distance_m` و بازهٔ رانندگی روی نوبت (به اونر نشان داده نمی‌شود).
 
 ## «بیمه من» (2026-11-01)
-- `PreferencesManager.myInsuranceSlug` / `setMyInsuranceSlug`؛ `MyInsuranceViewModel` و ردیف «بیمه تکمیلی من» در `MoreScreen` (با `InsuranceSheet`).
+- `PreferencesManager.myInsuranceSlug` / `setMyInsuranceSlug`؛ `MyInsuranceViewModel` و ردیف «بیمه تکمیلی من» در `ProfileScreen` (با `InsuranceSheet`). `MoreScreen` حذف شد.
 - `ExploreState.withMyInsurance()`: فقط دسته‌های پزشکی (نه «همه») خودکار با بیمهٔ من فیلتر می‌شوند؛ `insuranceOptedOut` وقتی کاربر عمداً «همه بیمه‌ها» را می‌زند.
 - `LocalMyInsuranceSlug` (در `MainNavHost`) و `Business.acceptsInsurance(slug)`: خط «بیمه شما قبول است» روی کارت (`MetaLine`) و یادداشت در کارت بیمهٔ صفحهٔ مرکز.
+
+## صفحه‌ی مرکز، پروفایل، کش نقشه (2026-11-01)
+- **فقط اندروید.** iOS بیلد یا بررسی نشود. actual لازم برای iosMain فقط نوشته می‌شود.
+- **`feature/businessDetail/DetailHero.kt`:**
+  - `HeroCollapse(scroll)`: پیشرفت بسته شدن هدر. فقط در `graphicsLayer` و `drawBehind` خوانده می‌شود، پس اسکرول صفحه را دوباره نمی‌سازد.
+  - `window(from, to)` هر بخش را روی برش خودش از این پیشرفت متحرک می‌کند.
+  - رفتن اسم به تولبار: جای اسم در هدر و تولبار با `onGloballyPositioned` اندازه گرفته می‌شود. این اندازه‌گیری **قبل** از `graphicsLayer` همان المان است، وگرنه حرکت روی نقطه‌ی شروع خودش اثر می‌گذارد.
+  - `PinnedDetailBar`: دکمه‌ها از دایره‌ی شیشه‌ای به آیکن ساده تبدیل می‌شوند. پس‌زمینه‌ی تولبار رنگ تم (`surface`) است، نه بنفش.
+  - `DetailHero` اگر `logo` باشد عکس تمام‌صفحه نشان می‌دهد، وگرنه گرادیان برند با `BusinessAvatar`.
+  - `StatsRow` و `QuickPickSection` (از `DayStrip` رزرو استفاده می‌کند).
+- **رزرو با ساعت از پیش انتخاب‌شده:** مسیر `AppScreens.Booking(businessId, resumeAppointmentId, date, slotAt)`. `BookingViewModel.load(..., preDate, preSlotAt)` روز را انتخاب می‌کند و بعد از رسیدن ساعت‌ها، ساعت را. `bookingDays()` بین صفحه‌ی مرکز و رزرو مشترک است.
+- **`ClientBusinessDetailViewModel`:** پارامترهای `bookingApi` (اختیاری، آخر لیست) و `refresh()`. `isRefreshing` برای `PullToRefreshBox(floatingIndicator = true)`.
+- **`feature/profile/`:**
+  - `ProfileViewModel` در `MainNavHost` ساخته و به `ProfileScreen` داده می‌شود، تا آیکن تب (`ProfileTabIcon`) هم با آن به‌روز شود.
+  - API در `data/remoteDataSource/profile/ProfileApi.kt` است: `me`، `rename`، `uploadAvatar`، `deleteAvatar`.
+  - `MainTab.More` اسمش «پروفایل» است (اسم object عوض نشد).
+- **`Business.categoryIcon()`** (در `DiscoveryUi.kt`): آیکن هر گروه صنف برای مراکز بدون لوگو، هم‌خانواده‌ی پین‌های نقشه.
+- **`StateMessage`:** انیمیشن ورود فنری، حلقه‌ها، حرکت آرام بالا و پایین آیکن، و چرخش آیکن رفرش. با «کاهش حرکت» خاموش می‌شود.
+- **کاشی‌ها:**
+  - `TileDiskCache` در `cacheDir/map-tiles/osm-hot-v1/z/x/y.t`: ۸ بایت زمان ذخیره، بعد PNG رنگ‌شده. با تغییر `TileRecolor`، مقدار `VERSION` را بالا ببر.
+  - `loadTile()` اول کش تازه، بعد شبکه، بعد کش کهنه.
+  - `prefetchTilesAround(center)` در `MainNavHost`، ۳ ثانیه بعد از باز شدن اپ و با هر تغییر شهر.
+- **`BusinessMapScreen`:** دکمه‌های `TripControls` (مبدا و مقصد) با `flyTo`: اول `fitBoth`، بعد زوم روی همان سر.
+- **تست آفلاین روی LDPlayer:** وای‌فای را خاموش نکن، چون adb قطع می‌شود. از `settings put global global_http_proxy_host/port/exclusion_list` استفاده کن.

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-11-01
 tags: [gf]
 ---
 # backend: visitor (مشتری)
@@ -9,9 +9,9 @@ tags: [gf]
 ## فایل‌ها
 - `backend/visitor/models.py` — `Visitor`، `VisitorContact`، `VisitorArchive`، `VisitorActivity`، `VisitorDeviceToken`، `SmsLog`، `PushLog`
 - `backend/visitor/urls.py` — owner: `api/visitor/`، `<id>/`، `<id>/messages/`، `<id>/restore/`
-- `backend/visitor/client_auth_urls.py` — `api/client/auth/{otp/send,otp/verify,register,me,devices/...}`
+- `backend/visitor/client_auth_urls.py` — `api/client/auth/{otp/send,otp/verify,register,me,me/avatar,devices/...}`
 - `backend/visitor/client_activity_urls.py` — `api/client/activity/`
-- تست‌ها: `tests_reports.py`، `tests_cross_business.py`
+- تست‌ها: `tests_reports.py`، `tests_cross_business.py`، `tests_profile.py`
 
 ## وابستگی‌ها
 [[modules/backend-business]]، [[modules/backend-appointment]]؛ مصرف‌کننده: [[modules/front-client]]، [[modules/mobile-client]].
@@ -23,3 +23,13 @@ tags: [gf]
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
 - `visitor/services.py`: attach، update_by_owner، archive. attach هرگز مالکیت ردیف موجود را نمی‌دهد. شماره قفل است اگر `has_independent_identity` (ورود کلاینت، توکن پوش، اونر دیگر، نوبت جای دیگر).
 - `Visitor.phone_changed_at` و `last_client_login_at`: `VisitorTokenAuthentication` توکنِ قبل از تغییر شماره را رد می‌کند. `VisitorContact.display_name`: نامی که اونر وارد کرده.
+
+## پروفایل مشتری (2026-11-01، برنچ mobile-client)
+- `Visitor.avatar` (`visitor_avatars/`، migration `0014_visitor_avatar`).
+- `ClientMeView`:
+  - GET با `ClientMeSerializer`: `id`، `full_name`، `phone_number`، `avatar` (URL کامل)، `created_at`.
+  - PATCH فقط `full_name` را عوض می‌کند (`ClientMeUpdateSerializer`، ۲ تا ۶۰ حرف، فاصله‌های اضافه جمع می‌شوند). شماره عوض نمی‌شود.
+- `ClientAvatarView`:
+  - POST چندبخشی با فیلد `avatar`: با `showcase/images.py` باز و بررسی می‌شود، `ImageOps.fit` مربع ۵۱۲ پیکسل، JPEG. فایل قبلی پاک می‌شود.
+  - DELETE عکس را برمی‌دارد.
+- `avatar` در `VisitorSerializer` (که اونرها می‌خوانند) **نیست**، پس صف بررسی ادمین لازم ندارد.
