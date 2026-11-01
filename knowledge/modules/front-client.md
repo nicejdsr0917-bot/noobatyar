@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-11-02
 tags: [gf]
 ---
 # وب مشتری (front_client)
@@ -34,3 +34,9 @@ tags: [gf]
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
 - `app/components/ShowcaseSection.tsx` و `ReviewsSection.tsx` روی `b/[slug]` رندر می‌شوند. نمونه‌کار و صفحهٔ اول نظرات سمت سرور گرفته می‌شوند، و `aggregateRating` در JSON-LD آمده.
 - رزرو با `source: 'WEB'` ثبت می‌شود. mock-api در e2e حالا showcase و reviews را هم دارد؛ ۱۳ تست Playwright.
+
+## جلسهٔ 2026-11-02
+- `app/components/SocialLinks.tsx`: زیر اطلاعیهٔ مالک در `BusinessProfileClient`؛ عنوان `t('socialPages', business.title)`. آیکن‌ها در `public/icons/social/` (SVG از vectorهای اپ اونر، PNG برای بله/ایتا/روبیکا). استایل `.social-*` در `globals.css` با `popIn` و `prefers-reduced-motion`.
+- `Business.social_links` و `SocialKind` در `lib/api.ts`.
+- چک‌اوت (`b/[slug]/checkout/[id]/page.tsx`): `depositUncollectable` → نقد برای بیعانهٔ اجباری بی‌روش.
+- `npx tsc` فقط خطاهای Playwright نصب‌نشده (`e2e/`، `playwright.config.ts`) را دارد که قبلی‌اند.

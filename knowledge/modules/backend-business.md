@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-01
+updated: 2026-11-02
 tags: [gf]
 ---
 # backend: business
@@ -63,3 +63,14 @@ tags: [gf]
 - ادمین: `/admin/business/business/import-file/?guild=KEY` (بارگذاری یا چسباندن از اکسل، پیش‌نمایش، توکن تأیید، فایل در `MEDIA_ROOT/tmp_imports` تا ۲۴ ساعت) و قالب نمونه (`?guild=` برای هر صنف).
 - `DirectoryFormMixin` (`admin/directory_form.py`): فرم افزودن بخش‌بندی‌شده، پیش‌فرض‌ها، `city_code` از نام شهر، تأیید خودکار مرکز بی‌تیک.
 - هشت proxy (`models/guilds.py`، `GUILDS`) با ادمین جدا (`admin/guilds.py`) و بخش «ثبت مرکز» در منو. `_GUILD_MENU` در `settings.py` دستی است (تست مقایسه می‌کند).
+
+## شبکه‌های اجتماعی (2026-11-02)
+- `Business.social_links` (JSON، migration `0036`): `{kind: value}` با کلیدهای `instagram`، `telegram`، `whatsapp`، `eitaa`، `bale`، `rubika`، `website`.
+- `business/social_links.py` → `normalize_social_links`: هر شکلی (`@name`، لینک پروفایل، `wa.me/98…`) را به آیدی خالی، موبایل `09…` برای واتساپ، یا URL با `https` برای سایت تبدیل می‌کند. `javascript:` و طرح‌های دیگر رد می‌شوند.
+- در `BusinessSerializer` (نوشتنی) و `PublicBusinessSerializer` / `ClientBusinessSerializer` (فقط خواندنی) هست.
+- `public_policy._mask_phone` آن را هم `{}` می‌کند: هر جا تلفن پنهان است، شبکه‌ها هم پنهان‌اند.
+- تست: `tests_social_links.py`؛ `tests_contract_shapes` کلید `social_links: dict` دارد.
+
+## بیعانهٔ اجباری بدون روش آنلاین (2026-11-02)
+- `BusinessSerializer.validate`: `deposit_mode=MANDATORY` بدون `CARD` یا `ONLINE` رد می‌شود، **فقط وقتی** بیعانه یا روش‌ها در همین ذخیره عوض شوند (اپ‌های اونر کل کسب‌وکار را می‌فرستند؛ اونرِ قدیمی با این تنظیم باید بتواند اسمش را عوض کند).
+- `seed_demo_businesses`: بیعانهٔ اجباری حالا با کارت (`6037997599999999`) ساخته می‌شود.

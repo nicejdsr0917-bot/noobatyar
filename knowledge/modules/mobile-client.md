@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-01
+updated: 2026-11-02
 tags: [gf]
 ---
 # اپ موبایل مشتری (mobile_client — برنچ `mobile-client`)
@@ -125,3 +125,10 @@ tags: [gf]
   - `prefetchTilesAround(center)` در `MainNavHost`، ۳ ثانیه بعد از باز شدن اپ و با هر تغییر شهر.
 - **`BusinessMapScreen`:** دکمه‌های `TripControls` (مبدا و مقصد) با `flyTo`: اول `fitBoth`، بعد زوم روی همان سر.
 - **تست آفلاین روی LDPlayer:** وای‌فای را خاموش نکن، چون adb قطع می‌شود. از `settings put global global_http_proxy_host/port/exclusion_list` استفاده کن.
+
+## جلسهٔ 2026-11-02
+- **`OtpCodeField`** (`core/ui/components/`): کد تایید خانه‌به‌خانه با حرکت (نشانگر چشمک‌زن، ورود فنری رقم، لرزش وقتی کد کامل خالی برگردد، موج تکمیل). در `LoginScreen` و `BookingScreen` (مرحلهٔ کد). یک `BasicTextField` نامرئی روی ردیف است تا paste و autofill کار کند. پس‌زمینهٔ خانه باید مات باشد (`compositeOver`)، وگرنه سایهٔ رنگی از زیرش پیداست.
+- **`ltrInput`** (`BookingScreen.kt`) حالا getter کامپوزبل روی `typography.bodyLarge` است؛ `TextStyle` خالی فونت اپ را با فونت پیش‌فرض عوض می‌کرد.
+- **`DetailSocial.kt` → `SocialLinksSection(links, businessTitle, index)`**: ردیف افقی کاشی ۶۰dp با لوگوهای اپ اونر (`ic_brand_*` در drawable؛ PNG برای بله/ایتا/روبیکا)، ورود فنری پلکانی، نوار نور مداوم مثل «درباره ما»ی اونر. عنوان: «{نام کسب‌وکار} در شبکه‌های اجتماعی». URL در اپ ساخته می‌شود.
+- **`CityPickerSheet`**: هر لیست state جدا دارد؛ شهرهای هر استان از بالا شروع می‌شوند و لیست استان‌ها جایش را نگه می‌دارد.
+- **`BookingFlow.kt`**: `Business.depositCollectable()` (لیست خالی = کارت، مثل `paymentOptions`)؛ `expectsDeposit` آن را هم می‌خواهد. `paymentOptions` برای بیعانهٔ اجباری بی‌روش، نقد می‌دهد.

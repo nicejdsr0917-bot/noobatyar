@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-11-02
 tags: [gf]
 ---
 # اپ صاحب کسب‌وکار (mobile_owner)
@@ -43,3 +43,10 @@ tags: [gf]
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰ (عصر)
 - صفحهٔ اصلی: `SourceSummaryCard` (`feature/home/HomeSourceCard.kt`) زیر کارت ماه، داخل `trendBlock`. داده از `GetSourceSummaryUseCase` ← `AppointmentRepository.getSourceCounts` (پیش‌فرض `null` در interface تا stubها نشکنند) ← `appointment/stats/` با `date_from` = اول ماه (`monthOverview.current.rangeStart`) و `date_to` = امروز. اگر APP و WEB هر دو صفر باشند نمایش داده نمی‌شود.
 - `HomeViewModel` یک پارامتر سازندهٔ جدید دارد (`getSourceSummaryUseCase`)؛ Koin ۱۴ تا `get()` می‌دهد.
+
+## جلسهٔ 2026-11-02
+- **شبکه‌های اجتماعی:** `Business.socialLinks: Map<String,String>`، `SocialLinks` (`domain/model/business/SocialLinks.kt`: ترتیب، `clean`، `encode`/`decode` JSON). در multipart به شکل `social_links` (رشتهٔ JSON). Room: ستون `BusinessEntity.socialLinks` (JSON)، **نسخهٔ دیتابیس 21**.
+- `CreateBusinessIntent.CreateBusiness.socialLinks` عمداً پیش‌فرض ندارد؛ هر جایی که intent می‌سازد (`AdvancedSettingsRoute`، `ShareBusinessScreen`) باید `business.socialLinks` را رد کند، وگرنه ذخیره لینک‌ها را پاک می‌کند.
+- `SocialLinksField.kt` (فرم کسب‌وکار، زیر شماره‌ها): هر شبکه یک ردیف؛ کاشی تا خالی است خاکستری است و با تایپ رنگ برند می‌گیرد.
+- `CityPicker`: state جدا برای لیست استان و شهر.
+- `AdvancedSettingsTabs` → `CapacityTab`: بیعانهٔ اجباری بدون `CARD`/`ONLINE` هشدار قرمز و دکمهٔ «رفتن به تب پرداخت» دارد.

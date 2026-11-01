@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-31
+updated: 2026-11-02
 tags: [gf]
 ---
 # backend: appointment
@@ -49,3 +49,9 @@ tags: [gf]
 
 ## فاصله و زمان رانندگی روی نوبت
 - `travel_distance_m`، `drive_minutes_min/max` را اپ کلاینت موقع رزرو می‌فرستد (از آخرین موقعیت ذخیره‌شده)؛ مختصات کاربر ذخیره نمی‌شود. هنوز در سریالایزر نوبت، ادمین و اپ اونر نمایش داده نمی‌شود.
+
+## بیعانهٔ غیرقابل دریافت (2026-11-02)
+- `selectors.deposit_collectable(business)`: کارت با شماره، یا آنلاین با مرچنت یا لینک. نقد حساب نیست.
+- `business_requires_payment`: بیعانهٔ `OPTIONAL` همیشه مرحلهٔ پرداخت دارد؛ `MANDATORY` فقط اگر قابل دریافت باشد. اگر نه، رزرو مستقیم `PENDING_APPROVAL` می‌شود و قفل نمی‌شود.
+- `client_submit_payment`: نقد برای `MANDATORY` فقط وقتی رد می‌شود که بیعانه قابل دریافت باشد (نوبت‌های قفل‌شدهٔ قدیمی گیر نمی‌کنند).
+- تست: `tests_uncollectable_deposit.py`.
