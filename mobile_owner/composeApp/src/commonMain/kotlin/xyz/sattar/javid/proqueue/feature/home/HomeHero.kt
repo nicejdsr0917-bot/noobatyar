@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -50,7 +53,7 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
  * the section stays on screen while the rest scrolls under it.
  *
  * Collapsing (rather than a fixed bar) is what keeps that from costing
- * permanent vertical space: at rest it shows the date, today's count and two
+ * permanent vertical space: at rest it shows the date and two
  * full-width actions; scrolled, it folds down to a single compact row with the
  * same two actions as icon buttons. Driven by [collapseFraction] — a 0..1
  * value the caller derives from list scroll — so there is one source of truth
@@ -59,7 +62,6 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
 @Composable
 fun HomeHero(
     collapseFraction: Float,
-    todayAppointmentsCount: Int?,
     business: Business?,
     onOpenCalendar: () -> Unit,
     onOpenShare: () -> Unit,
@@ -76,13 +78,13 @@ fun HomeHero(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 10.dp),
+                    .height(52.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = Str.today(formattedDate),
+                        text = Str.today(formattedDate).toPersianDigits(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
@@ -90,37 +92,10 @@ fun HomeHero(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (todayAppointmentsCount != null) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(12.dp),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Event,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(14.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = Str.appointments(todayAppointmentsCount),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        }
-                    }
-
                     // The collapsed affordances: they fade in exactly as the
                     // full-width buttons below fade out, so the actions are
                     // never unavailable mid-scroll.
                     if (collapseFraction > 0.05f) {
-                        Spacer(Modifier.width(8.dp))
                         Row(
                             modifier = Modifier.alpha(collapseFraction),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -146,16 +121,22 @@ fun HomeHero(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height((88.dp * expanded))
+                        .height((64.dp * expanded))
                         .alpha(expanded)
                         .padding(bottom = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    CalendarActionCard(
+                    HeroAction(
+                        icon = Icons.Rounded.CalendarMonth,
+                        label = Str.calendar_booking,
+                        primary = false,
                         onClick = onOpenCalendar,
                         modifier = Modifier.weight(1f),
                     )
-                    ShareActionCard(
+                    HeroAction(
+                        icon = Icons.Rounded.Share,
+                        label = Str.share_booking_link,
+                        primary = true,
                         onClick = onOpenShare,
                         modifier = Modifier.weight(1f),
                     )
@@ -192,82 +173,44 @@ private fun CompactAction(
     }
 }
 
-/** Opening the calendar, promoted to a primary action on Home. */
-@Composable
-private fun CalendarActionCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.CalendarMonth,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(22.dp),
-            )
-            Text(
-                text = Str.calendar_booking,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                maxLines = 1,
-            )
-        }
-    }
-}
-
 /**
- * The share entry point, in its full-width form.
+ * One of the two header actions: icon and label on a single centred line, at
+ * a fixed height so both buttons match whatever their label length.
  *
- * It used to copy the link to the clipboard on the spot. Copying is only one
- * of the things an owner does with that link, and the least useful of them in
- * front of a customer standing at the counter — so this now opens the share
- * screen, where the same link is also a QR card and a profile card, and
- * copying is one tap further in.
+ * Share opens the share screen rather than copying the link on the spot:
+ * copying is only one of the things an owner does with that link, and the
+ * least useful in front of a customer at the counter.
  */
 @Composable
-private fun ShareActionCard(
+private fun HeroAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    primary: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    val interaction = remember { MutableInteractionSource() }
+    val container = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer
+    val content = if (primary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer
+    Surface(
+        onClick = onClick,
+        interactionSource = interaction,
+        modifier = modifier.height(52.dp).pressScale(interaction),
+        shape = RoundedCornerShape(16.dp),
+        color = container,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Share,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(22.dp),
-            )
+            Icon(imageVector = icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
-                text = Str.share_booking_link,
+                text = label,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = content,
                 maxLines = 1,
             )
         }

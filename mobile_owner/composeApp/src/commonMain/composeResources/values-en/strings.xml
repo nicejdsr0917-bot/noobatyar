@@ -1064,4 +1064,9 @@
     <string name="social_website_hint">example.com</string>
     <string name="mandatory_deposit_needs_online_method">A mandatory deposit can only be collected by card transfer or online payment. Turn one of them on in the Payment tab.</string>
     <string name="open_payment_tab">Go to the Payment tab</string>
+    <string name="home_trend_title">Booking trend</string>
+    <string name="home_today_appointments">appointments today</string>
+    <string name="home_in_queue">%1$s in queue</string>
+    <string name="home_trend_empty">No bookings in this range yet</string>
+    <string name="home_buy_pack">Buy pack</string>
 </resources>

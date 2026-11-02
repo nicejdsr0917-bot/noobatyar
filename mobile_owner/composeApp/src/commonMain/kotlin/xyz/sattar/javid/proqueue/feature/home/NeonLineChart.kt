@@ -1,8 +1,18 @@
 package xyz.sattar.javid.proqueue.feature.home
 
 import xyz.sattar.javid.proqueue.core.i18n.Str
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,10 +34,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * A neon line chart of daily appointment counts.
- *
- * Pure Compose Canvas — the glow is layered strokes rather than a blur filter,
- * so it renders identically on Android and iOS.
+ * A line chart of appointment counts: one clean stroke over a faint area,
+ * drawn in with a sweep. Pure Compose Canvas, so it renders the same on
+ * Android, iOS and web.
  *
  * This is the drawing only; the card, its title and any period switching belong
  * to the caller (see [HomeTrendCard]). It used to be a whole card, which meant
@@ -37,105 +46,86 @@ import androidx.compose.ui.unit.dp
 fun NeonLineCanvas(
     counts: List<Int>,
     modifier: Modifier = Modifier,
-    height: Dp = 130.dp,
+    height: Dp = 120.dp,
     lineColor: Color = MaterialTheme.colorScheme.primary,
     emptyLabel: String = Str.no_data_to_show_yet,
 ) {
     val peak = counts.maxOrNull() ?: 0
+    val empty = counts.size < 2 || peak == 0
 
-    if (counts.size < 2 || peak == 0) {
-        Box(
-            modifier = modifier.fillMaxWidth().height(height),
-            contentAlignment = Alignment.Center,
-        ) {
+    // The line draws itself in from the start each time the series changes:
+    // a sweep reads as "here is the data", where a cut just flickers.
+    val sweep = remember(counts) { Animatable(0f) }
+    LaunchedEffect(counts) {
+        sweep.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
+    }
+    val gridColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
+    val dotFill = MaterialTheme.colorScheme.surfaceContainerLow
+
+    Box(modifier = modifier.fillMaxWidth().height(height), contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val padTop = 12.dp.toPx()
+            val padBottom = 8.dp.toPx()
+            val padH = 6.dp.toPx()
+            val plotTop = padTop
+            val plotBottom = h - padBottom
+
+            // Dashed gridlines and a solid baseline. Without them the line
+            // floats in space and there is no way to read a height off it.
+            listOf(0f, 0.5f, 1f).forEach { t ->
+                val y = plotBottom - t * (plotBottom - plotTop)
+                drawLine(
+                    color = if (t == 0f) gridColor.copy(alpha = 0.14f) else gridColor,
+                    start = Offset(padH, y),
+                    end = Offset(w - padH, y),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = if (t == 0f) null else PathEffect.dashPathEffect(floatArrayOf(6f, 6f)),
+                )
+            }
+            if (empty) return@Canvas
+
+            val maxV = peak.toFloat()
+            val n = counts.size
+            val stepX = (w - padH * 2) / (n - 1)
+            val pts = (0 until n).map { i ->
+                Offset(padH + stepX * i, plotBottom - (counts[i] / maxV) * (plotBottom - plotTop))
+            }
+            val line = smoothPath(pts)
+            val fill = smoothPath(pts).apply {
+                lineTo(pts.last().x, plotBottom)
+                lineTo(pts.first().x, plotBottom)
+                close()
+            }
+
+            clipRect(right = padH + (w - padH * 2) * sweep.value + 4.dp.toPx()) {
+                drawPath(fill, color = lineColor.copy(alpha = 0.10f))
+                drawPath(
+                    line,
+                    color = lineColor,
+                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+                )
+                // A dot per reading, so the curve is visibly sampled data rather
+                // than a free-drawn shape.
+                if (n <= 14) {
+                    pts.forEach { p ->
+                        drawCircle(color = lineColor, radius = 3.5.dp.toPx(), center = p)
+                        drawCircle(color = dotFill, radius = 1.8.dp.toPx(), center = p)
+                    }
+                }
+            }
+        }
+        if (empty) {
             Text(
                 text = emptyLabel,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(dotFill)
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
             )
-        }
-        return
-    }
-
-    // Animated so switching period redraws as a sweep instead of a jump cut.
-    val progress by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = tween(500),
-        label = "chart",
-    )
-
-    Canvas(modifier = modifier.fillMaxWidth().height(height)) {
-        val w = size.width
-        val h = size.height
-        val padTop = 14.dp.toPx()
-        val padBottom = 10.dp.toPx()
-        val padH = 6.dp.toPx()
-        val maxV = peak.coerceAtLeast(1).toFloat()
-        val n = counts.size
-        val stepX = (w - padH * 2) / (n - 1)
-
-        val pts = (0 until n).map { i ->
-            val x = padH + stepX * i
-            val norm = (counts[i] / maxV) * progress
-            val y = h - padBottom - norm * (h - padTop - padBottom)
-            Offset(x, y)
-        }
-
-        // Gridlines and a baseline. Without them the line floats in space and
-        // there is no way to read a height off it — a spike could be 2 or 20.
-        val gridColor = lineColor.copy(alpha = 0.10f)
-        val plotTop = padTop
-        val plotBottom = h - padBottom
-        listOf(0f, 0.5f, 1f).forEach { t ->
-            val y = plotBottom - t * (plotBottom - plotTop)
-            drawLine(
-                color = if (t == 0f) lineColor.copy(alpha = 0.22f) else gridColor,
-                start = Offset(padH, y),
-                end = Offset(w - padH, y),
-                strokeWidth = if (t == 0f) 1.5.dp.toPx() else 1.dp.toPx(),
-            )
-        }
-
-        val line = smoothPath(pts)
-
-        // Soft gradient fill under the smooth line
-        val fill = smoothPath(pts).apply {
-            lineTo(pts.last().x, h - padBottom)
-            lineTo(pts.first().x, h - padBottom)
-            close()
-        }
-        drawPath(
-            fill,
-            brush = Brush.verticalGradient(
-                listOf(lineColor.copy(alpha = 0.28f), lineColor.copy(alpha = 0f))
-            )
-        )
-
-        // Neon glow — layered strokes, wide & faint to narrow & bright
-        listOf(20f to 0.04f, 13f to 0.07f, 8f to 0.12f).forEach { (width, a) ->
-            drawPath(
-                line,
-                color = lineColor.copy(alpha = a),
-                style = Stroke(width = width, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            )
-        }
-
-        // Main crisp line
-        drawPath(
-            line,
-            brush = Brush.horizontalGradient(
-                listOf(lineColor, lineColor.copy(alpha = 0.75f))
-            ),
-            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
-
-        // A dot per reading, so the curve is visibly sampled data rather than a
-        // free-drawn shape, and a single busy day is a point you can pick out.
-        if (n <= 14) {
-            pts.forEach { p ->
-                drawCircle(color = lineColor.copy(alpha = 0.9f), radius = 3.5.dp.toPx(), center = p)
-                drawCircle(color = Color.White, radius = 1.6.dp.toPx(), center = p)
-            }
         }
     }
 }

@@ -1113,4 +1113,9 @@
     <string name="social_website_hint">example.ir</string>
     <string name="mandatory_deposit_needs_online_method">بیعانه‌ی اجباری را فقط با کارت به کارت یا پرداخت آنلاین می‌شود گرفت. یکی از این دو را در تب «پرداخت» فعال کنید.</string>
     <string name="open_payment_tab">رفتن به تب پرداخت</string>
+    <string name="home_trend_title">روند نوبت‌ها</string>
+    <string name="home_today_appointments">نوبت امروز</string>
+    <string name="home_in_queue">%1$s نفر در صف</string>
+    <string name="home_trend_empty">هنوز نوبتی در این بازه نیست</string>
+    <string name="home_buy_pack">خرید بسته</string>
 </resources>

@@ -64,61 +64,28 @@ fun ShimmerBox(
     Box(modifier = modifier.shimmer(shape))
 }
 
+/** Placeholder for Home's "today" card. */
 @Composable
 fun HomeDashboardShimmer() {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Stats grid (2x2)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ShimmerBox(
-                modifier = Modifier.weight(1f).height(100.dp),
-                shape = RoundedCornerShape(22.dp)
-            )
-            ShimmerBox(
-                modifier = Modifier.weight(1f).height(100.dp),
-                shape = RoundedCornerShape(22.dp)
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ShimmerBox(
-                modifier = Modifier.weight(1f).height(100.dp),
-                shape = RoundedCornerShape(22.dp)
-            )
-            ShimmerBox(
-                modifier = Modifier.weight(1f).height(100.dp),
-                shape = RoundedCornerShape(22.dp)
-            )
-        }
-    }
-}
-
-/** Placeholder for the single full-width queue row above the stats grid. */
-@Composable
-fun HomeQueueRowShimmer() {
     ShimmerBox(
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        shape = RoundedCornerShape(22.dp)
+        modifier = Modifier.fillMaxWidth().height(196.dp),
+        shape = RoundedCornerShape(20.dp)
     )
 }
 
 @Composable
 fun HomeChartShimmer() {
     ShimmerBox(
-        modifier = Modifier.fillMaxWidth().height(200.dp),
-        shape = RoundedCornerShape(24.dp)
+        modifier = Modifier.fillMaxWidth().height(250.dp),
+        shape = RoundedCornerShape(20.dp)
     )
 }
 
 @Composable
 fun HomeUsageShimmer() {
     ShimmerBox(
-        modifier = Modifier.fillMaxWidth().height(180.dp),
-        shape = RoundedCornerShape(24.dp)
+        modifier = Modifier.fillMaxWidth().height(170.dp),
+        shape = RoundedCornerShape(20.dp)
     )
 }
 

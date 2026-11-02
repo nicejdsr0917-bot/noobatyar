@@ -3,6 +3,10 @@ package xyz.sattar.javid.proqueue.feature.home
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.i18n.AppLocale
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material.icons.automirrored.rounded.ShowChart
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -38,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 
 /** Which period the trend card is showing. */
 private enum class TrendPeriod(private val labelRef: () -> String) {
@@ -101,124 +106,114 @@ fun HomeTrendCard(
         TrendPeriod.MONTHLY -> Str.appointments_in(selectedMonth?.label.orEmpty())
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    val range = when (period) {
+        TrendPeriod.WEEKLY -> weeklyRange()
+        TrendPeriod.MONTHLY -> selectedMonth?.let { it.rangeStart to it.rangeEndExclusive }
+    }
+
+    HomeCard {
+        HomeCardHeader(
+            icon = Icons.AutoMirrored.Rounded.ShowChart,
+            title = Str.home_trend_title,
+            trailing = { PeriodToggle(selected = period, onSelect = { period = it }) },
+        )
+
+        // Month chips only in the monthly period — in the weekly one they
+        // would select a range the chart is not showing.
+        AnimatedVisibility(
+            visible = period == TrendPeriod.MONTHLY && overview != null,
+            enter = expandVertically(tween(260)) + fadeIn(tween(260)),
+            exit = shrinkVertically(tween(200)) + fadeOut(tween(160)),
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                PeriodToggle(
-                    selected = period,
-                    onSelect = { period = it },
-                )
-
-                val range = when (period) {
-                    TrendPeriod.WEEKLY -> weeklyRange()
-                    TrendPeriod.MONTHLY -> selectedMonth?.let {
-                        it.rangeStart to it.rangeEndExclusive
-                    }
-                }
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable(enabled = range != null && range.second > 0L) {
-                            range?.let { onRangeClick(it.first, it.second) }
-                        }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = Str.view,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        softWrap = false,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Icon(
-                        imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp),
+                overview?.buckets?.forEachIndexed { index, bucket ->
+                    MonthChip(
+                        label = bucket.label,
+                        total = bucket.total,
+                        isSelected = index == monthIndex,
+                        onClick = { monthIndex = index },
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
+        }
 
-            // Month chips only in the monthly period — in the weekly one they
-            // would select a range the chart is not showing.
-            if (period == TrendPeriod.MONTHLY && overview != null) {
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    overview.buckets.forEachIndexed { index, bucket ->
-                        MonthChip(
-                            label = bucket.label,
-                            total = bucket.total,
-                            isSelected = index == monthIndex,
-                            onClick = { monthIndex = index },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
+        Spacer(Modifier.height(14.dp))
 
-            Spacer(Modifier.height(14.dp))
-
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = total.toString(),
+        // Total and caption share a baseline; «مشاهده» is centred on the row.
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Bottom) {
+                AnimatedCount(
+                    value = total,
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.alignByBaseline(),
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     text = caption,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.alignByBaseline(),
                 )
             }
-
-            Spacer(Modifier.height(6.dp))
-
-            AnimatedContent(
-                targetState = counts to labels,
-                transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) },
-                label = "trend",
-            ) { (series, axis) ->
-                Column {
-                    NeonLineCanvas(counts = series)
-                    if (series.size >= 2 && series.any { it > 0 }) {
-                        Spacer(Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            // Only the ends are labelled. A label per point at
-                            // this width overlaps into an unreadable smear, and
-                            // the two ends are what anchor the axis anyway.
-                            Text(
-                                text = axis.lastOrNull().orEmpty(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            )
-                            Text(
-                                text = axis.firstOrNull().orEmpty(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            )
-                        }
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(enabled = range != null && range.second > 0L) {
+                        range?.let { onRangeClick(it.first, it.second) }
                     }
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = Str.view,
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    softWrap = false,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Icon(
+                    imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        AnimatedContent(
+            targetState = counts to labels,
+            transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(140)) },
+            label = "trend",
+        ) { (series, axis) ->
+            Column {
+                NeonLineCanvas(counts = series, emptyLabel = Str.home_trend_empty)
+                Spacer(Modifier.height(6.dp))
+                // Only the ends are labelled. A label per point at this width
+                // overlaps into an unreadable smear, and the two ends are what
+                // anchor the axis anyway.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = axis.lastOrNull().orEmpty().toPersianDigits(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
+                    Text(
+                        text = axis.firstOrNull().orEmpty().toPersianDigits(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
                 }
             }
         }
@@ -244,19 +239,27 @@ private fun PeriodToggle(
         Row(modifier = Modifier.padding(3.dp)) {
             TrendPeriod.entries.forEach { option ->
                 val isSelected = option == selected
+                val bg by androidx.compose.animation.animateColorAsState(
+                    if (isSelected) MaterialTheme.colorScheme.primary
+                    else androidx.compose.ui.graphics.Color.Transparent,
+                    tween(220), label = "periodBg",
+                )
+                val fg by androidx.compose.animation.animateColorAsState(
+                    if (isSelected) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tween(220), label = "periodFg",
+                )
                 Surface(
                     onClick = { onSelect(option) },
                     shape = RoundedCornerShape(9.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primary
-                            else androidx.compose.ui.graphics.Color.Transparent,
+                    color = bg,
                 ) {
                     Text(
                         text = option.label,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        color = fg,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                     )
                 }
             }

@@ -59,6 +59,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.Cancel
@@ -111,7 +112,6 @@ import xyz.sattar.javid.proqueue.core.ui.components.HomeButtonShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.HomeChartShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.HomeDashboardShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.HomePlanBannerShimmer
-import xyz.sattar.javid.proqueue.core.ui.components.HomeQueueRowShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.HomeUsageShimmer
 import xyz.sattar.javid.proqueue.core.ui.components.MainTopAppBar
 import xyz.sattar.javid.proqueue.core.ui.components.PullToRefreshBox
@@ -212,12 +212,6 @@ fun HomeScreenContent(
     /** Rotating banners, just under the header; injected so previews need no Koin. */
     bannerSlot: @Composable () -> Unit = {}
 ) {
-    var visible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        visible = true
-    }
-
     val listState = rememberLazyListState()
     // 0 = hero fully expanded, 1 = folded to its compact row. derivedStateOf so
     // the fraction is read during layout without recomposing the whole screen
@@ -288,7 +282,6 @@ fun HomeScreenContent(
             // and the fifth section down respectively.
             HomeHero(
                 collapseFraction = collapseFraction,
-                todayAppointmentsCount = uiState.stats.totalAppointments.takeIf { uiState.statsLoaded },
                 business = uiState.business,
                 onOpenCalendar = onNavigateToCalendar,
                 onOpenShare = onNavigateToShare
@@ -298,30 +291,20 @@ fun HomeScreenContent(
             // Phone: the original single column, in priority order. Wide:
             // two rows of paired blocks. Today's activity sits beside its
             // trend, and what's been used sits beside what can be bought.
-            val queueBlock: @Composable () -> Unit = {
-                if (!uiState.statsLoaded) {
-                    HomeQueueRowShimmer()
-                } else {
-                    QueueStatRow(
-                        count = uiState.queue.size,
-                        // Today's queue, so the list opens on the same day
-                        // the count here was taken from.
-                        onClick = { onNavigateToVisitors(todayArgs(tab = 1)) }
-                    )
-                }
-            }
-            val statsBlock: @Composable () -> Unit = {
+            val todayBlock: @Composable () -> Unit = {
                 if (!uiState.statsLoaded) {
                     HomeDashboardShimmer()
                 } else {
-                    DashboardStatsGrid(
+                    HomeTodayCard(
                         stats = uiState.stats,
+                        queueCount = uiState.queue.size,
+                        // Today's queue, so the list opens on the same day
+                        // the count here was taken from.
+                        onQueueClick = { onNavigateToVisitors(todayArgs(tab = 1)) },
                         // tab = 0 (مراجعین/history) explicitly — LastVisitorsState
                         // defaults selectedTab to 1 (صف/queue), where a status
-                        // filter like "cancelled" has nothing to show.
-                        // Scoped to today as well: these are today's
-                        // numbers, and the list used to open on the next
-                        // seven days, where the counts didn't match.
+                        // filter like "cancelled" has nothing to show. Scoped to
+                        // today: these are today's numbers.
                         onStatClick = { status ->
                             onNavigateToVisitors(todayArgs(status = status, tab = 0))
                         }
@@ -351,7 +334,7 @@ fun HomeScreenContent(
                 // Inside the same block so the wide layout's column keeps it
                 // next to the month card it counts from.
                 uiState.sourceSummary?.takeUnless { it.isEmpty }?.let { summary ->
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(HomeDimens.SectionGap))
                     SourceSummaryCard(summary)
                 }
             } }
@@ -385,56 +368,39 @@ fun HomeScreenContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = adaptivePagePadding()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(HomeDimens.SectionGap)
             ) {
                 item(key = "banners") { bannerSlot() }
                 if (wide) {
-                    item {
-                        HomeReveal(visible, delayMillis = 120) {
+                    item(key = "columns") {
+                        HomeReveal(index = 0) {
                             AdaptiveColumns(
                                 startWeight = 1f,
                                 endWeight = 1.25f,
-                                spacing = 14.dp,
-                                start = { queueBlock(); statsBlock() },
-                                end = { trendBlock(); usageBlock() }
+                                spacing = HomeDimens.SectionGap,
+                                start = { todayBlock(); usageBlock() },
+                                end = { trendBlock() }
                             )
                         }
                     }
                     // Full width: plan cards need room for their two feature
                     // columns, which a half-width column cut off mid-word.
-                    item {
-                        HomeReveal(visible, delayMillis = 240) { plansBlock() }
-                    }
+                    item(key = "plans") { HomeReveal(index = 1) { plansBlock() } }
                 } else {
-                    // ۱. صف امروز — تنها بخش «زنده»‌ی صفحه، پس اول می‌آید.
-                    item { HomeReveal(visible, delayMillis = 120) { queueBlock() } }
-                    // ۲. آمار امروز (۲×۲)
-                    item { HomeReveal(visible, delayMillis = 180) { statsBlock() } }
-                    // ۳. روند نوبت‌ها — هفتگی یا ماهانه.
-                    item { HomeReveal(visible, delayMillis = 240) { trendBlock() } }
-                    // ۴. مصرف‌سنج ماهانه
-                    item { HomeReveal(visible, delayMillis = 300) { usageBlock() } }
-                    // ۵. بنرهای پلن اشتراک
-                    item { HomeReveal(visible, delayMillis = 360) { plansBlock() } }
+                    // ۱. امروز: نوبت‌ها، صف زنده و چهار وضعیت، در یک کارت.
+                    item(key = "today") { HomeReveal(index = 0) { todayBlock() } }
+                    // ۲. روند نوبت‌ها — هفتگی یا ماهانه.
+                    item(key = "trend") { HomeReveal(index = 1) { trendBlock() } }
+                    // ۳. مصرف‌سنج ماهانه و کیف‌پول
+                    item(key = "usage") { HomeReveal(index = 2) { usageBlock() } }
+                    // ۴. بنرهای پلن اشتراک
+                    item(key = "plans") { HomeReveal(index = 3) { plansBlock() } }
                 }
 
                 item { BottomBarSpacer() }
             }
         }
         }
-    }
-}
-
-/** The staggered slide-and-fade every home block enters with. */
-@Composable
-private fun HomeReveal(visible: Boolean, delayMillis: Int, content: @Composable () -> Unit) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(
-            animationSpec = tween(500, delayMillis = delayMillis)
-        )
-    ) {
-        content()
     }
 }
 
@@ -650,18 +616,19 @@ fun PlanBannerItem(
         )
     }
 
-    val gradient = Brush.linearGradient(colors = gradientColors)
+    // One flat colour per plan (the middle tone of its old gradient).
+    val planColor = gradientColors[1]
 
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        shape = RoundedCornerShape(HomeDimens.CardRadius),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(gradient)
+                .background(planColor)
         ) {
             // آیکون تزئینی پس‌زمینه
             Icon(
@@ -838,214 +805,6 @@ fun PlanBannerItem(
     }
 }
 
-/**
- * The 2×2 stat grid on its own.
- *
- * Split out from the old DashboardStatsSection, which also owned the queue
- * row. Home now shows the queue *above* the grid — it is the only live,
- * act-on-it-now number on the screen — and one composable cannot be in two
- * places in the list.
- */
-@Composable
-fun DashboardStatsGrid(
-    stats: DashboardStats,
-    onStatClick: (status: String?) -> Unit = {}
-) {
-    val isDark = !MaterialTheme.colorScheme.surface.let { color ->
-        (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) > 0.5
-    }
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // ۴ مستطیل آمار (۲×۲) — «نوبت‌های امروز» حذف شد چون تعدادش کنار هدر
-        // تاریخ نمایش داده می‌شود.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            StatCard(
-                modifier = Modifier.weight(1f),
-                title = Str.complete_action,
-                value = stats.completedAppointments.toString(),
-                containerColor = if (isDark) Color(0xFF1B5E20).copy(alpha = 0.4f) else Color(0xFFE8F5E9),
-                contentColor = if (isDark) Color(0xFFA5D6A7) else Color(0xFF2E7D32),
-                icon = Icons.Rounded.CheckCircle,
-                onClick = { onStatClick("COMPLETED") }
-            )
-            StatCard(
-                modifier = Modifier.weight(1f),
-                title = Str.total_clients,
-                value = stats.totalVisitors.toString(),
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.4f else 0.7f),
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                icon = Icons.Rounded.People,
-                onClick = { onStatClick(null) }
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            StatCard(
-                modifier = Modifier.weight(1f),
-                title = Str.status_no_show,
-                value = stats.noShowAppointments.toString(),
-                containerColor = if (isDark) Color(0xFFB71C1C).copy(alpha = 0.4f) else Color(0xFFFFEBEE),
-                contentColor = if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828),
-                icon = Icons.Rounded.Cancel,
-                onClick = { onStatClick("NO_SHOW") }
-            )
-            StatCard(
-                modifier = Modifier.weight(1f),
-                title = Str.status_cancelled,
-                value = stats.cancelledAppointments.toString(),
-                containerColor = if (isDark) Color(0xFF4A148C).copy(alpha = 0.4f) else Color(0xFFF3E5F5),
-                contentColor = if (isDark) Color(0xFFCE93D8) else Color(0xFF6A1B9A),
-                icon = Icons.Rounded.EventBusy,
-                onClick = { onStatClick("CANCELLED") }
-            )
-        }
-    }
-}
-
-@Composable
-fun QueueStatRow(count: Int, onClick: () -> Unit = {}) {
-    val isDark = !MaterialTheme.colorScheme.surface.let { color ->
-        (color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) > 0.5
-    }
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF01579B).copy(alpha = 0.35f) else Color(0xFFE1F5FE)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Rounded.Timer,
-                    contentDescription = null,
-                    tint = if (isDark) Color(0xFF81D4FA) else Color(0xFF0277BD),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = Str.in_queue,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isDark) Color(0xFF81D4FA) else Color(0xFF0277BD)
-                )
-            }
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Black,
-                color = if (isDark) Color(0xFF81D4FA) else Color(0xFF0277BD)
-            )
-        }
-    }
-}
-
-@Composable
-fun StatCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    value: String,
-    containerColor: Color,
-    contentColor: Color,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit = {}
-) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxWidth().height(if (AppLocale.isEnglish) 108.dp else 100.dp)) {
-            // Large background icon
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(70.dp)
-                    .align(Alignment.BottomEnd)
-                    .offset(x = 15.dp, y = 15.dp),
-                tint = contentColor.copy(alpha = 0.07f)
-            )
-
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                val titleIcon = @Composable {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = contentColor.copy(alpha = 0.7f)
-                    )
-                }
-                val titleText = @Composable {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = contentColor.copy(alpha = 0.8f),
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                // English labels ("Completed", "Total clients") are longer than
-                // the Persian ones this tile was sized for; beside the icon they
-                // broke mid-word on narrow tiles, so in English the label gets
-                // its own line under the icon.
-                if (AppLocale.isEnglish) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        titleIcon()
-                        // One line, shrinking to fit rather than breaking a word.
-                        BasicText(
-                            text = title,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color = contentColor.copy(alpha = 0.8f),
-                                fontWeight = FontWeight.Bold
-                            ),
-                            maxLines = 1,
-                            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 12.sp)
-                        )
-                    }
-                } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        titleIcon()
-                        titleText()
-                    }
-                }
-                
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black,
-                    color = contentColor
-                )
-            }
-        }
-    }
-}
-
 @Composable
 fun UsageMeterSection(
     entitlements: EntitlementsResponseDto,
@@ -1057,82 +816,101 @@ fun UsageMeterSection(
     // SMS "used this month" = quota - remaining (guard for unlimited).
     val smsUsed = if (sms.quota == EntitlementKeys.UNLIMITED) 0 else (sms.quota - sms.monthlyRemaining).coerceAtLeast(0)
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        ),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Rounded.DataUsage,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = Str.this_months_usage,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            UsageRow(
-                label = Str.appointments_tab,
-                icon = Icons.Rounded.Event,
-                used = appt.used,
-                quota = appt.quota,
-                trailingNote = appointmentWalletNote(appt.wallet, appt.quota),
-                onNoteClick = onNavigateToWallet
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            UsageRow(
-                label = Str.sms,
-                icon = Icons.Rounded.Sms,
-                used = smsUsed,
-                quota = sms.quota,
-                trailingNote = smsWalletNote(sms.wallet),
-                onNoteClick = onNavigateToWallet
-            )
-
-            if (entitlements.usage.tomanWallet > 0) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = Str.wallet_toman_note(
-                        xyz.sattar.javid.proqueue.core.billing.formatToman(entitlements.usage.tomanWallet)
-                    ).toPersianDigits(),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+    HomeCard {
+        HomeCardHeader(
+            icon = Icons.Rounded.DataUsage,
+            title = Str.this_months_usage,
+            trailing = {
+                Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable(onClick = onNavigateToWallet)
-                        .padding(vertical = 2.dp)
-                )
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable(onClick = onNavigateToAddons)
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        Str.home_buy_pack,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                    )
+                }
             }
+        )
 
-            Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-            TextButton(
-                onClick = onNavigateToAddons,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 6.dp)
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(Str.buy_add_on_pack, style = MaterialTheme.typography.labelMedium)
-            }
+        UsageRow(
+            label = Str.appointments_tab,
+            icon = Icons.Rounded.Event,
+            used = appt.used,
+            quota = appt.quota,
+            trailingNote = appointmentWalletNote(appt.wallet, appt.quota),
+            onNoteClick = onNavigateToWallet
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        UsageRow(
+            label = Str.sms,
+            icon = Icons.Rounded.Sms,
+            used = smsUsed,
+            quota = sms.quota,
+            trailingNote = smsWalletNote(sms.wallet),
+            onNoteClick = onNavigateToWallet
+        )
+
+        if (entitlements.usage.tomanWallet > 0) {
+            Spacer(modifier = Modifier.height(16.dp))
+            WalletRow(amount = entitlements.usage.tomanWallet, onClick = onNavigateToWallet)
+        }
+    }
+}
+
+/** The toman wallet as a full-width row: icon, label, balance, chevron. */
+@Composable
+private fun WalletRow(amount: Long, onClick: () -> Unit) {
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Surface(
+        onClick = onClick,
+        interactionSource = interaction,
+        modifier = Modifier.fillMaxWidth().pressScale(interaction),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Rounded.AccountBalanceWallet,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                Str.toman_wallet_title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                Str.toman(xyz.sattar.javid.proqueue.core.billing.formatToman(amount)).toPersianDigits(),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Icon(
+                imageVector = if (AppLocale.isRtl) Icons.AutoMirrored.Rounded.KeyboardArrowLeft else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
@@ -1155,60 +933,42 @@ fun UsageRow(
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (unlimited) "$used / ∞" else "$used / $quota",
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = (if (unlimited) "$used / ∞" else "$used / $quota").toPersianDigits(),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = if (nearLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        if (unlimited) {
-            // A subtle full track to convey "unlimited".
-            LinearProgressIndicator(
-                progress = { 1f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(6.dp)),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-            )
-        } else {
-            LinearProgressIndicator(
-                progress = { fraction },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(6.dp)),
-                color = barColor,
-                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-            )
-        }
+        // Unlimited: a soft full track. Otherwise the bar fills in from empty.
+        HomeProgressBar(
+            fraction = if (unlimited) 1f else fraction,
+            color = if (unlimited) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else barColor,
+        )
 
         if (trailingNote != null) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = trailingNote,
                 style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
