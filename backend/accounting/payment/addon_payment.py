@@ -89,7 +89,7 @@ class AddOnPaymentService:
     """Create a Zibal payment request for an add-on pack.
 
     With ``use_wallet`` the owner's toman wallet pays what it can first
-    (``toman_wallet.wallet_part``); the gateway is asked only for the rest,
+    (``toman_wallet.wallet_part``, charged with its VAT); the gateway is asked only for the rest,
     VAT and fee included. When the wallet covers the whole price there is no
     gateway at all and the pack is granted at once (``paid_with_wallet``).
     """
@@ -109,7 +109,7 @@ class AddOnPaymentService:
         if used:
             try:
                 held = toman_wallet.hold(
-                    AddOnPurchase, "AddOnPurchase", used, toman_wallet.REASON_ADDON_PURCHASE,
+                    AddOnPurchase, "AddOnPurchase", toman_wallet.with_vat(used), toman_wallet.REASON_ADDON_PURCHASE,
                     user=user, pack=pack, amount=total, order_id=order_id,
                 )
             except toman_wallet.WalletError as exc:

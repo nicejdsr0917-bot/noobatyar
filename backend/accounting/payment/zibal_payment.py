@@ -30,7 +30,7 @@ class ZibalPaymentService:
         if used:
             try:
                 held = toman_wallet.hold(
-                    Transaction, "Transaction", used, toman_wallet.REASON_PLAN_PURCHASE,
+                    Transaction, "Transaction", toman_wallet.with_vat(used), toman_wallet.REASON_PLAN_PURCHASE,
                     user=user, plan=plan, amount=final_price, order_id=order_id,
                 )
             except toman_wallet.WalletError as exc:

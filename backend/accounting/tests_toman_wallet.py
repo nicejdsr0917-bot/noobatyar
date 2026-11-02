@@ -68,17 +68,21 @@ class BalanceTests(Base):
 
     def test_wallet_part_leaves_a_sellable_remainder_or_covers_everything(self):
         self.assertEqual(toman_wallet.wallet_part(50_000, 60_000), 50_000)
-        self.assertEqual(toman_wallet.wallet_part(50_000, 10_000), 10_000)
+        # The wallet also pays the VAT on its part: 10k covers 9,091 + 909.
+        self.assertEqual(toman_wallet.wallet_part(50_000, 10_000), 9_091)
+        self.assertEqual(toman_wallet.with_vat(9_091), 10_000)
+        self.assertEqual(toman_wallet.wallet_part(50_000, 54_999), 50_000 - pricing.MIN_SELLABLE_PRICE)
         # 45k of 50k would leave 5k for the gateway: capped so 10k is left.
         self.assertEqual(toman_wallet.wallet_part(50_000, 45_000), 50_000 - pricing.MIN_SELLABLE_PRICE)
         self.assertEqual(toman_wallet.wallet_part(50_000, 0), 0)
         # Store prices are fixed per SKU: all or nothing.
         self.assertEqual(toman_wallet.wallet_part(50_000, 10_000, pricing.CHANNEL_MYKET), 0)
-        self.assertEqual(toman_wallet.wallet_part(50_000, 50_000, pricing.CHANNEL_MYKET), 50_000)
+        self.assertEqual(toman_wallet.wallet_part(50_000, 50_000, pricing.CHANNEL_MYKET), 0)
+        self.assertEqual(toman_wallet.wallet_part(50_000, 55_000, pricing.CHANNEL_MYKET), 50_000)
 
 
 class QuoteTests(Base):
-    def test_quote_offers_the_wallet_and_takes_it_off_before_tax(self):
+    def test_quote_offers_the_wallet_and_charges_it_the_vat_on_its_part(self):
         toman_wallet.credit(self.user, 10_000)
         r = self.client.get("/api/accounting/checkout/quote/", {"kind": "addon", "id": self.pack.id})
         plain = r.json()["data"]
@@ -91,7 +95,10 @@ class QuoteTests(Base):
         used = r.json()["data"]
         self.assertEqual(used["base"], 50_000)
         self.assertEqual(used["wallet"], 10_000)
-        self.assertEqual(used["total"], pricing.quote(40_000, "zibal")["total"])
+        self.assertEqual(used["total"], pricing.quote(40_909, "zibal")["total"])
+        # VAT is on the whole price; the lines add up to what is due.
+        self.assertEqual(used["vat"], 5_000)
+        self.assertEqual(used["base"] + used["vat"] - used["wallet"] + used["fee"], used["total"])
         self.assertLess(used["total"], plain["total"])
 
 
@@ -103,13 +110,13 @@ class FullWalletPurchaseTests(Base):
         self.assertEqual(r.status_code, 200, r.content)
         self.assertTrue(r.json()["data"]["paid_with_wallet"])
         gateway.assert_not_called()
-        self.assertEqual(self.balance(), 10_000)
+        self.assertEqual(self.balance(), 5_000)  # 50k pack + 5k VAT
         self.assertEqual(usage.get_wallet(self.user), 50)
         purchase = AddOnPurchase.objects.get(user=self.user)
-        self.assertEqual((purchase.status, purchase.amount, purchase.wallet_amount), ("success", 0, 50_000))
+        self.assertEqual((purchase.status, purchase.amount, purchase.wallet_amount), ("success", 0, 55_000))
 
     def test_plan_paid_entirely_from_wallet_activates_it(self):
-        toman_wallet.credit(self.user, 100_000)
+        toman_wallet.credit(self.user, 110_000)  # 100k plan + 10k VAT
         with patch.object(zibal, "request_payment") as gateway:
             r = self.client.post("/api/accounting/plans/payment/", {"plan_id": self.plan.id, "use_wallet": True}, format="json")
         self.assertEqual(r.status_code, 200, r.content)
@@ -138,7 +145,7 @@ class PartialWalletPurchaseTests(Base):
     def test_gateway_is_asked_only_for_the_rest(self):
         toman_wallet.credit(self.user, 10_000)
         gateway, purchase = self.buy()
-        expected = pricing.quote(40_000, "zibal")["total"]
+        expected = pricing.quote(40_909, "zibal")["total"]
         self.assertEqual(gateway.call_args.args[1], expected * 10)  # rial
         self.assertEqual((purchase.track_id, purchase.amount, purchase.wallet_amount), ("888", expected, 10_000))
         self.assertEqual(self.balance(), 0)
@@ -258,7 +265,7 @@ class StrictEdgeCaseTests(Base):
         self.assertEqual(second.status_code, 400)
         self.assertEqual(second.json()["message"], toman_wallet.WALLET_CHANGED_MESSAGE)
         gateway.assert_not_called()
-        self.assertEqual(self.balance(), 10_000)
+        self.assertEqual(self.balance(), 5_000)
         self.assertEqual(AddOnPurchase.objects.filter(status="success").count(), 1)
 
     def test_hold_is_atomic_when_the_balance_vanishes(self):
@@ -283,10 +290,10 @@ class StrictEdgeCaseTests(Base):
         toman_wallet.credit(self.user, 20_000)
         q = self.client.get("/api/accounting/checkout/quote/", {"kind": "addon", "id": self.pack.id, "channel": "myket"}).json()["data"]
         self.assertEqual(q["wallet_available"], 0)
-        toman_wallet.credit(self.user, 30_000)
+        toman_wallet.credit(self.user, 35_000)
         q = self.client.get("/api/accounting/checkout/quote/",
                             {"kind": "addon", "id": self.pack.id, "channel": "myket", "use_wallet": "1"}).json()["data"]
-        self.assertEqual((q["wallet"], q["total"]), (50_000, 0))
+        self.assertEqual((q["wallet"], q["total"]), (55_000, 0))
 
     def test_late_payment_after_the_hold_was_released_grants_nothing(self):
         from accounting.payment.addon_payment import AddOnVerificationService

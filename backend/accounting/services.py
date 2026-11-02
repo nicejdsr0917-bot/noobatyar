@@ -122,7 +122,7 @@ def checkout_quote(kind, raw_id, channel, user=None, use_wallet=False) -> Dict[s
     data = toman_wallet.quote_with_wallet(base, channel, balance if use_wallet else 0)
     data['wallet_balance'] = balance
     # What the wallet would pay if asked, so the app can label its switch.
-    data['wallet_available'] = toman_wallet.wallet_part(base, balance, channel)
+    data['wallet_available'] = toman_wallet.with_vat(toman_wallet.wallet_part(base, balance, channel))
     data['title'] = item.name
     return data
 

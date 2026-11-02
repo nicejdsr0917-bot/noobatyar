@@ -126,11 +126,12 @@ private fun CheckoutConfirmDialog(
                     WalletSwitch(quote, checked = usesWallet, enabled = !loading, onToggle = onToggleWallet)
                 }
                 if (usesWallet) {
-                    // Wallet first, then tax and fee on what is left (accounting/toman_wallet.py).
+                    // VAT is on the whole price and the wallet pays its share of it;
+                    // the fee is only on what the gateway collects (accounting/toman_wallet.py).
                     PriceRow(Str.price, quote.base)
+                    PriceRow(Str.vat_10, quote.vat)
                     PriceRow(Str.wallet_deduction, -quote.wallet)
                     if (quote.total > 0) {
-                        PriceRow(Str.vat_10, quote.vat)
                         PriceRow(Str.payment_gateway_fee, quote.fee)
                     }
                 } else if (isMyket) {

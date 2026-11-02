@@ -89,8 +89,17 @@ def spend(user_or_id, amount, reason, ref_type="", ref_id=None):
     )
 
 
+def with_vat(part):
+    """What the wallet is charged for covering ``part`` toman of a price: the
+    part plus its VAT. VAT is owed on the whole price however it is paid; only
+    the gateway fee is skipped for the wallet's share."""
+    part = int(part)
+    return part + round(part * pricing.VAT_RATE) if part > 0 else 0
+
+
 def wallet_part(base, balance, channel=pricing.CHANNEL_ZIBAL):
-    """How much of a ``base``-toman price the wallet should pay.
+    """How much of a ``base``-toman price (before VAT) the wallet should cover.
+    The wallet is charged ``with_vat`` of it.
 
     The rest goes through the gateway with VAT and fee on top, so a tiny
     remainder would mostly be fee: the wallet leaves at least
@@ -100,24 +109,32 @@ def wallet_part(base, balance, channel=pricing.CHANNEL_ZIBAL):
     base, balance = int(base), max(int(balance), 0)
     if base <= 0 or balance <= 0:
         return 0
-    if balance >= base:
+    if balance >= with_vat(base):
         return base
     if channel != pricing.CHANNEL_ZIBAL:
         return 0
-    return max(0, min(balance, base - pricing.MIN_SELLABLE_PRICE))
+    # Largest part whose VAT-inclusive charge the balance still covers.
+    part = balance * 10 // 11
+    while with_vat(part + 1) <= balance:
+        part += 1
+    while part > 0 and with_vat(part) > balance:
+        part -= 1
+    return max(0, min(part, base - pricing.MIN_SELLABLE_PRICE))
 
 
 WALLET_CHANGED_MESSAGE = "موجودی کیف‌پول تغییر کرده است؛ دوباره تلاش کنید"
 
 
 def quote_with_wallet(base, channel, balance):
-    """``pricing.quote`` after the wallet part: VAT and fee are charged only on
-    what the gateway collects. Adds ``wallet`` (toman taken from the wallet)
-    and keeps ``base`` as the item's full price."""
+    """``pricing.quote`` after the wallet part. VAT is on the whole price; the
+    gateway fee only on what the gateway collects. Adds ``wallet`` (toman taken
+    from the wallet, its VAT included) and keeps ``base`` as the item's full
+    price, so base + vat − wallet + fee = total."""
     used = wallet_part(base, balance, channel)
     data = pricing.quote(int(base) - used, channel)
     data["base"] = int(base)
-    data["wallet"] = used
+    data["wallet"] = with_vat(used)
+    data["vat"] += data["wallet"] - used
     return data
 
 
