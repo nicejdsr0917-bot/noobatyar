@@ -86,6 +86,7 @@ fun SettingsScreen(
     onNavigateToPromoCampaign: () -> Unit = {},
     onNavigateToReviews: () -> Unit = {},
     onNavigateToShowcase: () -> Unit = {},
+    onNavigateToWallet: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -185,7 +186,8 @@ fun SettingsScreen(
         },
         onPromoCampaign = onNavigateToPromoCampaign,
         onReviews = onNavigateToReviews,
-        onShowcase = onNavigateToShowcase
+        onShowcase = onNavigateToShowcase,
+        onWallet = onNavigateToWallet
     )
 }
 
@@ -208,7 +210,8 @@ fun SettingsContent(
     onAdvancedSettings: () -> Unit,
     onPromoCampaign: () -> Unit = {},
     onReviews: () -> Unit = {},
-    onShowcase: () -> Unit = {}
+    onShowcase: () -> Unit = {},
+    onWallet: () -> Unit = {}
 ) {
     // No top app bar here: the profile hero below is this screen's header, so a
     // separate toolbar showing the business title would just overlap it. We only
@@ -253,6 +256,7 @@ fun SettingsContent(
                             business = uiState.currentBusiness,
                             subscription = subscription
                         )
+                        WalletCard(onClick = onWallet)
                         uiState.currentBusiness?.let { business ->
                             ModerationBanner(
                                 business = business,
@@ -325,6 +329,10 @@ fun SettingsContent(
                 business = uiState.currentBusiness,
                 subscription = subscription
             )
+
+            // Add-on credit sits with the plan badge above: both are about what
+            // the owner has paid for, not about the current business.
+            WalletCard(onClick = onWallet)
 
             // Moderation state of the active business. Only renders for
             // pending/rejected/suspended — an approved business just keeps its
@@ -1015,6 +1023,18 @@ private fun LanguageSettingsItem() {
             confirmButton = {
                 TextButton(onClick = { showPicker = false }) { Text(Str.cancel) }
             }
+        )
+    }
+}
+
+@Composable
+private fun WalletCard(onClick: () -> Unit) {
+    SettingsCard {
+        SettingsItem(
+            icon = Icons.Rounded.AccountBalanceWallet,
+            title = Str.wallet_title,
+            subtitle = Str.wallet_settings_subtitle,
+            onClick = onClick
         )
     }
 }

@@ -99,6 +99,14 @@ class UserApiService(private val httpClient: HttpClient) : UserApi {
         }.toApiResponse()
     }
 
+    override suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletHistoryDto> {
+        return httpClient.get("accounting/wallet/history/") {
+            contentType(ContentType.Application.Json)
+            parameter("page", page)
+            parameter("page_size", pageSize)
+        }.toApiResponse()
+    }
+
     override suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> {
         return httpClient.post("accounting/addons/buy/") {
             contentType(ContentType.Application.Json)

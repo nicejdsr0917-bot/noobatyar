@@ -64,6 +64,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.VerifyOTPUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMySubscriptionUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMyEntitlementsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetAddonsUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.user.GetWalletHistoryUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.BuyAddonUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetCurrentUserUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.SyncUserProfileUseCase
@@ -85,6 +86,7 @@ import xyz.sattar.javid.proqueue.feature.messages.MessagesViewModel
 import xyz.sattar.javid.proqueue.feature.notifications.NotificationsViewModel
 import xyz.sattar.javid.proqueue.feature.profile.UserViewModel
 import xyz.sattar.javid.proqueue.feature.addons.AddonsViewModel
+import xyz.sattar.javid.proqueue.feature.wallet.WalletViewModel
 import xyz.sattar.javid.proqueue.feature.register.RegisterViewModel
 import xyz.sattar.javid.proqueue.feature.settings.SettingsViewModel
 import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportViewModel
@@ -144,6 +146,7 @@ val appModule: Module = module {
     factory { xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase(get(), get(), get()) }
     factory { GetMyEntitlementsUseCase(get()) }
     factory { GetAddonsUseCase(get()) }
+    factory { GetWalletHistoryUseCase(get()) }
     factory { BuyAddonUseCase(get()) }
 
     // --- Business UseCases ---
@@ -193,6 +196,7 @@ val appModule: Module = module {
     // --- ViewModels ---
      viewModel { CreateBusinessViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
      viewModel { AddonsViewModel(get(), get()) }
+     viewModel { WalletViewModel(get()) }
     viewModel { CreateVisitorViewModel(get(), get(), get()) }
     viewModel { CreateAppointmentViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel {

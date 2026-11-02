@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import Plan, Subscription, AddOnPack
+
+from . import usage
+from .models import Plan, Subscription, AddOnPack, CreditLedger
 
 
 class PlanSerializer(serializers.ModelSerializer):
@@ -60,3 +62,19 @@ class BuyPlanSerializer(serializers.Serializer):
 class BuyAddOnSerializer(serializers.Serializer):
     """درخواست خرید بسته‌ی افزودنی"""
     pack_id = serializers.IntegerField()
+
+
+class WalletLedgerEntrySerializer(serializers.ModelSerializer):
+    """One row of the owner's add-on credit history (wallet metrics only).
+
+    ``reason`` stays the machine code so clients can localise it; ``reason_label``
+    is the Persian fallback for codes a client does not know yet.
+    """
+    reason_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CreditLedger
+        fields = ['id', 'metric', 'delta', 'balance_after', 'reason', 'reason_label', 'created_at']
+
+    def get_reason_label(self, obj):
+        return usage.wallet_reason_label(obj.reason, obj.delta)

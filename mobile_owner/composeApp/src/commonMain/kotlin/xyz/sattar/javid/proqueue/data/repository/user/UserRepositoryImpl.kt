@@ -122,6 +122,10 @@ class UserRepositoryImpl(
         return userApiService.getAddons()
     }
 
+    override suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletHistoryDto> {
+        return userApiService.getWalletHistory(page, pageSize)
+    }
+
     override suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> {
         return userApiService.buyAddon(packId)
     }

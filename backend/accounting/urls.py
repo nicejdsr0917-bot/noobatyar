@@ -5,6 +5,7 @@ urlpatterns = [
     path('plans/', views.plan_list),               # لیست پلن‌ها
     path('my-subscription/', views.my_subscription),  # اشتراک من
     path('my-entitlements/', views.my_entitlements),  # قابلیت‌ها و مصرف
+    path('wallet/history/', views.wallet_history),     # موجودی و تاریخچهٔ اعتبار اضافه
 
     path('plans/payment/', views.pay_for_plan),
     path('payment-result', views.payment_callback, name='callback'),

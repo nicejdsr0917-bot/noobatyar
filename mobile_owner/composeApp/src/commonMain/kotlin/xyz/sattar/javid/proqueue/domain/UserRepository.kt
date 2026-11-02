@@ -24,6 +24,7 @@ interface UserRepository {
     suspend fun createPayment(planId: String): ApiResponse<PaymentResponseDto>
     suspend fun getMyEntitlements(): ApiResponse<EntitlementsResponseDto>
     suspend fun getAddons(): ApiResponse<List<AddOnPackDto>>
+    suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletHistoryDto>
     suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto>
     suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto>
     suspend fun storeIntent(store: String, kind: String, id: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentDto>

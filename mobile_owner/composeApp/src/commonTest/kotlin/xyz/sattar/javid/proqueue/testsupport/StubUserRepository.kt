@@ -18,6 +18,7 @@ open class StubUserRepository : UserRepository {
     override suspend fun createPayment(planId: String): ApiResponse<PaymentResponseDto> = TODO("not stubbed")
     override suspend fun getMyEntitlements(): ApiResponse<EntitlementsResponseDto> = TODO("not stubbed")
     override suspend fun getAddons(): ApiResponse<List<AddOnPackDto>> = TODO("not stubbed")
+    override suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<WalletHistoryDto> = TODO("not stubbed")
     override suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> = TODO("not stubbed")
     override suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<CheckoutQuoteDto> = TODO("not stubbed")
     override suspend fun storeIntent(store: String, kind: String, id: Int): ApiResponse<StoreIntentDto> = TODO("not stubbed")

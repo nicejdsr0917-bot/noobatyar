@@ -65,6 +65,7 @@ import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
 import xyz.sattar.javid.proqueue.feature.share.ShareBusinessScreen
 import xyz.sattar.javid.proqueue.core.payment.PaymentWebViewScreen
 import xyz.sattar.javid.proqueue.feature.addons.AddonsScreen
+import xyz.sattar.javid.proqueue.feature.wallet.WalletScreen
 import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessRoute
 import xyz.sattar.javid.proqueue.feature.createBusiness.AdvancedSettingsRoute
 
@@ -298,6 +299,9 @@ private fun MainNavGraph(
                     onNavigateToAddons = {
                         navController.navigate(AppScreens.AddOns)
                     },
+                    onNavigateToWallet = {
+                        navController.navigate(AppScreens.Wallet)
+                    },
                     onNavigateToVisitors = { args: VisitorsNavArgs ->
                         // Same call the bottom bar's onTabSelected uses — this
                         // must land on the one shared MainTab.LastVisitors
@@ -408,6 +412,9 @@ private fun MainNavGraph(
                     },
                     onNavigateToReviews = { navController.navigate(AppScreens.Reviews) },
                     onNavigateToShowcase = { navController.navigate(AppScreens.Showcase) },
+                    onNavigateToWallet = {
+                        navController.navigate(AppScreens.Wallet)
+                    },
                     onNavigateToLogin = onNavigateToLogin
                 )
             }
@@ -598,6 +605,13 @@ private fun MainNavGraph(
                     onNavigateToPayment = { url ->
                         navController.navigate(AppScreens.PaymentWebView(url))
                     }
+                )
+            }
+
+            composable<AppScreens.Wallet> {
+                WalletScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAddons = { navController.navigate(AppScreens.AddOns) }
                 )
             }
 

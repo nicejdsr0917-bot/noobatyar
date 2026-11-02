@@ -57,6 +57,7 @@ interface UserApi {
     suspend fun getMyEntitlements(): ApiResponse<EntitlementsResponseDto>
 
     suspend fun getAddons(): ApiResponse<List<AddOnPackDto>>
+    suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletHistoryDto>
 
     suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto>
 

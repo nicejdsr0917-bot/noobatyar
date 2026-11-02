@@ -2,9 +2,10 @@ from django.shortcuts import render
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 
+from common.pagination import StandardPagination
 from common.responses import APIResponse
 from common.errors import extract_error as _extract_error
-from .models import Plan, AddOnPack
+from .models import Plan, AddOnPack, CreditLedger
 from .payment.zibal_payment import ZibalPaymentService
 from .payment.zibal_payment_verification import PaymentVerificationService
 from .payment.addon_payment import (
@@ -12,7 +13,7 @@ from .payment.addon_payment import (
 )
 from .serializers import (
     PlanSerializer, SubscriptionSerializer, BuyPlanSerializer,
-    AddOnPackSerializer, BuyAddOnSerializer,
+    AddOnPackSerializer, BuyAddOnSerializer, WalletLedgerEntrySerializer,
 )
 from . import entitlements, services, usage
 from rest_framework.decorators import api_view, permission_classes
@@ -76,6 +77,40 @@ def my_entitlements(request):
             'sms': usage.sms_balance(user),
         },
     })
+
+
+WALLET_METRICS = (CreditLedger.METRIC_APPOINTMENT_WALLET, CreditLedger.METRIC_SMS_WALLET)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def wallet_history(request):
+    """موجودی و تاریخچهٔ اعتبار اضافه (بسته‌های افزودنی) کاربر — صفحه‌بندی‌شده.
+
+    Only the two persistent wallet metrics are listed; monthly counters are not
+    credit the owner owns. Wallets belong to the user, so the history spans all
+    of their businesses. ``?metric=appointment_wallet|sms_wallet`` narrows it.
+    """
+    user = request.user
+    metric = request.query_params.get('metric')
+    if metric and metric not in WALLET_METRICS:
+        return APIResponse.error(
+            f'metric باید یکی از این مقادیر باشد: {", ".join(WALLET_METRICS)}', code=400,
+        )
+    queryset = CreditLedger.objects.filter(
+        user=user, metric__in=[metric] if metric else WALLET_METRICS,
+    ).order_by('-created_at', '-id')
+
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(queryset, request)
+    data = paginator.get_paginated_response(WalletLedgerEntrySerializer(page, many=True).data).data
+    data['balances'] = {
+        'appointment_wallet': usage.get_appt_wallet(user),
+        'sms_wallet': usage.get_wallet(user),
+        'appointment_quota': entitlements.get_quota(user, entitlements.QUOTA_MONTHLY_APPOINTMENTS),
+        'sms_quota': entitlements.get_quota(user, entitlements.QUOTA_MONTHLY_SMS),
+    }
+    return APIResponse.success(data=data)
 
 
 @api_view(['GET'])

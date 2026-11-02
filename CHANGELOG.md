@@ -10,6 +10,22 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## Unreleased
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- اعتبار بسته‌های افزودنی حالا با واحدش نمایش داده می‌شود (مثلاً «+۴۹ نوبت اعتبار اضافه»)، و روی پلن نوبت نامحدود دیگر اعتبار نوبتی که خرج نمی‌شود نشان داده نمی‌شود.
+- صفحه‌ی تازه‌ی «اعتبار اضافه»: موجودی نوبت و پیامک و تاریخچه‌ی خرید و مصرف. از کارت «مصرف این ماه» در خانه یا از تنظیمات باز می‌شود.
+<!-- fa:end -->
+
+### mobile_owner
+- Home usage card: wallet note reads «+N نوبت/پیامک اعتبار اضافه» (local digits) instead of the unit-less «کیف‌پول: N»; the appointment note is hidden on an unlimited booking quota (it can never be spent there). Tapping the note opens the wallet screen. The SMS report badge uses the same wording.
+- New `feature/wallet` (MVI): both balances, a one-line explainer (spent only after the monthly allowance; shared across all businesses), a hint when appointment credit is idle on an unlimited plan, and the paginated history. Also reachable from Settings under the profile/plan card.
+- `commonTest` source set (kotlin-test, coroutines-test, ktor-client-mock, turbine — same setup as the `mobile-client` branch) with `WalletViewModelTest` and `WalletLabelsTest`.
+
+### backend
+- `GET accounting/wallet/history/` (authenticated, `?page`, `?page_size`, optional `?metric=appointment_wallet|sms_wallet`): the user's own `CreditLedger` rows for the two wallet metrics with `delta`, `balance_after`, `reason` + Persian `reason_label`, plus current `balances` and quotas. `usage.REASON_ADDON_PURCHASE` / `wallet_reason_label`. Tests in `accounting/tests_wallet_history.py`.
+
 ## v1.10.0 — 2026-11-02 (اپ اونر)
 
 <!-- fa:start -->

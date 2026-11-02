@@ -118,6 +118,9 @@ sealed class AppScreens {
     /** Portfolio photos and certificates shown on the public page. */
     @Serializable
     object Showcase : AppScreens()
+    /** Add-on credit balances and their history (accounting/wallet/history/). */
+    @Serializable
+    object Wallet : AppScreens()
     /**
      * In-app payment gateway view — replaces bouncing out to the external
      * browser (see [xyz.sattar.javid.proqueue.core.payment.PaymentWebViewScreen]).

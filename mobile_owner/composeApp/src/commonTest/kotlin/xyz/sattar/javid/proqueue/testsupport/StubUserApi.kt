@@ -55,6 +55,7 @@ open class StubUserApi : UserApi {
     override suspend fun getMyEntitlements(): ApiResponse<EntitlementsResponseDto> = TODO("not stubbed")
 
     override suspend fun getAddons(): ApiResponse<List<AddOnPackDto>> = TODO("not stubbed")
+    override suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<WalletHistoryDto> = TODO("not stubbed")
 
     override suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> = TODO("not stubbed")
 

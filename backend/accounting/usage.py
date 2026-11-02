@@ -219,6 +219,26 @@ REASON_SMS_SEND = "sms_send"
 REASON_SMS_REFUND = "sms_refund"
 REASON_WALLET_CREDIT = "wallet_credit"
 REASON_WALLET_DEBIT = "wallet_debit"
+REASON_ADDON_PURCHASE = "addon_purchase"
+
+# Owner-facing wording for the reasons a *wallet* row can carry (shown in the
+# app's credit history). Unknown codes fall back to a generic credit/debit label.
+WALLET_REASON_LABELS = {
+    REASON_ADDON_PURCHASE: "خرید بسته افزودنی",
+    REASON_BOOKING: "ثبت نوبت",
+    REASON_CANCELLATION_REFUND: "بازگشت اعتبار نوبت لغوشده",
+    REASON_SMS_SEND: "ارسال پیامک",
+    REASON_SMS_REFUND: "بازگشت اعتبار پیامک",
+    REASON_WALLET_CREDIT: "افزایش اعتبار",
+    REASON_WALLET_DEBIT: "کسر اعتبار",
+}
+
+
+def wallet_reason_label(reason, delta=0):
+    """Human-readable Persian label for a wallet ledger row's ``reason``."""
+    if reason in WALLET_REASON_LABELS:
+        return WALLET_REASON_LABELS[reason]
+    return WALLET_REASON_LABELS[REASON_WALLET_CREDIT if delta >= 0 else REASON_WALLET_DEBIT]
 
 
 def _write_ledger(user_id, metric, delta, balance_after, reason, ref_type="", ref_id=None):
