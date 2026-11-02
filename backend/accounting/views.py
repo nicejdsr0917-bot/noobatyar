@@ -164,7 +164,8 @@ def buy_addon(request):
         user=request.user,
         pack=pack,
         callback_url=_payment_callback(request, '/home/payment-result-addon'),
-        use_wallet=serializer.validated_data['use_wallet'],
+        use_wallet=serializer.validated_data['use_wallet'] or serializer.validated_data['wallet_only'],
+        wallet_only=serializer.validated_data['wallet_only'],
     )
     if not result['success']:
         return APIResponse.error(message=result.get('error', 'خطا در ایجاد درخواست پرداخت'))
@@ -206,7 +207,8 @@ def pay_for_plan(request):  # ✅ sync
         user=request.user,
         plan=plan,
         callback_url=_payment_callback(request, '/home/payment-result'),
-        use_wallet=serializer.validated_data['use_wallet'],
+        use_wallet=serializer.validated_data['use_wallet'] or serializer.validated_data['wallet_only'],
+        wallet_only=serializer.validated_data['wallet_only'],
     )
 
     if not result['success']:

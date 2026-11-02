@@ -244,3 +244,122 @@ class CommandTests(Base):
         call_command("toman_wallet_credit", self.user.phone, "15000", stdout=StringIO())
         call_command("toman_wallet_credit", self.user.phone, "5000", "--debit", stdout=StringIO())
         self.assertEqual(self.balance(), 10_000)
+
+
+class StrictEdgeCaseTests(Base):
+    """Edge cases from the strict review: races, store builds, late payments."""
+
+    def test_two_purchases_cannot_spend_the_same_balance(self):
+        toman_wallet.credit(self.user, 60_000)
+        with patch.object(zibal, "request_payment") as gateway:
+            first = self.client.post("/api/accounting/addons/buy/", {"pack_id": self.pack.id, "use_wallet": True}, format="json")
+            second = self.client.post("/api/accounting/addons/buy/", {"pack_id": self.pack.id, "use_wallet": True, "wallet_only": True}, format="json")
+        self.assertTrue(first.json()["data"]["paid_with_wallet"])
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(second.json()["message"], toman_wallet.WALLET_CHANGED_MESSAGE)
+        gateway.assert_not_called()
+        self.assertEqual(self.balance(), 10_000)
+        self.assertEqual(AddOnPurchase.objects.filter(status="success").count(), 1)
+
+    def test_hold_is_atomic_when_the_balance_vanishes(self):
+        toman_wallet.credit(self.user, 10_000)
+        with patch.object(toman_wallet, "spend", return_value=None):
+            with self.assertRaises(toman_wallet.WalletError):
+                toman_wallet.hold(AddOnPurchase, "AddOnPurchase", 10_000, toman_wallet.REASON_ADDON_PURCHASE,
+                                  user=self.user, pack=self.pack, amount=40_000, order_id="o-atomic")
+        self.assertFalse(AddOnPurchase.objects.exists())
+        self.assertEqual(self.balance(), 10_000)
+
+    def test_wallet_only_never_opens_the_gateway_for_a_partial_balance(self):
+        toman_wallet.credit(self.user, 20_000)
+        with patch.object(zibal, "request_payment") as gateway:
+            r = self.client.post("/api/accounting/plans/payment/", {"plan_id": self.plan.id, "wallet_only": True}, format="json")
+        self.assertEqual(r.status_code, 400)
+        gateway.assert_not_called()
+        self.assertEqual(self.balance(), 20_000)
+        self.assertFalse(Transaction.objects.filter(user=self.user).exists())
+
+    def test_store_quote_offers_the_wallet_only_when_it_covers_everything(self):
+        toman_wallet.credit(self.user, 20_000)
+        q = self.client.get("/api/accounting/checkout/quote/", {"kind": "addon", "id": self.pack.id, "channel": "myket"}).json()["data"]
+        self.assertEqual(q["wallet_available"], 0)
+        toman_wallet.credit(self.user, 30_000)
+        q = self.client.get("/api/accounting/checkout/quote/",
+                            {"kind": "addon", "id": self.pack.id, "channel": "myket", "use_wallet": "1"}).json()["data"]
+        self.assertEqual((q["wallet"], q["total"]), (50_000, 0))
+
+    def test_late_payment_after_the_hold_was_released_grants_nothing(self):
+        from accounting.payment.addon_payment import AddOnVerificationService
+
+        toman_wallet.credit(self.user, 10_000)
+        with gateway_ok(555):
+            self.client.post("/api/accounting/addons/buy/", {"pack_id": self.pack.id, "use_wallet": True}, format="json")
+        AddOnPurchase.objects.update(created_at=timezone.now() - toman_wallet.STALE_HOLD_AFTER - timedelta(minutes=1))
+        self.assertEqual(toman_wallet.release_stale_holds(), 10_000)
+        paid = zibal.VerifyResult(zibal.Outcome.SUCCESS, 100, "m", {"result": 100, "amount": AddOnPurchase.objects.get().amount * 10})
+        with patch.object(zibal, "verify", return_value=paid):
+            self.assertFalse(AddOnVerificationService("555").verify_and_grant()["success"])
+        self.assertEqual(usage.get_wallet(self.user), 0)
+        self.assertEqual(self.balance(), 10_000)
+
+    def test_hold_younger_than_the_cutoff_is_kept(self):
+        toman_wallet.credit(self.user, 10_000)
+        with gateway_ok(556):
+            self.client.post("/api/accounting/addons/buy/", {"pack_id": self.pack.id, "use_wallet": True}, format="json")
+        AddOnPurchase.objects.update(created_at=timezone.now() - toman_wallet.STALE_HOLD_AFTER + timedelta(minutes=5))
+        self.assertEqual(toman_wallet.release_stale_holds(), 0)
+        self.assertEqual(self.balance(), 0)
+
+    def test_give_back_runs_once(self):
+        toman_wallet.credit(self.user, 10_000)
+        row = toman_wallet.hold(AddOnPurchase, "AddOnPurchase", 10_000, toman_wallet.REASON_ADDON_PURCHASE,
+                                user=self.user, pack=self.pack, amount=40_000, order_id="o-once")
+        self.assertEqual(toman_wallet.give_back(row, "AddOnPurchase"), 10_000)
+        self.assertEqual(toman_wallet.give_back(AddOnPurchase.objects.get(pk=row.pk), "AddOnPurchase"), 0)
+        self.assertEqual(self.balance(), 10_000)
+
+    def test_addon_needs_a_subscription_even_when_the_wallet_pays(self):
+        Subscription.objects.filter(user=self.user).delete()
+        toman_wallet.credit(self.user, 60_000)
+        r = self.client.post("/api/accounting/addons/buy/", {"pack_id": self.pack.id, "use_wallet": True}, format="json")
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(self.balance(), 60_000)
+
+    def test_wallet_only_purchase_is_not_counted_as_revenue(self):
+        toman_wallet.credit(self.user, 60_000)
+        self.client.post("/api/accounting/addons/buy/", {"pack_id": self.pack.id, "use_wallet": True}, format="json")
+        self.assertEqual(AddOnPurchase.objects.get(status="success").amount, 0)
+
+    def test_convert_rejects_bad_input(self):
+        toman_wallet.credit(self.user, 10_000)
+        for body in ({"kind": "sms", "count": 0}, {"kind": "sms", "count": -3}, {"kind": "gold", "count": 1},
+                     {"kind": "sms"}, {"kind": "sms", "count": "abc"}):
+            r = self.client.post("/api/accounting/wallet/convert/", body, format="json")
+            self.assertEqual(r.status_code, 400, body)
+        self.assertEqual(self.balance(), 10_000)
+
+    def test_convert_is_refused_when_the_price_is_zero(self):
+        settings = TomanWalletSettings.load()
+        settings.sms_unit_price = 0
+        settings.save()
+        toman_wallet.credit(self.user, 10_000)
+        r = self.client.post("/api/accounting/wallet/convert/", {"kind": "sms", "count": 5}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(usage.get_wallet(self.user), 0)
+
+    def test_convert_needs_login(self):
+        r = APIClient().post("/api/accounting/wallet/convert/", {"kind": "sms", "count": 1}, format="json")
+        self.assertIn(r.status_code, (401, 403))
+
+    def test_history_can_show_only_the_toman_wallet(self):
+        toman_wallet.credit(self.user, 5_000)
+        usage.add_wallet(self.user, 3)
+        rows = self.client.get("/api/accounting/wallet/history/", {"metric": "toman_wallet"}).json()["data"]["results"]
+        self.assertEqual([r["metric"] for r in rows], ["toman_wallet"])
+
+    def test_credit_rejects_non_positive_amounts(self):
+        for amount in (0, -5):
+            with self.assertRaises(ValueError):
+                toman_wallet.credit(self.user, amount)
+            with self.assertRaises(ValueError):
+                toman_wallet.spend(self.user, amount, toman_wallet.REASON_PLAN_PURCHASE)

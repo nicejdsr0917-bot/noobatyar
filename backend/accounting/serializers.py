@@ -58,12 +58,16 @@ class BuyPlanSerializer(serializers.Serializer):
     """درخواست خرید پلن"""
     plan_id = serializers.IntegerField()
     use_wallet = serializers.BooleanField(required=False, default=False)
+    # Pay entirely from the wallet or not at all (store builds: no gateway).
+    wallet_only = serializers.BooleanField(required=False, default=False)
 
 
 class BuyAddOnSerializer(serializers.Serializer):
     """درخواست خرید بسته‌ی افزودنی"""
     pack_id = serializers.IntegerField()
     use_wallet = serializers.BooleanField(required=False, default=False)
+    # Pay entirely from the wallet or not at all (store builds: no gateway).
+    wallet_only = serializers.BooleanField(required=False, default=False)
 
 
 class WalletLedgerEntrySerializer(serializers.ModelSerializer):

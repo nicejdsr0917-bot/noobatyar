@@ -94,10 +94,14 @@ class AddOnPaymentService:
     gateway at all and the pack is granted at once (``paid_with_wallet``).
     """
 
-    def create_payment(self, user, pack: AddOnPack, callback_url: str, use_wallet: bool = False) -> Dict[str, Any]:
+    def create_payment(self, user, pack: AddOnPack, callback_url: str, use_wallet: bool = False,
+                       wallet_only: bool = False) -> Dict[str, Any]:
         # Random tail: two purchases in the same second must not share an order id.
         order_id = f"ADDON-{user.id}-{pack.id}-{int(timezone.now().timestamp())}-{uuid.uuid4().hex[:6]}"
         used = toman_wallet.wallet_part(pack.price, toman_wallet.get_balance(user)) if use_wallet else 0
+        if wallet_only and used < pack.price:
+            # Store builds never open the gateway; the balance changed since the quote.
+            return {"success": False, "error": toman_wallet.WALLET_CHANGED_MESSAGE}
         # Pack price (less the wallet part) + VAT + Zibal's fee — the total the confirm dialog showed.
         total = pricing.quote(pack.price - used, pricing.CHANNEL_ZIBAL)["total"]
 

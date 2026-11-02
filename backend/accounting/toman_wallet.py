@@ -53,8 +53,10 @@ KIND_SMS = "sms"
 KIND_APPOINTMENT = "appointment"
 
 # A purchase whose gateway payment is still pending after this long is treated
-# as abandoned and its wallet part is given back (run_subscription_lifecycle).
-STALE_HOLD_AFTER = timedelta(hours=24)
+# as abandoned and its wallet part is given back (run_subscription_lifecycle,
+# hourly). Zibal's payment page has expired long before, so an hour only keeps
+# the owner's balance locked for no reason.
+STALE_HOLD_AFTER = timedelta(hours=1)
 
 
 class WalletError(Exception):
@@ -103,6 +105,9 @@ def wallet_part(base, balance, channel=pricing.CHANNEL_ZIBAL):
     if channel != pricing.CHANNEL_ZIBAL:
         return 0
     return max(0, min(balance, base - pricing.MIN_SELLABLE_PRICE))
+
+
+WALLET_CHANGED_MESSAGE = "موجودی کیف‌پول تغییر کرده است؛ دوباره تلاش کنید"
 
 
 def quote_with_wallet(base, channel, balance):

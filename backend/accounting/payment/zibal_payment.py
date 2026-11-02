@@ -11,7 +11,7 @@ from integrations import zibal
 logger = logging.getLogger(__name__)
 
 class ZibalPaymentService:
-    def create_payment(self, user, plan, callback_url, use_wallet=False):  # ✅ sync
+    def create_payment(self, user, plan, callback_url, use_wallet=False, wallet_only=False):  # ✅ sync
         """Create payment request and return payment URL.
 
         With ``use_wallet`` the toman wallet pays its part first and the gateway
@@ -21,6 +21,9 @@ class ZibalPaymentService:
         order_id = self._generate_order_id(user.id, plan.id)
         base = pricing.plan_base(plan)
         used = toman_wallet.wallet_part(base, toman_wallet.get_balance(user)) if use_wallet else 0
+        if wallet_only and used < base:
+            # Store builds never open the gateway; the balance changed since the quote.
+            return {'success': False, 'error': toman_wallet.WALLET_CHANGED_MESSAGE}
         final_price = pricing.quote(base - used, pricing.CHANNEL_ZIBAL)["total"]
 
         held = None
