@@ -50,3 +50,10 @@ tags: [gf]
 - `SocialLinksField.kt` (فرم کسب‌وکار، زیر شماره‌ها): هر شبکه یک ردیف؛ کاشی تا خالی است خاکستری است و با تایپ رنگ برند می‌گیرد.
 - `CityPicker`: state جدا برای لیست استان و شهر.
 - `AdvancedSettingsTabs` → `CapacityTab`: بیعانهٔ اجباری بدون `CARD`/`ONLINE` هشدار قرمز و دکمهٔ «رفتن به تب پرداخت» دارد.
+
+## کیف‌پول (۲۰۲۶-۱۱-۰۲)
+- `feature/wallet/` (MVI: `WalletIntent` Load/LoadMore/Convert/ClearMessage): کارت تومانی، دیالوگ تبدیل، تاریخچه. از کارت مصرف خانه و ردیف تنظیمات باز می‌شود.
+- `CheckoutConfirmation.confirm(quote, requote)` → `Choice(useWallet)?`؛ کلید کیف‌پول دوباره quote می‌گیرد. `PurchaseUseCase` در بیلد استوری `walletOnly=true` می‌فرستد.
+- `core/billing/CreditsChanged`: بعد از خرید/تبدیل/hold بالا می‌رود و `HomeViewModel` کارت مصرف را تازه می‌کند.
+- علامت +/− در RTL با isolate `⁦…⁩` داخل عدد (نه دور «تومان»).
+- تست‌ها ۹۹ تا؛ `Str` در تست JVM کرش می‌کند، helperهای بدون Str را تست کنید. JAVA_HOME: `~/.jdks/jbr-17.0.14`.

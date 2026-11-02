@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-30
+updated: 2026-11-02
 tags: [gf]
 ---
 # backend: accounting (اشتراک و پرداخت)
@@ -31,3 +31,11 @@ tags: [gf]
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
 - `sms_billing.send_metered_sms`: فرستندهٔ واحد پیامک پولی (مصرف، ارسال، refund، SmsLog). خطای provider = refund. `services.grant_trial` atomic است.
 - `integrations/myket.py` و `integrations.zibal` مستقیم؛ shim `zibal_client` حذف شد. بخش‌بندی «کیف پول کم» روی `CreditBalance` است.
+
+## کیف‌پول (۲۰۲۶-۱۱-۰۲، برنچ mobile-client)
+- `wallet/history/` (تاریخچهٔ صفحه‌بندی‌شدهٔ `CreditLedger` + موجودی‌ها و قیمت واحد)، `wallet/convert/` (`kind` = sms|appointment، `count` ۱..۱۰۰۰۰۰).
+- `accounting/toman_wallet.py`: متریک `toman_wallet` (فقط DB، کلید Redis ندارد). `credit()` برای اپ‌های دیگر (برگشت تخفیف)، `spend()` None اگر کم باشد.
+- خرید با `use_wallet`/`wallet_only` در `plans/payment/` و `addons/buy/`. `wallet_part`: یا کامل، یا حداقل `MIN_SELLABLE_PRICE` برای زیبال؛ مایکت همه یا هیچ. بخش کیف‌پول با `hold()` روی `wallet_amount` (migration `0016`) نگه داشته می‌شود؛ `give_back` idempotent است. رد درگاه / verify FAILED / رها شدن ۱ ساعت (`release_stale_holds` در `run_subscription_lifecycle`) پول را برمی‌گرداند.
+- `TomanWalletSettings` (singleton، ادمین) قیمت تبدیل. `manage.py toman_wallet_credit`.
+- order_id پلن و add-on دنبالهٔ uuid دارد (برخورد در یک ثانیه). گزارش درآمد فقط `amount` نقدی.
+- تست: `tests_toman_wallet.py`، `tests_wallet_history.py`.
