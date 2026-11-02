@@ -133,17 +133,19 @@ val Business.canBookOnline: Boolean get() = isClaimed && bookingEnabled
 enum class CategoryGroup(
     val key: String?,
     val label: String,
+    /** One word, for the explore bar where all groups share a single row. */
+    val shortLabel: String,
     val icon: ImageVector,
     /** Whether the insurance filter means anything here: a salon or a school has none. */
     val supportsInsurance: Boolean = false,
 ) {
-    ALL(null, "همه", Lucide.LayoutGrid, supportsInsurance = true),
-    MEDICAL("MEDICAL", "پزشک", Lucide.Stethoscope, supportsInsurance = true),
-    DENTAL("DENTAL", "دندان‌پزشک", ToothOutlined, supportsInsurance = true),
-    BEAUTY("BEAUTY", "زیبایی", Lucide.Scissors),
-    HEALTH("HEALTH", "سلامت و مشاوره", Lucide.Brain, supportsInsurance = true),
-    PROFESSIONAL("PROFESSIONAL", "خدمات حرفه‌ای", Lucide.Briefcase),
-    EDUCATION("EDUCATION", "آموزش و ورزش", Lucide.Dumbbell);
+    ALL(null, "همه", "همه", Lucide.LayoutGrid, supportsInsurance = true),
+    MEDICAL("MEDICAL", "پزشک", "پزشک", Lucide.Stethoscope, supportsInsurance = true),
+    DENTAL("DENTAL", "دندان‌پزشک", "دندان", ToothOutlined, supportsInsurance = true),
+    BEAUTY("BEAUTY", "زیبایی", "زیبایی", Lucide.Scissors),
+    HEALTH("HEALTH", "سلامت و مشاوره", "مشاوره", Lucide.Brain, supportsInsurance = true),
+    PROFESSIONAL("PROFESSIONAL", "خدمات حرفه‌ای", "خدمات", Lucide.Briefcase),
+    EDUCATION("EDUCATION", "آموزش و ورزش", "آموزش", Lucide.Dumbbell);
 
     companion object {
         fun fromKey(key: String?): CategoryGroup = entries.firstOrNull { it.key == key } ?: ALL
@@ -546,12 +548,10 @@ fun OwnerInviteRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** Icon · title · body · one action. Used for empty, error and permission states. */
 /**
- * An empty or error state with some life in it: the icon springs into a soft
- * accent disc that breathes with slow rings while it floats, the text rises
- * in after it, and the action's arrow does a full turn when tapped. Still
- * with the system's reduce-motion setting.
+ * Icon · title · body · one action, for empty, error and permission states.
+ * Deliberately quiet: a small muted glyph and plain text, the way a directory
+ * app says "nothing here" without dressing it up.
  */
 @Composable
 fun StateMessage(
@@ -562,113 +562,29 @@ fun StateMessage(
     onAction: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val reduced = rememberReducedMotion()
-    val accent = MaterialTheme.colorScheme.primary
-    val soft = if (LocalIsDarkTheme.current) AccentSoftDark else AccentSoft
-
-    // Entrance: disc, then title, body and button, each a beat after the last.
-    val enter = remember { List(4) { Animatable(if (reduced) 1f else 0f) } }
-    LaunchedEffect(Unit) {
-        enter.forEachIndexed { i, a ->
-            launch {
-                delay(90L * i)
-                a.animateTo(1f, if (i == 0) spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow) else tween(420, easing = FastOutSlowInEasing))
-            }
-        }
-    }
-    val loop = rememberInfiniteTransition(label = "stateMessage")
-    val ring by loop.animateFloat(0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "ring")
-    val bob by loop.animateFloat(-1f, 1f, infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "bob")
-    val lift = with(LocalDensity.current) { 4.dp.toPx() }
-    val rise = with(LocalDensity.current) { 14.dp.toPx() }
-
-    fun Modifier.rise(a: Animatable<Float, *>) = graphicsLayer {
-        alpha = a.value
-        translationY = (1f - a.value) * rise
-    }
-
     Column(
-        modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 40.dp),
+        modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = Space.xl),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            Modifier
-                .size(120.dp)
-                .graphicsLayer {
-                    val e = enter[0].value
-                    alpha = e.coerceIn(0f, 1f)
-                    scaleX = 0.6f + 0.4f * e
-                    scaleY = 0.6f + 0.4f * e
-                }
-                .drawBehind {
-                    if (reduced) return@drawBehind
-                    // Two rings leaving the disc, half a cycle apart.
-                    val base = 44.dp.toPx()
-                    for (k in 0..1) {
-                        val t = (ring + k * 0.5f) % 1f
-                        drawCircle(accent.copy(alpha = 0.18f * (1f - t)), radius = base + t * 16.dp.toPx(), style = Stroke(1.5.dp.toPx()))
-                    }
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                Modifier
-                    .size(88.dp)
-                    .graphicsLayer { if (!reduced) translationY = bob * lift }
-                    .background(soft, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .graphicsLayer { if (!reduced) rotationZ = bob * 4f }
-                )
-            }
-        }
-        Spacer(Modifier.height(Space.lg))
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.rise(enter[1])
-        )
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.height(Space.md))
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         Spacer(Modifier.height(Space.xs))
         Text(
             body,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.rise(enter[2])
+            textAlign = TextAlign.Center
         )
         if (actionLabel != null) {
-            Spacer(Modifier.height(Space.xl))
-            val scope = rememberCoroutineScope()
-            val turn = remember { Animatable(0f) }
-            val interaction = remember { MutableInteractionSource() }
-            Button(
-                onClick = {
-                    if (!reduced) scope.launch {
-                        turn.snapTo(0f)
-                        turn.animateTo(360f, tween(650, easing = FastOutSlowInEasing))
-                    }
-                    onAction()
-                },
-                shape = CircleShape,
-                interactionSource = interaction,
-                contentPadding = PaddingValues(horizontal = Space.xl, vertical = Space.sm),
-                modifier = Modifier.rise(enter[3]).pressScale(interaction, 0.94f)
+            Spacer(Modifier.height(Space.lg))
+            OutlinedButton(
+                onClick = onAction,
+                shape = Radius.md,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                contentPadding = PaddingValues(horizontal = Space.xl, vertical = Space.sm)
             ) {
-                Icon(
-                    Lucide.RefreshCw,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = turn.value }
-                )
-                Spacer(Modifier.width(Space.sm))
-                Text(actionLabel, fontWeight = FontWeight.Bold)
+                Text(actionLabel, color = MaterialTheme.colorScheme.onSurface)
             }
         }
     }

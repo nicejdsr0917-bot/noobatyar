@@ -118,7 +118,7 @@ tags: [gf]
   - API در `data/remoteDataSource/profile/ProfileApi.kt` است: `me`، `rename`، `uploadAvatar`، `deleteAvatar`.
   - `MainTab.More` اسمش «پروفایل» است (اسم object عوض نشد).
 - **`Business.categoryIcon()`** (در `DiscoveryUi.kt`): آیکن هر گروه صنف برای مراکز بدون لوگو، هم‌خانواده‌ی پین‌های نقشه.
-- **`StateMessage`:** انیمیشن ورود فنری، حلقه‌ها، حرکت آرام بالا و پایین آیکن، و چرخش آیکن رفرش. با «کاهش حرکت» خاموش می‌شود.
+- **`StateMessage`:** ساده و بی‌حرکت (۲۸dp آیکن، عنوان، متن، `OutlinedButton`). انیمیشن و حلقه‌ها به خواست کاربر حذف شد («چیپ»).
 - **کاشی‌ها:**
   - `TileDiskCache` در `cacheDir/map-tiles/osm-hot-v1/z/x/y.t`: ۸ بایت زمان ذخیره، بعد PNG رنگ‌شده. با تغییر `TileRecolor`، مقدار `VERSION` را بالا ببر.
   - `loadTile()` اول کش تازه، بعد شبکه، بعد کش کهنه.
@@ -132,3 +132,12 @@ tags: [gf]
 - **`DetailSocial.kt` → `SocialLinksSection(links, businessTitle, index)`**: ردیف افقی کاشی ۶۰dp با لوگوهای اپ اونر (`ic_brand_*` در drawable؛ PNG برای بله/ایتا/روبیکا)، ورود فنری پلکانی، نوار نور مداوم مثل «درباره ما»ی اونر. عنوان: «{نام کسب‌وکار} در شبکه‌های اجتماعی». URL در اپ ساخته می‌شود.
 - **`CityPickerSheet`**: هر لیست state جدا دارد؛ شهرهای هر استان از بالا شروع می‌شوند و لیست استان‌ها جایش را نگه می‌دارد.
 - **`BookingFlow.kt`**: `Business.depositCollectable()` (لیست خالی = کارت، مثل `paymentOptions`)؛ `expectsDeposit` آن را هم می‌خواهد. `paymentOptions` برای بیعانهٔ اجباری بی‌روش، نقد می‌دهد.
+
+## جلسهٔ 2026-11-02 (عصر) — کاوش
+- **`feature/explore/ExploreSheet.kt`** (جدید): شیت سه‌حالته `SheetStop { Collapsed, Half, Expanded }` با `AnchoredDraggableState`. `ExploreSheetLayout(state, collapsedHeight, halfHeight, …, handle, sheetContent, body)`. `SheetNestedScroll` دست‌به‌دست شیت و لیست را انجام می‌دهد.
+  - ⚠️ `AnchoredDraggableState.settle(velocity)` وقتی state بدون threshold ساخته شده کرش می‌کند؛ برای همین `settle` دستی با `closestAnchor` و `FLICK_VELOCITY = 600f`.
+  - `COLLAPSED_LIST_PEEK = 52.dp`: حالت پایین فقط تا خط عنوان و تعداد.
+- **`ExploreHeader.kt` → `CategoryBar`**: همهٔ ۷ دسته در یک ردیف با `weight(1f)` (کاشی ۴۴dp + `CategoryGroup.shortLabel`). جای `LazyRow` چیپ‌ها.
+- **`ExploreScreen.kt`**: `BottomSheetScaffold` حذف شد و `ExploreSheetLayout` جایش آمد. `resultsTitle` اسم دسته را می‌گذارد («مراکز دندان‌پزشکی در تهران»)؛ برای «همه» فقط «مراکز». انتخاب پین روی نقشه شیت را به Half می‌برد.
+- **`ExploreMap.kt`**: پارامتر `bottomInset: () -> Dp` دکمه‌های نقشه را بالای شیت نگه می‌دارد.
+- دارک مود بخش‌های جدید دیده نشده.

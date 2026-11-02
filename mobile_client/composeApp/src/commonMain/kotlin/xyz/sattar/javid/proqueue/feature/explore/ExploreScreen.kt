@@ -30,15 +30,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -150,20 +148,19 @@ fun ExploreScreen(
     // The map already gives the overview, so the "book online" strip would only
     // push the first results out of the collapsed sheet. Kept behind a flag for now.
     val showFeatured = false
-    val sheetState = rememberBottomSheetScaffoldState()
+    val sheetState = rememberExploreSheetState()
     var pickMode by remember { mutableStateOf(false) }
 
-    // A pin tap highlights its row and brings it to the top of the sheet; a tap
-    // on bare map (null) clears the selection.
+    // A pin tap highlights its row and brings it to the top of the sheet, at the
+    // middle stop (the low one shows only the title, so the row would be hidden);
+    // a tap on bare map (null) clears the selection.
     val selectFromMap: (Long?) -> Unit = { id ->
         selectedId.value = id
         val index = if (id == null) -1 else state.results.indexOfFirst { it.id == id }
         if (index >= 0) {
             val before = (if (!state.hasLocation) 1 else 0) + 1 + (if (showFeatured) 2 else 0)
             scope.launch {
-                if (sheetState.bottomSheetState.currentValue != SheetValue.PartiallyExpanded) {
-                    sheetState.bottomSheetState.partialExpand()
-                }
+                if (sheetState.settled != SheetStop.Half) sheetState.moveTo(SheetStop.Half)
                 listState.animateScrollToItem(before + index)
             }
         }
@@ -181,10 +178,13 @@ fun ExploreScreen(
     val mergeDistancePx = with(LocalDensity.current) { MERGE_DISTANCE.toPx() }
     val merge by remember {
         derivedStateOf {
-            val offset = runCatching { sheetState.bottomSheetState.requireOffset() }.getOrDefault(Float.MAX_VALUE)
+            val offset = sheetState.offset.takeUnless { it.isNaN() } ?: Float.MAX_VALUE
             (1f - offset / mergeDistancePx).coerceIn(0f, 1f)
         }
     }
+    // Height of the handle row (offer bar + grip) at rest, before it folds into
+    // the toolbar: the low stop must show all of it plus the list's peek.
+    var handleHeight by remember { mutableStateOf(0.dp) }
     val dark = LocalIsDarkTheme.current
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -230,16 +230,37 @@ fun ExploreScreen(
             }
         } else BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val peek = maxHeight * SHEET_PEEK_FRACTION
+            val collapsed = handleHeight + COLLAPSED_LIST_PEEK
             val hiddenSheetHeight = maxHeight - peek
             val corner = SHEET_CORNER * (1f - merge)
-            BottomSheetScaffold(
-                scaffoldState = sheetState,
-                sheetPeekHeight = peek + bottomPadding,
-                sheetContainerColor = MaterialTheme.colorScheme.background,
-                sheetShadowElevation = 16.dp * (1f - merge),
-                sheetShape = RoundedCornerShape(topStart = corner, topEnd = corner),
-                sheetDragHandle = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            val density = LocalDensity.current
+            val areaHeight = maxHeight
+            // How much of the map the sheet hides, for the controls riding its edge;
+            // capped at the middle stop, above which the map is covered anyway.
+            val sheetCover: () -> Dp = {
+                val y = sheetState.offset.takeUnless { it.isNaN() }
+                val cover = if (y == null) peek else areaHeight - with(density) { y.toDp() }
+                cover.coerceIn(0.dp, peek)
+            }
+            // The camera fits pins into the map the sheet leaves free where it rests.
+            val mapFraction = when (sheetState.settled) {
+                SheetStop.Collapsed -> 1f - collapsed / maxHeight
+                else -> 1f - SHEET_PEEK_FRACTION
+            }
+            ExploreSheetLayout(
+                state = sheetState,
+                collapsedHeight = collapsed + bottomPadding,
+                halfHeight = peek + bottomPadding,
+                color = MaterialTheme.colorScheme.background,
+                shadowElevation = 16.dp * (1f - merge),
+                shape = RoundedCornerShape(topStart = corner, topEnd = corner),
+                handle = {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.onSizeChanged {
+                            if (merge == 0f) handleHeight = with(density) { it.height.toDp() }
+                        }
+                    ) {
                         // The offer bar rides the sheet's top edge, like a ride app's.
                         PromoStrip(
                             PromoPlacement.EXPLORE,
@@ -280,7 +301,7 @@ fun ExploreScreen(
                         onToggleSaved = viewModel::toggleSaved,
                     )
                 },
-                containerColor = mapBackground(dark),
+                modifier = Modifier.background(mapBackground(dark)),
             ) {
                 ExploreMap(
                     businesses = state.results,
@@ -296,11 +317,13 @@ fun ExploreScreen(
                         pickMode = !pickMode
                         if (pickMode) {
                             selectedId.value = null
-                            scope.launch { sheetState.bottomSheetState.partialExpand() }
+                            scope.launch {
+                                if (sheetState.settled == SheetStop.Expanded) sheetState.moveTo(SheetStop.Half)
+                            }
                         }
                     },
-                    visibleFraction = 1f - SHEET_PEEK_FRACTION,
-                    bottomInset = peek,
+                    visibleFraction = mapFraction,
+                    bottomInset = sheetCover,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -361,7 +384,15 @@ fun ExploreScreen(
 }
 
 internal fun resultsTitle(state: ExploreState): String {
-    val what = if (state.category == CategoryGroup.ALL) "مراکز" else state.category.label
+    val what = when (state.category) {
+        CategoryGroup.ALL -> "مراکز"
+        CategoryGroup.MEDICAL -> "مراکز پزشکی"
+        CategoryGroup.DENTAL -> "مراکز دندان‌پزشکی"
+        CategoryGroup.BEAUTY -> "مراکز زیبایی"
+        CategoryGroup.HEALTH -> "مراکز سلامت و مشاوره"
+        CategoryGroup.PROFESSIONAL -> "مراکز خدمات حرفه‌ای"
+        CategoryGroup.EDUCATION -> "مراکز آموزش و ورزش"
+    }
     return when (val area = state.area) {
         is SearchArea.NearMe -> "$what نزدیک شما"
         is SearchArea.City -> "$what در ${area.label}"

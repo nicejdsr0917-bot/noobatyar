@@ -7,7 +7,14 @@ import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.SlidersHorizontal
 import com.composables.icons.lucide.X
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -109,22 +116,62 @@ internal fun Header(
             Spacer(Modifier.width(Space.sm))
             FilterButton(count = state.extraFilterCount(), onClick = onOpenFilters)
         }
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = Space.page),
-            horizontalArrangement = Arrangement.spacedBy(Space.sm),
-            modifier = Modifier.padding(bottom = Space.md)
-        ) {
-            items(CategoryGroup.entries) { group ->
-                FilterChip(
-                    label = group.label,
-                    icon = group.icon,
-                    selected = group == state.category,
-                    onClick = { onSelectCategory(group) }
-                )
-            }
-        }
+        CategoryBar(selected = state.category, onSelect = onSelectCategory)
         // Takes over from the sheet's shadow once the two have merged.
         Hairline(Modifier.alpha(merged))
+    }
+}
+
+/**
+ * Every category group in one row of equal cells: the whole choice reads at a
+ * glance, with nothing hidden past the screen edge.
+ */
+@Composable
+internal fun CategoryBar(selected: CategoryGroup, onSelect: (CategoryGroup) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(start = Space.sm, end = Space.sm, bottom = Space.sm)) {
+        CategoryGroup.entries.forEach { group ->
+            CategoryCell(
+                group = group,
+                selected = group == selected,
+                onClick = { onSelect(group) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategoryCell(group: CategoryGroup, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val tile by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    )
+    val glyph by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Column(
+        modifier
+            .clip(Radius.md)
+            .clickable(role = Role.Tab, onClick = onClick)
+            .semantics { this.selected = selected }
+            .padding(vertical = Space.xs),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier.size(44.dp).background(tile, Radius.md),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(group.icon, contentDescription = null, tint = glyph, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.height(Space.xs))
+        Text(
+            group.shortLabel,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 

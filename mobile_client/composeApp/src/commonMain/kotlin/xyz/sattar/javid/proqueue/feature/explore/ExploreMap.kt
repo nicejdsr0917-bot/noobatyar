@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Size
@@ -170,7 +171,8 @@ fun ExploreMap(
     pickMode: Boolean,
     onTogglePickMode: () -> Unit,
     visibleFraction: Float,
-    bottomInset: Dp,
+    /** How much of the map the sheet covers right now; read at layout, so a drag doesn't recompose. */
+    bottomInset: () -> Dp,
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current.density
@@ -369,7 +371,12 @@ fun ExploreMap(
         }
 
         // Bottom of the uncovered strip: credit, the control stack, the pick action.
-        Box(Modifier.fillMaxSize().padding(bottom = bottomInset + 16.dp)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .offset { IntOffset(0, -bottomInset().roundToPx()) }
+                .padding(bottom = 16.dp)
+        ) {
             // Lifted above the pick button while it's there, so the credit stays readable.
             val creditLift by animateDpAsState(if (pickMode) 60.dp else 0.dp)
             MapAttribution(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = creditLift))
