@@ -10,6 +10,7 @@ success, grants the purchased benefit:
 """
 
 import logging
+import uuid
 from datetime import timedelta
 from typing import Any, Dict, Optional
 
@@ -18,7 +19,7 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from accounting.models import AddOnPack, AddOnPurchase
-from accounting import pricing, usage
+from accounting import pricing, toman_wallet, usage
 from integrations import zibal
 
 logger = logging.getLogger(__name__)
@@ -85,31 +86,60 @@ def grant_addon_benefit(purchase: AddOnPurchase, response_data: Optional[Dict] =
 
 
 class AddOnPaymentService:
-    """Create a Zibal payment request for an add-on pack."""
+    """Create a Zibal payment request for an add-on pack.
 
-    def create_payment(self, user, pack: AddOnPack, callback_url: str) -> Dict[str, Any]:
-        order_id = f"ADDON-{user.id}-{pack.id}-{int(timezone.now().timestamp())}"
-        # Pack price + VAT + Zibal's fee — the total the confirm dialog showed.
-        total = pricing.quote(pack.price, pricing.CHANNEL_ZIBAL)["total"]
+    With ``use_wallet`` the owner's toman wallet pays what it can first
+    (``toman_wallet.wallet_part``); the gateway is asked only for the rest,
+    VAT and fee included. When the wallet covers the whole price there is no
+    gateway at all and the pack is granted at once (``paid_with_wallet``).
+    """
+
+    def create_payment(self, user, pack: AddOnPack, callback_url: str, use_wallet: bool = False) -> Dict[str, Any]:
+        # Random tail: two purchases in the same second must not share an order id.
+        order_id = f"ADDON-{user.id}-{pack.id}-{int(timezone.now().timestamp())}-{uuid.uuid4().hex[:6]}"
+        used = toman_wallet.wallet_part(pack.price, toman_wallet.get_balance(user)) if use_wallet else 0
+        # Pack price (less the wallet part) + VAT + Zibal's fee — the total the confirm dialog showed.
+        total = pricing.quote(pack.price - used, pricing.CHANNEL_ZIBAL)["total"]
+
+        held = None
+        if used:
+            try:
+                held = toman_wallet.hold(
+                    AddOnPurchase, "AddOnPurchase", used, toman_wallet.REASON_ADDON_PURCHASE,
+                    user=user, pack=pack, amount=total, order_id=order_id,
+                )
+            except toman_wallet.WalletError as exc:
+                return {"success": False, "error": exc.message}
+            if total == 0:
+                with db_transaction.atomic():
+                    locked = AddOnPurchase.objects.select_for_update().get(pk=held.pk)
+                    granted = grant_addon_benefit(locked, response_data={"paid_with": "wallet"})
+                return {"success": True, "paid_with_wallet": True, **granted}
+
         result = zibal.request_payment(
             settings.ZIBAL_MERCHANT_ID, total * 10,  # تومان → ریال
             callback_url, order_id,
         )
-        if result.transport_error:
-            return {"success": False, "error": "خطا در اتصال به درگاه پرداخت"}
-        if not result.success:
+        if result.transport_error or not result.success:
+            if held:
+                toman_wallet.cancel_hold(held, "AddOnPurchase")
+            if result.transport_error:
+                return {"success": False, "error": "خطا در اتصال به درگاه پرداخت"}
             logger.error(f"Zibal add-on error: {result.message}")
             return {"success": False, "error": "خطا در ایجاد پرداخت" if result.message is None else result.message}
 
         track_id = str(result.track_id)
-        AddOnPurchase.objects.create(
-            user=user,
-            pack=pack,
-            amount=total,
-            track_id=track_id,
-            order_id=order_id,
-            status="pending",
-        )
+        if held:
+            AddOnPurchase.objects.filter(pk=held.pk).update(track_id=track_id)
+        else:
+            AddOnPurchase.objects.create(
+                user=user,
+                pack=pack,
+                amount=total,
+                track_id=track_id,
+                order_id=order_id,
+                status="pending",
+            )
         return {
             "success": True,
             "payment_url": zibal.start_url(track_id),
@@ -158,6 +188,14 @@ class AddOnVerificationService:
                         "data": result.data}
 
             if result.outcome == zibal.Outcome.FAILED:
+                if self.purchase.wallet_amount:
+                    # Definitively not paid: cancel (never re-verified) and
+                    # give the wallet part back.
+                    AddOnPurchase.objects.filter(pk=self.purchase.pk, status="pending").update(
+                        zibal_response=result.data, updated_at=timezone.now()
+                    )
+                    toman_wallet.cancel_hold(self.purchase, "AddOnPurchase")
+                    return {"success": False, "message": result.message, "data": result.data}
                 AddOnPurchase.objects.filter(pk=self.purchase.pk, status="pending").update(
                     status="failed", zibal_response=result.data, updated_at=timezone.now()
                 )

@@ -33,7 +33,7 @@ from api import jalali
 from . import admin_services, reports
 from .models import (
     Plan, Subscription, AddOnPack, AddOnPurchase, Transaction, CreditLedger,
-    SubscriptionReminderSettings, StorePurchase, ContactVisibilityPolicy,
+    SubscriptionReminderSettings, StorePurchase, ContactVisibilityPolicy, TomanWalletSettings,
 )
 
 
@@ -355,6 +355,32 @@ class TransactionAdmin(ModelAdmin):
         response = HttpResponse(admin_services.financial_report_csv(report), content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="{admin_services.financial_report_filename(report)}"'
         return response
+
+
+@admin.register(TomanWalletSettings)
+class TomanWalletSettingsAdmin(ModelAdmin):
+    list_display = ('__str__', 'sms_unit_price', 'appointment_unit_price', 'updated_at')
+    readonly_fields = ('updated_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('sms_unit_price', 'appointment_unit_price', 'updated_at'),
+            'description': (
+                'قیمت تبدیل موجودی کیف‌پول تومانی صاحب کسب‌وکار به پیامک و نوبت. '
+                'افزایش دستی موجودی: <code>python manage.py toman_wallet_credit &lt;phone&gt; &lt;amount&gt;</code>'
+            ),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser and not TomanWalletSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        if request.user.is_superuser:
+            TomanWalletSettings.load()
+        return super().changelist_view(request, extra_context)
 
 
 @admin.register(SubscriptionReminderSettings)

@@ -54,6 +54,7 @@ METRIC_SMS = "sms"
 # CreditBalance / CreditLedger metric names
 _DB_WALLET_SMS = "sms_wallet"
 _DB_WALLET_APPT = "appointment_wallet"
+_DB_WALLET_TOMAN = "toman_wallet"
 _DB_MONTHLY = {
     METRIC_APPOINTMENTS: "appointment_monthly",
     METRIC_SMS: "sms_monthly",
@@ -93,6 +94,8 @@ def _legacy_redis_key(user_id, db_metric, period):
         return _wallet_key(user_id)
     if db_metric == _DB_WALLET_APPT:
         return _appt_wallet_key(user_id)
+    if db_metric == _DB_WALLET_TOMAN:
+        return None  # born in the DB, never had a Redis key
     for usage_metric, m in _DB_MONTHLY.items():
         if m == db_metric:
             return _month_key(user_id, usage_metric, period)
@@ -112,7 +115,8 @@ def _legacy_value(user_id, db_metric, period):
     Never raises.
     """
     try:
-        raw = cache.get(_legacy_redis_key(user_id, db_metric, period))
+        key = _legacy_redis_key(user_id, db_metric, period)
+        raw = cache.get(key) if key else None
         if raw is not None:
             return max(0, int(raw)) if period else int(raw)
     except Exception:

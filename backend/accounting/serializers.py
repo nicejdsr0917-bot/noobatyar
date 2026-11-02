@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from . import usage
+from . import toman_wallet, usage
 from .models import Plan, Subscription, AddOnPack, CreditLedger
 
 
@@ -57,11 +57,13 @@ class AddOnPackSerializer(serializers.ModelSerializer):
 class BuyPlanSerializer(serializers.Serializer):
     """درخواست خرید پلن"""
     plan_id = serializers.IntegerField()
+    use_wallet = serializers.BooleanField(required=False, default=False)
 
 
 class BuyAddOnSerializer(serializers.Serializer):
     """درخواست خرید بسته‌ی افزودنی"""
     pack_id = serializers.IntegerField()
+    use_wallet = serializers.BooleanField(required=False, default=False)
 
 
 class WalletLedgerEntrySerializer(serializers.ModelSerializer):
@@ -77,4 +79,14 @@ class WalletLedgerEntrySerializer(serializers.ModelSerializer):
         fields = ['id', 'metric', 'delta', 'balance_after', 'reason', 'reason_label', 'created_at']
 
     def get_reason_label(self, obj):
+        if obj.metric == CreditLedger.METRIC_TOMAN_WALLET or obj.reason in toman_wallet.REASON_LABELS:
+            label = toman_wallet.REASON_LABELS.get(obj.reason)
+            if label:
+                return label
         return usage.wallet_reason_label(obj.reason, obj.delta)
+
+
+class WalletConvertSerializer(serializers.Serializer):
+    """تبدیل موجودی کیف‌پول تومانی به پیامک یا نوبت"""
+    kind = serializers.ChoiceField(choices=['sms', 'appointment'])
+    count = serializers.IntegerField(min_value=1, max_value=100000)

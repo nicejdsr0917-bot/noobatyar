@@ -58,6 +58,15 @@ class PaymentVerificationService:
                 )
 
             if result.outcome == zibal.Outcome.FAILED:
+                if self.transaction.wallet_amount:
+                    # Definitively not paid: cancel (never re-verified) and
+                    # give the wallet part back.
+                    from accounting import toman_wallet
+                    Transaction.objects.filter(pk=self.transaction.pk, status='pending').update(
+                        zibal_response=result.data, updated_at=timezone.now()
+                    )
+                    toman_wallet.cancel_hold(self.transaction, "Transaction")
+                    return self._error_response(result.message, 400, result.data)
                 Transaction.objects.filter(pk=self.transaction.pk, status='pending').update(
                     status='failed', zibal_response=result.data, updated_at=timezone.now()
                 )

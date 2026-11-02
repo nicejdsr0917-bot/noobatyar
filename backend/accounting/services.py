@@ -90,8 +90,13 @@ def get_active_pack(pack_id) -> AddOnPack:
         raise ServiceError('بسته پیدا نشد', 404)
 
 
-def checkout_quote(kind, raw_id, channel) -> Dict[str, Any]:
-    """The itemised total of a purchase, or ServiceError."""
+def checkout_quote(kind, raw_id, channel, user=None, use_wallet=False) -> Dict[str, Any]:
+    """The itemised total of a purchase, or ServiceError.
+
+    Always carries ``wallet_balance`` (the owner's toman wallet) so the app can
+    offer it; with ``use_wallet`` the wallet part is taken off before VAT and
+    fee (``wallet``), exactly as the purchase itself will charge it.
+    """
     channel = channel or pricing.CHANNEL_ZIBAL
     if channel not in pricing.CHANNELS:
         raise ServiceError('روش پرداخت نامعتبر است')
@@ -111,7 +116,13 @@ def checkout_quote(kind, raw_id, channel) -> Dict[str, Any]:
     if item is None:
         raise ServiceError('مورد پیدا نشد', 404)
 
-    data = pricing.quote(base, channel)
+    from . import toman_wallet
+
+    balance = toman_wallet.get_balance(user) if user is not None else 0
+    data = toman_wallet.quote_with_wallet(base, channel, balance if use_wallet else 0)
+    data['wallet_balance'] = balance
+    # What the wallet would pay if asked, so the app can label its switch.
+    data['wallet_available'] = toman_wallet.wallet_part(base, balance, channel)
     data['title'] = item.name
     return data
 
