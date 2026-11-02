@@ -18,9 +18,11 @@
 - صفحه‌ی تازه‌ی «کیف‌پول و اعتبار»: موجودی تومانی، اعتبار نوبت و پیامک و تاریخچه‌ی همه‌ی آن‌ها. از کارت «مصرف این ماه» در خانه یا از تنظیمات باز می‌شود.
 - کیف‌پول تومانی: مبلغی که نوبت‌یار به شما برمی‌گرداند (مثل تخفیف نوبت‌ها). نقد نمی‌شود؛ هنگام خرید اشتراک یا بسته می‌توانید تمام یا بخشی از مبلغ را از کیف‌پول بپردازید، یا موجودی را به پیامک و نوبت تبدیل کنید. مالیات بر ارزش افزوده روی کل مبلغ حساب می‌شود و کارمزد درگاه فقط روی بخشی که از درگاه پرداخت می‌کنید.
 - صفحه‌ی خانه از نو طراحی شد: یک کارت «امروز» با صف زنده و وضعیت نوبت‌ها، نمودار روند تمیزتر، کارت مصرف با کیف‌پول، همه مرتب و هم‌تراز، با انیمیشن‌های نرم.
+- نام اپ به «نوبت‌یار کارفرما» تغییر کرد و آیکون تازه‌ای گرفت (سرمه‌ای با نشان کیف) تا از اپ مشتری‌ها جدا باشد.
 <!-- fa:end -->
 
 ### mobile_owner
+- Branding: launcher name «نوبت‌یار کارفرما» / "Noobatyar Business"; launcher icons (all densities, round, legacy, Play Store 512) redrawn on a navy gradient with an orange briefcase badge, so the owner app is told apart from the customer app («نوبت‌یار», purple).
 - Home redesign (`feature/home`): shared `HomeCard`/`HomeCardHeader` (one radius, padding and header row), `HomeTodayCard` (today's count, live queue chip, four outcomes; 2×2 under 380dp) replacing the queue banner and tinted stat grid, trend card with total/caption/link on one row and a clean line chart that sweeps in, usage card with animated bars and a wallet row, flat plan cards. Motion: staggered entrance in the draw layer, count-up numbers, press feedback.
 - Checkout dialog lists price, VAT, wallet deduction, then fee.
 - Home usage card: wallet note reads «+N نوبت/پیامک اعتبار اضافه» (local digits) instead of the unit-less «کیف‌پول: N»; the appointment note is hidden on an unlimited booking quota (it can never be spent there). Tapping the note opens the wallet screen. The SMS report badge uses the same wording.
