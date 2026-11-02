@@ -25,6 +25,7 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PaymentRespons
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.AddOnPackDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.BuyAddonRequestDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletHistoryDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.PaymentRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.ResetPasswordRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.SendOTPRequestDto
