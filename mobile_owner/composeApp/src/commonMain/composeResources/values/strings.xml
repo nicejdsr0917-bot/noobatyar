@@ -481,8 +481,8 @@
     <string name="total_clients">کل مراجعین</string>
     <string name="in_queue">افراد در صف</string>
     <string name="this_months_usage">مصرف این ماه</string>
-    <string name="wallet_extra_appointments">+%1$s نوبت اعتبار اضافه</string>
-    <string name="wallet_extra_sms">+%1$s پیامک اعتبار اضافه</string>
+    <string name="wallet_extra_appointments">%1$s نوبت اعتبار اضافه</string>
+    <string name="wallet_extra_sms">%1$s پیامک اعتبار اضافه</string>
     <string name="wallet_title">اعتبار اضافه</string>
     <string name="wallet_settings_subtitle">موجودی و تاریخچه‌ی بسته‌های افزودنی</string>
     <string name="wallet_explainer">این اعتبار فقط بعد از تمام شدن سهمیه‌ی ماهانه‌ی پلن خرج می‌شود و بین همه‌ی کسب‌وکارهای شما مشترک است.</string>

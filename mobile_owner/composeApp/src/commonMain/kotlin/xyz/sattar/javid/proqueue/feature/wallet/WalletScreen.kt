@@ -308,7 +308,7 @@ private fun LedgerRow(entry: WalletLedgerEntryDto) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = signedDelta(entry.delta).toPersianDigits(),
+                    text = signedAmount(entry.delta),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = accent
@@ -326,6 +326,12 @@ private fun LedgerRow(entry: WalletLedgerEntryDto) {
 /** "+10" / "−1" — the sign always shown; localise digits at display. */
 internal fun signedDelta(delta: Int): String =
     (if (delta >= 0) "+" else "−") + kotlin.math.abs(delta)
+
+/**
+ * [signedDelta] in local digits, inside a left-to-right isolate: in RTL text a
+ * leading sign is otherwise laid out after the number ("۱۹+" instead of "+۱۹").
+ */
+fun signedAmount(delta: Int): String = "\u2066" + signedDelta(delta).toPersianDigits() + "\u2069"
 
 internal fun walletMetricLabel(metric: String): String? = when (metric) {
     WalletMetric.APPOINTMENTS -> Str.appointments_tab

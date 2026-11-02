@@ -118,7 +118,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.PullToRefreshBox
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
-import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
+import xyz.sattar.javid.proqueue.feature.wallet.signedAmount
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementKeys
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
@@ -1245,11 +1245,11 @@ fun PreviewHomeScreen() {
  * showing it only reads as money that is stuck (the wallet screen explains it).
  */
 internal fun appointmentWalletNote(wallet: Int, quota: Int): String? =
-    if (showsAppointmentWalletNote(wallet, quota)) Str.wallet_extra_appointments(wallet.toString().toPersianDigits())
+    if (showsAppointmentWalletNote(wallet, quota)) Str.wallet_extra_appointments(signedAmount(wallet))
     else null
 
 internal fun smsWalletNote(wallet: Int): String? =
-    if (wallet > 0) Str.wallet_extra_sms(wallet.toString().toPersianDigits()) else null
+    if (wallet > 0) Str.wallet_extra_sms(signedAmount(wallet)) else null
 
 internal fun showsAppointmentWalletNote(wallet: Int, quota: Int): Boolean =
     wallet > 0 && quota != EntitlementKeys.UNLIMITED
