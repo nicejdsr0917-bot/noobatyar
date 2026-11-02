@@ -8,11 +8,12 @@ import xyz.sattar.javid.proqueue.domain.model.business.CategoryGroup
 import xyz.sattar.javid.proqueue.domain.model.business.CategoryOption
 import xyz.sattar.javid.proqueue.domain.model.business.fallbackCategoryGroups
 
-import xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import xyz.sattar.javid.proqueue.core.network.ApiException
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.core.utils.runCatchingCancellable
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ServiceCatalogItemDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PushLogSummaryDto
@@ -24,23 +25,17 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoSmsOv
 
 class BusinessRepositoryImpl(
     private val businessDao: BusinessLocalSource,
-    private val businessApiService: BusinessApiService
+    private val businessApiService: BusinessApi
 ) : BusinessRepository {
     override suspend fun upsertBusiness(business: Business): Boolean {
-        return try {
+        return runCatchingCancellable {
             businessDao.upsertBusiness(business)
             true
-        } catch (e: Exception) {
-            false
-        }
+        }.getOrDefault(false)
     }
 
     override suspend fun loadAllBusiness(): List<Business> {
-        return try {
-            businessDao.loadAllBusiness()
-        } catch (e: Exception) {
-            emptyList()
-        }
+        return runCatchingCancellable { businessDao.loadAllBusiness() }.getOrDefault(emptyList())
     }
 
     override fun loadAllBusinessFlow(): Flow<List<Business>> {
@@ -48,7 +43,7 @@ class BusinessRepositoryImpl(
     }
 
     override suspend fun fetchAndCacheBusinesses(page: Int, pageSize: Int): Boolean {
-        return try {
+        return runCatchingCancellable {
             when (val response = businessApiService.getBusinesses(page, pageSize)) {
                 is ApiResponse.Success -> {
                     if (page == 1) {
@@ -60,17 +55,11 @@ class BusinessRepositoryImpl(
                 }
                 is ApiResponse.Error -> false
             }
-        } catch (e: Exception) {
-            false
-        }
+        }.getOrDefault(false)
     }
 
     override suspend fun getBusinessById(businessId: Long): Business? {
-        return try {
-            businessDao.getBusinessById(businessId)
-        } catch (e: Exception) {
-            null
-        }
+        return runCatchingCancellable { businessDao.getBusinessById(businessId) }.getOrNull()
     }
 
     override suspend fun deleteBusiness(businessId: Long): Boolean {
@@ -187,7 +176,7 @@ class BusinessRepositoryImpl(
     override suspend fun getCategoryGroups(): List<CategoryGroup> {
         cachedCategoryGroups?.let { return it }
 
-        val remote = runCatching {
+        val remote = runCatchingCancellable {
             when (val response = businessApiService.getCategories()) {
                 is ApiResponse.Success -> response.data.groups
                     .map { group ->

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-29
+updated: 2026-11-02
 tags: [gf]
 ---
 # backend: appointment
@@ -26,3 +26,32 @@ tags: [gf]
 - ترتیب قفل همه‌جا: business → appointment → اعتبار. اعتبار (`record_appointment`) داخل همان تراکنش ساخت نوبت؛ بدون اعتبار هیچ نوبتی ساخته نمی‌شود.
 - callback بیعانه: تأیید زیبال خارج از قفل؛ نوبت منقضی‌شده‌ای که اسلاتش رفته → `?payment=conflict` و `deposit_verified_at` → فیلتر ادمین «پرداخت‌شده بدون نوبت».
 - رزرو هم‌پوشان اونر عمداً مجاز است. ظرفیت ساعتی و آمار «امروز» به ساعت تهران. یادآوری‌ها با claim شرطی (یک بار ارسال).
+
+## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
+- `services/client_booking.py`: book، submit_payment، cancel، deposit_returned، با side effectها در `on_commit`. `validate_client_booking`: ساعت کاری (`working_hours.py`)، تعطیلی، زمان گذشته، مدت بین ۱ و ۴۸۰.
+- `slots.py`: `build_day_slots` و `day_bounds` (دو endpoint عمداً تفاوت دارند). `selectors_stats.py`: آمار. `services/reminders.py`: یادآوری؛ دستور management فقط حلقه است.
+- سرور روز را «تاریخ UTC ← نیمه‌شب تهران» حساب می‌کند (A3، عمداً حفظ شده چون اپ اونر تقلیدش می‌کند).
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
+- `slots.py`: توابع `first_free_window(now)` و `first_free_slot_ms(business, now, busy=None)` اضافه شدند. همان قواعد grid و occupancy صفحهٔ available-slots را دارند و در ۷ روز آینده می‌گردند.
+- `cache_utils.invalidate_slots_cache` حالا `first_free_slot_key(business_id)` را هم پاک می‌کند.
+- `Appointment.source` مقدارهای WEB، APP، OWNER و UNKNOWN را دارد. پیش‌فرض سرور برای رزرو کلاینت `WEB` است، پس اپ باید `APP` را صریح بفرستد.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۱
+- **رسید پرداخت:**
+  - `_store_receipt` در `services/client_booking.py` رسید را با Pillow باز و بررسی می‌کند، سقف ۸ مگابایت دارد، تا ۱۶۰۰ پیکسل کوچک و به JPEG تبدیل می‌کند.
+  - از کمک‌تابع‌های `showcase/images.py` استفاده می‌کند (`open_upload`، `flatten_rgb`، `encode_jpeg`).
+  - فایل غیرعکس خطای ۴۰۰ می‌گیرد.
+- **فیلدهای فیش:** `ClientAppointmentSerializer` حالا `description`، `selected_services` (به شکل لیست)، `payment_reference`، `payment_receipt` و `deposit_payment_method` را هم برمی‌گرداند؛ فقط برای نوبت خود مراجع.
+- **فیلدهای سفر:**
+  - `Appointment.travel_distance_m`، `drive_minutes_min`، `drive_minutes_max` (nullable، migration `0017`).
+  - `travel_estimate(request.data)` مقدارهای خراب را دور می‌ریزد و ثبت نوبت هرگز به‌خاطر آن رد نمی‌شود.
+
+## فاصله و زمان رانندگی روی نوبت
+- `travel_distance_m`، `drive_minutes_min/max` را اپ کلاینت موقع رزرو می‌فرستد (از آخرین موقعیت ذخیره‌شده)؛ مختصات کاربر ذخیره نمی‌شود. هنوز در سریالایزر نوبت، ادمین و اپ اونر نمایش داده نمی‌شود.
+
+## بیعانهٔ غیرقابل دریافت (2026-11-02)
+- `selectors.deposit_collectable(business)`: کارت با شماره، یا آنلاین با مرچنت یا لینک. نقد حساب نیست.
+- `business_requires_payment`: بیعانهٔ `OPTIONAL` همیشه مرحلهٔ پرداخت دارد؛ `MANDATORY` فقط اگر قابل دریافت باشد. اگر نه، رزرو مستقیم `PENDING_APPROVAL` می‌شود و قفل نمی‌شود.
+- `client_submit_payment`: نقد برای `MANDATORY` فقط وقتی رد می‌شود که بیعانه قابل دریافت باشد (نوبت‌های قفل‌شدهٔ قدیمی گیر نمی‌کنند).
+- تست: `tests_uncollectable_deposit.py`.

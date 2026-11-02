@@ -6,6 +6,8 @@ import kotlin.reflect.KClass
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.PhotoLibrary
+import androidx.compose.material.icons.rounded.RateReview
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ShoppingBag
 import xyz.sattar.javid.proqueue.core.navigation.AppScreens
@@ -215,6 +217,12 @@ fun AppSidebar(
             onClick = { onNavigate(AppScreens.PromoCampaign) }
         )
         SidebarItem(
+            icon = Icons.Rounded.PhotoLibrary,
+            label = Str.showcase_title,
+            selected = isOnScreen(AppScreens.Showcase::class),
+            onClick = { onNavigate(AppScreens.Showcase) }
+        )
+        SidebarItem(
             icon = Icons.Rounded.ShoppingBag,
             label = Str.add_on_packs,
             selected = isOnScreen(AppScreens.AddOns::class),
@@ -235,6 +243,12 @@ fun AppSidebar(
             label = Str.messages_auto_item,
             selected = isOnScreen(AppScreens.Messages::class),
             onClick = { settingsViewModel.sendIntent(SettingsIntent.OnMessagesClick) }
+        )
+        SidebarItem(
+            icon = Icons.Rounded.RateReview,
+            label = Str.reviews_title,
+            selected = isOnScreen(AppScreens.Reviews::class),
+            onClick = { onNavigate(AppScreens.Reviews) }
         )
         SidebarItem(
             icon = Icons.Rounded.Sms,

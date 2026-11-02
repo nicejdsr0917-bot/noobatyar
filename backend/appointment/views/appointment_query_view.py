@@ -1,13 +1,14 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
 from rest_framework import status
-from django.utils import timezone
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import timedelta
+from appointment import selectors
 from appointment.models import Appointment
 from appointment.serializers import AppointmentQuerySerializer
-from api.responses import APIResponse
+from common.params import business_id_param
+from common.responses import APIResponse
+from common.timeutils import utc_date_tehran_midnight
 
 
 
@@ -15,6 +16,9 @@ from api.pagination import StandardPagination
 
 class AppointmentQueryView(StandardPagination):
     pass
+
+
+_utc_day_start = utc_date_tehran_midnight  # kept: old name (see common.timeutils)
 
 
 @api_view(['GET'])
@@ -36,27 +40,16 @@ def appointment_list(request):
     """
 
     # Validate required business_id parameter
-    business_id = request.query_params.get('business_id')
-    if not business_id:
-        return APIResponse.error('پارامتر business_id الزامی است', code=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        business_id = int(business_id)
-    except ValueError:
-        return APIResponse.error('شناسه کسب‌وکار (business_id) باید عدد صحیح معتبر باشد', code=status.HTTP_400_BAD_REQUEST)
+    business_id, error = business_id_param(
+        request, invalid_message='شناسه کسب‌وکار (business_id) باید عدد صحیح معتبر باشد')
+    if error:
+        return error
 
     user = request.user
 
-    # Scoped to the caller's own businesses, the same rule daily_counts_view.py
-    # and service_breakdown_view.py already apply. The access check that used
-    # to stand here was commented out, leaving this endpoint returning any
-    # owner's appointments to any authenticated caller who guessed a
-    # business_id. Expressed as a queryset filter rather than a 403 so an id
-    # the caller doesn't own comes back empty and the endpoint reveals nothing
-    # about whether it exists.
-    queryset = Appointment.objects.filter(
-        business_id=business_id, business__user=user
-    ).select_related('visitor')
+    # Scoped to the caller's own businesses (see the selector): an id the
+    # caller doesn't own comes back empty and reveals nothing about existence.
+    queryset = selectors.appointment_list_for_owner(user=user, business_id=business_id)
 
     # Filter by visitor_id
     visitor_id = request.query_params.get('visitor_id')
@@ -71,9 +64,7 @@ def appointment_list(request):
     date_param = request.query_params.get('date')
     if date_param:
         try:
-            timestamp_ms = int(date_param)
-            date_obj = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-            date_start = timezone.make_aware(datetime.combine(date_obj.date(), datetime.min.time()))
+            date_start = _utc_day_start(date_param)
             date_end = date_start + timedelta(days=1)
             queryset = queryset.filter(appointment_date__gte=date_start, appointment_date__lt=date_end)
         except (ValueError, OSError):
@@ -85,19 +76,13 @@ def appointment_list(request):
 
     if date_from:
         try:
-            timestamp_ms = int(date_from)
-            date_from_obj = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-            date_from_start = timezone.make_aware(datetime.combine(date_from_obj.date(), datetime.min.time()))
-            queryset = queryset.filter(appointment_date__gte=date_from_start)
+            queryset = queryset.filter(appointment_date__gte=_utc_day_start(date_from))
         except (ValueError, OSError):
             return APIResponse.error('تاریخ شروع (date_from) باید یک Unix timestamp معتبر به میلی‌ثانیه باشد', code=status.HTTP_400_BAD_REQUEST)
 
     if date_to:
         try:
-            timestamp_ms = int(date_to)
-            date_to_obj = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-            date_to_end = timezone.make_aware(datetime.combine(date_to_obj.date(), datetime.min.time())) + timedelta(days=1)
-            queryset = queryset.filter(appointment_date__lt=date_to_end)
+            queryset = queryset.filter(appointment_date__lt=_utc_day_start(date_to) + timedelta(days=1))
         except (ValueError, OSError):
             return APIResponse.error('تاریخ پایان (date_to) باید یک Unix timestamp معتبر به میلی‌ثانیه باشد', code=status.HTTP_400_BAD_REQUEST)
 

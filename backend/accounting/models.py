@@ -82,6 +82,9 @@ class Subscription(models.Model):
         verbose_name = 'اشتراک'
         verbose_name_plural = 'اشتراک‌ها'
         ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['user', 'status'], name='sub_user_status_idx'),
+        ]
 
     def __str__(self):
         return f"{self.user.name} → {self.plan.name}"
@@ -110,6 +113,9 @@ class Transaction(models.Model):
     order_id = models.CharField(max_length=100, unique=True, verbose_name='شماره سفارش')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='وضعیت')
     zibal_response = models.JSONField(null=True, blank=True)
+    # Toman taken from the owner's wallet for this purchase (the gateway was
+    # asked only for the rest). Given back if the payment fails.
+    wallet_amount = models.PositiveIntegerField(default=0, verbose_name='پرداخت از کیف‌پول')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
@@ -186,6 +192,9 @@ class AddOnPurchase(models.Model):
     order_id = models.CharField(max_length=100, unique=True, verbose_name='شماره سفارش')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='وضعیت')
     zibal_response = models.JSONField(null=True, blank=True)
+    # Toman taken from the owner's wallet for this purchase (the gateway was
+    # asked only for the rest). Given back if the payment fails.
+    wallet_amount = models.PositiveIntegerField(default=0, verbose_name='پرداخت از کیف‌پول')
     # برای بسته‌های قابلیتی: بازه‌ی اعتبار پس از پرداخت موفق
     activated_at = models.DateTimeField(null=True, blank=True, verbose_name='زمان فعال‌سازی')
     expires_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name='انقضا')
@@ -263,11 +272,15 @@ class CreditLedger(models.Model):
     METRIC_SMS_WALLET = 'sms_wallet'
     METRIC_APPOINTMENT_MONTHLY = 'appointment_monthly'
     METRIC_APPOINTMENT_WALLET = 'appointment_wallet'
+    # Toman (not a credit count): non-cash money Noobatyar gives the owner, e.g.
+    # a booking discount it funds. Spent on plans/packs or converted to credit.
+    METRIC_TOMAN_WALLET = 'toman_wallet'
     METRIC_CHOICES = [
         (METRIC_SMS_MONTHLY, 'پیامک — سهمیه ماهانه'),
         (METRIC_SMS_WALLET, 'پیامک — کیف‌پول'),
         (METRIC_APPOINTMENT_MONTHLY, 'نوبت — سهمیه ماهانه'),
         (METRIC_APPOINTMENT_WALLET, 'نوبت — کیف‌پول'),
+        (METRIC_TOMAN_WALLET, 'کیف‌پول تومانی'),
     ]
 
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='credit_ledger_entries', verbose_name='کاربر')
@@ -290,6 +303,38 @@ class CreditLedger(models.Model):
 
     def __str__(self):
         return f"{self.user_id} {self.metric} {self.delta:+d} ({self.reason})"
+
+
+class CreditBalance(models.Model):
+    """
+    Authoritative, transactional balance for one credit bucket of one user.
+
+    This is the source of truth that ``accounting/usage.py`` gates on (Redis is
+    only a mirror for legacy readers). Every mutation is a single conditional
+    ``UPDATE ... SET balance = balance +/- n WHERE <guard>`` so concurrent
+    spenders can never overdraw a wallet or overshoot a monthly quota.
+
+    ``metric`` reuses the CreditLedger metric names. ``period`` is ``''`` for the
+    two wallets and ``'YYYY-MM'`` (``usage._period()``) for the monthly buckets.
+    Wallet rows hold credit remaining; monthly rows hold the CONSUMED counter
+    (same convention as CreditLedger.balance_after).
+    """
+
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='credit_balances', verbose_name='کاربر')
+    metric = models.CharField(max_length=20, choices=CreditLedger.METRIC_CHOICES, verbose_name='نوع اعتبار')
+    period = models.CharField(max_length=7, blank=True, default='', verbose_name='دوره')
+    balance = models.BigIntegerField(default=0, verbose_name='مانده')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
+
+    class Meta:
+        verbose_name = 'موجودی اعتبار'
+        verbose_name_plural = 'موجودی‌های اعتبار'
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'metric', 'period'], name='uniq_credit_balance_bucket'),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} {self.metric} {self.period or '-'} = {self.balance}"
 
 
 class SubscriptionReminderSettings(models.Model):
@@ -486,3 +531,37 @@ class StorePurchase(models.Model):
 
     def __str__(self):
         return f"{self.get_store_display()} · {self.sku} · {self.status}"
+
+
+class TomanWalletSettings(models.Model):
+    """Singleton (``pk=1``): what one SMS / one booking costs when the owner
+    converts toman-wallet balance into credit. Editable in the admin."""
+
+    SINGLETON_PK = 1
+
+    sms_unit_price = models.PositiveIntegerField(
+        default=200, help_text='قیمت هر پیامک هنگام تبدیل موجودی کیف‌پول (تومان)', verbose_name='قیمت هر پیامک',
+    )
+    appointment_unit_price = models.PositiveIntegerField(
+        default=500, help_text='قیمت هر نوبت هنگام تبدیل موجودی کیف‌پول (تومان)', verbose_name='قیمت هر نوبت',
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
+
+    class Meta:
+        verbose_name = 'تنظیمات کیف‌پول تومانی'
+        verbose_name_plural = 'تنظیمات کیف‌پول تومانی'
+
+    def __str__(self):
+        return 'تنظیمات کیف‌پول تومانی'
+
+    def save(self, *args, **kwargs):
+        self.pk = self.SINGLETON_PK
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        return 0, {}
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=cls.SINGLETON_PK)
+        return obj

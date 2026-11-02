@@ -10,9 +10,10 @@ exact final text. Sending then happens off the request in
 :func:`process_campaign` — a salon's customer list can be a few hundred people
 and the provider takes one HTTP call per message, far past a request timeout.
 
-It runs on a background thread started after the campaign commits. Recipients
-are claimed one row at a time (PENDING -> SENDING via a conditional UPDATE), so
-if a deploy kills that thread mid-send, ``python manage.py send_promo_campaigns``
+It runs in the outbox worker: one ``promo.campaign`` row is queued in the same
+transaction that creates the campaign. Recipients are claimed one row at a time
+(PENDING -> SENDING via a conditional UPDATE), so if a deploy kills the worker
+mid-send (the outbox also re-delivers a stuck row), ``python manage.py send_promo_campaigns``
 picks up exactly the rows that are still PENDING and nobody is texted twice.
 
 Billing and line rules are the same as every other message an owner chooses to
@@ -25,20 +26,21 @@ outside that window instead of being charged for messages that never arrive.
 
 import logging
 import math
-import threading
 from datetime import timedelta
 
-from django.db import close_old_connections, transaction
+from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
-from accounting import entitlements, usage
+from accounting import entitlements, sms_billing, usage
 from api.phone import is_iran_phone, normalize_phone
 from api.sms import (
-    SEND_WINDOW_END_HOUR, SEND_WINDOW_START_HOUR, send_sms, signed, within_send_window,
+    SEND_WINDOW_END_HOUR, SEND_WINDOW_START_HOUR, signed, within_send_window,
 )
 
 logger = logging.getLogger(__name__)
+
+QUOTA_DETAIL = 'اعتبار پیامک تمام شده است'
 
 # What the owner may type. Two Persian parts of body leaves room for a long
 # name and the footer within three billed parts; anything longer is almost
@@ -247,32 +249,21 @@ def create_campaign(business, audience, message, actor):
             )
             for name, phone, visitor, text, parts in rows
         ])
-        transaction.on_commit(lambda: start_background_send(campaign.id))
+        start_background_send(campaign.id)
     return campaign
 
 
 # ── Sending ───────────────────────────────────────────────────────────────────
 
 def start_background_send(campaign_id):
-    thread = threading.Thread(
-        target=_thread_entry, args=(campaign_id,), name=f'promo-sms-{campaign_id}', daemon=True,
-    )
-    thread.start()
+    """Queue the campaign for the outbox worker (``promo.campaign``)."""
+    from core.outbox.service import enqueue
 
-
-def _thread_entry(campaign_id):
-    try:
-        process_campaign(campaign_id)
-    except Exception:  # noqa: BLE001 — a crash must not take the worker with it
-        logger.exception('Promo campaign %s crashed; resume with send_promo_campaigns', campaign_id)
-    finally:
-        close_old_connections()
+    enqueue('promo.campaign', {'campaign_id': campaign_id}, dedupe_key=f'promo_campaign:{campaign_id}')
 
 
 def process_campaign(campaign_id):
     """Send every still-PENDING recipient of one campaign, then close it out."""
-    from visitor.models import SmsLog
-
     from .models import PromoCampaign, PromoCampaignRecipient
 
     campaign = PromoCampaign.objects.select_related('business').get(id=campaign_id)
@@ -290,32 +281,21 @@ def process_campaign(campaign_id):
             continue
         recipient = PromoCampaignRecipient.objects.get(id=rid)
 
-        receipt = usage.consume_sms(owner_id, amount=recipient.parts)
-        if not receipt:
+        outcome = sms_billing.send_metered_sms_detailed(
+            owner_id, business.id, recipient.visitor_id, recipient.phone, recipient.text,
+            amount=recipient.parts, quota_detail=QUOTA_DETAIL,
+        )
+        if outcome.status == sms_billing.SKIPPED_QUOTA:
             recipient.status = 'SKIPPED_QUOTA'
-            recipient.error_detail = 'اعتبار پیامک تمام شده است'
+            recipient.error_detail = QUOTA_DETAIL
             recipient.save(update_fields=['status', 'error_detail'])
-            SmsLog.objects.create(
-                business=business, visitor_id=recipient.visitor_id, message_text=recipient.text,
-                status='SKIPPED_QUOTA', error_detail=recipient.error_detail,
-            )
             continue
 
-        try:
-            ok, err = send_sms(recipient.phone, recipient.text)
-        except Exception as exc:  # noqa: BLE001 — one bad number must not stop the rest
-            ok, err = False, str(exc)
-        if not ok:
-            usage.refund_sms(receipt)
-
+        ok = outcome.status == sms_billing.SENT
         recipient.status = 'SENT' if ok else 'FAILED'
-        recipient.error_detail = '' if ok else (err or '')
+        recipient.error_detail = '' if ok else outcome.error
         recipient.sent_at = timezone.now()
         recipient.save(update_fields=['status', 'error_detail', 'sent_at'])
-        SmsLog.objects.create(
-            business=business, visitor_id=recipient.visitor_id, message_text=recipient.text,
-            status='SENT' if ok else 'FAILED', error_detail='' if ok else (err or ''),
-        )
         PromoCampaign.objects.filter(id=campaign_id).update(heartbeat_at=timezone.now())
 
     _finish_if_complete(campaign_id)

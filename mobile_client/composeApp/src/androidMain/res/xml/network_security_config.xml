@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Production (store) builds: HTTPS only. The "local" flavor swaps in
+     network_security_config_local via the networkSecurityConfig manifest
+     placeholder (composeApp/build.gradle.kts). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

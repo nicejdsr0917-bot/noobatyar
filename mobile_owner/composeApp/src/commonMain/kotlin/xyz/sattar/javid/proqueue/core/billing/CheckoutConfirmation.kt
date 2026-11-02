@@ -15,6 +15,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.Switch
+import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,13 +44,27 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteD
  * carrying its own dialog state.
  */
 object CheckoutConfirmation {
-    private class Request(val quote: CheckoutQuoteDto, val answer: CompletableDeferred<Boolean>)
+    /** The buyer accepted; [useWallet] when the toman wallet pays its part. */
+    data class Choice(val useWallet: Boolean)
+
+    private class Request(
+        val quote: CheckoutQuoteDto,
+        val requote: suspend (useWallet: Boolean) -> CheckoutQuoteDto?,
+        val answer: CompletableDeferred<Choice?>,
+    )
 
     private val pending = MutableStateFlow<Request?>(null)
 
-    suspend fun confirm(quote: CheckoutQuoteDto): Boolean {
-        val request = Request(quote, CompletableDeferred())
-        pending.value?.answer?.complete(false)
+    /**
+     * Null when the buyer cancels. [requote] fetches the quote again with or
+     * without the wallet when the buyer flips its switch (null keeps the old one).
+     */
+    suspend fun confirm(
+        quote: CheckoutQuoteDto,
+        requote: suspend (useWallet: Boolean) -> CheckoutQuoteDto? = { null },
+    ): Choice? {
+        val request = Request(quote, requote, CompletableDeferred())
+        pending.value?.answer?.complete(null)
         pending.value = request
         return try {
             request.answer.await()
@@ -56,10 +77,21 @@ object CheckoutConfirmation {
     internal fun Host() {
         val request by pending.asStateFlow().collectAsState()
         val current = request ?: return
+        var quote by remember(current) { mutableStateOf(current.quote) }
+        var loading by remember(current) { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
         CheckoutConfirmDialog(
-            quote = current.quote,
-            onConfirm = { current.answer.complete(true) },
-            onDismiss = { current.answer.complete(false) },
+            quote = quote,
+            loading = loading,
+            onToggleWallet = { on ->
+                scope.launch {
+                    loading = true
+                    current.requote(on)?.let { quote = it }
+                    loading = false
+                }
+            },
+            onConfirm = { current.answer.complete(Choice(useWallet = quote.wallet > 0)) },
+            onDismiss = { current.answer.complete(null) },
         )
     }
 }
@@ -70,6 +102,8 @@ fun CheckoutConfirmHost() = CheckoutConfirmation.Host()
 @Composable
 private fun CheckoutConfirmDialog(
     quote: CheckoutQuoteDto,
+    loading: Boolean,
+    onToggleWallet: (Boolean) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -87,7 +121,19 @@ private fun CheckoutConfirmDialog(
                 if (quote.title.isNotBlank()) {
                     Text(quote.title, style = MaterialTheme.typography.titleSmall)
                 }
-                if (isMyket) {
+                val usesWallet = quote.wallet > 0
+                if (quote.walletAvailable > 0 || usesWallet) {
+                    WalletSwitch(quote, checked = usesWallet, enabled = !loading, onToggle = onToggleWallet)
+                }
+                if (usesWallet) {
+                    // Wallet first, then tax and fee on what is left (accounting/toman_wallet.py).
+                    PriceRow(Str.price, quote.base)
+                    PriceRow(Str.wallet_deduction, -quote.wallet)
+                    if (quote.total > 0) {
+                        PriceRow(Str.vat_10, quote.vat)
+                        PriceRow(Str.payment_gateway_fee, quote.fee)
+                    }
+                } else if (isMyket) {
                     PriceRow(Str.price, quote.total - quote.vat)
                     PriceRow(Str.vat_10, quote.vat)
                 } else {
@@ -100,8 +146,14 @@ private fun CheckoutConfirmDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onConfirm) {
-                Text(if (isMyket) Str.pay_in_myket else Str.go_to_payment_gateway)
+            Button(onClick = onConfirm, enabled = !loading) {
+                Text(
+                    when {
+                        quote.wallet > 0 && quote.total <= 0 -> Str.pay_with_wallet
+                        isMyket -> Str.pay_in_myket
+                        else -> Str.go_to_payment_gateway
+                    }
+                )
             }
         },
         dismissButton = {
@@ -111,13 +163,34 @@ private fun CheckoutConfirmDialog(
 }
 
 @Composable
+private fun WalletSwitch(quote: CheckoutQuoteDto, checked: Boolean, enabled: Boolean, onToggle: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(Str.pay_with_wallet, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                Str.wallet_balance_toman(formatToman(quote.walletBalance)).toPersianDigits(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onToggle, enabled = enabled)
+    }
+}
+
+@Composable
 private fun PriceRow(label: String, amount: Long, bold: Boolean = false) {
     val weight = if (bold) FontWeight.Bold else FontWeight.Normal
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = weight)
-        Text(Str.toman(amount.groupThousands()).toPersianDigits(), style = MaterialTheme.typography.bodyMedium, fontWeight = weight)
+        // A deduction keeps its minus in front of the number in RTL too.
+        val text = if (amount < 0) Str.toman("\u2066−" + formatToman(-amount) + "\u2069") else Str.toman(formatToman(amount))
+        Text(text.toPersianDigits(), style = MaterialTheme.typography.bodyMedium, fontWeight = weight)
     }
 }
 
-private fun Long.groupThousands(): String =
-    toString().reversed().chunked(3).joinToString(",").reversed()
+/** "12,500" — thousands grouped; callers localise the digits. */
+fun formatToman(amount: Long): String =
+    amount.toString().reversed().chunked(3).joinToString(",").reversed()

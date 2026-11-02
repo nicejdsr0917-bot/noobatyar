@@ -171,3 +171,77 @@ class ReminderCommandTests(TestCase):
         self.assertIn('30 دقیقه دیگر نوبت شما در کسب‌وکار تست', text)
         self.assertTrue(text.endswith('لغو11'))
         self.assertNotIn('{', text)
+
+
+class ReminderOverlappingRunTests(ReminderCommandTests):
+    def test_running_twice_sends_once(self):
+        business = self.make_business(delivery='PANEL')
+        self.make_appointment(business)
+        with patch('api.sms.send_sms', return_value=(True, '')) as send_sms, \
+                patch('api.services.push.is_configured', return_value=True), \
+                patch('api.services.push.send_to_user', return_value=1) as send_push, \
+                patch('accounting.entitlements.has_feature', return_value=True), \
+                patch('accounting.usage.consume_sms', return_value={'source': 'monthly'}), \
+                patch('accounting.usage.refund_sms'):
+            call_command('send_appointment_reminders')
+            call_command('send_appointment_reminders')
+        self.assertEqual(send_sms.call_count, 1)
+        self.assertEqual(send_push.call_count, 1)
+
+    def test_overlapping_runs_with_stale_snapshot_send_once(self):
+        """Both runs loaded the appointment before either stamped it (the race)."""
+        from .services import reminders
+
+        business = self.make_business(delivery='PANEL')
+        self.make_appointment(business)
+        # Two runs each load their due list before either has stamped it.
+        snapshots = [list(reminders.due_appointments(timezone.now())) for _ in range(2)]
+        self.assertEqual([len(x) for x in snapshots], [1, 1])
+        it = iter(snapshots)
+        with patch('api.sms.send_sms', return_value=(True, '')) as send_sms, \
+                patch('api.services.push.is_configured', return_value=True), \
+                patch('api.services.push.send_to_user', return_value=1) as send_push, \
+                patch('accounting.entitlements.has_feature', return_value=True), \
+                patch('accounting.usage.consume_sms', return_value={'source': 'monthly'}), \
+                patch('accounting.usage.refund_sms'), \
+                patch.object(reminders, 'due_appointments', lambda now: next(it)):
+            call_command('send_appointment_reminders')
+            call_command('send_appointment_reminders')
+        self.assertEqual(send_sms.call_count, 1)
+        self.assertEqual(send_push.call_count, 1)
+
+
+class ReminderCancelledAfterQueryTests(ReminderCommandTests):
+    def test_appointment_cancelled_after_the_query_is_not_reminded(self):
+        from .services import reminders
+
+        business = self.make_business(delivery='PANEL')
+        appointment = self.make_appointment(business)
+        snapshot = list(reminders.due_appointments(timezone.now()))
+        self.assertEqual(len(snapshot), 1)
+        # Cancelled between the query and the claim.
+        Appointment.objects.filter(pk=appointment.pk).update(status='CANCELLED')
+        with patch('api.sms.send_sms', return_value=(True, '')) as send_sms, \
+                patch('api.services.push.is_configured', return_value=True), \
+                patch('api.services.push.send_to_user', return_value=1) as send_push, \
+                patch('accounting.entitlements.has_feature', return_value=True), \
+                patch('accounting.usage.consume_sms', return_value={'source': 'monthly'}), \
+                patch('accounting.usage.refund_sms'), \
+                patch.object(reminders, 'due_appointments', lambda now: snapshot):
+            call_command('send_appointment_reminders')
+        self.assertEqual(send_sms.call_count, 0)
+        self.assertEqual(send_push.call_count, 0)
+
+    def test_claim_and_release_bump_updated_at(self):
+        from .services import reminders
+
+        business = self.make_business(delivery='PANEL')
+        appointment = self.make_appointment(business)
+        old = timezone.now() - timedelta(days=1)
+        Appointment.objects.filter(pk=appointment.pk).update(updated_at=old)
+        now = timezone.now()
+        self.assertTrue(reminders.claim(appointment, 'reminder_sent_at', now))
+        self.assertGreaterEqual(Appointment.objects.get(pk=appointment.pk).updated_at, now)
+        Appointment.objects.filter(pk=appointment.pk).update(updated_at=old)
+        reminders.release(appointment, 'reminder_sent_at', now)
+        self.assertGreaterEqual(Appointment.objects.get(pk=appointment.pk).updated_at, now)

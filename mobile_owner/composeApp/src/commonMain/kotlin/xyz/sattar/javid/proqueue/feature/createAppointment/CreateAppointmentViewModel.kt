@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.createAppointment
 
+import xyz.sattar.javid.proqueue.core.state.SelectedBusinessStore
+
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
@@ -9,7 +11,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
 import xyz.sattar.javid.proqueue.domain.usecase.AddServiceCatalogItemUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.CheckAppointmentConflictUseCase
@@ -32,7 +33,8 @@ class CreateAppointmentViewModel(
     private val getAppointmentsForDateUseCase: GetAppointmentsForDateUseCase,
     private val removeAppointmentUseCase: RemoveAppointmentUseCase,
     private val getServiceCatalogUseCase: GetServiceCatalogUseCase,
-    private val addServiceCatalogItemUseCase: AddServiceCatalogItemUseCase
+    private val addServiceCatalogItemUseCase: AddServiceCatalogItemUseCase,
+    private val businessStore: SelectedBusinessStore
 ) : BaseViewModel<CreateAppointmentState, CreateAppointmentState.PartialState, CreateAppointmentEvent, CreateAppointmentIntent>(
     initialState = CreateAppointmentState()
 ) {
@@ -103,7 +105,7 @@ class CreateAppointmentViewModel(
                     visitor = partialState.visitor,
                     selectedVisitorId = partialState.visitor.id,
                     serviceDuration = currentState.serviceDuration
-                        ?: BusinessStateHolder.selectedBusiness.value?.defaultServiceDuration,
+                        ?: businessStore.selectedBusiness.value?.defaultServiceDuration,
                     isLoading = false
                 )
 
@@ -112,7 +114,7 @@ class CreateAppointmentViewModel(
                     selectedVisitorId = partialState.visitorId,
                     appointmentDate = partialState.appointmentDate,
                     serviceDuration = partialState.serviceDuration
-                        ?: BusinessStateHolder.selectedBusiness.value?.defaultServiceDuration,
+                        ?: businessStore.selectedBusiness.value?.defaultServiceDuration,
                     description = partialState.description,
                     selectedServices = partialState.selectedServices,
                     editingAppointmentId = partialState.appointmentId,
@@ -174,7 +176,7 @@ class CreateAppointmentViewModel(
 
     private fun loadDailyAppointments(date: Long): Flow<CreateAppointmentState.PartialState> = flow {
         try {
-            val business = BusinessStateHolder.selectedBusiness.value
+            val business = businessStore.selectedBusiness.value
             if (business != null) {
                 val appointments = getAppointmentsForDateUseCase(business.id, date)
                 emit(LoadDailyAppointments(appointments))
@@ -247,7 +249,7 @@ class CreateAppointmentViewModel(
         val selectedServicesText = selectedServices.joinToString(",").ifEmpty { null }
         emit(CreateAppointmentState.PartialState.IsLoading(true))
         try {
-            val business = BusinessStateHolder.selectedBusiness.value
+            val business = businessStore.selectedBusiness.value
             if (business == null) {
                 emit(CreateAppointmentState.PartialState.ShowMessage(Str.select_business_error, ToastyType.Warning))
                 return@flow
@@ -340,7 +342,7 @@ class CreateAppointmentViewModel(
      * business in the first place.
      */
     private fun loadServiceCatalog(): Flow<CreateAppointmentState.PartialState> = flow {
-        val business = BusinessStateHolder.selectedBusiness.value ?: return@flow
+        val business = businessStore.selectedBusiness.value ?: return@flow
         emit(CreateAppointmentState.PartialState.ServiceCatalogLoading(true))
         try {
             val items = getServiceCatalogUseCase(business.category)
@@ -361,7 +363,7 @@ class CreateAppointmentViewModel(
      * they just typed.
      */
     private fun addServiceCatalogItem(name: String): Flow<CreateAppointmentState.PartialState> = flow {
-        val business = BusinessStateHolder.selectedBusiness.value ?: return@flow
+        val business = businessStore.selectedBusiness.value ?: return@flow
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return@flow
         try {

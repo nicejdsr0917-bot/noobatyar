@@ -6,6 +6,7 @@
  * because these live in three surfaces now — change them here, not inline.
  */
 
+import { SOCIAL_LINKS } from '@/lib/site';
 import Icon, { type IconName } from './Icon';
 import { t } from '@/lib/i18n';
 
@@ -24,22 +25,23 @@ export interface SupportChannel {
 }
 
 export const SUPPORT_CHANNELS: SupportChannel[] = [
-  { key: 'bale', get label() { return t('bale'); }, href: 'https://ble.ir/noobatyar', icon: 'forum', tint: '#e0f2fe', fg: '#0369a1' },
-  { key: 'eitaa', get label() { return t('eitaa'); }, href: 'https://eitaa.com/noobatyar', icon: 'send', tint: '#fef3c7', fg: '#b45309' },
-  { key: 'rubika', get label() { return t('rubika'); }, href: 'https://rubika.ir/noobatyar', icon: 'sms', tint: '#ede9fe', fg: '#6d28d9' },
-  { key: 'instagram', get label() { return t('instagram'); }, href: 'https://instagram.com/javiddev', icon: 'photoCamera', tint: '#fce7f3', fg: '#be185d' },
-  { key: 'website', get label() { return t('website'); }, href: 'https://noobatyar.ir', icon: 'language', tint: '#dcfce7', fg: '#15803d' },
+  { key: 'bale', get label() { return t('bale'); }, href: SOCIAL_LINKS.bale, icon: 'forum', tint: '#e0f2fe', fg: '#0369a1' },
+  { key: 'eitaa', get label() { return t('eitaa'); }, href: SOCIAL_LINKS.eitaa, icon: 'send', tint: '#fef3c7', fg: '#b45309' },
+  { key: 'rubika', get label() { return t('rubika'); }, href: SOCIAL_LINKS.rubika, icon: 'sms', tint: '#ede9fe', fg: '#6d28d9' },
+  // Telegram's mark is a paper plane, so it gets 'send'.
+  { key: 'telegram', get label() { return t('telegram'); }, href: SOCIAL_LINKS.telegram, icon: 'send', tint: '#e0f2fe', fg: '#0284c7' },
+  { key: 'instagram', get label() { return t('instagram'); }, href: SOCIAL_LINKS.instagram, icon: 'photoCamera', tint: '#fce7f3', fg: '#be185d' },
+  { key: 'website', get label() { return t('website'); }, href: SOCIAL_LINKS.website, icon: 'language', tint: '#dcfce7', fg: '#15803d' },
 ];
 
 export default function SupportLinks() {
   return (
     <div
       style={{
-        // A five-column grid rather than a wrapping flex row: at 375px the
-        // items are one hair too wide to fit on a line, and wrapping stranded
-        // "سایت" alone on a second row.
+        // A fixed grid rather than a wrapping flex row, so no item is ever
+        // stranded alone on a second line. Six channels → two even rows of 3.
         display: 'grid',
-        gridTemplateColumns: 'repeat(5, 1fr)',
+        gridTemplateColumns: 'repeat(3, 1fr)',
         gap: 7,
         width: '100%',
         maxWidth: 340,

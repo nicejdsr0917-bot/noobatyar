@@ -15,5 +15,7 @@ data class Appointment(
     val paymentReceipt: String? = null,
     val trackingCode: String? = null,
     val paymentReference: String? = null,
-    val depositPaymentMethod: String? = null
+    val depositPaymentMethod: String? = null,
+    /** WEB / APP / OWNER / UNKNOWN; null when the server predates the field. */
+    val source: String? = null
 )

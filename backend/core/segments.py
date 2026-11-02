@@ -26,12 +26,9 @@ the platform — so every filter is expressed as `annotate`/`Count(...,
 filter=Q(...))`/`Min`/`Max` (conditional aggregation reusing one JOIN per
 relation, the same pattern Django's own docs use for "total vs matching
 subset" — see ``_visitor_queryset``) rather than fetched and filtered in
-Python. The **one** deliberate exception is the owner-side "low wallet
-balance" filter — see ``_apply_low_wallet_filter`` — which cannot be
-expressed in SQL at all because the balance lives only in Redis
-(``accounting/usage.py`` keeps no historical/queryable table). That filter
-batches one ``cache.get_many()`` over the *already DB-filtered* candidate
-ids, never a Redis round trip per row.
+Python. The owner-side "low wallet balance" filter is a correlated
+subquery on ``accounting.CreditBalance`` (the authoritative SMS wallet; an owner
+with no row has balance 0), so it too stays one SQL query.
 
 ── The live-count / drift warning ───────────────────────────────────────────
 
@@ -57,13 +54,12 @@ report / core/admin_site.py's segment_builder_view docstring for why that gap
 is flagged rather than resolved here.
 """
 
-from django.core.cache import cache
-from django.db.models import Count, F, Max, Min, Q
+from django.db.models import Count, F, Max, Min, OuterRef, Q, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from accounting.models import Plan
+from accounting.models import CreditBalance, CreditLedger, Plan
 from accounting.reports import ReportRangeError, local_midnight, parse_jalali_date
-from accounting.usage import _wallet_key  # noqa: SLF001 — see _apply_low_wallet_filter
 from api.models import User
 from appointment.models import Appointment
 from business.models import Business
@@ -202,10 +198,9 @@ SUBSCRIPTION_EXPIRED = 'expired'
 SUBSCRIPTION_NEVER = 'never'
 
 
-def _owner_queryset_without_wallet(filters):
-    """Every owner-side filter that *can* be expressed in SQL. Wallet
-    filtering happens afterward in `_apply_low_wallet_filter` because it
-    cannot join against Redis."""
+def _owner_queryset(filters):
+    """Every owner-side filter except low wallet, which `owner_ids_for_segment`
+    layers on as a CreditBalance subquery."""
     now = timezone.now()
     # "Owner" = has at least one business, not User.role: role is a
     # self-reported/administratively-set field with its own documented
@@ -249,64 +244,18 @@ def _owner_queryset_without_wallet(filters):
     return qs.distinct()
 
 
-# A cache miss and a cache OUTAGE are indistinguishable through get_many()
-# alone: django-redis's IGNORE_EXCEPTIONS (core/settings.py) swallows a Redis
-# connection failure and returns {} — the exact same value a genuinely-empty
-# batch of wallet keys produces, since most owners who never bought an SMS
-# add-on simply have no key at all. For the booking/SMS-send path that
-# ambiguity is fine and deliberate ("fail open" — accounting/usage.py's own
-# docstring). It is NOT fine here: {} read as "balance 0 for everyone" means
-# every owner in the DB matches a "low wallet" filter, so a Redis blip turns
-# a targeted upsell segment into "the entire owner base" with a plausible
-# row count and no warning anywhere in the exported CSV or its audit row.
-# A cheap round-trip on a throwaway key tells the two cases apart before the
-# filter result is trusted for a marketing export.
-_WALLET_PROBE_KEY = 'segments:wallet_probe'
-
-
-def _wallet_cache_is_reachable():
-    token = str(timezone.now().timestamp())
-    cache.set(_WALLET_PROBE_KEY, token, timeout=10)
-    return cache.get(_WALLET_PROBE_KEY) == token
-
-
-def _apply_low_wallet_filter(user_ids, threshold):
-    """Which of `user_ids` currently have an SMS wallet balance below
-    `threshold` — a Redis-only check (accounting/usage.py's wallet has no
-    database row/history to aggregate; see that module's docstring).
-
-    One batched `cache.get_many()` over the already DB-narrowed candidate ids
-    — never a `get_wallet()` call per user. Documented as the one place in
-    this module's counts/exports that reads live external state rather than
-    the database the rest of the query ran against; see this module's
-    docstring, "the live-count / drift warning".
-
-    Raises :class:`SegmentFilterError` rather than silently matching everyone
-    if the cache backend cannot be reached at all — see `_wallet_cache_is_reachable`.
-    """
-    ids = list(user_ids)
-    if not ids:
-        return []
-    if not _wallet_cache_is_reachable():
-        raise SegmentFilterError(
-            'در حال حاضر امکان بررسی موجودی کیف‌پول وجود ندارد (اتصال به سرویس کش '
-            'برقرار نیست). فیلتر «موجودی کم» را حذف کنید یا کمی بعد دوباره تلاش کنید.'
-        )
-    keys = {uid: _wallet_key(uid) for uid in ids}
-    values = cache.get_many(list(keys.values()))
-    return [uid for uid, key in keys.items() if int(values.get(key) or 0) < threshold]
-
-
 def owner_ids_for_segment(filters):
-    """Final list of matching owner ids, after the DB filters and (if set)
-    the Redis-based wallet filter. Returns ids rather than a queryset because
-    the wallet step, when present, cannot stay expressed in SQL."""
-    qs = _owner_queryset_without_wallet(filters)
+    """Final list of matching owner ids."""
+    qs = _owner_queryset(filters)
     low_wallet_below = filters.get('low_wallet_below')
-    if low_wallet_below is None:
-        return list(qs.values_list('id', flat=True))
-    candidate_ids = qs.values_list('id', flat=True)
-    return _apply_low_wallet_filter(candidate_ids, low_wallet_below)
+    if low_wallet_below is not None:
+        wallet = CreditBalance.objects.filter(
+            user_id=OuterRef('pk'), metric=CreditLedger.METRIC_SMS_WALLET, period='',
+        ).values('balance')[:1]
+        qs = qs.annotate(
+            sms_wallet_balance=Coalesce(Subquery(wallet), Value(0)),
+        ).filter(sms_wallet_balance__lt=low_wallet_below)
+    return list(qs.values_list('id', flat=True))
 
 
 def owner_queryset(filters):

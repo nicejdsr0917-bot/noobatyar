@@ -466,7 +466,7 @@ private fun SmsSummaryHero(summary: SmsLogSummaryDto) {
             ) {
                 Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text(Str.wallet_2(summary.walletBalance.fa()), color = Color.White, style = MaterialTheme.typography.labelSmall)
+                Text(Str.wallet_extra_sms(xyz.sattar.javid.proqueue.feature.wallet.signedAmount(summary.walletBalance)), color = Color.White, style = MaterialTheme.typography.labelSmall)
             }
         }
         if (!unlimited && summary.monthlyQuota > 0) {

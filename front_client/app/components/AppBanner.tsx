@@ -1,5 +1,6 @@
 'use client';
 
+import { MARKETING_URL } from '@/lib/site';
 import Icon from '@/app/components/Icon';
 import { t } from '@/lib/i18n';
 
@@ -62,7 +63,7 @@ export default function AppBanner({
     <a
       className={className ? `app-banner ${className}` : 'app-banner'}
       style={style}
-      href="https://noobatyar.ir"
+      href={MARKETING_URL}
       target="_blank"
       rel="noopener noreferrer"
     >

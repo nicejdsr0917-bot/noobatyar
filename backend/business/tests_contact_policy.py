@@ -16,6 +16,8 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from visitor.auth import sign_visitor_token
+from visitor.models import Visitor
 from accounting.models import ContactVisibilityPolicy, Plan, Subscription
 from .models import Business
 from .serializers import ClientBusinessSerializer, PublicBusinessSerializer
@@ -139,6 +141,33 @@ class ContactPolicyTests(TestCase):
         data = response.json()['data']
         self.assertTrue(data['is_expired'])
         self._assert_contact_withheld(data)
+
+    def test_guest_switch_is_lifted_for_a_signed_in_visitor(self):
+        """allow_anonymous_view off hides contact from guests; a visitor who
+        signed in with their OTP token sees it, a guest (or a bad token) does
+        not."""
+        self._subscribe(ends_in_days=10)
+        self.business.allow_anonymous_view = False
+        self.business.save()
+        url = reverse('client-business-detail', args=[self.business.id])
+        visitor = Visitor.objects.create(full_name='مشتری', phone_number='09390000777')
+        token = sign_visitor_token(visitor.id)
+
+        guest = APIClient().get(url)
+        self.assertEqual(guest.status_code, 200, guest.content)
+        self.assertIsNone(guest.json()['data']['phone'])
+        self.assertIsNone(guest.json()['data']['address'])
+
+        signed_in = APIClient().get(url, HTTP_AUTHORIZATION=f'Visitor {token}')
+        self.assertEqual(signed_in.status_code, 200, signed_in.content)
+        self._assert_contact_shown(signed_in.json()['data'])
+
+        listing = APIClient().get(reverse('client-business-list'), HTTP_AUTHORIZATION=f'Visitor {token}')
+        self.assertEqual(listing.status_code, 200, listing.content)
+        self.assertEqual(listing.json()['data']['results'][0]['phone'], '02112345678')
+
+        stale = APIClient().get(url, HTTP_AUTHORIZATION='Visitor garbage')
+        self.assertEqual(stale.status_code, 401)
 
     def test_listing_withholds_per_business(self):
         self._policy(hide_when_expired=True)

@@ -4,11 +4,18 @@ from rest_framework.exceptions import ValidationError
 from api.phone import is_iran_phone, normalize_phone
 from visitor.models import PushLog, SmsLog
 
-from .models import BIO_MAX_LENGTH, Business, ServiceCatalogItem
+from .iran_cities import get_city
+from .models import BIO_MAX_LENGTH, Business, Insurance, ServiceCatalogItem
+# Re-exported: the policy moved to public_policy.py (audit R11).
+from .social_links import SocialLinkError, normalize_social_links
+from .public_policy import (  # noqa: F401
+    BOOKING_BLOCKED_NOTICE, PublicPayloadMixin, apply_contact_rules, apply_notice_rules,
+)
 
-# Shown to clients when the owner still has booking_enabled=True but their plan
-# quota / subscription can no longer pay for a new appointment.
-BOOKING_BLOCKED_NOTICE = "پذیرش نوبت جدید برای این کسب‌وکار موقتاً غیرفعال است."
+class InsuranceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Insurance
+        fields = ['id', 'name', 'slug', 'insurance_type']
 
 # Caps on Business.services. The menu is a picker on a phone screen, not a
 # catalogue: past a few dozen chips it stops being usable for the client it
@@ -58,104 +65,6 @@ def normalize_service_names(value):
     return cleaned
 
 
-def _mask_phone(data):
-    data['phone'] = None
-    data['extra_phones'] = []
-
-
-def _mask_address(data):
-    # The pin goes with the address: a map pin *is* the address.
-    data['address'] = None
-    data['latitude'] = None
-    data['longitude'] = None
-
-
-def apply_contact_rules(data, instance, context):
-    """Withhold a business's contact details from a customer-facing payload.
-
-    Two independent reasons, and the payload keeps them apart so a client
-    never has to guess which one applied:
-
-    1. The owner's own switch: ``allow_anonymous_view`` off hides phone and
-       address from guests (signed-in customers still see them).
-    2. The admin policy (``accounting.ContactVisibilityPolicy``): an owner
-       without an active subscription has the chosen fields withheld from
-       everyone.
-
-    Withheld fields go out as null — the values never leave the server, so
-    a "blur" on the client can't be undone from devtools. ``is_expired`` is
-    always present: with it a client can show the subscription case as a
-    blurred placeholder while still simply leaving out what the owner chose
-    to keep private.
-
-    ``has_location`` is always present too, and says only whether a map pin
-    exists — never where. The pin is optional, so once it is withheld a null
-    latitude can't tell "hidden" from "never set"; without this the client
-    would draw a blurred map for every expired business, and the map would
-    vanish on renewal for the ones that never had a pin.
-    """
-    data['has_location'] = instance.latitude is not None and instance.longitude is not None
-
-    request = context.get('request')
-    if (not request or not request.user or request.user.is_anonymous) \
-            and not instance.allow_anonymous_view:
-        _mask_phone(data)
-        _mask_address(data)
-
-    from accounting.entitlements import get_active_subscription
-    from accounting.models import ContactVisibilityPolicy
-
-    is_expired = get_active_subscription(instance.user_id) is None
-    data['is_expired'] = is_expired
-    if is_expired:
-        # Once per response, not once per business in a listing: a
-        # ListSerializer's children share the root's context dict.
-        policy = context.get('_contact_policy')
-        if policy is None:
-            policy = context['_contact_policy'] = ContactVisibilityPolicy.load()
-        if policy.hide_when_expired:
-            if policy.hide_phone:
-                _mask_phone(data)
-            if policy.hide_address:
-                _mask_address(data)
-    return data
-
-
-def apply_notice_rules(data, instance):
-    """Normalise the client-facing notice + booking flags on an outgoing payload.
-
-    Two rules, both about never leaking state the client should not act on:
-
-    1. ``notice_enabled=False`` ⇒ ``notice_message`` is returned as an empty
-       string, never the stored text. An owner who switches the notice off
-       expects it to disappear; keeping the text in the payload meant a client
-       that rendered the message without also checking the flag (and every
-       client did, before the flag existed) kept showing a stale "امروز تعطیلیم"
-       days later.
-    2. The subscription-driven booking block still fills a default notice, but
-       it now also turns ``notice_enabled`` on — the payload has to stay
-       self-consistent with rule 1, otherwise the one notice we actually need
-       the client to display would be the one it is told to hide.
-
-    Note that the two are independent in the other direction on purpose: an
-    owner posting a notice does not close their calendar.
-    """
-    if not getattr(instance, 'notice_enabled', False):
-        data['notice_message'] = ''
-        if 'notice_enabled' in data:
-            data['notice_enabled'] = False
-
-    from accounting.usage import can_book_appointment
-    if data.get('booking_enabled') and not can_book_appointment(instance.user_id):
-        data['booking_enabled'] = False
-        if not data.get('notice_message'):
-            data['notice_message'] = BOOKING_BLOCKED_NOTICE
-        if 'notice_enabled' in data:
-            data['notice_enabled'] = True
-
-    return data
-
-
 class BusinessSerializer(serializers.ModelSerializer):
     """
     Full serializer for the Business OWNER.
@@ -187,12 +96,24 @@ class BusinessSerializer(serializers.ModelSerializer):
     # field the app can trust without re-deriving that logic itself.
     is_publicly_visible = serializers.BooleanField(read_only=True)
 
+    insurances = InsuranceSerializer(many=True, read_only=True)
+    insurance_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Insurance.objects.filter(is_active=True),
+        source='insurances',
+        write_only=True,
+        required=False,
+    )
+
     class Meta:
         model = Business
         fields = [
             # Identity
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
-            'address', 'latitude', 'longitude', 'logo', 'theme_color',
+            'social_links', 'address', 'logo', 'theme_color',
+            # Location & Discovery
+            'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
+            'is_claimed', 'online_booking_requests_count', 'insurances', 'insurance_ids',
             # Schedule
             'default_service_duration', 'work_start_hour', 'work_end_hour',
             'work_start_minute', 'work_end_minute', 'closed_weekdays',
@@ -234,6 +155,7 @@ class BusinessSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'unique_code', 'created_at', 'updated_at', 'owner', 'is_locked',
+            'is_claimed', 'online_booking_requests_count',
             # Only business/moderation.py may move these. If they were writable
             # an owner could PATCH themselves to APPROVED and walk straight past
             # review — the whole point of the layer.
@@ -278,6 +200,12 @@ class BusinessSerializer(serializers.ModelSerializer):
 
     def validate_services(self, value):
         return normalize_service_names(value)
+
+    def validate_social_links(self, value):
+        try:
+            return normalize_social_links(value)
+        except SocialLinkError as e:
+            raise serializers.ValidationError(str(e))
 
     def validate_extra_phones(self, value):
         """Same shape and normalization as `phone`, plural.
@@ -347,6 +275,11 @@ class BusinessSerializer(serializers.ModelSerializer):
         # owner should be shown an error for.
         return sorted(set(value))
 
+    def validate_city_code(self, value):
+        if value is not None and get_city(value) is None:
+            raise serializers.ValidationError("شهر انتخاب‌شده در فهرست شهرها نیست")
+        return value
+
     def to_internal_value(self, data):
         ret = super().to_internal_value(data)
         
@@ -403,10 +336,32 @@ class BusinessSerializer(serializers.ModelSerializer):
                 'merchant_id': 'برای پرداخت آنلاین، مرچنت آیدی زیبال یا لینک پرداخت الزامی است'
             })
 
+        # A mandatory deposit needs a way to pay it before the visit. Checked
+        # only when the deposit or the methods change: the owner apps post the
+        # whole business on every save, and an owner already in this state
+        # must still be able to rename the business. Booking copes with it
+        # (appointment.selectors.business_requires_payment).
+        payment_changed = self.instance is None or any(
+            current(k) != getattr(self.instance, k)
+            for k in ('deposit_mode', 'accepted_payment_methods')
+        )
+        if payment_changed and current('deposit_mode') == 'MANDATORY' \
+                and not ({'CARD', 'ONLINE'} & set(accepted)):
+            raise serializers.ValidationError({
+                'deposit_mode': 'برای بیعانه‌ی اجباری، پرداخت کارت به کارت یا آنلاین را فعال کنید'
+            })
+
         if current('deposit_mode') in ('MANDATORY', 'OPTIONAL') and not current('deposit_amount'):
             raise serializers.ValidationError({
                 'deposit_amount': 'برای دریافت بیعانه، مبلغ آن باید بیشتر از صفر باشد'
             })
+
+        # The city's names come from the list, never from the client, so the
+        # code and the text shown beside it cannot disagree.
+        if 'city_code' in data:
+            city = get_city(data['city_code']) if data['city_code'] is not None else None
+            data['city'] = city['name'] if city else ''
+            data['province'] = city['province'] if city else ''
 
         # A map pin is a pair: half of one would put the business on the
         # equator or the prime meridian. Clearing sends both empty.
@@ -471,7 +426,7 @@ class PushLogSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class PublicBusinessSerializer(serializers.ModelSerializer):
+class PublicBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
     """
     STRICTLY ISOLATED public-facing serializer.
 
@@ -480,7 +435,8 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
 
     Explicitly whitelisted fields — any new field added to the model
     must be CONSCIOUSLY added here. It must NEVER include:
-      - phone, merchant_id, card_owner_name, card_number (shown separately via logic)
+      - merchant_id, card_owner_name, card_number (the card is shown only on the
+        visitor's own LOCKED appointment — see ClientAppointmentSerializer)
       - notification_*, enable_*_sms, allow_anonymous_view
       - created_at, updated_at, unique_code (internal)
       - moderation_* — editorial state is internal. A business only reaches a
@@ -494,11 +450,23 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(
         source='get_category_display', read_only=True,
     )
+    insurances = InsuranceSerializer(many=True, read_only=True)
+    distance_km = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
+
+    def get_rating(self, obj):
+        hist = obj.rating_histogram or {}
+        return {
+            'avg': round(obj.rating_avg or 0, 2),
+            'count': obj.rating_count or 0,
+            'histogram': {str(i): int(hist.get(str(i), 0)) for i in range(1, 6)},
+        }
 
     class Meta:
         model = Business
         fields = [
             'id',
+            'rating',
             'unique_code',
             'category',
             'category_display',
@@ -510,8 +478,18 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             # address in to_representation.
             'latitude',
             'longitude',
+            'province',
+            'city',
+            'city_code',
+            'neighborhood',
+            'is_claimed',
+            'online_booking_requests_count',
+            'insurances',
+            'distance_km',
             'phone',
             'extra_phones',
+            # Masked together with the phone (public_policy._mask_phone).
+            'social_links',
             'work_start_hour',
             'work_end_hour',
             'work_start_minute',
@@ -524,8 +502,9 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
             'accepted_payment_methods',
             'deposit_mode',
             'deposit_amount',
-            'card_number',
-            'card_owner_name',
+            # card_number / card_owner_name are deliberately absent: the
+            # booking page is anonymous, and the card is only revealed to the
+            # visitor who owns a LOCKED appointment (ClientAppointmentSerializer).
             'payment_link',
             'bio',
             'booking_enabled',
@@ -541,23 +520,17 @@ class PublicBusinessSerializer(serializers.ModelSerializer):
         # All fields are read-only for this serializer
         read_only_fields = fields
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data = apply_contact_rules(data, instance, self.context)
-        # Emergency-notice gating + the subscription-driven booking block.
-        return apply_notice_rules(data, instance)
 
 
-class ClientBusinessSerializer(serializers.ModelSerializer):
+class ClientBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
     """
     Kept for backward compatibility with appointment/client_serializers.py.
     Used to display business info inside a client's own appointment record.
 
-    Includes the payment fields the checkout screen needs (card number, owner
-    name, deposit, accepted methods). Without them the client was shown
-    «شماره کارت ثبت نشده» and «مبلغ را با کسب‌وکار هماهنگ کنید» and had no way to
-    pay at all. These are the same fields PublicBusinessSerializer already
-    returns on the public booking page, so nothing new is exposed here.
+    Includes the payment fields the checkout screen needs (deposit, accepted
+    methods). The card number and owner name are NOT here: they come on the
+    appointment itself (ClientAppointmentSerializer), and only while the
+    client's own hold is waiting for a card payment.
 
     Still excluded: merchant_id, notification_*, enable_*_sms, created_at/updated_at,
     and moderation_* (internal editorial state — see PublicBusinessSerializer).
@@ -568,19 +541,24 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(
         source='get_category_display', read_only=True,
     )
+    insurances = InsuranceSerializer(many=True, read_only=True)
+    distance_km = serializers.SerializerMethodField()
 
     class Meta:
         model = Business
         fields = [
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
-            'address', 'latitude', 'longitude', 'logo', 'theme_color',
+            'social_links',
+            'address', 'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
+            'is_claimed', 'online_booking_requests_count', 'insurances', 'distance_km',
+            'logo', 'theme_color',
             'default_service_duration', 'work_start_hour', 'work_end_hour',
             'work_start_minute', 'work_end_minute',
             'allow_anonymous_view',
             'notice_message', 'notice_enabled', 'booking_enabled',
             'payment_method', 'accepted_payment_methods',
             'deposit_mode', 'deposit_amount',
-            'card_number', 'card_owner_name', 'payment_link',
+            'payment_link',
             'online_gateway_enabled',
             'services', 'allow_client_add_service',
         ]
@@ -589,9 +567,3 @@ class ClientBusinessSerializer(serializers.ModelSerializer):
         """True when the owner configured a merchant, i.e. the client can be sent
         to a real gateway instead of the manual link-and-tracking-number flow."""
         return bool((obj.merchant_id or '').strip())
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data = apply_contact_rules(data, instance, self.context)
-        # Emergency-notice gating + the subscription-driven booking block.
-        return apply_notice_rules(data, instance)

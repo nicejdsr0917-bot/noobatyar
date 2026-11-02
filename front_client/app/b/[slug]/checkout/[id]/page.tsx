@@ -1,5 +1,6 @@
 'use client';
 
+import { getVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -49,7 +50,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   const biz = appointment?.business;
   const accepted = biz?.accepted_payment_methods;
   const depositMode = biz?.deposit_mode;
-  // A mandatory deposit cannot be settled in person, so cash is not offered.
+  // A mandatory deposit cannot normally be settled in person, so cash is not offered.
   // An optional deposit always allows paying at the venue instead.
   // Online is payable either through a real Zibal gateway or, for businesses
   // without a merchant account, the older static payment link. Requiring the
@@ -57,8 +58,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   const canPayOnline =
     !!accepted?.includes('ONLINE') && (!!biz?.online_gateway_enabled || !!biz?.payment_link);
   const canPayCard = !accepted || accepted.includes('CARD');
+  // A mandatory deposit with neither a card nor an online way to pay it
+  // (configured before the server refused that) is settled at the visit
+  // instead of stranding the hold; the server accepts cash for it too.
+  const depositUncollectable = depositMode === 'MANDATORY' && !canPayOnline && !canPayCard;
   const canPayCash =
-    depositMode !== 'MANDATORY' && (!!accepted?.includes('CASH') || depositMode === 'OPTIONAL');
+    depositUncollectable ||
+    (depositMode !== 'MANDATORY' && (!!accepted?.includes('CASH') || depositMode === 'OPTIONAL'));
 
   const availableMethods: PaymentMethod[] = [
     ...(canPayOnline ? (['ONLINE'] as const) : []),
@@ -75,7 +81,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
   const refRequired = method !== 'CASH' && !file;
   const refError = validatePaymentRef(paymentRef, { required: refRequired });
 
-  const rawCard = biz?.card_number ?? '';
+  const rawCard = appointment?.card_number ?? '';
   const cardDigits = digitsOnly(rawCard);
   const cardLooksWrong = cardDigits.length > 0 && !isValidCardChecksum(cardDigits);
   const cardBank = detectBank(cardDigits);
@@ -105,7 +111,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
 
   useEffect(() => {
     if (!id) return;
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) {
       router.push(`/auth/login?redirect=/b/${slug}/checkout/${id}`);
       return;
@@ -130,7 +136,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
    * the client returns straight to /appointments.
    */
   const handleGatewayRedirect = async () => {
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) return;
 
     setRedirecting(true);
@@ -171,7 +177,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
     // both land on the server.
     if (cancelling || submitting || redirecting) return;
     setCancelling(true);
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (token && id) {
       try {
         await cancelAppointment(id, token);
@@ -197,7 +203,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
       return;
     }
 
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) return;
 
     setSubmitting(true);
@@ -399,7 +405,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ slug: strin
                   marginBottom: 14,
                 }}
               >
-                {t('name')}{biz?.card_owner_name || t('businessOwner')}
+                {t('name')}{appointment?.card_owner_name || t('businessOwner')}
               </div>
 
               {biz?.deposit_amount ? (

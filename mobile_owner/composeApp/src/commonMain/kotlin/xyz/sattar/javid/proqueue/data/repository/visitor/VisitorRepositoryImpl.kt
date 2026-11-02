@@ -1,8 +1,9 @@
 package xyz.sattar.javid.proqueue.data.repository.visitor
 
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.core.utils.runCatchingCancellable
 import xyz.sattar.javid.proqueue.data.localDataSource.visitor.VisitorLocalSource
-import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.model.toDomain
 import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.model.toRequestDto
 import xyz.sattar.javid.proqueue.domain.VisitorPaging
@@ -11,14 +12,14 @@ import xyz.sattar.javid.proqueue.domain.model.visitor.Visitor
 
 class VisitorRepositoryImpl(
     private val visitorDao: VisitorLocalSource,
-    private val visitorApiService: VisitorApiService
+    private val visitorApiService: VisitorApi
 ) : VisitorRepository {
 
     override suspend fun getVisitors(page: Int, pageSize: Int, query: String?): VisitorPaging {
         var hasMore = false
         var totalCount = 0
         
-        try {
+        runCatchingCancellable {
             when (val response = visitorApiService.getVisitors(page, pageSize, query)) {
                 is ApiResponse.Success -> {
                     if (page == 1 && query.isNullOrEmpty()) {
@@ -31,7 +32,7 @@ class VisitorRepositoryImpl(
                 }
                 is ApiResponse.Error -> {}
             }
-        } catch (e: Exception) {}
+        }
 
         val offset = (page - 1) * pageSize
         val items = visitorDao.getVisitors(pageSize, offset, query)
@@ -50,18 +51,19 @@ class VisitorRepositoryImpl(
     }
 
     override suspend fun getVisitorById(visitorId: Long): Visitor? {
-        try {
+        val remote = runCatchingCancellable {
             if (visitorId > 0) {
                 when (val response = visitorApiService.getVisitorById(visitorId)) {
                     is ApiResponse.Success -> {
                         val visitor = response.data.toDomain()
                         visitorDao.upsertVisitor(visitor)
-                        return visitor
+                        visitor
                     }
-                    is ApiResponse.Error -> {}
+                    is ApiResponse.Error -> null
                 }
-            }
-        } catch (e: Exception) {}
+            } else null
+        }.getOrNull()
+        if (remote != null) return remote
         return visitorDao.getVisitorById(visitorId)
     }
 
@@ -108,7 +110,7 @@ class VisitorRepositoryImpl(
     }
 
     override suspend fun deleteVisitor(visitorId: Long): ApiResponse<Unit> {
-        return try {
+        return runCatchingCancellable<ApiResponse<Unit>> {
             if (visitorId > 0) {
                 val response = visitorApiService.deleteVisitor(visitorId)
                 if (response is ApiResponse.Success) {
@@ -119,8 +121,6 @@ class VisitorRepositoryImpl(
                 visitorDao.deleteVisitor(visitorId)
                 ApiResponse.Success(Unit)
             }
-        } catch (e: Exception) {
-            ApiResponse.Error(e.message ?: "Unknown error", 500)
-        }
+        }.getOrElse { ApiResponse.Error(it.message ?: "Unknown error", 500) }
     }
 }

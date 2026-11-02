@@ -1,12 +1,15 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.state.SelectedBusinessStore
+
+import xyz.sattar.javid.proqueue.core.billing.CreditsChanged
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
-import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
@@ -19,6 +22,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.RemoveAppointmentUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.SendMessageUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.SyncAppointmentsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.GetDailyCountsUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.GetSourceSummaryUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetPlansUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CreatePaymentUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMySubscriptionUseCase
@@ -44,7 +48,9 @@ class HomeViewModel(
     private val syncAppointmentsUseCase: SyncAppointmentsUseCase,
     private val getMySubscriptionUseCase: GetMySubscriptionUseCase,
     private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase,
-    private val getDailyCountsUseCase: GetDailyCountsUseCase
+    private val getDailyCountsUseCase: GetDailyCountsUseCase,
+    private val getSourceSummaryUseCase: GetSourceSummaryUseCase,
+    private val businessStore: SelectedBusinessStore
 ) : BaseViewModel<HomeState, HomeState.PartialState, HomeEvent, HomeIntent>(
     initialState = HomeState()
 ) {
@@ -53,9 +59,12 @@ class HomeViewModel(
 
     init {
         viewModelScope.launch {
-            BusinessStateHolder.selectedBusiness.collectLatest {
+            businessStore.selectedBusiness.collectLatest {
                 sendIntent(HomeIntent.LoadData)
             }
+        }
+        viewModelScope.launch {
+            CreditsChanged.version.drop(1).collect { sendIntent(HomeIntent.RefreshEntitlements) }
         }
         // Store builds: finish any purchase that was paid in the store but
         // never activated (app killed mid-purchase, network drop). No-op on
@@ -73,6 +82,7 @@ class HomeViewModel(
         return when (intent) {
             HomeIntent.LoadData -> loadData()
             HomeIntent.RefreshQueue -> refreshQueueAndStats()
+            HomeIntent.RefreshEntitlements -> refreshEntitlements()
             is HomeIntent.RemoveAppointment -> removeAppointment(intent.appointmentId)
             is HomeIntent.MarkAppointmentCompleted -> markCompleted(intent.appointmentId)
             is HomeIntent.MarkAppointmentNoShow -> markNoShow(intent.appointmentId)
@@ -80,6 +90,11 @@ class HomeViewModel(
             is HomeIntent.PurchasePlan -> purchasePlan(intent.planId)
             HomeIntent.ClearMessage -> flow { emit(HomeState.PartialState.ClearMessage) }
         }
+    }
+
+    private fun refreshEntitlements(): Flow<HomeState.PartialState> = flow {
+        val response = runCatching { getMyEntitlementsUseCase() }.getOrNull()
+        if (response is ApiResponse.Success) emit(HomeState.PartialState.LoadEntitlements(response.data))
     }
 
     override fun reduceState(
@@ -117,6 +132,8 @@ class HomeViewModel(
                 currentState.copy(dailyCounts = partialState.counts, chartLoaded = true)
             is HomeState.PartialState.LoadMonthOverview ->
                 currentState.copy(monthOverview = partialState.overview)
+            is HomeState.PartialState.LoadSourceSummary ->
+                currentState.copy(sourceSummary = partialState.summary)
             HomeState.PartialState.ClearMessage ->
                 currentState.copy(message = null)
         }
@@ -132,7 +149,7 @@ class HomeViewModel(
     private fun loadData(): Flow<HomeState.PartialState> = flow {
         emit(HomeState.PartialState.ResetSectionLoaders)
         emit(HomeState.PartialState.IsLoading(true))
-        val business = BusinessStateHolder.selectedBusiness.value
+        val business = businessStore.selectedBusiness.value
         emit(HomeState.PartialState.LoadBusinessName(business))
 
         // پلن‌ها — فقط اگر قبلاً نگرفتیم یا لیست خالی بود
@@ -164,7 +181,7 @@ class HomeViewModel(
                     // (SmsLog rows written with status SKIPPED_QUOTA) — not a guess
                     // from monthlyRemaining hitting zero. Shown once per business
                     // per app session so it doesn't repeat on every pull-to-refresh.
-                    val business = BusinessStateHolder.selectedBusiness.value
+                    val business = businessStore.selectedBusiness.value
                     if (skipped > 0 && business != null && smsQuotaWarningShownFor != business.id) {
                         smsQuotaWarningShownFor = business.id
                         emit(
@@ -192,12 +209,12 @@ class HomeViewModel(
      */
     private fun refreshQueueAndStats(): Flow<HomeState.PartialState> = flow {
         emit(HomeState.PartialState.IsLoading(true))
-        val business = BusinessStateHolder.selectedBusiness.value
+        val business = businessStore.selectedBusiness.value
         if (business != null) {
             try {
                 @OptIn(ExperimentalTime::class)
                 val today = Clock.System.now().toEpochMilliseconds()
-                syncAppointmentsUseCase(business.id, date = today)
+                syncAppointmentsUseCase(business.id, date = today, replaceWindow = true)
 
                 val queue = getWaitingQueueUseCase(business.id, today)
                 // BaseViewModel's intent pipeline uses flatMapMerge (concurrent,
@@ -207,11 +224,11 @@ class HomeViewModel(
                 // newer business's and silently overwrite the stats/queue with
                 // stale numbers from the business that's no longer selected.
                 // Re-check right before each emit and drop stale results.
-                if (BusinessStateHolder.selectedBusiness.value?.id != business.id) return@flow
+                if (businessStore.selectedBusiness.value?.id != business.id) return@flow
                 emit(HomeState.PartialState.LoadQueue(calculateQueueTimes(queue)))
 
                 val stats = getTodayStatsUseCase(business.id)
-                if (BusinessStateHolder.selectedBusiness.value?.id != business.id) return@flow
+                if (businessStore.selectedBusiness.value?.id != business.id) return@flow
                 emit(HomeState.PartialState.LoadStats(stats))
 
                 // One request covers both the 7-day trend chart and the month
@@ -220,20 +237,32 @@ class HomeViewModel(
                 // window. Two requests would only make them disagree.
                 val (daysBack, daysAhead) = DateTimeUtils.monthWindowDayOffsets()
                 val window = getDailyCountsUseCase(business.id, daysBack, daysAhead)
-                if (BusinessStateHolder.selectedBusiness.value?.id != business.id) return@flow
+                if (businessStore.selectedBusiness.value?.id != business.id) return@flow
                 emit(HomeState.PartialState.LoadDailyCounts(chartSlice(window)))
-                emit(HomeState.PartialState.LoadMonthOverview(buildMonthOverview(window)))
+                val overview = buildMonthOverview(window)
+                emit(HomeState.PartialState.LoadMonthOverview(overview))
+
+                // Same month the month card shows (Jalali or Gregorian by
+                // locale), from its first day through today.
+                val monthStart = overview?.current?.rangeStart ?: 0L
+                val summary = if (monthStart > 0) {
+                    getSourceSummaryUseCase(business.id, monthStart, DateTimeUtils.startOfTodayMillis())
+                } else null
+                if (businessStore.selectedBusiness.value?.id != business.id) return@flow
+                emit(HomeState.PartialState.LoadSourceSummary(summary))
             } catch (e: Exception) {
-                if (BusinessStateHolder.selectedBusiness.value?.id != business.id) return@flow
+                if (businessStore.selectedBusiness.value?.id != business.id) return@flow
                 emit(HomeState.PartialState.LoadStats(DashboardStats()))
                 emit(HomeState.PartialState.LoadDailyCounts(emptyList()))
                 emit(HomeState.PartialState.LoadMonthOverview(null))
+                emit(HomeState.PartialState.LoadSourceSummary(null))
                 emit(HomeState.PartialState.ShowMessage(UiMessage.error(e.message ?: Str.couldnt_load)))
             }
         } else {
             emit(HomeState.PartialState.LoadStats(DashboardStats()))
             emit(HomeState.PartialState.LoadDailyCounts(emptyList()))
             emit(HomeState.PartialState.LoadMonthOverview(null))
+            emit(HomeState.PartialState.LoadSourceSummary(null))
         }
         emit(HomeState.PartialState.IsLoading(false))
     }

@@ -1,13 +1,12 @@
 # accounting/management/commands/rebuild_wallets_from_ledger.py
 """
-Recompute a user's Redis usage/wallet state from CreditLedger and write it
-back — the recovery tool the ledger exists to make possible.
+Recompute a user's CreditBalance rows (the DB source of truth, see
+``accounting/usage.py``) from CreditLedger and write them back — the recovery
+tool the ledger exists to make possible. Wallet values are also pushed to the
+Redis mirror that ``core/segments.py`` still reads.
 
-Redis is still the live source of truth for gating behaviour (see
-``accounting/usage.py``'s module docstring); this command only exists for the
-day that state is wrong or gone (a botched migration, a `FLUSHDB`, a
-misconfigured replica promotion) and needs to be reconstructed from the
-durable table underneath it.
+This command only exists for the day a balance is wrong (a bug, a manual DB
+mistake) and needs to be reconstructed from the append-only ledger.
 
 For each of the four buckets CreditLedger tracks, the *most recent* row for
 a user already carries ``balance_after`` — the exact value that belonged in
@@ -55,28 +54,29 @@ from datetime import timezone as dt_timezone
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from accounting import usage
-from accounting.models import CreditLedger
+from accounting.models import CreditBalance, CreditLedger
 
 User = get_user_model()
 
-# ledger metric -> (bucket kind, usage.py metric/key-builder to reuse)
 _MONTHLY = "monthly"
 _WALLET = "wallet"
 
+# ledger metric -> bucket kind
 _BUCKETS = {
-    CreditLedger.METRIC_SMS_MONTHLY: (_MONTHLY, usage.METRIC_SMS),
-    CreditLedger.METRIC_APPOINTMENT_MONTHLY: (_MONTHLY, usage.METRIC_APPOINTMENTS),
-    CreditLedger.METRIC_SMS_WALLET: (_WALLET, usage._wallet_key),
-    CreditLedger.METRIC_APPOINTMENT_WALLET: (_WALLET, usage._appt_wallet_key),
+    CreditLedger.METRIC_SMS_MONTHLY: _MONTHLY,
+    CreditLedger.METRIC_APPOINTMENT_MONTHLY: _MONTHLY,
+    CreditLedger.METRIC_SMS_WALLET: _WALLET,
+    CreditLedger.METRIC_APPOINTMENT_WALLET: _WALLET,
 }
 
 
 class Command(BaseCommand):
     help = (
-        "بازسازی موجودی کیف‌پول/سهمیه‌ی ماهانه‌ی کاربران در Redis از روی "
-        "CreditLedger (منبع حقیقتِ ماندگار). با --dry-run فقط گزارش می‌دهد."
+        "بازسازی موجودی کیف‌پول/سهمیه‌ی ماهانه‌ی کاربران (جدول CreditBalance) از روی "
+        "CreditLedger. با --dry-run فقط گزارش می‌دهد."
     )
 
     def add_arguments(self, parser):
@@ -86,7 +86,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--dry-run", action="store_true",
-            help="فقط محاسبه و گزارش کن، چیزی در Redis نوشته نشود",
+            help="فقط محاسبه و گزارش کن، چیزی نوشته نشود",
         )
 
     def handle(self, *args, **options):
@@ -110,12 +110,10 @@ class Command(BaseCommand):
         skipped = 0
 
         for uid in user_ids:
-            for ledger_metric, (kind, spec) in _BUCKETS.items():
-                # Most recent row for this (user, metric) — the indexed query
-                # this whole command exists to make cheap.
+            for ledger_metric, kind in _BUCKETS.items():
                 latest = (
                     CreditLedger.objects.filter(user_id=uid, metric=ledger_metric)
-                    .order_by("-created_at")
+                    .order_by("-created_at", "-id")
                     .first()
                 )
                 if latest is None:
@@ -123,14 +121,14 @@ class Command(BaseCommand):
                     continue
 
                 if kind == _MONTHLY:
-                    redis_key = usage._month_key(uid, spec, current_period)
+                    period = current_period
                     latest_period = latest.created_at.astimezone(dt_timezone.utc).strftime("%Y-%m")
                     rebuilt = latest.balance_after if latest_period == current_period else 0
                 else:  # wallet — never resets, latest row is always authoritative
-                    redis_key = spec(uid)
+                    period = ""
                     rebuilt = latest.balance_after
 
-                old_value = int(cache.get(redis_key) or 0)
+                old_value = usage._read_balance(uid, ledger_metric, period)
 
                 if old_value == rebuilt:
                     unchanged += 1
@@ -138,14 +136,19 @@ class Command(BaseCommand):
 
                 changed += 1
                 self.stdout.write(
-                    f"user={uid} metric={ledger_metric}: redis={old_value} -> "
+                    f"user={uid} metric={ledger_metric}: db={old_value} -> "
                     f"rebuilt={rebuilt}{' (dry-run, not written)' if dry_run else ''}"
                 )
                 if not dry_run:
-                    # Same "no TTL for wallets, ~62 day TTL for monthly
-                    # counters" convention as usage.py's own writers.
-                    timeout = None if kind == _WALLET else usage._MONTHLY_TTL
-                    cache.set(redis_key, rebuilt, timeout=timeout)
+                    with transaction.atomic():
+                        CreditBalance.objects.update_or_create(
+                            user_id=uid, metric=ledger_metric, period=period,
+                            defaults={"balance": rebuilt},
+                        )
+                    if kind == _WALLET:
+                        key = (usage._wallet_key if ledger_metric == CreditLedger.METRIC_SMS_WALLET
+                               else usage._appt_wallet_key)(uid)
+                        cache.set(key, rebuilt, timeout=None)
 
         self.stdout.write(self.style.SUCCESS(
             f"بازسازی {'(dry-run) ' if dry_run else ''}تمام شد — "

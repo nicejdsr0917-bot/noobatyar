@@ -84,6 +84,9 @@ fun SettingsScreen(
     onNavigateToEmergencyNotice: () -> Unit = {},
     onNavigateToTheme: () -> Unit = {},
     onNavigateToPromoCampaign: () -> Unit = {},
+    onNavigateToReviews: () -> Unit = {},
+    onNavigateToShowcase: () -> Unit = {},
+    onNavigateToWallet: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -181,7 +184,10 @@ fun SettingsScreen(
                 onNavigateToAdvancedSettings(it.id)
             }
         },
-        onPromoCampaign = onNavigateToPromoCampaign
+        onPromoCampaign = onNavigateToPromoCampaign,
+        onReviews = onNavigateToReviews,
+        onShowcase = onNavigateToShowcase,
+        onWallet = onNavigateToWallet
     )
 }
 
@@ -202,7 +208,10 @@ fun SettingsContent(
     onLogout: () -> Unit = {},
     onChangeBusiness: () -> Unit = {},
     onAdvancedSettings: () -> Unit,
-    onPromoCampaign: () -> Unit = {}
+    onPromoCampaign: () -> Unit = {},
+    onReviews: () -> Unit = {},
+    onShowcase: () -> Unit = {},
+    onWallet: () -> Unit = {}
 ) {
     // No top app bar here: the profile hero below is this screen's header, so a
     // separate toolbar showing the business title would just overlap it. We only
@@ -247,6 +256,7 @@ fun SettingsContent(
                             business = uiState.currentBusiness,
                             subscription = subscription
                         )
+                        WalletCard(onClick = onWallet)
                         uiState.currentBusiness?.let { business ->
                             ModerationBanner(
                                 business = business,
@@ -271,6 +281,12 @@ fun SettingsContent(
                                             onIntent(SettingsIntent.OnEditBusinessClick(business.id))
                                         }
                                     }
+                                ),
+                                SettingsTile(
+                                    icon = Icons.Rounded.PhotoLibrary,
+                                    title = Str.showcase_title,
+                                    subtitle = Str.showcase_subtitle,
+                                    onClick = onShowcase
                                 ),
                                 SettingsTile(
                                     icon = Icons.Rounded.Delete,
@@ -314,6 +330,10 @@ fun SettingsContent(
                 subscription = subscription
             )
 
+            // Add-on credit sits with the plan badge above: both are about what
+            // the owner has paid for, not about the current business.
+            WalletCard(onClick = onWallet)
+
             // Moderation state of the active business. Only renders for
             // pending/rejected/suspended — an approved business just keeps its
             // badge in the hero above. Separate from the plan/subscription
@@ -333,7 +353,8 @@ fun SettingsContent(
             BusinessActionsCard(
                 business = uiState.currentBusiness,
                 onIntent = onIntent,
-                onShowDeleteDialog = onShowDeleteDialog
+                onShowDeleteDialog = onShowDeleteDialog,
+                onShowcase = onShowcase
             )
                 },
                 end = {
@@ -367,6 +388,15 @@ fun SettingsContent(
                         title = Str.promotional_sms,
                         subtitle = Str.send_discounts_and_news_to,
                         onClick = onPromoCampaign
+                    )
+
+                    HorizontalDivider()
+
+                    SettingsItem(
+                        icon = Icons.Rounded.RateReview,
+                        title = Str.reviews_title,
+                        subtitle = Str.reviews_subtitle,
+                        onClick = onReviews
                     )
 
                     HorizontalDivider()
@@ -553,7 +583,8 @@ private fun SettingsTileCard(tile: SettingsTile) {
 private fun BusinessActionsCard(
     business: Business?,
     onIntent: (SettingsIntent) -> Unit,
-    onShowDeleteDialog: () -> Unit
+    onShowDeleteDialog: () -> Unit,
+    onShowcase: () -> Unit = {}
 ) {
     SettingsCard {
         Column {
@@ -574,6 +605,16 @@ private fun BusinessActionsCard(
                 onClick = {
                     business?.let { onIntent(SettingsIntent.OnEditBusinessClick(it.id)) }
                 },
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+
+            HorizontalDivider()
+
+            SettingsItem(
+                icon = Icons.Rounded.PhotoLibrary,
+                title = Str.showcase_title,
+                subtitle = null,
+                onClick = onShowcase,
                 tint = MaterialTheme.colorScheme.onSurface
             )
 
@@ -982,6 +1023,18 @@ private fun LanguageSettingsItem() {
             confirmButton = {
                 TextButton(onClick = { showPicker = false }) { Text(Str.cancel) }
             }
+        )
+    }
+}
+
+@Composable
+private fun WalletCard(onClick: () -> Unit) {
+    SettingsCard {
+        SettingsItem(
+            icon = Icons.Rounded.AccountBalanceWallet,
+            title = Str.wallet_title,
+            subtitle = Str.wallet_settings_subtitle,
+            onClick = onClick
         )
     }
 }

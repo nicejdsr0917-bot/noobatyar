@@ -287,6 +287,9 @@ a.nb-status-card:hover {
 .nb-card,
 .nb-panel,
 .nb-alert {
+    /* Grid items default to min-width: auto, so a wide no-wrap table would
+       stretch its card (and the page) instead of scrolling inside it. */
+    min-width: 0;
     padding: 16px 18px;
     border-radius: 12px;
     border: 1px solid var(--border-color);
@@ -419,6 +422,124 @@ a.nb-status-card:hover {
 @media (max-width: 640px) {
     .nb-cards,
     .nb-alerts,
-    .nb-charts { grid-template-columns: 1fr; }
+    .nb-charts { grid-template-columns: minmax(0, 1fr); }
     .nb-cells { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Unfold spaces menu icons with mr-3 (a physical right margin). In RTL that
+   gap lands on the outer side, gluing the icon to its label. */
+[dir="rtl"] .material-symbols-outlined.mr-3 {
+    margin-right: 0;
+    margin-left: 0.75rem;
+}
+
+/* Django's date/time shortcuts (calendar and clock icons) are pinned to the
+   input's right edge, which in RTL is where the text starts. */
+[dir="rtl"] #main .vDateField,
+[dir="rtl"] #main .vTimeField {
+    padding-inline-start: 44px;
+}
+
+/* ── 4. Phones and tablets ────────────────────────────────────────────────── */
+
+/* Below unfold's lg breakpoint (1024px) every changelist row becomes a card,
+   one full-width line per column with the label beside the value. A card
+   ran 250–450px tall, so a page of 100 appointments was ~28,000px. Here the
+   card is a two-column grid with each label stacked over its value, the
+   linked column leads on its own line and the checkbox sits in the corner. */
+@media (max-width: 1023.98px) {
+    #result_list tr.data-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 12px;
+        padding: 10px 12px 8px;
+        margin-bottom: 10px;
+    }
+    #result_list tr.data-row > td,
+    #result_list tr.data-row > th {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-start;
+        gap: 1px;
+        min-width: 0;
+        height: auto;
+        padding: 5px 0;
+        border: 0;
+        text-align: start;
+        font-size: 13px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        overflow: visible;
+    }
+    #result_list tr.data-row > td::before,
+    #result_list tr.data-row > th::before {
+        display: block;
+        margin: 0;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--body-quiet-color);
+    }
+    #result_list tr.data-row > th {
+        grid-column: 1 / -1;
+        padding-inline-end: 28px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    #result_list tr.data-row > th::before { display: none; }
+    #result_list tr.data-row > th img { max-height: 72px; width: auto; }
+    #result_list tr.data-row > td.action-checkbox {
+        position: absolute;
+        top: 12px;
+        inset-inline-end: 12px;
+        padding: 0;
+    }
+    #result_list tr.data-row > td.action-checkbox::before { display: none; }
+    /* Row actions ("…") would otherwise take half a line on their own. */
+    #result_list tr.data-row > td.field-actions_holder { grid-column: 1 / -1; }
+
+    /* Raw-id foreign keys: the input, the lookup button and the linked name
+       sit on one non-wrapping row, and a long name pushed the whole form
+       wider than the screen. Let the name drop to its own line. */
+    #main .flex-row:has(> .vForeignKeyRawIdAdminField),
+    #main .flex-row:has(> .vManyToManyRawIdAdminField) {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+    #main .flex-row > .vForeignKeyRawIdAdminField { flex: 1 1 5rem; }
+    #main .flex-row:has(> .vForeignKeyRawIdAdminField) > a:last-child:not(.related-lookup) {
+        flex-basis: 100%;
+        flex-shrink: 1;
+        justify-content: flex-start;
+        height: auto;
+        margin-inline: 0;
+        overflow-wrap: anywhere;
+    }
+
+    /* Tokens, URLs and JSON shown read-only are unbroken strings; `break-words`
+       does not lower their min-content width, so they widened the page. */
+    #main .readonly,
+    #main code,
+    #main pre {
+        overflow-wrap: anywhere;
+        min-width: 0;
+    }
+    #main pre { white-space: pre-wrap; }
+}
+
+/* Tabular inlines turn into label-beside-field rows below md. A file or
+   datetime widget next to its label does not fit, so stack the label above. */
+@media (max-width: 767.98px) {
+    #main td.field-tabular {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+    #main td.field-tabular::before {
+        margin: 0;
+        padding: 0;
+    }
+    #main td.field-tabular > * { min-width: 0; max-width: 100%; }
+    #main td.field-tabular .min-w-56,
+    #main td.field-tabular .min-w-52 { min-width: 0; }
 }

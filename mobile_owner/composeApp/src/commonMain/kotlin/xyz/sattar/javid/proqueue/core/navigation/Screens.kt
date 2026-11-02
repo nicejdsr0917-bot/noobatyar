@@ -57,6 +57,9 @@ sealed class AppScreens {
     data class AdvancedSettings(val businessId: Long) : AppScreens()
     @Serializable
     object BusinessList : AppScreens()
+    /** Take over an imported directory listing instead of creating a duplicate. */
+    @Serializable
+    object ClaimBusiness : AppScreens()
     @Serializable
     data class VisitorSelection(val returnResult: Boolean = false) : AppScreens()
     @Serializable
@@ -109,6 +112,15 @@ sealed class AppScreens {
     object ShareBusiness : AppScreens()
     @Serializable
     object AddOns : AppScreens()
+    /** Read-only customer reviews of the selected business. */
+    @Serializable
+    object Reviews : AppScreens()
+    /** Portfolio photos and certificates shown on the public page. */
+    @Serializable
+    object Showcase : AppScreens()
+    /** Add-on credit balances and their history (accounting/wallet/history/). */
+    @Serializable
+    object Wallet : AppScreens()
     /**
      * In-app payment gateway view — replaces bouncing out to the external
      * browser (see [xyz.sattar.javid.proqueue.core.payment.PaymentWebViewScreen]).

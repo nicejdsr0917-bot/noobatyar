@@ -84,3 +84,35 @@ class VisitorActivitySerializer(serializers.ModelSerializer):
             'business', 'business_title', 'appointment', 'detail', 'created_at',
         ]
         read_only_fields = fields
+
+class ClientMeSerializer(serializers.ModelSerializer):
+    """The signed-in visitor's own profile, for the client app's profile tab.
+
+    Separate from VisitorSerializer (which owners read) so the photo stays
+    the visitor's own.
+    """
+
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Visitor
+        fields = ['id', 'full_name', 'phone_number', 'avatar', 'created_at']
+        read_only_fields = fields
+
+    def get_avatar(self, obj):
+        if not obj.avatar:
+            return None
+        request = self.context.get('request')
+        return request.build_absolute_uri(obj.avatar.url) if request else obj.avatar.url
+
+
+class ClientMeUpdateSerializer(serializers.Serializer):
+    """What a visitor may change about themselves: only their name."""
+
+    full_name = serializers.CharField(max_length=60)
+
+    def validate_full_name(self, value):
+        value = ' '.join(value.split())
+        if len(value) < 2:
+            raise serializers.ValidationError("نام باید دست‌کم دو حرف باشد")
+        return value

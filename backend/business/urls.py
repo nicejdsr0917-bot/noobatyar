@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .claim_views import ClaimableBusinessSearchView, ClaimStartView, ClaimVerifyView
 from .promo_views import PromoSmsDetailView, PromoSmsPreviewView, PromoSmsView
 from .sms_views import PushLogListView, PushLogSummaryView, SmsLogListView, SmsLogSummaryView
 from .views import BusinessCategoriesView, BusinessView, ServiceCatalogView
@@ -25,5 +26,9 @@ urlpatterns = [
     # Static vocabulary, no business context — same "not nested under
     # <business_id>" reasoning as service-catalog above.
     path('categories/', BusinessCategoriesView.as_view(), name='business-categories'),
+    # Claiming an imported directory listing — see business/claim_views.py.
+    path('claimable/', ClaimableBusinessSearchView.as_view(), name='business-claimable'),
+    path('<int:business_id>/claim/', ClaimStartView.as_view(), name='business-claim-start'),
+    path('<int:business_id>/claim/verify/', ClaimVerifyView.as_view(), name='business-claim-verify'),
     path('<int:business_id>/', BusinessView.as_view(), name='business-detail'),
 ]

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "local" flavor only: plain HTTP to a Django dev server on this machine
+     (adb reverse → 127.0.0.1, emulator → 10.0.2.2, or a LAN address). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

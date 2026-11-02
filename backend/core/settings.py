@@ -52,16 +52,24 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     # No models — installed so Django discovers core/management/commands/.
     'core',
+    # DB-backed outbox + run_outbox worker (core/outbox/).
+    'core.outbox',
     'api',
     'accounting',
     'versions',
     'business',
     'visitor',
     'appointment',
+    'reviews',
     'bale',
+    'showcase',
+    'banners',
+    'marketing',
 ]
 
 MIDDLEWARE = [
+    # First, so the request id/duration cover every other middleware.
+    'core.observability.RequestLogMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     # NOTE: django.middleware.locale.LocaleMiddleware is deliberately NOT here.
@@ -114,6 +122,19 @@ if os.getenv('POSTGRES_DB'):
             # you connect straight to Postgres without a pooler.
             'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '0')),
             'CONN_HEALTH_CHECKS': True,
+            # PgBouncer in transaction mode hands a different server connection
+            # to each transaction, so a server-side cursor (named cursor used
+            # by .iterator()) would vanish between fetches. Must be True.
+            'DISABLE_SERVER_SIDE_CURSORS': True,
+            # TODO(statement_timeout): deliberately NOT set. Passing
+            # `-c statement_timeout=...` through OPTIONS sends it as a startup
+            # parameter, which PgBouncer rejects ("unsupported startup
+            # parameter: options") unless IGNORE_STARTUP_PARAMETERS includes
+            # `options`; and a session-level SET is unreliable under
+            # transaction pooling. Safest fix once verified on prod: set it
+            # per-role in Postgres instead:
+            #   ALTER ROLE <user> SET statement_timeout = '15s';
+            #   ALTER ROLE <user> SET idle_in_transaction_session_timeout = '30s';
         }
     }
 else:
@@ -149,11 +170,44 @@ else:
             'OPTIONS': {
                 'CLIENT_CLASS': 'django_redis.client.DefaultClient',
                 'IGNORE_EXCEPTIONS': True,  # cache outage must not take down the API
+                # A hung Redis must not hang workers.
+                'SOCKET_CONNECT_TIMEOUT': 2,
+                'SOCKET_TIMEOUT': 3,
             },
             'KEY_PREFIX': 'nobatyar',
         }
     }
 DJANGO_REDIS_IGNORE_EXCEPTIONS = True
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+# JSON lines on stdout outside DEBUG (or LOG_JSON=1); readable text in DEBUG.
+LOG_JSON = os.getenv('LOG_JSON', 'False' if DEBUG else 'True') == 'True'
+# Opt-in slow-query logging (SLOW_QUERY_LOG=True, threshold SLOW_QUERY_MS).
+SLOW_QUERY_LOG = os.getenv('SLOW_QUERY_LOG', 'False') == 'True'
+SLOW_QUERY_MS = int(os.getenv('SLOW_QUERY_MS', '200'))
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'},
+        'json': {'()': 'core.observability.JsonFormatter'},
+    },
+    'filters': {
+        'request_id': {'()': 'core.observability.RequestIdFilter'},
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stdout',
+            'formatter': 'json' if LOG_JSON else 'default',
+            'filters': ['request_id'],
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': os.getenv('LOG_LEVEL', 'INFO'),
+    },
+}
 
 # مدل کاربر سفارشی
 AUTH_USER_MODEL = 'api.User'
@@ -173,6 +227,9 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'EXCEPTION_HANDLER': 'api.exceptions.custom_exception_handler',
+    # Behind nginx: trust the (overwritten) X-Forwarded-For so throttles key on
+    # the real client IP instead of nginx's. 0 in DEBUG (no proxy).
+    'NUM_PROXIES': int(os.getenv('NUM_PROXIES', '0' if DEBUG else '1')),
     # Throttling is backed by the Redis cache above, so counters are shared
     # across workers. Scoped rates (otp, public_slots) are enforced per-view.
     'DEFAULT_THROTTLE_CLASSES': (
@@ -183,6 +240,7 @@ REST_FRAMEWORK = {
         'anon': os.getenv('THROTTLE_ANON', '60/min'),
         'user': os.getenv('THROTTLE_USER', '300/min'),
         'otp': os.getenv('THROTTLE_OTP', '5/min'),
+        'otp_verify': os.getenv('THROTTLE_OTP_VERIFY', '30/min'),
         'login': os.getenv('THROTTLE_LOGIN', '10/min'),
         'public_slots': os.getenv('THROTTLE_PUBLIC_SLOTS', '120/min'),
         # Abuse-report submission (business/client_views.py) — an anonymous,
@@ -190,6 +248,10 @@ REST_FRAMEWORK = {
         # scope than the general 'anon' bucket is needed to keep it from
         # being a spam/DoS vector (see business/client_views.py's docstring).
         'content_report': os.getenv('THROTTLE_CONTENT_REPORT', '5/hour'),
+        'request_booking': os.getenv('THROTTLE_REQUEST_BOOKING', '10/hour'),
+        # Claiming an imported listing (business/claim_views.py) — each start
+        # can send an SMS to the listing's number.
+        'claim': os.getenv('THROTTLE_CLAIM', '10/hour'),
     },
 }
 
@@ -271,9 +333,17 @@ if not DEBUG:
 MYKET_ACCESS_TOKEN = os.getenv('MYKET_ACCESS_TOKEN', '')
 MYKET_PACKAGE_NAME = os.getenv('MYKET_PACKAGE_NAME', 'xyz.sattar.javid.proqueue')
 
-ZIBAL_MERCHANT_ID = os.getenv('ZIBAL_MERCHANT_ID')
+ZIBAL_MERCHANT_ID = os.getenv('ZIBAL_MERCHANT_ID') or ''
 if not ZIBAL_MERCHANT_ID:
-    ZIBAL_MERCHANT_ID = '6a0d8775dc2e6664d8adf3fd'
+    if DEBUG:
+        ZIBAL_MERCHANT_ID = 'zibal'  # Zibal sandbox merchant
+    else:
+        # No real merchant id is hard-coded: payments will be rejected by the
+        # gateway until the env var is set. Fail loudly in the logs.
+        import logging as _logging
+        _logging.getLogger(__name__).error(
+            'ZIBAL_MERCHANT_ID is not set; Zibal payments will fail. '
+            'Set it via the environment.')
 
 # Where the deposit gateway sends the client's browser back to. Only the client
 # web app has an appointments screen to land on, so this is app.noobatyar.ir
@@ -349,8 +419,52 @@ def _item(title, icon, link, perm=None):
     return item
 
 
+def _optional_item(title, icon, url_name, perm):
+    """Sidebar entry for an app that may not be installed: hidden (permission
+    callable returns False) when the URL name does not resolve."""
+    from django.urls import NoReverseMatch, reverse
+
+    def _resolves():
+        try:
+            reverse(url_name)
+            return True
+        except NoReverseMatch:
+            return False
+
+    return {
+        'title': title, 'icon': icon,
+        'link': lambda request: reverse(url_name) if _resolves() else '#',
+        'permission': lambda request: _resolves() and (request.user.is_superuser or request.user.has_perm(perm)),
+    }
+
+
+# (proxy model name, short title, icon) per guild: the «ثبت مرکز» sidebar section.
+# Mirrors business.models.guilds.GUILDS (settings cannot import models; a test checks they agree).
+_GUILD_MENU = [
+    ('medicallisting', 'پزشکی', 'stethoscope'),
+    ('dentallisting', 'دندان‌پزشکی', 'medical_services'),
+    ('healthlisting', 'سلامت', 'psychology'),
+    ('beautylisting', 'زیبایی', 'content_cut'),
+    ('professionallisting', 'حرفه‌ای', 'work'),
+    ('educationlisting', 'آموزش', 'school'),
+    ('tradeslisting', 'فنی', 'build'),
+    ('otherlisting', 'سایر', 'category'),
+]
+
+
 def _changelist(app, model):
     return reverse_lazy(f'admin:{app}_{model}_changelist')
+
+
+def _versioned_static(path):
+    """static() URL with the source file's mtime as ?v=, so browsers fetch an
+    edited stylesheet instead of serving a stale cached copy."""
+    source = BASE_DIR / 'assets' / path
+    try:
+        version = int(source.stat().st_mtime)
+    except OSError:
+        return static(path)
+    return f'{static(path)}?v={version}'
 
 
 UNFOLD = {
@@ -361,7 +475,7 @@ UNFOLD = {
     'SITE_SYMBOL': 'event_available',
     'SHOW_VIEW_ON_SITE': False,
     'SHOW_HISTORY': True,
-    'STYLES': [lambda request: static('admin_custom/css/unfold.css')],
+    'STYLES': [lambda request: _versioned_static('admin_custom/css/unfold.css')],
     'COLORS': {
         # Brand violet (#8B5CF6 at 500), Tailwind's violet scale.
         'primary': {
@@ -381,6 +495,9 @@ UNFOLD = {
     'SIDEBAR': {
         'show_search': True,
         'show_all_applications': False,
+        # Grouped by daily work, in the order staff do it. Titles are one or
+        # two words (like the sidebar of the Nava template); what a page is for
+        # belongs on the page, not in the menu.
         'navigation': [
             {
                 'items': [
@@ -388,26 +505,70 @@ UNFOLD = {
                 ],
             },
             {
-                'title': 'کسب‌وکارها',
+                'title': 'بررسی',
                 'separator': True,
-                'collapsible': True,
+                # Daily work: always open, one click to any page.
+                'collapsible': False,
                 'items': [
-                    _item('کسب‌وکارها', 'storefront', _changelist('business', 'business'), 'business.view_business'),
                     _item('صف بررسی', 'fact_check', reverse_lazy('admin:business_business_moderation_queue'), 'business.view_business'),
-                    _item('گزارش‌های تخلف', 'flag', _changelist('business', 'contentreport'), 'business.view_contentreport'),
-                    _item('کلمات ممنوع', 'block', _changelist('business', 'bannedkeyword'), 'business.view_bannedkeyword'),
+                    _item('کسب‌وکارها', 'storefront', _changelist('business', 'business'), 'business.view_business'),
+                    _item('نمونه‌کارها', 'photo_library', _changelist('showcase', 'portfolioitem'), 'showcase.view_portfolioitem'),
+                    _item('مدارک', 'workspace_premium', _changelist('showcase', 'certificate'), 'showcase.view_certificate'),
+                    _item('تخلف‌ها', 'flag', _changelist('business', 'contentreport'), 'business.view_contentreport'),
+                    _optional_item('نظرات', 'rate_review', 'admin:reviews_review_changelist', 'reviews.view_review'),
                     _item('سوابق بررسی', 'history', _changelist('business', 'businessmoderationlog'), 'business.view_businessmoderationlog'),
+                    _item('کلمات ممنوع', 'block', _changelist('business', 'bannedkeyword'), 'business.view_bannedkeyword'),
                 ],
             },
             {
-                'title': 'کاربران و نوبت‌ها',
+                'title': 'ثبت مرکز',
                 'separator': True,
+                # One list and one add form per guild (business/admin/guilds.py).
                 'collapsible': True,
                 'items': [
-                    _item('کاربران', 'person', _changelist('api', 'user'), 'api.view_user'),
+                    _item(title, icon, _changelist('business', name), f'business.view_{name}')
+                    for name, title, icon in _GUILD_MENU
+                ],
+            },
+            {
+                'title': 'کاربران',
+                'separator': True,
+                # Daily work: always open, one click to any page.
+                'collapsible': False,
+                'items': [
+                    _item('حساب‌ها', 'person', _changelist('api', 'user'), 'api.view_user'),
                     _item('مشتریان', 'groups', _changelist('visitor', 'visitor'), 'visitor.view_visitor'),
                     _item('نوبت‌ها', 'event', _changelist('appointment', 'appointment'), 'appointment.view_appointment'),
                     _item('دستگاه‌ها', 'smartphone', _changelist('api', 'devicetoken'), 'api.view_devicetoken'),
+                ],
+            },
+            {
+                'title': 'رشد',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('تماس‌های امروز', 'call', lambda request: str(reverse_lazy('admin:marketing_marketinglead_changelist')) + '?today=1', 'marketing.view_marketinglead'),
+                    _item('مراکز', 'contact_phone', _changelist('marketing', 'marketinglead'), 'marketing.view_marketinglead'),
+                    _item('درخواست مالکیت', 'verified_user', _changelist('business', 'businessclaimrequest'), 'business.view_businessclaimrequest'),
+                    _item('بنرها', 'image', _changelist('banners', 'banner'), 'banners.view_banner'),
+                    _item('دسته‌های بنر', 'category', _changelist('banners', 'bannercategorygroup'), 'banners.view_bannercategorygroup'),
+                    _item('لینک بنرها', 'link', _changelist('banners', 'sitesetting'), 'banners.view_sitesetting'),
+                ],
+            },
+            {
+                'title': 'پیام',
+                'separator': True,
+                'collapsible': True,
+                'items': [
+                    _item('گزارش پیامک', 'bar_chart', reverse_lazy('admin:visitor_smslog_report'), 'visitor.view_smslog'),
+                    _item('پیامک‌ها', 'sms', _changelist('visitor', 'smslog'), 'visitor.view_smslog'),
+                    _item('کمپین', 'campaign', reverse_lazy('admin:core_campaigns'), 'core.view_marketingpushlog'),
+                    _item('گروه مخاطب', 'filter_alt', reverse_lazy('admin:core_segment_builder'), 'core.view_audiencesegment'),
+                    _item('مخاطبان ذخیره', 'bookmarks', _changelist('core', 'audiencesegment'), 'core.view_audiencesegment'),
+                    _item('خروجی مخاطبان', 'download', _changelist('core', 'audiencesegmentexport'), 'core.view_audiencesegmentexport'),
+                    _item('پوش‌ها', 'notifications_active', _changelist('core', 'marketingpushlog'), 'core.view_marketingpushlog'),
+                    _item('پیام اونرها', 'forum', _changelist('core', 'adminmessagelog'), 'core.view_adminmessagelog'),
+                    _item('پیامک انقضا', 'mark_email_unread', _changelist('core', 'expirysmslog'), 'core.view_expirysmslog'),
                 ],
             },
             {
@@ -416,31 +577,15 @@ UNFOLD = {
                 'collapsible': True,
                 'items': [
                     _item('گزارش مالی', 'monitoring', reverse_lazy('admin:accounting_financial_report'), 'accounting.view_transaction'),
-                    _item('تراکنش‌ها', 'receipt_long', _changelist('accounting', 'transaction'), 'accounting.view_transaction'),
                     _item('اشتراک‌ها', 'card_membership', _changelist('accounting', 'subscription'), 'accounting.view_subscription'),
-                    _item('خرید بسته‌ها', 'shopping_cart', _changelist('accounting', 'addonpurchase'), 'accounting.view_addonpurchase'),
-                    _item('خریدهای مایکت', 'store', _changelist('accounting', 'storepurchase'), 'accounting.view_storepurchase'),
+                    _item('تراکنش‌ها', 'receipt_long', _changelist('accounting', 'transaction'), 'accounting.view_transaction'),
+                    _item('خرید بسته', 'shopping_cart', _changelist('accounting', 'addonpurchase'), 'accounting.view_addonpurchase'),
+                    _item('مایکت', 'store', _changelist('accounting', 'storepurchase'), 'accounting.view_storepurchase'),
                     _item('دفتر اعتبار', 'account_balance_wallet', _changelist('accounting', 'creditledger'), 'accounting.view_creditledger'),
                     _item('پلن‌ها', 'sell', _changelist('accounting', 'plan'), 'accounting.view_plan'),
-                    _item('بسته‌های افزودنی', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
-                    _item('یادآوری تمدید اشتراک', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),
-                    _item('تماس کسب‌وکارهای بدون اشتراک', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
-                ],
-            },
-            {
-                'title': 'پیام‌رسانی و بازاریابی',
-                'separator': True,
-                'collapsible': True,
-                'items': [
-                    _item('کمپین‌ها', 'campaign', reverse_lazy('admin:core_campaigns'), 'core.view_marketingpushlog'),
-                    _item('گروه مخاطب', 'filter_alt', reverse_lazy('admin:core_segment_builder'), 'core.view_audiencesegment'),
-                    _item('گزارش پیامک', 'bar_chart', reverse_lazy('admin:visitor_smslog_report'), 'visitor.view_smslog'),
-                    _item('پیامک‌ها', 'sms', _changelist('visitor', 'smslog'), 'visitor.view_smslog'),
-                    _item('کمپین‌های پوش', 'notifications_active', _changelist('core', 'marketingpushlog'), 'core.view_marketingpushlog'),
-                    _item('پیام به کسب‌وکارها', 'forum', _changelist('core', 'adminmessagelog'), 'core.view_adminmessagelog'),
-                    _item('پیامک انقضای اشتراک', 'mark_email_unread', _changelist('core', 'expirysmslog'), 'core.view_expirysmslog'),
-                    _item('گروه‌های مخاطب ذخیره‌شده', 'bookmarks', _changelist('core', 'audiencesegment'), 'core.view_audiencesegment'),
-                    _item('خروجی‌های گروه مخاطب', 'download', _changelist('core', 'audiencesegmentexport'), 'core.view_audiencesegmentexport'),
+                    _item('بسته‌ها', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
+                    _item('یادآوری تمدید', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),
+                    _item('نمایش تماس', 'visibility_off', _changelist('accounting', 'contactvisibilitypolicy'), 'accounting.view_contactvisibilitypolicy'),
                 ],
             },
             {
@@ -448,7 +593,7 @@ UNFOLD = {
                 'separator': True,
                 'collapsible': True,
                 'items': [
-                    _item('نسخه‌های اپ', 'system_update', _changelist('versions', 'appversion'), 'versions.view_appversion'),
+                    _item('نسخهٔ اپ', 'system_update', _changelist('versions', 'appversion'), 'versions.view_appversion'),
                     _item('ربات بله', 'smart_toy', _changelist('bale', 'balesettings'), 'bale.view_balesettings'),
                     _item('نقش‌ها', 'admin_panel_settings', _changelist('auth', 'group'), 'auth.view_group'),
                 ],

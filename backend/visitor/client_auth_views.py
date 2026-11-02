@@ -14,8 +14,11 @@ from rest_framework.permissions import AllowAny
 from api.phone import normalize_phone
 from api.responses import APIResponse
 from api.services.otp import send_otp as otp_send, verify_otp as otp_verify
-from api.throttles import OTPRateThrottle
+from api.throttles import (
+    OTPRateThrottle, OTPSendPhoneThrottle, client_ip, OTPVerifyPhoneThrottle, OTPVerifyThrottle,
+)
 
+from django.utils import timezone
 from .auth import sign_visitor_token
 from .models import Visitor
 from .serializers import VisitorSerializer
@@ -37,13 +40,13 @@ def _clean_phone(request) -> str | None:
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([OTPRateThrottle])
+@throttle_classes([OTPRateThrottle, OTPSendPhoneThrottle])
 def client_send_otp_view(request):
     phone = _clean_phone(request)
     if not phone:
         return APIResponse.error(message='شماره موبایل معتبر نیست')
 
-    result = otp_send(phone)
+    result = otp_send(phone, ip=client_ip(request))
     if not result['success']:
         return APIResponse.error(result.get('error', 'خطا در ارسال کد'))
 
@@ -52,6 +55,7 @@ def client_send_otp_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([OTPVerifyThrottle, OTPVerifyPhoneThrottle])
 def client_verify_otp_view(request):
     phone = _clean_phone(request)
     if not phone:
@@ -64,6 +68,7 @@ def client_verify_otp_view(request):
 
     visitor = Visitor.objects.filter(phone_number=phone).first()
     if visitor:
+        Visitor.objects.filter(pk=visitor.pk).update(last_client_login_at=timezone.now())
         return APIResponse.success(
             data={
                 'is_registered': True,
@@ -111,6 +116,7 @@ def client_register_view(request):
         defaults={'full_name': name},
     )
 
+    Visitor.objects.filter(pk=visitor.pk).update(last_client_login_at=timezone.now())
     return APIResponse.success(
         data={
             'visitor': VisitorSerializer(visitor).data,

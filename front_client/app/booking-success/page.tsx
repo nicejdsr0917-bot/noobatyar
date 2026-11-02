@@ -1,5 +1,6 @@
 'use client';
 
+import { getVisitorToken } from '@/lib/auth';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { businessUrl, getAppointment, type Appointment } from '@/lib/api';
@@ -56,7 +57,7 @@ function BookingSuccess() {
   // this fetch fails, so there is no error branch and no spinner gate.
   useEffect(() => {
     if (!id) return;
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) return;
     getAppointment(id, token)
       .then(setAppt)

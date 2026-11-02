@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.data.remoteDataSource.business
 
+import xyz.sattar.javid.proqueue.domain.model.business.SocialLinks
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -15,6 +16,11 @@ import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.core.network.toDirectApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessCategoriesDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimStartRequestDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimStartResponseDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimVerifyRequestDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimVerifyResponseDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ClaimableSearchDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.CreateBusinessRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.AddServiceCatalogItemRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ServiceCatalogItemDto
@@ -28,9 +34,9 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoSmsOv
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.PromoSmsRequestDto
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 
-class BusinessApiService(private val httpClient: HttpClient) {
+class BusinessApiService(private val httpClient: HttpClient) : BusinessApi {
 
-    suspend fun getBusinesses(page: Int, pageSize: Int): ApiResponse<PaginatedResponseDto<BusinessDto>> {
+    override suspend fun getBusinesses(page: Int, pageSize: Int): ApiResponse<PaginatedResponseDto<BusinessDto>> {
         return httpClient.get("business/") {
             contentType(ContentType.Application.Json)
             parameter("page", page)
@@ -38,21 +44,26 @@ class BusinessApiService(private val httpClient: HttpClient) {
         }.toApiResponse()
     }
 
-    suspend fun createBusiness(business: Business): ApiResponse<BusinessDto> {
+    override suspend fun createBusiness(business: Business): ApiResponse<BusinessDto> {
         return httpClient.post("business/") {
-            setBody(buildMultipart(business))
+            setBody(buildMultipart(business, logoRequired = true))
         }.toApiResponse()
     }
 
-    suspend fun updateBusiness(id: Long, business: Business): ApiResponse<BusinessDto> {
+    override suspend fun updateBusiness(id: Long, business: Business): ApiResponse<BusinessDto> {
         return httpClient.put("business/$id/") {
             setBody(buildMultipart(business))
         }.toApiResponse()
     }
 
-    private fun buildMultipart(business: Business): io.ktor.client.request.forms.MultiPartFormDataContent {
+    private fun buildMultipart(
+        business: Business,
+        logoRequired: Boolean = false
+    ): io.ktor.client.request.forms.MultiPartFormDataContent {
         return io.ktor.client.request.forms.MultiPartFormDataContent(
             io.ktor.client.request.forms.formData {
+                // Create only: updates are never enforced server-side.
+                if (logoRequired) append("logo_required", "1")
                 append("title", business.title)
                 append("category", business.category)
                 append("phone", business.phone)
@@ -61,6 +72,7 @@ class BusinessApiService(private val httpClient: HttpClient) {
                 // value as null, so removing the pin actually clears it.
                 append("latitude", business.latitude?.toString() ?: "")
                 append("longitude", business.longitude?.toString() ?: "")
+                append("city_code", business.cityCode?.toString() ?: "")
                 append("default_service_duration", business.defaultServiceDuration.toString())
                 append("work_start_hour", business.workStartHour.toString())
                 append("work_end_hour", business.workEndHour.toString())
@@ -110,6 +122,9 @@ class BusinessApiService(private val httpClient: HttpClient) {
                 // and remove numbers all day and the save would still only
                 // carry the single `phone` field, silently dropping the rest.
                 append("extra_phones", business.extraPhones.toJsonArrayString())
+                // A JSON object in a form field, parsed by DRF's JSONField like
+                // the arrays above; "{}" clears every link.
+                append("social_links", SocialLinks.encode(business.socialLinks))
                 append("allow_client_add_service", business.allowClientAddService.toString())
                 append("notice_enabled", business.noticeEnabled.toString())
                 append("notice_message", business.noticeMessage)
@@ -146,14 +161,14 @@ class BusinessApiService(private val httpClient: HttpClient) {
     // message, data} envelope — so they go through toDirectApiResponse(),
     // not toApiResponse(). Using the wrapped parser here fails on the
     // missing "status" field and the report can never load.
-    suspend fun getSmsLogs(
+    override suspend fun getSmsLogs(
         businessId: Long,
         page: Int,
         pageSize: Int,
-        status: String? = null,
-        search: String? = null,
-        dateFrom: String? = null,
-        dateTo: String? = null
+        status: String?,
+        search: String?,
+        dateFrom: String?,
+        dateTo: String?
     ): ApiResponse<SmsLogPageDto> {
         return httpClient.get("business/$businessId/sms-logs/") {
             contentType(ContentType.Application.Json)
@@ -166,21 +181,21 @@ class BusinessApiService(private val httpClient: HttpClient) {
         }.toDirectApiResponse()
     }
 
-    suspend fun getSmsLogSummary(businessId: Long): ApiResponse<SmsLogSummaryDto> {
+    override suspend fun getSmsLogSummary(businessId: Long): ApiResponse<SmsLogSummaryDto> {
         return httpClient.get("business/$businessId/sms-logs/summary/") {
             contentType(ContentType.Application.Json)
         }.toDirectApiResponse()
     }
 
     // Same bare-pagination-shape reasoning as getSmsLogs above.
-    suspend fun getPushLogs(
+    override suspend fun getPushLogs(
         businessId: Long,
         page: Int,
         pageSize: Int,
-        status: String? = null,
-        search: String? = null,
-        dateFrom: String? = null,
-        dateTo: String? = null
+        status: String?,
+        search: String?,
+        dateFrom: String?,
+        dateTo: String?
     ): ApiResponse<PushLogPageDto> {
         return httpClient.get("business/$businessId/push-logs/") {
             contentType(ContentType.Application.Json)
@@ -193,13 +208,13 @@ class BusinessApiService(private val httpClient: HttpClient) {
         }.toDirectApiResponse()
     }
 
-    suspend fun getPushLogSummary(businessId: Long): ApiResponse<PushLogSummaryDto> {
+    override suspend fun getPushLogSummary(businessId: Long): ApiResponse<PushLogSummaryDto> {
         return httpClient.get("business/$businessId/push-logs/summary/") {
             contentType(ContentType.Application.Json)
         }.toDirectApiResponse()
     }
 
-    suspend fun deleteBusiness(id: Long): ApiResponse<Unit> {
+    override suspend fun deleteBusiness(id: Long): ApiResponse<Unit> {
         return httpClient.delete("business/$id/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
@@ -207,7 +222,7 @@ class BusinessApiService(private val httpClient: HttpClient) {
 
     // Category-scoped, not business-scoped: every business sharing a
     // category sees and contributes to the same list of service chips.
-    suspend fun getServiceCatalog(category: String): ApiResponse<List<ServiceCatalogItemDto>> {
+    override suspend fun getServiceCatalog(category: String): ApiResponse<List<ServiceCatalogItemDto>> {
         return httpClient.get("business/service-catalog/") {
             contentType(ContentType.Application.Json)
             parameter("category", category)
@@ -216,33 +231,33 @@ class BusinessApiService(private val httpClient: HttpClient) {
 
     // ── Owner promo-SMS campaigns (plain JSON, like the SMS report) ──
 
-    suspend fun getPromoSms(businessId: Long): ApiResponse<PromoSmsOverviewDto> {
+    override suspend fun getPromoSms(businessId: Long): ApiResponse<PromoSmsOverviewDto> {
         return httpClient.get("business/$businessId/promo-sms/") {
             contentType(ContentType.Application.Json)
         }.toDirectApiResponse()
     }
 
-    suspend fun previewPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoPreviewDto> {
+    override suspend fun previewPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoPreviewDto> {
         return httpClient.post("business/$businessId/promo-sms/preview/") {
             contentType(ContentType.Application.Json)
             setBody(PromoSmsRequestDto(audience = audience, message = message))
         }.toDirectApiResponse()
     }
 
-    suspend fun sendPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoCampaignDto> {
+    override suspend fun sendPromoSms(businessId: Long, audience: String, message: String): ApiResponse<PromoCampaignDto> {
         return httpClient.post("business/$businessId/promo-sms/") {
             contentType(ContentType.Application.Json)
             setBody(PromoSmsRequestDto(audience = audience, message = message))
         }.toDirectApiResponse()
     }
 
-    suspend fun getPromoCampaign(businessId: Long, campaignId: Long): ApiResponse<PromoCampaignDto> {
+    override suspend fun getPromoCampaign(businessId: Long, campaignId: Long): ApiResponse<PromoCampaignDto> {
         return httpClient.get("business/$businessId/promo-sms/$campaignId/") {
             contentType(ContentType.Application.Json)
         }.toDirectApiResponse()
     }
 
-    suspend fun addServiceCatalogItem(category: String, name: String): ApiResponse<ServiceCatalogItemDto> {
+    override suspend fun addServiceCatalogItem(category: String, name: String): ApiResponse<ServiceCatalogItemDto> {
         return httpClient.post("business/service-catalog/") {
             contentType(ContentType.Application.Json)
             setBody(AddServiceCatalogItemRequestDto(category = category, name = name))
@@ -254,9 +269,29 @@ class BusinessApiService(private val httpClient: HttpClient) {
      * list with no user data), but sent through the same client as everything
      * else so it picks up the base URL and interceptors.
      */
-    suspend fun getCategories(): ApiResponse<BusinessCategoriesDto> {
+    override suspend fun getCategories(): ApiResponse<BusinessCategoriesDto> {
         return httpClient.get("business/categories/") {
             contentType(ContentType.Application.Json)
         }.toApiResponse()
     }
+
+    // --- Claiming an imported directory listing ---
+
+    override suspend fun searchClaimable(search: String, page: Int): ApiResponse<ClaimableSearchDto> =
+        httpClient.get("business/claimable/") {
+            parameter("search", search)
+            parameter("page", page)
+        }.toApiResponse()
+
+    override suspend fun startClaim(businessId: Long, note: String): ApiResponse<ClaimStartResponseDto> =
+        httpClient.post("business/$businessId/claim/") {
+            contentType(ContentType.Application.Json)
+            setBody(ClaimStartRequestDto(note))
+        }.toApiResponse()
+
+    override suspend fun verifyClaim(businessId: Long, code: String): ApiResponse<ClaimVerifyResponseDto> =
+        httpClient.post("business/$businessId/claim/verify/") {
+            contentType(ContentType.Application.Json)
+            setBody(ClaimVerifyRequestDto(code))
+        }.toApiResponse()
 }

@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.calendar
 
+import xyz.sattar.javid.proqueue.core.state.SelectedBusinessStore
+
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
@@ -7,7 +9,6 @@ import kotlinx.coroutines.flow.flow
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
 import xyz.sattar.javid.proqueue.domain.usecase.GetAppointmentsForDateUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.SyncAppointmentsUseCase
@@ -15,13 +16,14 @@ import xyz.sattar.javid.proqueue.feature.calendar.CalendarState.PartialState
 
 class CalendarViewModel(
     private val getAppointmentsForDateUseCase: GetAppointmentsForDateUseCase,
-    private val syncAppointmentsUseCase: SyncAppointmentsUseCase
+    private val syncAppointmentsUseCase: SyncAppointmentsUseCase,
+    private val businessStore: SelectedBusinessStore
 ) : BaseViewModel<CalendarState, PartialState, CalendarEvent, CalendarIntent>(
     initialState = CalendarState()
 ) {
     init {
         viewModelScope.launch {
-            BusinessStateHolder.selectedBusiness.collectLatest {
+            businessStore.selectedBusiness.collectLatest {
                 sendIntent(CalendarIntent.LoadData)
             }
         }
@@ -63,10 +65,10 @@ class CalendarViewModel(
     private fun loadAppointments(date: Long): Flow<PartialState> = flow {
         emit(PartialState.IsLoading(true))
         try {
-            val business = BusinessStateHolder.selectedBusiness.value
+            val business = businessStore.selectedBusiness.value
             if (business != null) {
                 // Sync Data
-                syncAppointmentsUseCase(business.id, date = date)
+                syncAppointmentsUseCase(business.id, date = date, replaceWindow = true)
 
                 val appointments = getAppointmentsForDateUseCase(business.id, date)
                 emit(PartialState.LoadAppointments(appointments))

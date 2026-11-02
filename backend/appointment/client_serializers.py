@@ -1,6 +1,34 @@
 from rest_framework import serializers
 from .models import Appointment
+from business.selectors import attach_owner_state
 from business.serializers import ClientBusinessSerializer
+
+from .selectors_stats import split_selected_services
+
+
+class ClientAppointmentListSerializer(serializers.ListSerializer):
+    """Resolves the owners' subscription / booking-quota state for the whole
+    page in a constant number of queries (see business.selectors) before the
+    rows are serialised, instead of once per row."""
+
+    def to_representation(self, data):
+        items = data.all() if hasattr(data, 'all') else data
+        items = list(items)
+        businesses = {}
+        for a in items:
+            b = a.business
+            if not hasattr(b, 'has_active_subscription'):
+                businesses.setdefault(b.id, []).append(b)
+        # One state lookup per distinct business, attached to every row's copy.
+        if businesses:
+            firsts = [group[0] for group in businesses.values()]
+            attach_owner_state(firsts)
+            for group in businesses.values():
+                for b in group[1:]:
+                    b.has_active_subscription = group[0].has_active_subscription
+                    b.can_book = group[0].can_book
+        return super().to_representation(items)
+
 
 class ClientAppointmentSerializer(serializers.ModelSerializer):
     business = ClientBusinessSerializer(read_only=True)
@@ -14,9 +42,20 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
     # deliberately not exposed here — it's about the owner, not this visitor).
     reminder_sms_sent = serializers.SerializerMethodField()
     reminder_push_sent = serializers.SerializerMethodField()
+    # Where to send the card-to-card deposit. Deliberately NOT part of the
+    # business payload (that is public to anyone browsing): it appears only on
+    # the signed-in visitor's own appointment while it is still LOCKED, i.e.
+    # while they are on the checkout step. Null otherwise.
+    card_number = serializers.SerializerMethodField()
+    card_owner_name = serializers.SerializerMethodField()
+    # The visitor's own booking slip: what they asked for and the proof they
+    # sent. This serializer only ever serves the signed-in visitor's own rows.
+    selected_services = serializers.SerializerMethodField()
+    payment_receipt = serializers.ImageField(read_only=True)
 
     class Meta:
         model = Appointment
+        list_serializer_class = ClientAppointmentListSerializer
         fields = [
             'id',
             'business',
@@ -26,7 +65,35 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
             'estimated_turn_time',
             'reminder_sms_sent',
             'reminder_push_sent',
+            'card_number',
+            'card_owner_name',
+            'description',
+            'selected_services',
+            'payment_reference',
+            'payment_receipt',
+            'deposit_payment_method',
         ]
+
+    def _card_visible(self, obj):
+        if obj.status != 'LOCKED':
+            return False
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is None or getattr(user, 'pk', None) is None or obj.visitor_id != user.pk:
+            return False
+        business = obj.business
+        accepted = business.accepted_payment_methods or []
+        takes_card = 'CARD' in accepted or business.payment_method == 'CARD'
+        return takes_card and bool((business.card_number or '').strip())
+
+    def get_card_number(self, obj):
+        return obj.business.card_number if self._card_visible(obj) else None
+
+    def get_card_owner_name(self, obj):
+        return (obj.business.card_owner_name or '') if self._card_visible(obj) else None
+
+    def get_selected_services(self, obj):
+        return split_selected_services(obj.selected_services or '')
 
     def get_reminder_sms_sent(self, obj):
         return obj.reminder_sent_at is not None
@@ -46,6 +113,15 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
         """
         if obj.status not in ['WAITING', 'IN_PROGRESS']:
             return 0
+        # Computed once per row: estimated_turn_time asks for it again.
+        cached = getattr(obj, '_queue_position_cache', None)
+        if cached is not None:
+            return cached
+        # List endpoint: counted in SQL together with the page rows.
+        annotated = getattr(obj, 'queue_ahead', None)
+        if annotated is not None:
+            obj._queue_position_cache = annotated
+            return annotated
         
         # Count appointments on the same day with an earlier time
         start_of_day = obj.appointment_date.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -57,6 +133,7 @@ class ClientAppointmentSerializer(serializers.ModelSerializer):
             appointment_date__lt=obj.appointment_date,
             status__in=['WAITING', 'IN_PROGRESS']
         ).count()
+        obj._queue_position_cache = ahead
         return ahead
 
     def get_estimated_turn_time(self, obj):
@@ -92,6 +169,12 @@ class ClientAppointmentCreateSerializer(serializers.ModelSerializer):
         required=False,
     )
 
+    # Only WEB / APP can be claimed by a client; anything else is rejected.
+    source = serializers.ChoiceField(
+        choices=[Appointment.SOURCE_WEB, Appointment.SOURCE_APP],
+        write_only=True, required=False, default=Appointment.SOURCE_WEB,
+    )
+
     class Meta:
         model = Appointment
-        fields = ['business_id', 'appointment_date', 'service_duration', 'description', 'selected_services']
+        fields = ['business_id', 'appointment_date', 'service_duration', 'description', 'selected_services', 'source']

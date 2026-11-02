@@ -1,62 +1,54 @@
 # appointments/views.py
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Optional, Dict, Any, Tuple
 
 from adrf.views import APIView
 from asgiref.sync import sync_to_async
-from django.db import transaction
-from django.db.models import Q, Prefetch
 from django.core.exceptions import ValidationError
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from appointment import selectors
 from appointment.models import Appointment, Business, Visitor
-from appointment.serializers import AppointmentSerializer, AppointmentQuerySerializer
-from appointment.cache_utils import invalidate_slots_cache
-from appointment.occupancy import refund_quota
-from accounting import usage
-from api.responses import APIResponse
-from api.views import _extract_error
-from visitor.activity import record_activity
-from visitor.models import VisitorActivity
-
+from appointment.serializers import AppointmentQuerySerializer
+from appointment.services.booking import (
+    BookingFailure,
+    appointment_create_for_owner,
+    appointment_delete_for_owner,
+    appointment_update_details_for_owner,
+)
+from appointment.services.notifications import notify_client_of_decision, send_client_sms
+from appointment.services.transitions import (
+    StatusChangeFailure,
+    appointment_change_status_by_owner,
+    appointment_update_details_and_status_for_owner,
+)
+from common.responses import APIResponse
+from common.timeutils import epoch_ms_to_utc
+from common.errors import extract_error as _extract_error
 
 logger = logging.getLogger(__name__)
 
 
+def _parse_timestamp(value) -> datetime:
+    """Parse Unix epoch milliseconds to timezone-aware UTC datetime."""
+    try:
+        return epoch_ms_to_utc(value)
+    except (ValueError, TypeError, OSError) as e:
+        raise ValueError(f"Invalid timestamp: {value}") from e
+
+
+def _serialized(appointment):
+    """AppointmentQuerySerializer data, evaluated in the calling (sync) thread."""
+    return AppointmentQuerySerializer(appointment).data
+
+
 class AppointmentView(APIView):
     permission_classes = [IsAuthenticated]
-
-    # Valid status transitions (state machine)
-    STATUS_TRANSITIONS = {
-        # Owner creates / confirms manually
-        'PENDING_APPROVAL':     ['WAITING', 'CANCELLED'],
-        # Client paid (card-to-card) — owner must verify receipt
-        'PENDING_VERIFICATION': ['WAITING', 'CANCELLED'],
-        # Slot locked (client in checkout) — owner can force-cancel stale locks
-        'LOCKED':               ['CANCELLED'],
-        # Normal queue flow. WAITING → COMPLETED is allowed because the owner
-        # marks a walk-in served straight from the queue, without stepping
-        # through CONFIRMED/IN_PROGRESS first.
-        'WAITING':    ['IN_PROGRESS', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'],
-        'CONFIRMED':  ['WAITING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'],
-        'IN_PROGRESS':['COMPLETED', 'CANCELLED', 'NO_SHOW'],
-        'COMPLETED':  [],
-        'CANCELLED':  [],
-        'NO_SHOW':    [],
-    }
-
-    @staticmethod
-    def _parse_timestamp(value, request_id: str) -> datetime:
-        """Parse Unix epoch milliseconds to timezone-aware UTC datetime."""
-        try:
-            return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
-        except (ValueError, TypeError, OSError) as e:
-            raise ValueError(f"Invalid timestamp: {value}") from e
 
     async def get(self, request: Request, appointment_id: int) -> Response:
         """Get appointment details by ID"""
@@ -72,8 +64,7 @@ class AppointmentView(APIView):
                 return error_response
 
             # Serialize appointment data
-            serializer = await sync_to_async(AppointmentQuerySerializer)(appointment)
-            appointment_data = await sync_to_async(lambda: serializer.data)()
+            appointment_data = await sync_to_async(_serialized)(appointment)
 
             elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
             logger.info(
@@ -133,7 +124,7 @@ class AppointmentView(APIView):
 
             # Parse appointment date from Unix epoch milliseconds
             try:
-                appointment_datetime = self._parse_timestamp(appointment_date, request_id)
+                appointment_datetime = _parse_timestamp(appointment_date)
             except ValueError as e:
                 logger.warning(
                     f"[{request_id}] Invalid timestamp: {appointment_date}",
@@ -141,62 +132,38 @@ class AppointmentView(APIView):
                 )
                 return APIResponse.error('فرمت تاریخ نامعتبر است', code=status.HTTP_400_BAD_REQUEST)
 
-            # Monthly appointment quota (owner's plan)
-            if not await sync_to_async(usage.can_book_appointment)(business.user_id):
+            # Monthly quota (owner's plan) and the hourly capacity are checked
+            # by the service, the latter under the business lock. The owner may
+            # deliberately overlap appointments (walk-ins, parallel chairs), so
+            # there is no time-overlap check — only the capacity cap, when
+            # configured.
+            try:
+                result = await sync_to_async(appointment_create_for_owner)(
+                    business=business,
+                    visitor=visitor,
+                    appointment_date=appointment_datetime,
+                    service_duration=service_duration,
+                    description=description,
+                    selected_services=selected_services,
+                    user=user,
+                )
+            except ValidationError as e:
+                logger.error(
+                    f"[{request_id}] Validation error creating appointment",
+                    extra={'errors': e.message_dict}
+                )
+                raise
+            if result.failure is BookingFailure.QUOTA:
                 return APIResponse.error(
                     'ظرفیت نوبت‌های این ماه بر اساس پلن شما تکمیل شده است',
                     code=status.HTTP_409_CONFLICT,
                 )
-
-            # Check hourly capacity
-            capacity_error = await self._check_hourly_capacity(business, appointment_datetime)
-            if capacity_error:
+            if result.failure is not None:
                 return APIResponse.error('ظرفیت این ساعت تکمیل شده است', code=status.HTTP_409_CONFLICT)
-
-            # Check for conflicts
-            # has_conflict, conflict_details = await self._check_appointment_conflicts(
-            #     business=business,
-            #     appointment_date=appointment_datetime,
-            #     service_duration=service_duration,
-            #     exclude_appointment_id=None,
-            #     request_id=request_id
-            # )
-            #
-            # if has_conflict:
-            #     logger.info(
-            #         f"[{request_id}] Appointment conflict detected",
-            #         extra={'conflict_details': conflict_details}
-            #     )
-            #     return Response(
-            #         {
-            #             'error': 'زمان انتخابی با نوبت دیگری تداخل دارد',
-            #             'conflicts': conflict_details
-            #         },
-            #         status=status.HTTP_409_CONFLICT
-            #     )
-
-            # Create appointment within transaction
-            appointment = await self._create_appointment_atomic(
-                business=business,
-                visitor=visitor,
-                appointment_date=appointment_datetime,
-                service_duration=service_duration,
-                description=description,
-                selected_services=selected_services,
-                request_id=request_id,
-                user = user
-            )
-
-            # Count against the owner's monthly appointment quota, remembering
-            # which bucket paid so a cancellation can refund that same one.
-            quota_source = await sync_to_async(usage.record_appointment)(business.user_id)
-            if quota_source:
-                appointment.quota_source = quota_source
-                await sync_to_async(appointment.save)(update_fields=['quota_source'])
+            appointment = result.appointment
 
             # Serialize response
-            serializer = await sync_to_async(AppointmentQuerySerializer)(appointment)
-            response_data = await sync_to_async(lambda: serializer.data)()
+            response_data = await sync_to_async(_serialized)(appointment)
 
             elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
             logger.info(
@@ -227,7 +194,6 @@ class AppointmentView(APIView):
             )
             return APIResponse.error('خطای سرور رخ داده است', code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
     async def patch(self, request: Request, appointment_id: int) -> Response:
         """Update appointment with state machine validation"""
         request_id = str(uuid.uuid4())
@@ -249,6 +215,10 @@ class AppointmentView(APIView):
                 for field in ['appointment_date', 'service_duration', 'description', 'selected_services']
             )
 
+            if 'status' in update_fields and is_details_update:
+                return await self._update_details_and_status(
+                    appointment, request.data, request_id, start_time
+                )
             if is_status_only:
                 return await self._update_status_with_validation(
                     appointment, request.data['status'], request_id, start_time
@@ -279,7 +249,7 @@ class AppointmentView(APIView):
             return APIResponse.error('خطای سرور رخ داده است', code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     async def delete(self, request: Request, appointment_id: int) -> Response:
-        """Delete appointment (soft delete by setting status to CANCELLED)"""
+        """Delete appointment (hard delete; the owner's credit is refunded)"""
         request_id = str(uuid.uuid4())
         start_time = datetime.now()
 
@@ -291,8 +261,11 @@ class AppointmentView(APIView):
             if error_response:
                 return error_response
 
-            # Soft delete by cancelling
-            await self._delete_appointment(appointment, request_id)
+            await sync_to_async(appointment_delete_for_owner)(appointment=appointment)
+            logger.debug(
+                f"[{request_id}] Appointment deleted permanently",
+                extra={'appointment_id': appointment_id}
+            )
 
             elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
             logger.info(
@@ -319,22 +292,6 @@ class AppointmentView(APIView):
             return APIResponse.error('خطای سرور رخ داده است', code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # ==================== Helper Methods ====================
-
-    @sync_to_async
-    def _serialize_appointment(self, appointment: Appointment) -> dict:
-        """Serialize appointment to dict"""
-        return {
-            'id': appointment.id,
-            'business_id': appointment.business_id,
-            'visitor_id': appointment.visitor_id,
-            'appointment_date': appointment.appointment_date,
-            'service_duration': appointment.service_duration,
-            'status': appointment.status,
-            'description': appointment.description,
-            'selected_services': appointment.selected_services,
-            # 'created_at': appointment.created_at.isoformat(),
-            # 'updated_at': appointment.updated_at.isoformat(),
-        }
 
     @sync_to_async
     def _verify_ownership(
@@ -371,125 +328,14 @@ class AppointmentView(APIView):
         return business, visitor, None
 
     @sync_to_async
-    def _check_appointment_conflicts(
-            self,
-            business: Business,
-            appointment_date: datetime,
-            service_duration: int,
-            exclude_appointment_id: Optional[int],
-            request_id: str
-    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
-        """
-        Check for overlapping appointments using efficient query.
-        Returns (has_conflict, conflict_details)
-        """
-        appointment_end = appointment_date + timedelta(minutes=service_duration)
-
-        # Build conflict query
-        conflict_query = Q(
-            business=business,
-            appointment_date__lt=appointment_end,
-            appointment_date__gte=appointment_date - timedelta(minutes=120)  # Look back 2 hours
-        ) & ~Q(status__in=['CANCELLED', 'NO_SHOW'])
-
-        if exclude_appointment_id:
-            conflict_query &= ~Q(id=exclude_appointment_id)
-
-        # Check for overlapping appointments
-        conflicting = Appointment.objects.filter(conflict_query).select_related(
-            'visitor'
-        ).only('id', 'appointment_date', 'service_duration', 'visitor__name')
-
-        conflicts = []
-        for appt in conflicting:
-            appt_end = appt.appointment_date + timedelta(minutes=appt.service_duration)
-
-            # Check actual overlap
-            if not (appointment_end <= appt.appointment_date or appointment_date >= appt_end):
-                conflicts.append({
-                    'appointment_id': appt.id,
-                    'visitor_name': appt.visitor.full_name,
-                    'start_time': appt.appointment_date.isoformat(),
-                    'end_time': appt_end.isoformat(),
-                })
-
-        if conflicts:
-            logger.info(
-                f"[{request_id}] Found {len(conflicts)} conflicting appointments",
-                extra={'conflicts': conflicts}
-            )
-            return True, {'conflicting_appointments': conflicts}
-
-        return False, None
-
-    @sync_to_async
-    def _check_hourly_capacity(self, business: Business, appointment_date: datetime) -> bool:
-        """
-        Check if the business has reached its maximum appointments per hour.
-        Returns True if capacity is exceeded, False otherwise.
-        """
-        if business.max_appointments_per_hour is None:
-            return False
-            
-        hour_start = appointment_date.replace(minute=0, second=0, microsecond=0)
-        hour_end = hour_start + timedelta(hours=1)
-        
-        count = Appointment.objects.filter(
-            business=business,
-            appointment_date__gte=hour_start,
-            appointment_date__lt=hour_end
-        ).exclude(status__in=['CANCELLED', 'NO_SHOW']).count()
-        
-        return count >= business.max_appointments_per_hour
-
-    @sync_to_async
-    @transaction.atomic
-    def _create_appointment_atomic(
-            self,
-            business: Business,
-            visitor: Visitor,
-            appointment_date: datetime,
-            service_duration: int,
-            description: str,
-            request_id: str
-    , user=None, selected_services: str = '') -> Appointment:
-        """Create appointment within atomic transaction"""
-        appointment = Appointment(
-            business=business,
-            visitor=visitor,
-            appointment_date=appointment_date,
-            service_duration=service_duration,
-            description=description,
-            selected_services=selected_services,
-            status='WAITING',
-            user = user
-        )
-
-        try:
-            appointment.full_clean()
-            appointment.save()
-            invalidate_slots_cache(appointment.business_id, appointment.appointment_date)
-            logger.debug(
-                f"[{request_id}] Appointment saved to database",
-                extra={'appointment_id': appointment.id}
-            )
-            return appointment
-        except ValidationError as e:
-            logger.error(
-                f"[{request_id}] Validation error creating appointment",
-                extra={'errors': e.message_dict}
-            )
-            raise
-
-    @sync_to_async
     def _get_appointment_optimized(
             self, appointment_id: int, user, request_id: str
     ) -> Tuple[Optional[Appointment], Optional[Response]]:
         """Get appointment with optimized query and ownership check"""
         try:
-            appointment = Appointment.objects.select_related(
-                'business__user', 'visitor__user'
-            ).get(id=appointment_id, business__user=user)
+            appointment = selectors.appointment_get_for_owner(
+                appointment_id=appointment_id, user=user
+            )
             return appointment, None
         except Appointment.DoesNotExist:
             logger.warning(
@@ -498,102 +344,75 @@ class AppointmentView(APIView):
             )
             return None, APIResponse.error('نوبت یافت نشد', code=status.HTTP_404_NOT_FOUND)
 
-    @sync_to_async
-    @transaction.atomic
-    def _update_status_with_validation(
-            self, appointment: Appointment, new_status: str, request_id: str, start_time: datetime
-    ) -> Response:
-        """Update status with state machine validation"""
-        # Validate status value
-        valid_statuses = dict(Appointment.STATUS_CHOICES).keys()
-        if new_status not in valid_statuses:
+    @staticmethod
+    def _status_failure_response(result, appointment, new_status, request_id):
+        """The 400 for a rejected status change, or None when it went through."""
+        if result.failure is StatusChangeFailure.INVALID_STATUS:
+            valid_statuses = [value for value, _ in Appointment.STATUS_CHOICES]
             logger.warning(
                 f"[{request_id}] Invalid status value",
-                extra={'provided_status': new_status, 'valid_statuses': list(valid_statuses)}
+                extra={'provided_status': new_status, 'valid_statuses': valid_statuses}
             )
             return APIResponse.error(f'وضعیت نامعتبر است. مقادیر مجاز: {", ".join(valid_statuses)}', code=status.HTTP_400_BAD_REQUEST)
 
-        # Validate state transition
-        current_status = appointment.status
-        allowed_transitions = self.STATUS_TRANSITIONS.get(current_status, [])
-
-        if new_status not in allowed_transitions and new_status != current_status:
+        if result.failure is StatusChangeFailure.INVALID_TRANSITION:
             logger.warning(
                 f"[{request_id}] Invalid status transition",
                 extra={
                     'appointment_id': appointment.id,
-                    'current_status': current_status,
+                    'current_status': result.old_status,
                     'requested_status': new_status,
-                    'allowed_transitions': allowed_transitions
+                    'allowed_transitions': list(result.allowed)
                 }
             )
             return APIResponse.error(
-                f'تغییر وضعیت از {current_status} به {new_status} مجاز نیست. وضعیت‌های مجاز: {", ".join(allowed_transitions)}',
+                f'تغییر وضعیت از {result.old_status} به {new_status} مجاز نیست. وضعیت‌های مجاز: {", ".join(result.allowed)}',
                 code=status.HTTP_400_BAD_REQUEST
             )
+        return None
 
-        # Update status
-        old_status = appointment.status
-        appointment.status = new_status
-        updated = ['status', 'updated_at']
-        # Cancelling frees the slot, so the credit goes back to the owner.
-        # NO_SHOW does not: the slot was held and wasted, which is what the
-        # quota is meant to price.
-        if new_status == 'CANCELLED' and refund_quota(appointment, appointment.business.user_id):
-            updated.append('quota_source')
-        appointment.save(update_fields=updated)
-        invalidate_slots_cache(appointment.business_id, appointment.appointment_date)
+    async def _update_status_with_validation(
+            self, appointment: Appointment, new_status: str, request_id: str, start_time: datetime
+    ) -> Response:
+        """Update status with state machine validation"""
+        try:
+            result = await sync_to_async(appointment_change_status_by_owner)(
+                appointment=appointment, new_status=new_status
+            )
+        except Appointment.DoesNotExist:
+            return APIResponse.error('نوبت یافت نشد', code=status.HTTP_404_NOT_FOUND)
 
-        # This endpoint is already scoped to the business owner, so the owner of
-        # the business is the actor — no need to thread `request` down here.
-        record_activity(
-            appointment.visitor_id,
-            'APPOINTMENT_STATUS_CHANGED',
-            actor_type=VisitorActivity.ACTOR_OWNER,
-            actor_user=appointment.business.user_id,
-            business=appointment.business_id,
-            appointment=appointment,
-            old=old_status,
-            new=new_status,
-        )
+        failure_response = self._status_failure_response(result, appointment, new_status, request_id)
+        if failure_response is not None:
+            return failure_response
 
-        # Tell the client the verdict — until now they were only told their
-        # booking was received, never whether it was accepted or rejected.
-        _notify_client_of_decision(appointment, old_status, new_status)
-
-        serializer = AppointmentQuerySerializer(appointment)
         elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
-
         logger.info(
             f"[{request_id}] Appointment status updated",
             extra={
                 'appointment_id': appointment.id,
-                'old_status': old_status,
+                'old_status': result.old_status,
                 'new_status': new_status,
                 'elapsed_ms': elapsed_ms
             }
         )
 
-        return APIResponse.success(data=serializer.data, message='وضعیت نوبت با موفقیت بروزرسانی شد')
+        return APIResponse.success(
+            data=await sync_to_async(_serialized)(appointment),
+            message='وضعیت نوبت با موفقیت بروزرسانی شد',
+        )
 
-    @sync_to_async
-    @transaction.atomic
-    def _update_details_with_conflict_check(
+    async def _update_details_with_conflict_check(
             self, appointment: Appointment, data: Dict[str, Any], request_id: str, start_time: datetime
     ) -> Response:
-        """Update appointment details with conflict detection"""
-        # Extract update fields
-        new_status = data.get('status')
+        """Update appointment details (the owner may overlap appointments)"""
         new_date_str = data.get('appointment_date')
-        new_duration = data.get('service_duration')
-        new_description = data.get('description')
-        new_selected_services = data.get('selected_services')
 
         # Parse new date from Unix epoch milliseconds if provided
         new_date = None
         if new_date_str:
             try:
-                new_date = self._parse_timestamp(new_date_str, request_id)
+                new_date = _parse_timestamp(new_date_str)
             except ValueError as e:
                 logger.warning(
                     f"[{request_id}] Invalid timestamp: {new_date_str}",
@@ -601,63 +420,16 @@ class AppointmentView(APIView):
                 )
                 return APIResponse.error('فرمت تاریخ نامعتبر است', code=status.HTTP_400_BAD_REQUEST)
 
-        # Determine final values for conflict check
-        check_date = new_date if new_date else appointment.appointment_date
-        check_duration = new_duration if new_duration else appointment.service_duration
-
-        # Check conflicts if date or duration changed
-        # if new_date or new_duration:
-        #     has_conflict, conflict_details = self._check_appointment_conflicts_sync(
-        #         business=appointment.business,
-        #         appointment_date=check_date,
-        #         service_duration=check_duration,
-        #         exclude_appointment_id=appointment.id,
-        #         request_id=request_id
-        #     )
-        #
-        #     if has_conflict:
-        #         logger.info(
-        #             f"[{request_id}] Update blocked due to conflict",
-        #             extra={'conflict_details': conflict_details}
-        #         )
-        #         return Response(
-        #             {
-        #                 'error': 'زمان جدید با نوبت دیگری تداخل دارد',
-        #                 'conflicts': conflict_details
-        #             },
-        #             status=status.HTTP_409_CONFLICT
-        #         )
-
-        # Remember the original date so we can invalidate its cached slots too
-        # if the appointment is being rescheduled to a different day.
-        old_date = appointment.appointment_date
-
-        # Apply updates
-        # Only overwrite status when the client actually sends it. Otherwise
-        # a details-only PATCH (date/duration/description) would set status to
-        # None and fail full_clean() with "این فیلد نمی‌تواند پوچ باشد".
-        updated_fields = ['updated_at']
-        if new_status is not None:
-            appointment.status = new_status
-            updated_fields.append('status')
-        if new_date:
-            appointment.appointment_date = new_date
-            updated_fields.append('appointment_date')
-        if new_duration:
-            appointment.service_duration = new_duration
-            updated_fields.append('service_duration')
-        if new_description is not None:
-            appointment.description = new_description
-            updated_fields.append('description')
-        if new_selected_services is not None:
-            appointment.selected_services = new_selected_services
-            updated_fields.append('selected_services')
-
-        # Validate and save
-        try:
-            appointment.full_clean()
-            appointment.save(update_fields=updated_fields)
-        except ValidationError as e:
+        result = await sync_to_async(appointment_update_details_for_owner)(
+            appointment=appointment,
+            status=data.get('status'),
+            appointment_date=new_date,
+            service_duration=data.get('service_duration'),
+            description=data.get('description'),
+            selected_services=data.get('selected_services'),
+        )
+        if result.validation_error is not None:
+            e = result.validation_error
             logger.error(
                 f"[{request_id}] Validation error updating appointment",
                 extra={'errors': e.message_dict}
@@ -665,187 +437,64 @@ class AppointmentView(APIView):
             error_message = _extract_error(e.message_dict) if hasattr(e, 'message_dict') else str(e)
             return APIResponse.error(error_message, code=status.HTTP_400_BAD_REQUEST)
 
-        invalidate_slots_cache(appointment.business_id, old_date)
-        invalidate_slots_cache(appointment.business_id, appointment.appointment_date)
-
-        serializer = AppointmentQuerySerializer(appointment)
         elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
-
         logger.info(
             f"[{request_id}] Appointment details updated",
-            extra={
-                'appointment_id': appointment.id,
-                'updated_fields': updated_fields,
-                'elapsed_ms': elapsed_ms
-            }
+            extra={'appointment_id': appointment.id, 'elapsed_ms': elapsed_ms}
         )
 
-        return APIResponse.success(data=serializer.data, message='جزئیات نوبت با موفقیت بروزرسانی شد')
-
-    def _check_appointment_conflicts_sync(
-            self,
-            business: Business,
-            appointment_date: datetime,
-            service_duration: int,
-            exclude_appointment_id: Optional[int],
-            request_id: str
-    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
-        """Synchronous version of conflict check for use within @sync_to_async methods"""
-        appointment_end = appointment_date + timedelta(minutes=service_duration)
-
-        conflict_query = Q(
-            business=business,
-            appointment_date__lt=appointment_end,
-            appointment_date__gte=appointment_date - timedelta(minutes=120)
-        ) & ~Q(status__in=['CANCELLED', 'NO_SHOW'])
-
-        if exclude_appointment_id:
-            conflict_query &= ~Q(id=exclude_appointment_id)
-
-        conflicting = Appointment.objects.filter(conflict_query).select_related(
-            'visitor'
-        ).only('id', 'appointment_date', 'service_duration', 'visitor__name')
-
-        conflicts = []
-        for appt in conflicting:
-            appt_end = appt.appointment_date + timedelta(minutes=appt.service_duration)
-            if not (appointment_end <= appt.appointment_date or appointment_date >= appt_end):
-                conflicts.append({
-                    'appointment_id': appt.id,
-                    'visitor_name': appt.visitor.full_name,
-                    'start_time': appt.appointment_date.isoformat(),
-                    'end_time': appt_end.isoformat(),
-                })
-
-        if conflicts:
-            return True, {'conflicting_appointments': conflicts}
-        return False, None
-
-    @sync_to_async
-    @transaction.atomic
-    def _delete_appointment(self, appointment: Appointment, request_id: str) -> None:
-        """Hard delete appointment from database"""
-        appointment_id = appointment.id
-        business_id = appointment.business_id
-        appointment_date = appointment.appointment_date
-        # Refund before the row goes away, while quota_source is still readable.
-        refund_quota(appointment, appointment.business.user_id)
-        appointment.delete()
-        invalidate_slots_cache(business_id, appointment_date)
-        logger.debug(
-            f"[{request_id}] Appointment deleted permanently",
-            extra={'appointment_id': appointment_id}
+        return APIResponse.success(
+            data=await sync_to_async(_serialized)(appointment),
+            message='جزئیات نوبت با موفقیت بروزرسانی شد',
         )
 
+    async def _update_details_and_status(
+            self, appointment: Appointment, data: Dict[str, Any], request_id: str, start_time: datetime
+    ) -> Response:
+        """PATCH with ``status`` AND detail fields: details + state-machine status, atomically."""
+        new_date = None
+        if data.get('appointment_date'):
+            try:
+                new_date = _parse_timestamp(data.get('appointment_date'))
+            except ValueError as e:
+                logger.warning(
+                    f"[{request_id}] Invalid timestamp: {data.get('appointment_date')}",
+                    extra={'error': str(e)}
+                )
+                return APIResponse.error('فرمت تاریخ نامعتبر است', code=status.HTTP_400_BAD_REQUEST)
 
-def _notify_client_of_decision(appointment, old_status, new_status):
-    """
-    SMS the client when the owner accepts or rejects a pending booking.
-
-    Only fires on the pending → decided transitions; ordinary queue movement
-    (WAITING → IN_PROGRESS → COMPLETED) is not worth an SMS credit. Runs on a
-    daemon thread with its own DB connection, like the booking SMS.
-    """
-    import threading
-
-    from api.jalali import format_datetime
-    from api.sms import signed
-
-    if old_status not in ('PENDING_APPROVAL', 'PENDING_VERIFICATION'):
-        return
-    if new_status not in ('WAITING', 'CONFIRMED', 'CANCELLED'):
-        return
-
-    try:
-        business_title = appointment.business.title
-        client_phone = appointment.visitor.phone_number
-    except Exception:  # related row missing — nothing we can notify
-        return
-
-    if not client_phone:
-        return
-
-    time_str = format_datetime(appointment.appointment_date)
-
-    if new_status == 'CANCELLED':
-        message = signed(
-            f"❌ متأسفانه نوبت شما در {business_title} تایید نشد\n"
-            f"تاریخ: {time_str}"
-        )
-        push_body = f"متأسفانه نوبت شما در {business_title} تایید نشد — تاریخ: {time_str}"
-    else:
-        message = signed(
-            f"✅ نوبت شما در {business_title} تایید شد\n"
-            f"تاریخ: {time_str}"
-        )
-        push_body = f"نوبت شما در {business_title} تایید شد — تاریخ: {time_str}"
-
-    threading.Thread(
-        target=_send_client_sms,
-        kwargs=dict(
-            phone=client_phone,
-            message=message,
-            push_body=push_body,
-            business_id=appointment.business_id,
-            visitor_id=appointment.visitor_id,
-            appointment_id=appointment.id,
-        ),
-        daemon=True,
-        name=f"decision-sms-{appointment.id}",
-    ).start()
-
-
-def _send_client_sms(phone, message, business_id, visitor_id, appointment_id=None, push_body=None):
-    """Background target: send one SMS to a client and log it against the business."""
-    from api.sms import send_sms
-    from visitor.models import SmsLog
-    from business.models import Business
-    from accounting import usage
-
-    try:
-        owner_id = Business.objects.values_list('user_id', flat=True).get(id=business_id)
-    except Business.DoesNotExist:
-        owner_id = None
-
-    try:
-        receipt = usage.consume_sms(owner_id) if owner_id is not None else None
-        if owner_id is not None and not receipt:
-            logger.warning(f"SMS→client skipped for business {business_id}: SMS quota exhausted")
-            SmsLog.objects.create(
-                business_id=business_id,
-                visitor_id=visitor_id,
-                message_text=message,
-                status='SKIPPED_QUOTA',
-                error_detail="اعتبار پیامک این ماه تمام شده است",
+        new_status = data['status']
+        try:
+            details, result = await sync_to_async(appointment_update_details_and_status_for_owner)(
+                appointment=appointment,
+                status=new_status,
+                appointment_date=new_date,
+                service_duration=data.get('service_duration'),
+                description=data.get('description'),
+                selected_services=data.get('selected_services'),
             )
-        else:
-            ok, err = send_sms(phone, message)
-            if not ok:
-                # Failed sends are not billable — return the credit to its bucket.
-                usage.refund_sms(receipt)
-            SmsLog.objects.create(
-                business_id=business_id,
-                visitor_id=visitor_id,
-                message_text=message,
-                status='SENT' if ok else 'FAILED',
-                error_detail=err if not ok else ""
-            )
-            logger.info(f"SMS→client {phone}: {'✓' if ok else '✗'}")
-    except Exception as e:
-        logger.error(f"SMS→client error: {e}")
+        except Appointment.DoesNotExist:
+            return APIResponse.error('نوبت یافت نشد', code=status.HTTP_404_NOT_FOUND)
 
-    # Push — free, plan-gated, independent of the SMS quota above (still
-    # fires even when the SMS itself was skipped for exhausted quota).
-    try:
-        if visitor_id and push_body:
-            from api.services import push
-
-            push.send_visitor_appointment_push(
-                business_id=business_id,
-                visitor_id=visitor_id,
-                appointment_id=appointment_id,
-                title="نوبت‌یار",
-                body=push_body,
+        if details.validation_error is not None:
+            e = details.validation_error
+            logger.error(
+                f"[{request_id}] Validation error updating appointment",
+                extra={'errors': e.message_dict}
             )
-    except Exception as e:
-        logger.error(f"Push→client error: {e}")
+            error_message = _extract_error(e.message_dict) if hasattr(e, 'message_dict') else str(e)
+            return APIResponse.error(error_message, code=status.HTTP_400_BAD_REQUEST)
+
+        failure_response = self._status_failure_response(result, appointment, new_status, request_id)
+        if failure_response is not None:
+            return failure_response
+
+        elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
+        logger.info(
+            f"[{request_id}] Appointment details and status updated",
+            extra={'appointment_id': appointment.id, 'elapsed_ms': elapsed_ms}
+        )
+        return APIResponse.success(
+            data=await sync_to_async(_serialized)(appointment),
+            message='جزئیات نوبت با موفقیت بروزرسانی شد',
+        )

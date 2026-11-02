@@ -19,3 +19,16 @@ export const SITE_URL = (
 export function absoluteBusinessUrl(code: string): string {
   return `${SITE_URL}/b/Noobatyar-${code}`;
 }
+
+/** Marketing site (not the app origin above). */
+export const MARKETING_URL = 'https://noobatyar.ir';
+
+/** Support/social channels shown in SupportLinks. */
+export const SOCIAL_LINKS = {
+  bale: 'https://ble.ir/noobatyar',
+  eitaa: 'https://eitaa.com/noobatyar',
+  rubika: 'https://rubika.ir/noobatyar',
+  telegram: 'https://t.me/noobatyar',
+  instagram: 'https://instagram.com/javiddev',
+  website: MARKETING_URL,
+} as const;

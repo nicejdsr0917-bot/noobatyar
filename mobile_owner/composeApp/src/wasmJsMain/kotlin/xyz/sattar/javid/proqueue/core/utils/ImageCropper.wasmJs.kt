@@ -56,3 +56,36 @@ actual fun cropImageToSquare(
         null
     }
 }
+
+actual fun cropImageToRect(
+    source: ByteArray,
+    leftFraction: Float,
+    topFraction: Float,
+    widthFraction: Float,
+    heightFraction: Float,
+    outputWidth: Int,
+    outputHeight: Int
+): ByteArray? {
+    val decoded = try {
+        Image.makeFromEncoded(source)
+    } catch (e: Throwable) {
+        return null
+    }
+
+    return try {
+        val left = (leftFraction * decoded.width).roundToInt().coerceIn(0, max(0, decoded.width - 1))
+        val top = (topFraction * decoded.height).roundToInt().coerceIn(0, max(0, decoded.height - 1))
+        val width = (widthFraction * decoded.width).roundToInt().coerceIn(1, decoded.width - left)
+        val height = (heightFraction * decoded.height).roundToInt().coerceIn(1, decoded.height - top)
+
+        val surface = Surface.makeRasterN32Premul(outputWidth, outputHeight)
+        surface.canvas.drawImageRect(
+            image = decoded,
+            src = Rect.makeXYWH(left.toFloat(), top.toFloat(), width.toFloat(), height.toFloat()),
+            dst = Rect.makeXYWH(0f, 0f, outputWidth.toFloat(), outputHeight.toFloat())
+        )
+        surface.makeImageSnapshot().encodeToData(EncodedImageFormat.JPEG, 90)?.bytes
+    } catch (e: Throwable) {
+        null
+    }
+}

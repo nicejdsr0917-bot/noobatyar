@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import Plan, Subscription, AddOnPack
+
+from . import toman_wallet, usage
+from .models import Plan, Subscription, AddOnPack, CreditLedger
 
 
 class PlanSerializer(serializers.ModelSerializer):
@@ -55,8 +57,40 @@ class AddOnPackSerializer(serializers.ModelSerializer):
 class BuyPlanSerializer(serializers.Serializer):
     """درخواست خرید پلن"""
     plan_id = serializers.IntegerField()
+    use_wallet = serializers.BooleanField(required=False, default=False)
+    # Pay entirely from the wallet or not at all (store builds: no gateway).
+    wallet_only = serializers.BooleanField(required=False, default=False)
 
 
 class BuyAddOnSerializer(serializers.Serializer):
     """درخواست خرید بسته‌ی افزودنی"""
     pack_id = serializers.IntegerField()
+    use_wallet = serializers.BooleanField(required=False, default=False)
+    # Pay entirely from the wallet or not at all (store builds: no gateway).
+    wallet_only = serializers.BooleanField(required=False, default=False)
+
+
+class WalletLedgerEntrySerializer(serializers.ModelSerializer):
+    """One row of the owner's add-on credit history (wallet metrics only).
+
+    ``reason`` stays the machine code so clients can localise it; ``reason_label``
+    is the Persian fallback for codes a client does not know yet.
+    """
+    reason_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CreditLedger
+        fields = ['id', 'metric', 'delta', 'balance_after', 'reason', 'reason_label', 'created_at']
+
+    def get_reason_label(self, obj):
+        if obj.metric == CreditLedger.METRIC_TOMAN_WALLET or obj.reason in toman_wallet.REASON_LABELS:
+            label = toman_wallet.REASON_LABELS.get(obj.reason)
+            if label:
+                return label
+        return usage.wallet_reason_label(obj.reason, obj.delta)
+
+
+class WalletConvertSerializer(serializers.Serializer):
+    """تبدیل موجودی کیف‌پول تومانی به پیامک یا نوبت"""
+    kind = serializers.ChoiceField(choices=['sms', 'appointment'])
+    count = serializers.IntegerField(min_value=1, max_value=100000)

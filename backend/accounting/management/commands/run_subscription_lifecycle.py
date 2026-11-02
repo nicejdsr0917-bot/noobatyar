@@ -37,7 +37,16 @@ class Command(BaseCommand):
         now = timezone.now()
         self._send_renewal_reminders(now)
         self._expire_and_downgrade(now)
+        self._release_wallet_holds(now)
         self.stdout.write(self.style.SUCCESS("چرخه‌ی عمر اشتراک‌ها اجرا شد"))
+
+    # ── Toman wallet holds on abandoned payments ─────────────────────────────
+    def _release_wallet_holds(self, now):
+        from accounting import toman_wallet
+
+        released = toman_wallet.release_stale_holds(now)
+        if released:
+            self.stdout.write(f"کیف‌پول: {released:,} تومان از پرداخت‌های نیمه‌کاره برگردانده شد")
 
     # ── 1. Renewal reminders ─────────────────────────────────────────────────
     def _send_renewal_reminders(self, now):

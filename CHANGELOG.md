@@ -10,6 +10,93 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## Unreleased
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- اعتبار بسته‌های افزودنی حالا با واحدش نمایش داده می‌شود (مثلاً «+۴۹ نوبت اعتبار اضافه»)، و روی پلن نوبت نامحدود دیگر اعتبار نوبتی که خرج نمی‌شود نشان داده نمی‌شود.
+- صفحه‌ی تازه‌ی «کیف‌پول و اعتبار»: موجودی تومانی، اعتبار نوبت و پیامک و تاریخچه‌ی همه‌ی آن‌ها. از کارت «مصرف این ماه» در خانه یا از تنظیمات باز می‌شود.
+- کیف‌پول تومانی: مبلغی که نوبت‌یار به شما برمی‌گرداند (مثل تخفیف نوبت‌ها). نقد نمی‌شود؛ هنگام خرید اشتراک یا بسته می‌توانید تمام یا بخشی از مبلغ را از کیف‌پول بپردازید، یا موجودی را به پیامک و نوبت تبدیل کنید.
+<!-- fa:end -->
+
+### mobile_owner
+- Home usage card: wallet note reads «+N نوبت/پیامک اعتبار اضافه» (local digits) instead of the unit-less «کیف‌پول: N»; the appointment note is hidden on an unlimited booking quota (it can never be spent there). Tapping the note opens the wallet screen. The SMS report badge uses the same wording.
+- New `feature/wallet` (MVI): both balances, a one-line explainer (spent only after the monthly allowance; shared across all businesses), a hint when appointment credit is idle on an unlimited plan, and the paginated history. Also reachable from Settings under the profile/plan card.
+- `commonTest` source set (kotlin-test, coroutines-test, ktor-client-mock, turbine — same setup as the `mobile-client` branch) with `WalletViewModelTest` and `WalletLabelsTest`.
+- Toman wallet: balance card + convert-to-SMS/bookings dialog on the wallet screen, «کیف‌پول: N تومان» on the home usage card, toman rows in the history. Checkout dialog gets a «پرداخت از کیف‌پول» switch that re-quotes (wallet line, tax and fee on the rest; a fully covered price skips the gateway). Store builds only ever pay fully from the wallet (`wallet_only`). `CreditsChanged` refreshes the home card after a purchase or conversion.
+
+### backend
+- `GET accounting/wallet/history/` (authenticated, `?page`, `?page_size`, optional `?metric=appointment_wallet|sms_wallet`): the user's own `CreditLedger` rows for the two wallet metrics with `delta`, `balance_after`, `reason` + Persian `reason_label`, plus current `balances` and quotas. `usage.REASON_ADDON_PURCHASE` / `wallet_reason_label`. Tests in `accounting/tests_wallet_history.py`.
+- Toman wallet (`accounting/toman_wallet.py`, metric `toman_wallet` on `CreditBalance`/`CreditLedger`): `credit()`/`spend()` for other apps (booking discounts), `manage.py toman_wallet_credit`. `plans/payment/` and `addons/buy/` take `use_wallet` / `wallet_only`; the wallet part is held on the Transaction/AddOnPurchase (`wallet_amount`, migration `0016`) and given back when the gateway refuses, verification says not paid, or the payment is abandoned for an hour (`run_subscription_lifecycle`). `checkout/quote/` returns `wallet_balance`/`wallet_available`/`wallet`. `wallet/convert/` at the prices in `TomanWalletSettings` (admin). Revenue reports keep counting only cash (`amount`). Order ids get a random tail.
+
+## v1.10.0 — 2026-11-02 (اپ اونر)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- نمونه‌کار و مدارک: عکس کارها (۱۰۸۰×۱۰۸۰) و مدارک (۱۰۸۰×۱۳۵۰) را آپلود کنید؛ بعد از تأیید در صفحه‌ی عمومی‌تان نمایش داده می‌شوند.
+- نظرات مشتری‌ها: صفحه‌ی نظرات و اعلان برای هر نظر جدید.
+- روی هر نوبت می‌بینید از کجا آمده: اپ نوبت‌یار، سایت یا ثبت توسط خودتان.
+- کارت «مشتری‌هایی که نوبت‌یار آورد» در صفحه‌ی اصلی: تعداد نوبت‌های این ماه از اپ و سایت.
+- بنرهای صفحه‌ی اصلی بر اساس دسته‌ی کسب‌وکار.
+- لوگو هنگام ساخت کسب‌وکار اجباری شد.
+- شبکه‌های اجتماعی: اینستاگرام، تلگرام، واتساپ، ایتا، بله، روبیکا و سایت‌تان را در فرم کسب‌وکار وارد کنید تا مشتری‌ها در صفحه‌تان ببینند.
+- هشدار بیعانه: بیعانه‌ی اجباری بدون کارت به کارت یا پرداخت آنلاین ذخیره نمی‌شود؛ دیگر مشتری در صفحه‌ی پرداخت گیر نمی‌کند.
+- در انتخاب شهر، لیست شهرهای هر استان از بالا شروع می‌شود.
+- رفع خطای صفحه‌ی اصلی پنل وب و چند مشکل همگام‌سازی نوبت‌ها.
+<!-- fa:end -->
+
+### mobile_owner
+- Showcase: portfolio and certificate upload with crop + compression, pending/approved state; reviews page (read-only) and `NEW_REVIEW` push (Android opens the reviews page).
+- Appointment source badge (`AppointmentSource`); home `SourceSummaryCard` from `appointment/stats/` `source_counts` over the current month (`GetSourceSummaryUseCase`).
+- Rotating home banners per business category; logo required on the first create-business step.
+- Social links (`Business.socialLinks`, `SocialLinksField`; Room v21); mandatory-deposit warning in the capacity tab; city picker keeps a scroll state per list.
+- Fixes: wasm home crash on Asia/Tehran, visitor messages keyed by (visitor, business), logout/sync cache leaks, server day window mirrored.
+
+### backend (ships with this release)
+- P2 apps: `showcase`, `reviews`, `banners`, `marketing`; `Appointment.source`; `Business.rank_score` + nightly `compute_rank_scores`; `first_free_slot`; site services under `api/public/site/`.
+- `Business.social_links` (`business/0036`); mandatory deposit with no card/online method is refused on change and no longer holds the slot.
+- `AppVersion.app` (OWNER/CLIENT): set `force_update` on the OWNER row for this version in admin when releasing.
+
+## client-v1.0.0 — منتشر نشده (اپ مشتری)
+
+<!-- fa:start -->
+اولین نسخه‌ی اپ مشتری نوبت‌یار:
+- پیدا کردن نزدیک‌ترین پزشک، دندان‌پزشک، سالن زیبایی و مشاور روی نقشه، با فیلتر بیمه و دسته‌بندی.
+- رزرو نوبت داخل خود اپ: انتخاب خدمت، روز و ساعت، و پرداخت بیعانه.
+- تب «نوبت‌های من»: پیگیری، لغو و ثبت واریز کارت به کارت یا پرداخت حضوری.
+- «اولین نوبت خالی» روی کارت هر مرکز.
+- صفحه‌ی هر مرکز: نمونه‌کار، مدارک، نظرات، ساعات کاری، بیعانه و روش‌های پرداخت.
+- ثبت نظر و امتیاز، و گزارش نظر یا مرکز نامناسب.
+<!-- fa:end -->
+
+### mobile_client (P2)
+- Native booking (`source=APP`), my-appointments tab with card/cash payment submission, first free slot on list cards.
+- Business page: portfolio/certificates gallery with display-time watermark, reviews (write/report), deposit and payment-method section (`PaymentInfo`); booking confirm step now shows a MANDATORY deposit (was checking a non-existent `REQUIRED` value).
+- Separate release train: `client-vX.Y.Z` tags (`android-release-client.yml`); `force_update` on the CLIENT `AppVersion` row.
+
+### mobile_client (discovery, earlier)
+
+### backend
+- Claim flow for imported listings: `GET business/claimable/`, `POST business/<id>/claim/` (OTP to the listing's mobile, else manual review), `POST business/<id>/claim/verify/`; `BusinessClaimRequest` model + admin approve/reject actions (`business/claims.py`).
+- `request-booking` is now one vote per device (`OnlineBookingRequest`, keyed on a hash of `X-Device-Id`/IP); response carries `already_requested`.
+- Geo search radius capped at 100 km.
+- `import_directory`: no placeholder phone for rows without one, invalid phones dropped, dedup falls back to (title, city, address) when there is no phone, out-of-range coordinates and bad ints ignored, JSON arrays streamed instead of `json.load`.
+
+### mobile_client
+- Owner-only screens removed; new tabs: Explore / Saved / More.
+- Real one-shot GPS (`core/location`): Android `LocationManager` (works without Play Services), iOS CoreLocation; city picker and radius as fallback.
+- Redesigned explore and business detail screens; pagination; report-listing dialog; share and map hand-off.
+- Release builds are HTTPS-only; cleartext only in the `local` flavor. Alarm/notification permissions dropped.
+- Network failures no longer crash the app: discovery calls go through `safeApiCall` and show an error state.
+- UI rebuilt on a neutral design system (per docs/BRAND_GUIDE_FOR_AI.md: violet is the only accent): white/neutral surfaces, 8pt spacing, two radii, outlined monochrome icons (custom tooth glyph for dental), divider-separated result rows with monogram avatars, compact sticky search header, standard flat bottom navigation, segmented theme control. Gradients, emoji, per-category colours and the floating tab bar removed.
+- Features: first-launch welcome screen (asks for location in context), recent + popular searches, open-now status (Tehran time), weekly hours table, sticky book/call bar on detail, consumer-facing About page with all channels on `noobatyar` + Telegram.
+
+### mobile_owner
+- «مرکزم از قبل ثبت شده؟» on the business list opens the claim flow.
+
+### front_client
+- `/privacy` page (needed for the store listing's location permission).
+
 ## v1.9.8 — 2026-10-17
 
 <!-- fa:start -->

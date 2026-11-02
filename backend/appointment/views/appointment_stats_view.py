@@ -1,6 +1,5 @@
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Count, Q
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,8 +8,10 @@ from asgiref.sync import sync_to_async
 import logging
 from adrf.views import APIView
 
-from appointment.models import Appointment
-from api.responses import APIResponse
+from appointment import selectors_stats
+from common.params import parse_business_id
+from common.responses import APIResponse
+from common.timeutils import local_midnight, utc_date_tehran_midnight
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class AppointmentStatsView(APIView):
 
         # Validate business_id format
         try:
-            business_uuid = int(business_id)
+            business_uuid = parse_business_id(business_id)
         except ValueError:
             raise ValueError('Invalid business_id format')
 
@@ -72,52 +73,24 @@ class AppointmentStatsView(APIView):
             # each optional on their own.
             if date_from:
                 try:
-                    timestamp_ms = int(date_from)
-                    date_from_obj = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-                    date_from_start = timezone.make_aware(datetime.combine(date_from_obj.date(), datetime.min.time()))
-                    date_filter['appointment_date__gte'] = date_from_start
+                    date_filter['appointment_date__gte'] = utc_date_tehran_midnight(date_from)
                 except (ValueError, OSError):
                     raise ValueError('تاریخ شروع (date_from) باید یک Unix timestamp معتبر به میلی‌ثانیه باشد')
 
             if date_to:
                 try:
-                    timestamp_ms = int(date_to)
-                    date_to_obj = datetime.fromtimestamp(timestamp_ms / 1000, tz=dt_timezone.utc)
-                    date_to_end = timezone.make_aware(datetime.combine(date_to_obj.date(), datetime.min.time())) + timedelta(days=1)
-                    date_filter['appointment_date__lt'] = date_to_end
+                    date_filter['appointment_date__lt'] = utc_date_tehran_midnight(date_to) + timedelta(days=1)
                 except (ValueError, OSError):
                     raise ValueError('تاریخ پایان (date_to) باید یک Unix timestamp معتبر به میلی‌ثانیه باشد')
         else:
             # No range given — today's window, exactly as this endpoint has
             # always behaved.
-            now = timezone.now()
-            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            today_end = today_start + timedelta(days=1)
+            # "Today" is the local (Asia/Tehran) calendar day, not the UTC
+            # one — between 00:00 and 03:30 local they are different days.
+            local_today = timezone.localtime(timezone.now()).date()
+            today_start = local_midnight(local_today)
+            today_end = local_midnight(local_today + timedelta(days=1))
             date_filter['appointment_date__gte'] = today_start
             date_filter['appointment_date__lt'] = today_end
 
-        # Single query with aggregation
-        stats = Appointment.objects.filter(
-            business_id=business_uuid,
-            # Scoped to the caller's own businesses, same as
-            # daily_counts_view.py. This was commented out as
-            # `business__owner=user` — a field that doesn't exist (Business
-            # names it `user`), so it could only ever have raised FieldError,
-            # which is presumably why it was disabled rather than fixed.
-            # Without it any authenticated caller could read another owner's
-            # numbers by guessing a business_id.
-            business__user=user,
-            **date_filter
-        ).aggregate(
-            total=Count('id'),
-            completed=Count('id', filter=Q(status='COMPLETED')),
-            no_show=Count('id', filter=Q(status='NO_SHOW')),
-            unique_visitors=Count('visitor_id', distinct=True)
-        )
-
-        return {
-            'total_appointments': stats['total'] or 0,
-            'completed_appointments': stats['completed'] or 0,
-            'no_show_appointments': stats['no_show'] or 0,
-            'total_visitors': stats['unique_visitors'] or 0
-        }
+        return selectors_stats.business_stats(user, business_uuid, date_filter)

@@ -5,15 +5,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 
-object BusinessStateHolder {
+object BusinessStateHolder : SelectedBusinessStore {
     private val _selectedBusiness = MutableStateFlow<Business?>(null)
-    val selectedBusiness: StateFlow<Business?> = _selectedBusiness.asStateFlow()
+    override val selectedBusiness: StateFlow<Business?> = _selectedBusiness.asStateFlow()
 
-    fun selectBusiness(business: Business) {
+    override fun selectBusiness(business: Business) {
         _selectedBusiness.value = business
     }
 
-    fun clearBusiness() {
+    override fun clearBusiness() {
         _selectedBusiness.value = null
     }
 }

@@ -3,7 +3,6 @@ package xyz.sattar.javid.proqueue.core.ui
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +17,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 abstract class BaseViewModel<STATE, PARTIAL_STATE, EVENT, INTENT>(
-    initialState: STATE
+    initialState: STATE,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider
 ) : ViewModel() {
 
     private val intentChannel = Channel<INTENT>(Channel.UNLIMITED)
@@ -66,7 +66,7 @@ abstract class BaseViewModel<STATE, PARTIAL_STATE, EVENT, INTENT>(
         // in the classic thread-pool-starvation sense — it's Ktor calls and
         // Room's own suspend functions, both already non-blocking/async under
         // the hood, so this is a behavior-neutral change on Android/iOS too.
-        viewModelScope.launch(Dispatchers.Default) {
+        viewModelScope.launch(dispatchers.default) {
             task.invoke()
         }
         return emptyFlow<PARTIAL_STATE>()

@@ -1,3 +1,4 @@
+import { clearVisitorToken } from '@/lib/auth';
 
 import { getLocale, t } from '@/lib/i18n';
 // API client for Noobatyar backend
@@ -9,6 +10,8 @@ export function mediaUrl(path: string | null | undefined): string | null {
   if (!path) return null;
   return path.startsWith('http') ? path : `${BASE_URL}${path}`;
 }
+
+export type SocialKind = 'instagram' | 'telegram' | 'whatsapp' | 'eitaa' | 'bale' | 'rubika' | 'website';
 
 export interface Business {
   id: number;
@@ -26,6 +29,10 @@ export interface Business {
   /** Additional contact numbers beyond `phone`. Absent/empty on an older
    *  server, meaning "no extra numbers". */
   extra_phones?: string[];
+  /** {kind: handle} — instagram/telegram/eitaa/bale/rubika handles, a
+   *  09… number for whatsapp, an https URL for website. Withheld (sent as
+   *  {}) whenever the phone is. Absent on an older server. */
+  social_links?: Partial<Record<SocialKind, string>>;
   address: string | null;
   /** The owner's map pin. Null when none is set, and — like `address` —
    *  masked to null for a guest when allow_anonymous_view is off. Absent on
@@ -42,6 +49,8 @@ export interface Business {
    *  client tell a withheld pin (null coordinates, is_expired) from one that
    *  was never set. Absent on an older server. */
   has_location?: boolean;
+  /** Rating summary; absent on an older server. */
+  rating?: { avg: number; count: number; histogram: Record<string, number> };
   logo: string | null;
   default_service_duration: number;
   work_start_hour: number;
@@ -72,8 +81,6 @@ export interface Business {
   accepted_payment_methods?: string[];
   max_appointments_per_hour?: number | null;
   payment_method?: string;
-  card_number?: string;
-  card_owner_name?: string;
   payment_link?: string;
   /** True when the business has a Zibal merchant, so checkout can redirect to a
    *  real gateway instead of the manual link + tracking-number flow. */
@@ -114,6 +121,16 @@ export interface Appointment {
    *  or neither enabled (see backend/appointment/client_serializers.py). */
   reminder_sms_sent: boolean;
   reminder_push_sent: boolean;
+  /** Card-to-card deposit destination. Only present (non-null) on the signed-in
+   *  visitor's own LOCKED appointment — never on the public business payload. */
+  card_number?: string | null;
+  card_owner_name?: string | null;
+  /** The visitor's own booking slip: what they asked for and the proof they sent. */
+  description?: string | null;
+  selected_services?: string[];
+  payment_reference?: string | null;
+  payment_receipt?: string | null;
+  deposit_payment_method?: 'NONE' | 'CARD' | 'GATEWAY' | null;
 }
 
 /** Thrown when the API rejects the stored token (HTTP 401). */
@@ -162,7 +179,7 @@ function hasAuthHeader(headers: HeadersInit | undefined): boolean {
  */
 export function forceReLogin(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('visitor_token');
+  clearVisitorToken();
   // Avoid a redirect loop if we're already on the login screen.
   if (window.location.pathname.startsWith('/auth/login')) return;
   const target = encodeURIComponent(window.location.pathname + window.location.search);
@@ -173,9 +190,12 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   // Destructure headers separately so we can merge them with Content-Type
   // without `...options` overwriting the headers key entirely.
   const { headers: extraHeaders, ...restOptions } = options ?? {};
+  // A FormData body needs the browser to set its own multipart boundary, so
+  // the JSON Content-Type must not be forced onto it.
+  const isForm = typeof FormData !== 'undefined' && restOptions.body instanceof FormData;
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: {
-      'Content-Type': 'application/json',
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
       ...extraHeaders,
     },
     ...restOptions,
@@ -195,7 +215,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     if (hasAuthHeader(extraHeaders)) {
       forceReLogin();
     } else if (typeof window !== 'undefined') {
-      localStorage.removeItem('visitor_token');
+      clearVisitorToken();
     }
     throw new UnauthorizedError(t('yourSessionHasExpiredPlease2'));
   }
@@ -359,6 +379,8 @@ export async function bookAppointment(
     body: JSON.stringify({
       business_id: businessId,
       appointment_date: appointmentDate,
+      // Explicit so the owner's per-channel stats never depend on the server default.
+      source: 'WEB',
       ...(serviceDuration && { service_duration: serviceDuration }),
       ...(description && { description }),
       ...(selectedServices?.length && { selected_services: selectedServices }),
@@ -459,23 +481,33 @@ export async function cancelAppointment(id: number, token: string) {
 }
 
 export async function payAppointmentWithReceipt(id: number, formData: FormData, token: string) {
-  const res = await fetch(`${BASE_URL}/api/client/appointments/${id}/pay/`, {
+  return apiFetch(`/api/client/appointments/${id}/pay/`, {
     method: 'POST',
-    headers: {
-      Authorization: `Visitor ${token}`,
-    },
+    headers: { Authorization: `Visitor ${token}` },
     body: formData,
   });
-  // Same 401-or-403 rule as apiFetch(); this upload always carries a token.
-  if (res.status === 401 || res.status === 403) {
-    forceReLogin();
-    throw new UnauthorizedError(t('yourSessionHasExpiredPlease2'));
-  }
-  const json = await res.json();
-  if (!res.ok || json.status === 'error') {
-    throw new Error(json.message || t('couldntUploadReceipt'));
-  }
-  return json.data;
+}
+
+export type PaymentResultKind = 'subscription' | 'addon';
+
+/**
+ * Outcome of a Zibal gateway return. The backend answers with an HTML page,
+ * not JSON, so this reads the text and looks for its success marker.
+ */
+export async function getPaymentResult(
+  kind: PaymentResultKind,
+  trackId: string,
+  success: string | null,
+): Promise<{ success: boolean; packName: string | null }> {
+  const path = kind === 'addon' ? '/api/accounting/addons/payment-result' : '/api/accounting/payment-result';
+  const res = await fetch(
+    `${BASE_URL}${path}?trackId=${trackId}&success=${success}`,
+    { method: 'GET' },
+  );
+  const text = await res.text();
+  const isSuccess = text.includes(t('successful')) && !text.includes(t('failed'));
+  const packMatch = text.match(/«([^»]+)»/);
+  return { success: isSuccess, packName: packMatch ? packMatch[1] : null };
 }
 
 // Helpers
@@ -578,3 +610,126 @@ export function categoryLabel(category: string): string {
   return map[category] || category;
 }
 
+
+
+// ── Showcase (portfolio / certificates) ─────────────────────────────────────
+export interface PortfolioItem {
+  id: number;
+  image: string;
+  thumbnail: string;
+  caption: string;
+  order: number;
+}
+export interface CertificateItem {
+  id: number;
+  image: string;
+  thumbnail: string;
+  title: string;
+  issuer: string;
+  year: number | null;
+  order: number;
+}
+export interface Showcase {
+  portfolio: PortfolioItem[];
+  certificates: CertificateItem[];
+}
+
+export async function getShowcase(businessId: number): Promise<Showcase> {
+  return apiFetch<Showcase>(`/api/client/businesses/${businessId}/showcase/`);
+}
+
+// ── Reviews ─────────────────────────────────────────────────────────────────
+export interface RatingSummary {
+  avg: number;
+  count: number;
+  histogram: Record<string, number>;
+}
+export interface Review {
+  id: number;
+  rating: number;
+  text: string;
+  created_at: string;
+  visitor_name: string;
+  visitor_phone: string;
+}
+export interface MyReview {
+  id: number;
+  business_id: number;
+  rating: number;
+  text: string;
+  created_at: string;
+  updated_at: string;
+}
+export interface ReviewPage {
+  count: number;
+  total_pages: number;
+  current_page: number;
+  next: number | null;
+  previous: number | null;
+  results: Review[];
+}
+
+export async function getReviewSummary(businessId: number): Promise<RatingSummary> {
+  return apiFetch<RatingSummary>(`/api/client/reviews/business/${businessId}/summary/`);
+}
+
+export async function getReviews(businessId: number, page = 1, pageSize = 10): Promise<ReviewPage> {
+  return apiFetch<ReviewPage>(
+    `/api/client/reviews/business/${businessId}/?page=${page}&page_size=${pageSize}`
+  );
+}
+
+const visitorAuth = (token: string) => ({ Authorization: `Visitor ${token}` });
+
+/** The caller's own review, or null when they have not written one (404). */
+export async function getMyReview(businessId: number, token: string): Promise<MyReview | null> {
+  try {
+    return await apiFetch<MyReview>(`/api/client/reviews/business/${businessId}/mine/`, {
+      headers: visitorAuth(token),
+    });
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+}
+
+export async function saveMyReview(
+  businessId: number,
+  review: { rating: number; text: string },
+  token: string,
+  isEdit: boolean
+): Promise<MyReview> {
+  return apiFetch<MyReview>(`/api/client/reviews/business/${businessId}/mine/`, {
+    method: isEdit ? 'PUT' : 'POST',
+    headers: visitorAuth(token),
+    body: JSON.stringify(review),
+  });
+}
+
+export async function deleteMyReview(businessId: number, token: string): Promise<void> {
+  await apiFetch(`/api/client/reviews/business/${businessId}/mine/`, {
+    method: 'DELETE',
+    headers: visitorAuth(token),
+  });
+}
+
+export type ReportReason =
+  | 'SPAM'
+  | 'INAPPROPRIATE'
+  | 'MISLEADING'
+  | 'IMPERSONATION'
+  | 'ILLEGAL'
+  | 'OTHER';
+
+export async function reportReview(
+  reviewId: number,
+  reason: ReportReason,
+  detail: string,
+  token?: string
+): Promise<void> {
+  await apiFetch(`/api/client/reviews/${reviewId}/report/`, {
+    method: 'POST',
+    headers: token ? visitorAuth(token) : {},
+    body: JSON.stringify({ reason, detail }),
+  });
+}

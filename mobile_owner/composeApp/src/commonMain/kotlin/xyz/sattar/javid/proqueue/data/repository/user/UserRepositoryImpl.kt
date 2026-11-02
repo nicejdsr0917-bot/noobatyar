@@ -1,14 +1,19 @@
 package xyz.sattar.javid.proqueue.data.repository.user
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.map
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.core.network.TokenStore
+import xyz.sattar.javid.proqueue.data.localDataSource.LocalCacheCleaner
 import xyz.sattar.javid.proqueue.data.localDataSource.user.UserLocalSource
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.mapper.toDomain
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.CheckVersionRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.RegisterRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.RegisterResponseDto
-import xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.request.LoginRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SendOTPResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SubscriptionDto
@@ -24,8 +29,10 @@ import xyz.sattar.javid.proqueue.domain.UserRepository
 import xyz.sattar.javid.proqueue.domain.model.VersionInfo
 
 class UserRepositoryImpl(
-    private val userApiService: UserApiService,
-    private val userDao: UserLocalSource
+    private val userApiService: UserApi,
+    private val userDao: UserLocalSource,
+    private val cacheCleaner: LocalCacheCleaner,
+    private val tokens: TokenStore
 ) : UserRepository {
 
     override suspend fun checkVersion(versionCode: Int): ApiResponse<VersionInfo> {
@@ -67,9 +74,28 @@ class UserRepositoryImpl(
     }
 
     override suspend fun logout(): ApiResponse<Unit> {
-        userDao.clearUser()
-        userDao.clearSubscription()
-        return userApiService.logout()
+        // Server first (it needs the refresh token), then drop the tokens, then
+        // wipe: wiping first let in-flight syncs re-insert the old account's
+        // rows, and a failing wipe step used to skip the revocation entirely.
+        // Wiped in `finally` (non-cancellable) so it happens whatever the
+        // network did.
+        try {
+            return try {
+                userApiService.logout()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ApiResponse.Error(e.message ?: "logout failed", 0)
+            }
+        } finally {
+            withContext(NonCancellable) {
+                try {
+                    tokens.clearTokens()
+                } finally {
+                    cacheCleaner.clearAll()
+                }
+            }
+        }
     }
 
     override suspend fun getUserProfile(id: Int): ApiResponse<UserDto> {
@@ -84,8 +110,8 @@ class UserRepositoryImpl(
         return userApiService.getPlans()
     }
 
-    override suspend fun createPayment(planId: String): ApiResponse<PaymentResponseDto> {
-        return userApiService.createPayment(PaymentRequestDto(planId))
+    override suspend fun createPayment(planId: String, useWallet: Boolean, walletOnly: Boolean): ApiResponse<PaymentResponseDto> {
+        return userApiService.createPayment(PaymentRequestDto(planId, useWallet, walletOnly))
     }
 
     override suspend fun getMyEntitlements(): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto> {
@@ -96,12 +122,19 @@ class UserRepositoryImpl(
         return userApiService.getAddons()
     }
 
-    override suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> {
-        return userApiService.buyAddon(packId)
+    override suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletHistoryDto> {
+        return userApiService.getWalletHistory(page, pageSize)
     }
 
-    override suspend fun checkoutQuote(kind: String, id: Int, channel: String) =
-        userApiService.checkoutQuote(kind, id, channel)
+    override suspend fun convertWallet(kind: String, count: Int) =
+        userApiService.convertWallet(xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertRequestDto(kind, count))
+
+    override suspend fun buyAddon(packId: Int, useWallet: Boolean, walletOnly: Boolean): ApiResponse<PaymentResponseDto> {
+        return userApiService.buyAddon(packId, useWallet, walletOnly)
+    }
+
+    override suspend fun checkoutQuote(kind: String, id: Int, channel: String, useWallet: Boolean) =
+        userApiService.checkoutQuote(kind, id, channel, useWallet)
 
     override suspend fun storeIntent(store: String, kind: String, id: Int) =
         userApiService.storeIntent(store, xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto(kind, id))

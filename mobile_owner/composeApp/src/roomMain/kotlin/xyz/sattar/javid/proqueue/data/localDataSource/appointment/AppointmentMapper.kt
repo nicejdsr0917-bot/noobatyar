@@ -20,6 +20,7 @@ fun AppointmentEntity.toDomain() = Appointment(
     trackingCode = trackingCode,
     paymentReference = paymentReference,
     depositPaymentMethod = depositPaymentMethod,
+    source = source,
 )
 
 fun Appointment.toEntity() = AppointmentEntity(
@@ -37,6 +38,7 @@ fun Appointment.toEntity() = AppointmentEntity(
     trackingCode = trackingCode,
     paymentReference = paymentReference,
     depositPaymentMethod = depositPaymentMethod,
+    source = source,
 )
 
 fun AppointmentWithDetailsEntity.toDomain() = AppointmentWithDetails(

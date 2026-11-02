@@ -54,6 +54,7 @@
                 <data android:scheme="noobatyar" android:host="subscription" />
                 <data android:scheme="noobatyar" android:host="plans" />
                 <data android:scheme="noobatyar" android:host="settings" />
+                <data android:scheme="noobatyar" android:host="reviews" />
             </intent-filter>
         </activity>
         

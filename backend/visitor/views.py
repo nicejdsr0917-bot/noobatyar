@@ -6,25 +6,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 import logging
 
 from .models import Visitor, SmsLog, VisitorArchive, VisitorActivity, VisitorContact
 from .serializers import VisitorSerializer, VisitorAttachSerializer, SmsLogSerializer
+from business.models import Business
+from . import services
 from .activity import record_activity
-from api.responses import APIResponse  # اضافه کردن import
+from common.pagination import page_dict
+from common.params import page_params, positive_int
+from common.responses import APIResponse
 
 logger = logging.getLogger(__name__)
 
 
-def _positive_int(raw, default):
-    """Parse a pagination param, falling back on anything that isn't a positive int."""
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        return default
-    return value if value > 0 else default
+_positive_int = positive_int  # kept: old name (see common.params)
 
 
 async def get_readable_visitor(visitor_id, user):
@@ -83,9 +80,10 @@ class VisitorView(APIView):
                         message="مشتری یافت نشد",
                         code=404
                     )
-                serializer = VisitorSerializer(visitor)
+                data = await sync_to_async(services.serialize_for_owner)(
+                    request.user, visitor, many=False)
                 return APIResponse.success(
-                    data=serializer.data,
+                    data=data,
                     message="اطلاعات مشتری با موفقیت دریافت شد"
                 )
 
@@ -93,9 +91,9 @@ class VisitorView(APIView):
             user = request.user
 
             # Get pagination parameters
-            page = int(request.query_params.get('page', 1))
-            page_size = int(request.query_params.get('page_size', 10))
-            page_size = min(page_size, 100)  # حداکثر 100 آیتم در هر صفحه
+            page, page_size, error = page_params(request)  # page_size capped at 100
+            if error:
+                return error
 
             # Same readability rule as get_readable_visitor(): include visitors
             # who booked online under their own account but have an appointment
@@ -103,26 +101,25 @@ class VisitorView(APIView):
             # created directly. Visitors this owner archived are hidden from
             # their list only — the row itself is untouched and still visible to
             # every other business the person books at.
-            visitors = [
-                b async for b in Visitor.readable_by(user)
-                .exclude(archives__owner=user).order_by('-created_at')
-            ]
+            visitors = (
+                Visitor.readable_by(user)
+                .filter(~Exists(VisitorArchive.objects.filter(
+                    visitor=OuterRef('pk'), owner=user)))
+                .order_by('-created_at', '-id')
+            )
 
-            # Paginate
-            paginator = Paginator(visitors, page_size)
-            page_obj = paginator.get_page(page)
+            # Paginate in the database (COUNT + LIMIT/OFFSET); only the page's
+            # rows are ever loaded.
+            def _paginate():
+                return page_dict(
+                    visitors, page, page_size,
+                    lambda objs: services.serialize_for_owner(user, objs),
+                )
 
-            serializer = VisitorSerializer(page_obj.object_list, many=True)
+            data = await sync_to_async(_paginate)()
 
             return APIResponse.success(
-                data={
-                    'count': paginator.count,
-                    'total_pages': paginator.num_pages,
-                    'current_page': page_obj.number,
-                    'next': page_obj.next_page_number() if page_obj.has_next() else None,
-                    'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
-                    'results': serializer.data
-                },
+                data=data,
                 message="لیست مشتریان با موفقیت دریافت شد"
             )
 
@@ -154,26 +151,13 @@ class VisitorView(APIView):
                 phone = serializer.validated_data['phone_number']
                 full_name = serializer.validated_data['full_name']
 
-                visitor, created = await sync_to_async(Visitor.objects.get_or_create)(
-                    phone_number=phone,
-                    defaults={'full_name': full_name, 'user': request.user},
-                )
-                if not created and visitor.user_id is None:
-                    visitor.user = request.user
-                    await sync_to_async(visitor.save)(update_fields=['user'])
-
-                await sync_to_async(VisitorContact.objects.get_or_create)(
-                    owner=request.user, visitor=visitor,
-                )
-                # Adding someone back is the clearest possible statement that
-                # this owner wants them in their list, so it undoes an earlier
-                # archive rather than leaving them added-but-still-hidden.
-                await sync_to_async(
-                    VisitorArchive.objects.filter(owner=request.user, visitor=visitor).delete
-                )()
+                visitor, created, display_name = await sync_to_async(services.visitor_attach)(
+                    request.user, phone, full_name)
+                data = VisitorSerializer(visitor).data
+                data['full_name'] = display_name
 
                 return APIResponse.success(
-                    data=VisitorSerializer(visitor).data,
+                    data=data,
                     message="مشتری با موفقیت ایجاد شد" if created else "این مشتری از قبل ثبت شده بود و به لیست شما اضافه شد",
                     status=201 if created else 200,
                 )
@@ -203,49 +187,33 @@ class VisitorView(APIView):
         Visitor row is shared platform-wide — see get_owned_visitor().
         """
         try:
-            visitor = await get_owned_visitor(visitor_id, request.user)
-            if not visitor:
+            try:
+                updated_visitor = await sync_to_async(services.visitor_update_by_owner)(
+                    request.user, visitor_id, request.data)
+            except services.VisitorEditForbidden:
                 # Distinguish "not yours to edit" from "does not exist", so the
                 # owner is not left guessing why their own list rejects an edit.
-                if await self._get_visitor_or_404(visitor_id, request.user):
-                    return APIResponse.error(
-                        message="این مراجع توسط شما ثبت نشده و اطلاعاتش بین همه کسب‌وکارها مشترک است؛ ویرایش آن مجاز نیست",
-                        code=403
-                    )
                 return APIResponse.error(
-                    message="مشتری یافت نشد",
-                    code=404
+                    message="این مراجع توسط شما ثبت نشده و اطلاعاتش بین همه کسب‌وکارها مشترک است؛ ویرایش آن مجاز نیست",
+                    code=403
+                )
+            except services.PhoneLocked:
+                return APIResponse.error(
+                    message="این مراجع از برنامهٔ مشتریان یا در کسب‌وکارهای دیگر استفاده می‌کند و شمارهٔ موبایل او قابل تغییر نیست؛ فقط نام قابل ویرایش است",
+                    code=403
+                )
+            except services.VisitorNotFound:
+                return APIResponse.error(message="مشتری یافت نشد", code=404)
+            except services.InvalidVisitorData as e:
+                return APIResponse.error(
+                    message="اطلاعات وارد شده معتبر نیست",
+                    code=400,
+                    data=e.errors
                 )
 
-            before = {'full_name': visitor.full_name, 'phone_number': visitor.phone_number}
-            serializer = VisitorSerializer(visitor, data=request.data, partial=True)
-
-            if await sync_to_async(serializer.is_valid)():
-                updated_visitor = await sync_to_async(serializer.save)()
-
-                changed = {
-                    field: {'from': old, 'to': getattr(updated_visitor, field)}
-                    for field, old in before.items()
-                    if getattr(updated_visitor, field) != old
-                }
-                if changed:
-                    await sync_to_async(record_activity)(
-                        updated_visitor,
-                        'PROFILE_UPDATED',
-                        actor_type=VisitorActivity.ACTOR_OWNER,
-                        actor_user=request.user,
-                        changed=changed,
-                    )
-
-                return APIResponse.success(
-                    data=VisitorSerializer(updated_visitor).data,
-                    message="مشتری با موفقیت بروزرسانی شد"
-                )
-
-            return APIResponse.error(
-                message="اطلاعات وارد شده معتبر نیست",
-                code=400,
-                data=serializer.errors
+            return APIResponse.success(
+                data=VisitorSerializer(updated_visitor).data,
+                message="مشتری با موفقیت بروزرسانی شد"
             )
 
         except ValidationError as e:
@@ -269,27 +237,16 @@ class VisitorView(APIView):
         of their own account permanently — see VisitorArchive's docstring.
         """
         try:
-            visitor = await self._get_visitor_or_404(visitor_id, request.user)
-            if not visitor:
+            try:
+                vid, visitor_name, created = await sync_to_async(services.visitor_archive)(
+                    request.user, visitor_id)
+            except services.VisitorNotFound:
                 return APIResponse.error(
                     message="مشتری یافت نشد",
                     code=404
                 )
-
-            visitor_name = visitor.full_name or visitor.phone_number or f"ID:{visitor.id}"
-
-            _, created = await sync_to_async(VisitorArchive.objects.get_or_create)(
-                owner=request.user, visitor=visitor
-            )
-
             if created:
-                await sync_to_async(record_activity)(
-                    visitor,
-                    'ARCHIVED_BY_OWNER',
-                    actor_type=VisitorActivity.ACTOR_OWNER,
-                    actor_user=request.user,
-                )
-                logger.info(f"Visitor {visitor_id} archived by user {request.user.id}")
+                logger.info(f"Visitor {vid} archived by user {request.user.id}")
 
             return APIResponse.success(
                 message=f"مشتری '{visitor_name}' از لیست شما بایگانی شد",
@@ -333,7 +290,8 @@ class VisitorRestoreView(APIView):
                 message = "این مشتری در بایگانی شما نبود"
 
             return APIResponse.success(
-                data=VisitorSerializer(visitor).data,
+                data=await sync_to_async(services.serialize_for_owner)(
+                    request.user, visitor, many=False),
                 message=message,
             )
 
@@ -367,25 +325,25 @@ class VisitorMessageHistoryView(APIView):
         logs = SmsLog.objects.filter(visitor=visitor, business__user=request.user)
         business_id = request.query_params.get('business_id')
         if business_id:
-            logs = logs.filter(business_id=business_id)
+            # Only the caller's own businesses. Anything else (another owner's,
+            # nonexistent, malformed, or the 0 an app sends before its business
+            # has loaded) yields an empty page rather than a 404: the owner app
+            # shows any error as a failure, and old versions are in the field.
+            try:
+                logs = logs.filter(business_id=int(business_id))
+            except (TypeError, ValueError):
+                logs = logs.none()
 
         # Kept as a queryset (not a list) so Paginator slices at the DB instead
         # of pulling the visitor's entire SMS history into memory.
         logs = logs.select_related('business', 'visitor').order_by('-sent_at')
 
-        paginator = Paginator(logs, page_size)
-        page_obj = paginator.get_page(page)
-
-        serializer = SmsLogSerializer(page_obj.object_list, many=True)
+        data = page_dict(
+            logs, page, page_size,
+            lambda objs: SmsLogSerializer(objs, many=True).data,
+        )
 
         return APIResponse.success(
-            data={
-                'count': paginator.count,
-                'total_pages': paginator.num_pages,
-                'current_page': page_obj.number,
-                'next': page_obj.next_page_number() if page_obj.has_next() else None,
-                'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
-                'results': serializer.data
-            },
+            data=data,
             message="تاریخچه پیام‌ها با موفقیت دریافت شد"
         )

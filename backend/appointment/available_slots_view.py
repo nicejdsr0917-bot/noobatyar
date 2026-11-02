@@ -3,20 +3,14 @@ from asgiref.sync import sync_to_async
 from django.core.cache import cache
 from rest_framework.permissions import AllowAny
 from rest_framework.throttling import ScopedRateThrottle
-from api.responses import APIResponse
+from common.responses import APIResponse
 from business.models import Business
-from .models import Appointment
 from .cache_utils import available_slots_key, SLOT_CACHE_TTL
-from .occupancy import blocking_q
-from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
-from django.conf import settings
+from .slots import build_day_slots, busy_intervals
+from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)
-
-# Business working hours are wall-clock times in the project's timezone.
-LOCAL_TZ = ZoneInfo(settings.TIME_ZONE)
 
 
 class AvailableSlotsView(APIView):
@@ -74,62 +68,14 @@ class AvailableSlotsView(APIView):
             await sync_to_async(cache.set)(cache_key, data, SLOT_CACHE_TTL)
             return APIResponse.success(data=data, message="این روز تعطیل است")
 
-        # Build all slots for the day based on work hours and default_service_duration
+        # Slot grid, busy intervals and per-slot status live in appointment/slots.py.
+        # Working hours are wall-clock times in the business's own timezone (see
+        # working_hours.py): building them as UTC shifted every slot by the UTC
+        # offset, offering slots outside working hours and judging `is_past`
+        # against the wrong wall clock.
         duration = business.default_service_duration  # minutes
-        start_hour = business.work_start_hour
-        end_hour = business.work_end_hour
-        start_minute = business.work_start_minute
-        end_minute = business.work_end_minute
-
-        # Generate all possible slots.
-        # work_start_hour/work_end_hour are wall-clock hours in the business's own
-        # timezone, so they must be anchored to LOCAL_TZ. Building them as UTC
-        # shifted every slot by the UTC offset (+03:30 for Tehran): the label said
-        # "20:30" while the instant was 00:00 the next day, so slots outside working
-        # hours were offered and `is_past` was judged against the wrong wall clock.
-        all_slots = []
-        current = datetime(
-            target_date.year, target_date.month, target_date.day,
-            start_hour, start_minute, tzinfo=LOCAL_TZ
-        )
-        day_end = datetime(
-            target_date.year, target_date.month, target_date.day,
-            end_hour, end_minute, tzinfo=LOCAL_TZ
-        )
-
-        while current + timedelta(minutes=duration) <= day_end:
-            all_slots.append(current)
-            current += timedelta(minutes=duration)
-
-        # Get booked slots for this business on this local calendar day
-        day_start = datetime(target_date.year, target_date.month, target_date.day, 0, 0, tzinfo=LOCAL_TZ)
-        day_end_of_day = day_start + timedelta(days=1)
-
-        booked_slots = set()
-        async for appt in Appointment.objects.filter(
-            blocking_q(),
-            business=business,
-            appointment_date__gte=day_start,
-            appointment_date__lt=day_end_of_day,
-        ):
-            # Keep the stored instant as-is; aware datetimes hash/compare by their
-            # UTC value, so a Tehran-anchored slot still matches a UTC-stored one.
-            booked_slots.add(appt.appointment_date.replace(second=0, microsecond=0))
-
-        # Build response
-        now = datetime.now(tz=timezone.utc)
-        slots = []
-        for slot in all_slots:
-            slot_ts = int(slot.timestamp() * 1000)
-            is_booked = slot.replace(second=0, microsecond=0) in booked_slots
-            is_past = slot < now
-
-            slots.append({
-                'time': slot.strftime('%H:%M'),
-                'timestamp': slot_ts,
-                'available': not is_booked and not is_past,
-                'status': 'PAST' if is_past else ('BOOKED' if is_booked else 'AVAILABLE'),
-            })
+        busy = await sync_to_async(busy_intervals)(business, target_date)
+        slots = build_day_slots(business, target_date, busy, datetime.now(tz=timezone.utc))
 
         data = {
             'business_id': business_id,

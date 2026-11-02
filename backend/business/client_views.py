@@ -1,17 +1,25 @@
 from adrf.views import APIView
 from asgiref.sync import sync_to_async
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.throttling import AnonRateThrottle
-from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import F
+import hashlib
 import logging
 
 from api.phone import is_iran_phone, normalize_phone
+from api.throttles import client_ip
 from visitor.auth import VisitorTokenAuthentication
 from visitor.models import Visitor
 
-from .models import Business, ContentReport
-from .serializers import PublicBusinessSerializer
+from . import cache as public_cache
+from .geo import MAX_RADIUS_KM, haversine_km  # noqa: F401  (re-exported for older imports)
+from .models import Business, ContentReport, Insurance, OnlineBookingRequest
+from .selectors import (
+    PublicSearchParams, _float_or_none, public_business_detail, public_business_search,
+)
+from .first_free import attach_first_free_slots
+from .serializers import PublicBusinessSerializer, InsuranceSerializer
 from api.responses import APIResponse
 
 logger = logging.getLogger(__name__)
@@ -54,80 +62,176 @@ class ContentReportRateThrottle(AnonRateThrottle):
             'ident': self.get_ident(request),
         }
 
+
+class RequestBookingRateThrottle(AnonRateThrottle):
+    """Per-IP throttle for the unclaimed-business online booking request endpoint."""
+    scope = 'request_booking'
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {
+            'scope': self.scope,
+            'ident': self.get_ident(request),
+        }
+
+def request_fingerprint(request):
+    """Stable, anonymised identity of the caller for de-duplicating votes.
+
+    Prefers the app's per-install X-Device-Id header and falls back to the IP;
+    only a hash is stored, never the raw value.
+    """
+    device_id = (request.headers.get('X-Device-Id') or '').strip()[:128]
+    if device_id:
+        raw = f"device:{device_id}"
+    else:
+        raw = f"ip:{client_ip(request)}"
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()
+
+
+def _origin(request):
+    """scheme://host the response's absolute URLs are built from."""
+    return f'{request.scheme}://{request.get_host()}'
+
+
+# A signed-in visitor (``Authorization: Visitor <token>``) browses as a customer:
+# the owner's "hide contact from guests" switch is lifted for them. Tried before
+# JWT, which only reacts to ``Bearer``, so an owner's own token still works.
+CUSTOMER_AUTHENTICATION = [VisitorTokenAuthentication, JWTAuthentication]
+
+
 class ClientBusinessListView(APIView):
+    authentication_classes = CUSTOMER_AUTHENTICATION
     permission_classes = [AllowAny]
 
     async def get(self, request):
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 10))
-        page_size = min(page_size, 100)
-        
-        search_query = request.query_params.get('search', '').strip()
-        category_query = request.query_params.get('category', '').strip()
+        params = PublicSearchParams.from_query(request.query_params)
+        # A position makes every response unique: only position-less anonymous
+        # requests share cache entries (business/cache.py).
+        use_cache = public_cache.is_cacheable_request(request) and params.lat is None
 
-        # Build Q objects for filtering. public_filter() carries both reasons a
-        # business stays out of public browsing — locked (subscription
-        # downgrade) and not editorially approved — so this listing can never
-        # drift from the detail/slots endpoints by checking only one of them.
-        filters = Business.public_filter()
-        if search_query:
-            filters &= (Q(title__icontains=search_query) | Q(unique_code__iexact=search_query) | Q(address__icontains=search_query))
-        if category_query:
-            filters &= Q(category=category_query)
+        def _fetch_and_serialize():
+            key = public_cache.list_key(params, _origin(request)) if use_cache else None
+            payload = public_cache.get(key) if key is not None else None
+            if payload is None:
+                page = public_business_search(params)
+                results = PublicBusinessSerializer(
+                    page.items, many=True, context={'request': request}
+                ).data
+                payload = page.as_payload(results)
+                if key is not None:
+                    public_cache.put(key, payload, public_cache.LIST_TTL)
+            # Fresher than the cached page, so added on top of it.
+            return {**payload, 'results': attach_first_free_slots(payload['results'])}
 
-        businesses = [
-            b async for b in Business.objects.filter(filters).order_by('-created_at')
-        ]
-
-        paginator = Paginator(businesses, page_size)
-        page_obj = paginator.get_page(page)
-
-        serializer = PublicBusinessSerializer(
-            page_obj.object_list,
-            many=True,
-            context={'request': request}
-        )
-
-        # PublicBusinessSerializer.to_representation() checks the owner's
-        # subscription (can_book_appointment -> sync ORM queries) to decide
-        # whether to gray out booking, so accessing .data raises
-        # SynchronousOnlyOperation unless it's pushed off this async view's
-        # event loop thread.
-        results = await sync_to_async(lambda: serializer.data)()
+        # One sync hop for query + serialisation: nothing below touches the DB.
+        data = await sync_to_async(_fetch_and_serialize)()
 
         return APIResponse.success(
-            data={
-                'count': paginator.count,
-                'total_pages': paginator.num_pages,
-                'current_page': page_obj.number,
-                'next': page_obj.next_page_number() if page_obj.has_next() else None,
-                'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
-                'results': results
-            },
+            data=data,
             message="لیست کسب و کارها با موفقیت دریافت شد"
         )
 
 
+class ClientInsuranceListView(APIView):
+    permission_classes = [AllowAny]
+
+    async def get(self, request):
+        def _get_insurances():
+            return list(Insurance.objects.filter(is_active=True).order_by('display_order', 'name'))
+
+        insurances = await sync_to_async(_get_insurances)()
+        serializer = InsuranceSerializer(insurances, many=True)
+        data = await sync_to_async(lambda: serializer.data)()
+        return APIResponse.success(
+            data=data,
+            message="لیست بیمه‌ها با موفقیت دریافت شد"
+        )
+
+
+class ClientRequestOnlineBookingView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [RequestBookingRateThrottle]
+
+    async def post(self, request, business_id):
+        try:
+            business = await Business.objects.aget(Business.public_filter(), id=business_id)
+        except Business.DoesNotExist:
+            return APIResponse.error(message="کسب و کار مورد نظر یافت نشد", code=404)
+
+        if business.is_claimed:
+            return APIResponse.error(message="این مرکز خودش نوبت آنلاین دارد", code=400)
+
+        fingerprint = request_fingerprint(request)
+
+        def _record():
+            _req, created = OnlineBookingRequest.objects.get_or_create(
+                business=business, fingerprint=fingerprint,
+            )
+            if created:
+                Business.objects.filter(id=business.id).update(
+                    online_booking_requests_count=F('online_booking_requests_count') + 1
+                )
+            business.refresh_from_db(fields=['online_booking_requests_count'])
+            return created, business.online_booking_requests_count
+
+        created, count = await sync_to_async(_record)()
+        return APIResponse.success(
+            data={
+                'id': business.id,
+                'online_booking_requests_count': count,
+                'already_requested': not created,
+            },
+            message=(
+                "درخواست شما برای فعال‌سازی نوبت‌دهی آنلاین این مرکز ثبت شد" if created
+                else "درخواست شما قبلاً ثبت شده بود"
+            )
+        )
+
+
 class ClientBusinessDetailView(APIView):
+    authentication_classes = CUSTOMER_AUTHENTICATION
     permission_classes = [AllowAny]
 
     async def get(self, request, business_id):
+        lat = _float_or_none(request.query_params.get('lat'))
+        lng = _float_or_none(request.query_params.get('lng'))
+
+        use_cache = public_cache.is_cacheable_request(request)
+
+        def _load_and_serialize():
+            if not use_cache:
+                business = public_business_detail(business_id, lat=lat, lng=lng)
+                return PublicBusinessSerializer(business, context={'request': request}).data
+            # Cached without the viewer's distance; it is added per request.
+            key = public_cache.detail_key(business_id, _origin(request))
+            entry = public_cache.get(key)
+            if entry is None:
+                business = public_business_detail(business_id)
+                entry = {
+                    'data': dict(PublicBusinessSerializer(business, context={'request': request}).data),
+                    'pin': (business.latitude, business.longitude),
+                }
+                public_cache.put(key, entry, public_cache.DETAIL_TTL)
+            data = dict(entry['data'])
+            pin_lat, pin_lng = entry['pin']
+            if lat is not None and lng is not None and pin_lat is not None and pin_lng is not None:
+                data['distance_km'] = round(haversine_km(lat, lng, pin_lat, pin_lng), 2)
+            return data
+
+        def _load_with_first_free():
+            return attach_first_free_slots([_load_and_serialize()])[0]
+
         try:
-            # public_filter() is a plain Q, so it composes with aget(). A
-            # non-approved business is reported as simply missing: telling an
-            # anonymous caller "this exists but was rejected" would leak the
-            # moderation decision to anyone holding a stale link.
-            business = await Business.objects.aget(Business.public_filter(), id=business_id)
+            data = await sync_to_async(_load_with_first_free)()
         except Business.DoesNotExist:
             return APIResponse.error(
                 message="کسب و کار مورد نظر یافت نشد",
                 code=404
             )
-
-        serializer = PublicBusinessSerializer(business, context={'request': request})
-        # Same reason as ClientBusinessListView: to_representation() does a
-        # sync ORM lookup to check the owner's subscription.
-        data = await sync_to_async(lambda: serializer.data)()
+        except Exception:
+            # Anything else is a server fault, not "not found": log it and let
+            # it surface as a 500 instead of hiding it behind a 404.
+            logger.exception("business detail failed (id=%s)", business_id)
+            raise
         return APIResponse.success(
             data=data,
             message="اطلاعات کسب و کار با موفقیت دریافت شد"

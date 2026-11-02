@@ -32,6 +32,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'description',
             'selected_services',
             'payment_receipt',
+            'source',
             'created_at',
             'updated_at',
         ]
@@ -127,6 +128,7 @@ class AppointmentQuerySerializer(serializers.ModelSerializer):
             'payment_reference',
             'deposit_payment_method',
             'payment_receipt',
+            'source',
             'created_at',
             'updated_at'
         ]

@@ -1,0 +1,95 @@
+package xyz.sattar.javid.proqueue.data.remoteDataSource.business.model
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class BusinessDto(
+    @SerialName("id") val id: Long,
+    @SerialName("title") val title: String,
+    @SerialName("category") val category: String? = null,
+    @SerialName("category_display") val categoryDisplay: String? = null,
+    @SerialName("unique_code") val uniqueCode: String? = null,
+    @SerialName("phone") val phone: String? = null,
+    // Additional contact numbers beyond `phone`. Defaulted for an older
+    // backend that predates the column, same reasoning as closed_weekdays.
+    @SerialName("extra_phones") val extraPhones: List<String> = emptyList(),
+    @SerialName("social_links") val socialLinks: Map<String, String> = emptyMap(),
+    @SerialName("address") val address: String? = null,
+    @SerialName("logo") val logo: String? = null,
+    @SerialName("theme_color") val themeColor: String? = null,
+    @SerialName("default_service_duration") val defaultServiceDuration: Int = 30,
+    @SerialName("work_start_hour") val workStartHour: Int = 9,
+    @SerialName("work_end_hour") val workEndHour: Int = 18,
+    // Minute component alongside the whole-hour fields above — defaulted to 0
+    // for an older backend that predates minute precision.
+    @SerialName("work_start_minute") val workStartMinute: Int = 0,
+    @SerialName("work_end_minute") val workEndMinute: Int = 0,
+    // Weekly days off (Mon=0..Sun=6). Defaulted for the same reason as the
+    // other optional fields here: an older backend that predates this column
+    // must still deserialize, as "open every day" rather than a parse error.
+    @SerialName("closed_weekdays") val closedWeekdays: List<Int> = emptyList(),
+    @SerialName("notification_enabled") val notificationEnabled: Boolean = true,
+    @SerialName("notification_types") val notificationTypes: String = "SMS",
+    @SerialName("notification_minutes_before") val notificationMinutesBefore: Int = 30,
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("allow_anonymous_view") val allowAnonymousView: Boolean = true,
+    // Defaults to true to match the server: an older backend that doesn't send
+    // this field yet still notifies the owner, so assuming false here would
+    // silently show the switch as off while SMS kept arriving.
+    @SerialName("notify_owner_by_sms") val notifyOwnerBySms: Boolean = true,
+    @SerialName("payment_method") val paymentMethod: String? = null,
+    @SerialName("accepted_payment_methods") val acceptedPaymentMethods: List<String>? = null,
+    @SerialName("max_appointments_per_hour") val maxAppointmentsPerHour: Int? = null,
+    @SerialName("deposit_mode") val depositMode: String? = null,
+    @SerialName("deposit_amount") val depositAmount: Int? = null,
+    @SerialName("merchant_id") val merchantId: String? = null,
+    @SerialName("payment_link") val paymentLink: String? = null,
+    /** A real Zibal merchant is set up: ONLINE goes to the bank, not to [paymentLink]. */
+    @SerialName("online_gateway_enabled") val onlineGatewayEnabled: Boolean = false,
+    @SerialName("card_number") val cardNumber: String? = null,
+    @SerialName("card_owner_name") val cardOwnerName: String? = null,
+    @SerialName("bio") val bio: String? = null,
+    // Content moderation (read-only server side). All four are nullable with a
+    // null default so the app keeps working against a backend that predates the
+    // moderation layer — a missing moderation_status simply hides the badges
+    // instead of claiming a business is pending.
+    @SerialName("moderation_status") val moderationStatus: String? = null,
+    @SerialName("moderation_status_display") val moderationStatusDisplay: String? = null,
+    @SerialName("moderation_note") val moderationNote: String? = null,
+    @SerialName("moderation_submitted_at") val moderationSubmittedAt: String? = null,
+    // Billing lock, independent of moderation — the owner's plan lapsed rather
+    // than a content review. False default: an older backend that doesn't send
+    // this yet should never be treated as locked.
+    @SerialName("is_locked") val isLocked: Boolean = false,
+    // Emergency notice shown on the public booking page. Public clients only see
+    // the message while the switch is on, so both fields travel together.
+    @SerialName("booking_enabled") val bookingEnabled: Boolean = true,
+    @SerialName("notice_enabled") val noticeEnabled: Boolean = false,
+    @SerialName("notice_message") val noticeMessage: String? = null,
+    // Whether the client is reminded at all. Defaults to true to match the
+    // server's own default, so an older backend that omits the field is not read
+    // as "reminders off".
+    @SerialName("enable_reminder_sms") val enableReminderSms: Boolean = true,
+    // "MANUAL" (owner texts from their own SIM) or "PANEL" (server sends).
+    @SerialName("reminder_delivery") val reminderDelivery: String? = null,
+    // The business's own service menu and whether clients may go off it.
+    // Defaulted so a backend that predates the field still deserializes.
+    @SerialName("services") val services: List<String> = emptyList(),
+    @SerialName("allow_client_add_service") val allowClientAddService: Boolean = false,
+
+    // Client discovery fields
+    @SerialName("latitude") val latitude: Double? = null,
+    @SerialName("longitude") val longitude: Double? = null,
+    @SerialName("province") val province: String? = "",
+    @SerialName("city") val city: String? = "",
+    @SerialName("neighborhood") val neighborhood: String? = "",
+    @SerialName("is_claimed") val isClaimed: Boolean = true,
+    @SerialName("distance_km") val distanceKm: Double? = null,
+    @SerialName("online_booking_requests_count") val onlineBookingRequestsCount: Int = 0,
+    @SerialName("insurances") val insurances: List<InsuranceDto> = emptyList(),
+    // Start (epoch ms) of the earliest bookable slot in the next 7 days; null
+    // when none or not bookable. Older servers omit it.
+    @SerialName("first_free_slot") val firstFreeSlot: Long? = null
+)

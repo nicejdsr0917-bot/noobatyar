@@ -2,6 +2,8 @@ package xyz.sattar.javid.proqueue.feature.createBusiness
 
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.location.GeoPoint
+import xyz.sattar.javid.proqueue.core.ui.components.city.BusinessCityField
+import xyz.sattar.javid.proqueue.core.ui.components.city.PickedCity
 import xyz.sattar.javid.proqueue.core.ui.components.map.BusinessLocationField
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import androidx.compose.foundation.layout.widthIn
@@ -122,9 +124,12 @@ fun CreateBusinessRoute(
     var phone by remember { mutableStateOf("") }
     // Additional contact numbers, alongside the primary `phone` above.
     var extraPhones by remember { mutableStateOf(listOf<String>()) }
+    var socialLinks by remember { mutableStateOf(mapOf<String, String>()) }
     var address by remember { mutableStateOf("") }
     // The map pin; optional, unlike the written address.
     var location by remember { mutableStateOf<GeoPoint?>(null) }
+    // Required: the client app's city filter matches on it.
+    var city by remember { mutableStateOf<PickedCity?>(null) }
     var defaultProgress by remember { mutableStateOf("") }
     var workStartHour by remember { mutableStateOf("9") }
     var workEndHour by remember { mutableStateOf("21") }
@@ -157,6 +162,7 @@ fun CreateBusinessRoute(
     var phoneError by remember { mutableStateOf<String?>(null) }
     var defaultProgressError by remember { mutableStateOf<String?>(null) }
     var addressError by remember { mutableStateOf<String?>(null) }
+    var cityError by remember { mutableStateOf<String?>(null) }
     var workHoursError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(businessId) {
@@ -181,8 +187,10 @@ fun CreateBusinessRoute(
             category = CategoryOption(it.category, it.categoryLabel)
             phone = it.phone
             extraPhones = it.extraPhones
+            socialLinks = it.socialLinks
             address = it.address
             location = it.latitude?.let { lat -> it.longitude?.let { lng -> GeoPoint(lat, lng) } }
+            city = it.cityCode?.let { code -> PickedCity(code, it.city, it.province) }
             defaultProgress = it.defaultServiceDuration.toString()
             workStartHour = it.workStartHour.toString()
             workEndHour = it.workEndHour.toString()
@@ -222,9 +230,18 @@ fun CreateBusinessRoute(
         phone = phone,
         extraPhones = extraPhones,
         onExtraPhones = { extraPhones = it },
+        socialLinks = socialLinks,
+        onSocialLinks = { socialLinks = it },
         address = address,
         location = location,
         onLocation = { location = it },
+        city = city,
+        onCity = {
+            city = it
+            cityError = null
+        },
+        cityError = cityError,
+        onCityErrorUpdate = { cityError = it },
         defaultProgress = defaultProgress,
         workStartHour = workStartHour,
         workEndHour = workEndHour,
@@ -324,9 +341,15 @@ fun CreateBusinessScreen(
     phone: String,
     extraPhones: List<String>,
     onExtraPhones: (List<String>) -> Unit,
+    socialLinks: Map<String, String>,
+    onSocialLinks: (Map<String, String>) -> Unit,
     address: String,
     location: GeoPoint?,
     onLocation: (GeoPoint?) -> Unit,
+    city: PickedCity?,
+    onCity: (PickedCity) -> Unit,
+    cityError: String?,
+    onCityErrorUpdate: (String?) -> Unit,
     defaultProgress: String,
     workStartHour: String,
     workEndHour: String,
@@ -393,6 +416,9 @@ fun CreateBusinessScreen(
     // before it advances and jumping forward would skip that.
     var furthestStep by remember { mutableStateOf(0) }
     val formScrollState = rememberScrollState()
+    val logoMissing = isLogoMissing(uiState.businessId, logoBytes, uiState.business?.logoPath)
+    var logoError by remember { mutableStateOf(false) }
+    LaunchedEffect(logoBytes) { if (logoBytes != null) logoError = false }
 
     // A new step starts at its own top. Without this the next step opens
     // already scrolled to wherever the previous one was left.
@@ -412,7 +438,8 @@ fun CreateBusinessScreen(
             val t = title.trim()
             val invalid = t.length < 3 || t.length > 50
             onTitleErrorUpdate(if (invalid) Str.name_must_be_3_to else null)
-            !invalid
+            logoError = logoMissing
+            !invalid && !logoMissing
         }
 
         BusinessFormStep.SCHEDULE -> {
@@ -453,7 +480,8 @@ fun CreateBusinessScreen(
                     else -> null
                 }
             )
-            !phoneInvalid && !addressInvalid
+            onCityErrorUpdate(if (city == null) Str.city_is_required else null)
+            !phoneInvalid && !addressInvalid && city != null
         }
     }
     var showServicesSheet by remember { mutableStateOf(false) }
@@ -615,17 +643,25 @@ fun CreateBusinessScreen(
                             onAddressErrorUpdate(if (a.isEmpty()) Str.address_is_required else if (a.length > 300) Str.address_cant_be_longer_than else null)
                             onDefaultProgressErrorUpdate(if (defaultInvalid) Str.choose_service_duration else null)
                             onWorkHoursErrorUpdate(if (hoursInvalid) Str.opening_hours_arent_valid else null)
+                            onCityErrorUpdate(if (city == null) Str.city_is_required else null)
 
-                            if (!titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid) {
+                            if (logoMissing) {
+                                logoError = true
+                                currentStep = 0
+                            }
+
+                            if (!logoMissing && !titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid && city != null) {
                                 val intent =
                                     CreateBusinessIntent.CreateBusiness(
                                         title = t,
                                         category = category.value,
                                         phone = p,
                                         extraPhones = extraPhones,
+                                        socialLinks = socialLinks,
                                         address = a,
                                         latitude = location?.latitude,
                                         longitude = location?.longitude,
+                                        cityCode = city?.code,
                                         defaultProgress = d,
                                         workStartHour = wsInt!!,
                                         workEndHour = weInt!!,
@@ -802,6 +838,15 @@ fun CreateBusinessScreen(
                         modifier = Modifier.size(40.dp)
                     )
                 }
+            }
+            if (logoMissing) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (logoError) Str.logo_required_error else Str.logo_required_hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (logoError) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -1048,6 +1093,14 @@ fun CreateBusinessScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            SocialLinksField(
+                links = socialLinks,
+                onLinks = onSocialLinks,
+                enabled = !uiState.isLoading
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             AppTextField(
                 enabled = !uiState.isLoading,
                 value = address,
@@ -1066,6 +1119,15 @@ fun CreateBusinessScreen(
                 },
                 maxLine = 3,
                 modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            BusinessCityField(
+                city = city,
+                onCity = onCity,
+                enabled = !uiState.isLoading,
+                error = cityError,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1338,9 +1400,15 @@ fun PreviewDashboardScreen() {
             phone = "",
             extraPhones = listOf(),
             onExtraPhones = {},
+            socialLinks = mapOf(),
+            onSocialLinks = {},
             address = "",
             location = null,
             onLocation = {},
+            city = null,
+            onCity = {},
+            cityError = null,
+            onCityErrorUpdate = {},
             defaultProgress = "",
             workStartHour = "9",
             workEndHour = "21",

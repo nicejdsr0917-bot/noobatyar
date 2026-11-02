@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 
 import android.content.Intent
+import xyz.sattar.javid.proqueue.core.navigation.DeepLinkTarget
 import xyz.sattar.javid.proqueue.core.navigation.NotificationNavigationManager
 import xyz.sattar.javid.proqueue.core.navigation.NavigationEvent
 import xyz.sattar.javid.proqueue.core.navigation.PaymentNavigationManager
@@ -57,6 +58,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleNotificationIntent(intent: Intent?) {
+        // A new-review push. Checked apart from `from_notification`: when the
+        // app is in the background the system tray builds the tap intent
+        // itself, so it carries the FCM data keys as plain extras (`type`)
+        // and none of ours.
+        if (intent?.getStringExtra("type") == "NEW_REVIEW") {
+            NotificationNavigationManager.navigate(NavigationEvent.ToDeepLink(DeepLinkTarget.REVIEWS))
+            intent.removeExtra("type")
+        }
         if (intent?.getBooleanExtra("from_notification", false) == true) {
             val businessId = intent.getLongExtra("businessId", -1)
             val visitorId = intent.getLongExtra("visitorId", -1)

@@ -28,8 +28,6 @@ interface AppointmentLocalSource {
 
     suspend fun getAllAppointmentsForBusiness(businessId: Long): List<AppointmentWithDetails>
 
-    suspend fun getVisitorHistory(visitorId: Long): List<AppointmentWithDetails>
-
     suspend fun getVisitorHistoryForBusiness(visitorId: Long, businessId: Long): List<AppointmentWithDetails>
 
     suspend fun upsertAppointment(appointment: Appointment): Long
@@ -60,4 +58,20 @@ interface AppointmentLocalSource {
     suspend fun getAppointmentsForDate(businessId: Long, date: Long): List<AppointmentWithDetails>
 
     suspend fun deleteAppointmentsByVisitorId(visitorId: Long)
+
+    /** Wipes every cached appointment (logout / account switch). */
+    suspend fun clearAll()
+
+    /**
+     * Makes the local rows of [businessId] whose appointmentDate lies in
+     * [fromInclusive, toExclusive) exactly [appointments]: rows in the window
+     * that the server no longer returns are deleted, the rest upserted.
+     * Implementations apply it atomically where the store supports it.
+     */
+    suspend fun replaceWindow(
+        businessId: Long,
+        fromInclusive: Long,
+        toExclusive: Long,
+        appointments: List<Appointment>
+    )
 }

@@ -14,6 +14,8 @@ data class BusinessEntity(
     val phone: String,
     /** Comma-separated additional numbers, same encoding as [services]. */
     val extraPhones: String = "",
+    /** [SocialLinks.encode]d JSON object. */
+    val socialLinks: String = "",
     val address: String,
     val latitude: Double? = null,
     val longitude: Double? = null,

@@ -3,7 +3,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
 from django.utils import timezone
 import logging
 
@@ -16,11 +15,19 @@ from .serializers import (
     ServiceCatalogItemSerializer,
     normalize_service_names,
 )
-from api.responses import APIResponse
+from common.pagination import page_dict
+from common.params import page_params
+from common.responses import APIResponse
 from accounting import entitlements
 from accounting.permissions import validate_business_settings
 
 logger = logging.getLogger(__name__)
+
+
+def _logo_required(request) -> bool:
+    flag = request.data.get('logo_required') if hasattr(request.data, 'get') else None
+    flag = flag if flag not in (None, '') else request.headers.get('X-Logo-Required', '')
+    return str(flag).strip().lower() in ('1', 'true', 'yes')
 
 
 class BusinessView(APIView):
@@ -40,44 +47,50 @@ class BusinessView(APIView):
         user = request.user
 
         if business_id:
-            business = await self._get_business_or_404(business_id, user)
-            if not business:
+            def _load_and_serialize():
+                biz = (
+                    Business.objects.filter(id=business_id, user=user)
+                    .prefetch_related('insurances').first()
+                )
+                if biz is None:
+                    return None
+                return BusinessSerializer(biz).data
+
+            data = await sync_to_async(_load_and_serialize)()
+            if data is None:
+                logger.warning(f"Business {business_id} not found for user {user.id}")
                 return APIResponse.error(
                     message="کسب و کار مورد نظر یافت نشد",
                     code=404
                 )
-
-            serializer = BusinessSerializer(business)
             return APIResponse.success(
-                data=serializer.data,
+                data=data,
                 message="اطلاعات کسب و کار با موفقیت دریافت شد"
             )
 
         # List all businesses with pagination
-        page = int(request.query_params.get('page', 1))
-        page_size = int(request.query_params.get('page_size', 10))
-        page_size = min(page_size, 100)  # حداکثر 100 آیتم در هر صفحه
+        page, page_size, error = page_params(request)  # page_size capped at 100
+        if error:
+            return error
 
-        businesses = [
-            b async for b in Business.objects.filter(user=user).order_by('-created_at')
-        ]
+        def _list_page():
+            # Paginate in the database: COUNT + one LIMIT/OFFSET page, with the
+            # insurances prefetched, then serialise in the same sync hop.
+            qs = (
+                Business.objects.filter(user=user)
+                .prefetch_related('insurances')
+                .order_by('-created_at', '-id')
+            )
+            return page_dict(
+                qs, page, page_size,
+                lambda objs: BusinessSerializer(list(objs), many=True).data,
+            )
 
-        # Paginate
-        paginator = Paginator(businesses, page_size)
-        page_obj = paginator.get_page(page)
-
-        serializer = BusinessSerializer(page_obj.object_list, many=True)
-        logger.info(f"Retrieved {len(businesses)} businesses for user {user.id}")
+        data = await sync_to_async(_list_page)()
+        logger.info(f"Retrieved page {data['current_page']} ({data['count']} total) of businesses for user {user.id}")
 
         return APIResponse.success(
-            data={
-                'count': paginator.count,
-                'total_pages': paginator.num_pages,
-                'current_page': page_obj.number,
-                'next': page_obj.next_page_number() if page_obj.has_next() else None,
-                'previous': page_obj.previous_page_number() if page_obj.has_previous() else None,
-                'results': serializer.data
-            },
+            data=data,
             message="لیست کسب و کارها با موفقیت دریافت شد"
         )
 
@@ -117,6 +130,13 @@ class BusinessView(APIView):
         if settings_error:
             return APIResponse.error(message=settings_error, code=403)
 
+        # Logo is required for NEW businesses only when the client opts in
+        # (`logo_required=1` form/JSON field or `X-Logo-Required: 1` header).
+        # Old app builds send neither, so they keep creating logo-less
+        # businesses; the new owner app sends it. Updates are never enforced.
+        if _logo_required(request) and not request.FILES.get('logo'):
+            return APIResponse.error(message="لوگوی کسب‌وکار الزامی است", code=400)
+
         serializer = BusinessSerializer(data=request.data)
 
         try:
@@ -130,7 +150,9 @@ class BusinessView(APIView):
                 business = await sync_to_async(serializer.save)(
                     user=user, moderation_submitted_at=timezone.now()
                 )
-                logger.info(f"Business created: {serializer.data['id']} by user {user.id}")
+                # One sync hop for the payload (it reads the insurances m2m).
+                created_data = await sync_to_async(lambda: serializer.data)()
+                logger.info(f"Business created: {created_data['id']} by user {user.id}")
                 # Creating the business *is* the submission (see above), so this
                 # is the only point where a brand-new queue entry exists to
                 # announce — the two re-queue paths in services.py cover edits.
@@ -138,7 +160,7 @@ class BusinessView(APIView):
                     business, kind='new'
                 )
                 return APIResponse.success(
-                    data=serializer.data,
+                    data=created_data,
                     message=(
                         "کسب و کار با موفقیت ایجاد شد و برای بررسی ارسال شد؛ "
                         "پس از تأیید برای مشتریان نمایش داده می‌شود"
@@ -197,8 +219,11 @@ class BusinessView(APIView):
                     # representation: submit_for_review moved the status and the
                     # submitted-at stamp after the serializer rendered, and the
                     # owner has to see that this edit is under review.
-                    business = await Business.objects.aget(id=business_id, user=user)
-                    data = BusinessSerializer(business).data
+                    data = await sync_to_async(
+                        lambda: BusinessSerializer(
+                            Business.objects.prefetch_related('insurances').get(id=business_id, user=user)
+                        ).data
+                    )()
                     if had_prior_approval:
                         # Staged path (business/services.py): the live, public
                         # copy is untouched — customers keep seeing the last-
@@ -216,7 +241,7 @@ class BusinessView(APIView):
                     return APIResponse.success(data=data, message=message)
 
                 return APIResponse.success(
-                    data=serializer.data,
+                    data=await sync_to_async(lambda: serializer.data)(),
                     message="کسب و کار با موفقیت بروزرسانی شد"
                 )
         except ValidationError as e:

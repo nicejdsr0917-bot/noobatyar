@@ -32,6 +32,16 @@ class Visitor(models.Model):
                   "خودِ کسب‌وکار) قرار نمی‌گیرد.",
                   verbose_name='انصراف از پیام تبلیغاتی',
     )
+    # Set whenever phone_number changes: client tokens signed before this moment
+    # belong to whoever held the old number and are refused (visitor/auth.py).
+    phone_changed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # The visitor's own profile photo, set from the client app's profile tab.
+    # Only the visitor sees it (it is not in VisitorSerializer, which owners
+    # read), so it needs no moderation queue.
+    avatar = models.ImageField(upload_to='visitor_avatars/', null=True, blank=True, verbose_name='عکس پروفایل')
+    # Last successful client-app OTP login/registration; proof the person uses
+    # this row themselves, so an owner may no longer re-number it.
+    last_client_login_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
@@ -65,11 +75,15 @@ class Visitor(models.Model):
         with me" must not grant the right to rename or re-number them for
         everyone else.
         """
+        # EXISTS subqueries instead of joins + DISTINCT: the appointments join
+        # multiplied rows (one per appointment) and DISTINCT then had to sort
+        # and de-dupe the whole set before any LIMIT could apply.
+        from appointment.models import Appointment
         return cls.objects.filter(
             models.Q(user=user)
-            | models.Q(contacts__owner=user)
-            | models.Q(appointments__business__user=user)
-        ).distinct()
+            | models.Exists(VisitorContact.objects.filter(visitor=models.OuterRef('pk'), owner=user))
+            | models.Exists(Appointment.objects.filter(visitor=models.OuterRef('pk'), business__user=user))
+        )
 
     def __str__(self):
         return f"{self.full_name} ({self.phone_number})"
@@ -125,6 +139,9 @@ class SmsLog(models.Model):
         verbose_name_plural = 'پیامک‌ها'
         db_table = 'sms_log'
         ordering = ['-sent_at']
+        indexes = [
+            models.Index(fields=['business', '-sent_at'], name='smslog_biz_sent_idx'),
+        ]
 
     def __str__(self):
         recipient = self.visitor.phone_number if self.visitor_id else "owner"
@@ -257,6 +274,11 @@ class VisitorContact(models.Model):
 
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='visitor_contacts')
     visitor = models.ForeignKey(Visitor, on_delete=models.CASCADE, related_name='contacts')
+    # The name this owner gave the person. The Visitor row's full_name is global
+    # (chosen by whoever created it or by the person), so an owner who merely
+    # attached an existing person must not see it; null on older rows keeps the
+    # previous behaviour.
+    display_name = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

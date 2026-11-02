@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from accounting.models import Plan, Subscription
 from core.messaging import send_sms_to_subscriptions
+from core.outbox.service import run_batch
 from core.models import ExpirySmsLog
 
 User = get_user_model()
@@ -92,6 +93,10 @@ class SendSmsToSubscriptionsTests(ListFixture):
     def test_one_sms_per_owner_and_each_row_flagged_by_its_state(self, send_sms):
         subs = Subscription.objects.filter(pk__in=[self.old_trial.pk, self.eco_sub.pk, self.lapsed.pk])
         log = send_sms_to_subscriptions(subs, '{full_name} {days} {plan}', actor=self.staff)
+        send_sms.assert_not_called()  # queued, not sent inside the call
+        while run_batch():
+            pass
+        log.refresh_from_db()
 
         self.assertEqual((log.matched_count, log.sent_count), (2, 2))
         self.assertEqual(log.filters['mode'], 'selection')
@@ -131,6 +136,9 @@ class SendSmsActionTests(ListFixture):
             [self.old_trial.pk, self.eco_sub.pk, self.lapsed.pk], apply='1', sms_message='سلام {full_name}',
         )
         self.assertEqual(done.status_code, 302)
+        send_sms.assert_not_called()  # queued for the worker
+        while run_batch():
+            pass
         self.assertEqual(send_sms.call_count, 2)
         self.assertEqual(ExpirySmsLog.objects.get().sent_count, 2)
 

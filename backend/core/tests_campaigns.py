@@ -17,10 +17,17 @@ from django.utils import timezone
 
 from accounting.management.commands.run_subscription_lifecycle import Command as LifecycleCommand
 from accounting.models import Plan, Subscription, SubscriptionReminderSettings, render_reminder_text
+from core.outbox.service import run_batch
 from core.messaging import expiry_sms_audience, send_expiry_sms, send_expiry_sms_test
 from core.models import ExpirySmsLog
 
 User = get_user_model()
+
+
+def drain():
+    """Run the outbox worker until nothing is due (what `run_outbox --once` does)."""
+    while run_batch():
+        pass
 
 
 def make_user(phone, name='کاربر', **kwargs):
@@ -133,6 +140,9 @@ class SendExpiredSmsTests(TestCase):
 
     def test_days_is_days_since_the_end_and_flag_is_its_own(self, send_sms):
         log = send_expiry_sms('{full_name} {days} {plan}', 7, actor=self.staff, mode='expired')
+        send_sms.assert_not_called()  # queued, not sent inside the call
+        drain()
+        log.refresh_from_db()
 
         self.assertEqual((log.matched_count, log.sent_count), (1, 1))
         self.assertIn('مریم 2 پرو', send_sms.call_args[0][1])
@@ -142,12 +152,15 @@ class SendExpiredSmsTests(TestCase):
 
     def test_second_send_skips_and_expiring_mode_is_untouched(self, send_sms):
         send_expiry_sms('x', 7, actor=self.staff, mode='expired')
+        drain()
         log = send_expiry_sms('x', 7, actor=self.staff, mode='expired')
+        drain()
         self.assertEqual(log.matched_count, 0)
         self.assertEqual(send_sms.call_count, 1)
         # An expired send never marks the "ending soon" flag as sent.
         other = make_sub(make_user('09120000403'), self.plan, 2)
         send_expiry_sms('x', 7, actor=self.staff, mode='expired')
+        drain()
         other.refresh_from_db()
         self.assertFalse(other.reminder_sent)
 
@@ -162,6 +175,8 @@ class SendExpirySmsTests(TestCase):
 
     def test_fills_plan_and_marks_reminded(self, send_sms):
         log = send_expiry_sms('{full_name} {plan}', 3, actor=self.staff)
+        drain()
+        log.refresh_from_db()
 
         self.assertEqual(log.source, ExpirySmsLog.SOURCE_MANUAL)
         self.assertEqual((log.matched_count, log.sent_count), (1, 1))
@@ -171,7 +186,9 @@ class SendExpirySmsTests(TestCase):
 
     def test_second_send_skips_already_reminded(self, send_sms):
         send_expiry_sms('یادآوری', 3, actor=self.staff)
+        drain()
         log = send_expiry_sms('یادآوری', 3, actor=self.staff)
+        drain()
         self.assertEqual(log.matched_count, 0)
         self.assertEqual(send_sms.call_count, 1)
 
@@ -223,6 +240,7 @@ class AutomaticReminderTests(TestCase):
 
     def test_skips_owners_a_manual_send_already_reached(self, send_sms):
         send_expiry_sms('دستی', 3)
+        drain()
         self.settings.is_enabled = True
         self.settings.save()
         self.run_job()

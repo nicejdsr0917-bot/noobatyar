@@ -118,6 +118,14 @@ class Appointment(models.Model):
         verbose_name='رسید پرداخت',
     )
 
+    deposit_verified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='زمانی که زیبال پرداخت بیعانهٔ آنلاین را تأیید کرد. اگر نوبت بعد از آن '
+                  'قفل‌شده بماند (ساعت از دست رفته)، پول گرفته شده و باید برگردانده شود.',
+        verbose_name='زمان تأیید پرداخت بیعانه',
+    )
+
     DEPOSIT_METHOD_CHOICES = [
         ('NONE',    'بدون بیعانه'),
         ('CARD',    'کارت به کارت'),
@@ -177,6 +185,36 @@ class Appointment(models.Model):
         verbose_name='زمان اعلان یادآوری مشتری',
     )
 
+    # Where the booking came from. Rows that predate the field are UNKNOWN;
+    # every creation path sets it explicitly.
+    SOURCE_WEB = 'WEB'
+    SOURCE_APP = 'APP'
+    SOURCE_OWNER = 'OWNER'
+    SOURCE_UNKNOWN = 'UNKNOWN'
+    SOURCE_CHOICES = [
+        (SOURCE_WEB, 'سایت'),
+        (SOURCE_APP, 'اپ نوبت‌یار'),
+        (SOURCE_OWNER, 'ثبت توسط مالک'),
+        (SOURCE_UNKNOWN, 'نامشخص'),
+    ]
+    source = models.CharField(
+        max_length=8, choices=SOURCE_CHOICES, default=SOURCE_UNKNOWN,
+        verbose_name='منبع نوبت',
+    )
+
+    # How far the visitor was when booking from the app, and a rough drive
+    # time as a range: an estimate from their last saved position, never
+    # required (null when the app had no position or an older client booked).
+    travel_distance_m = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name='فاصلهٔ مستقیم مراجع (متر)',
+    )
+    drive_minutes_min = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='زمان تقریبی رانندگی، از (دقیقه)',
+    )
+    drive_minutes_max = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='زمان تقریبی رانندگی، تا (دقیقه)',
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
@@ -194,6 +232,7 @@ class Appointment(models.Model):
             # infer a name for an existing index, so an implicit name here
             # constantly looks like a pending rename to makemigrations.
             models.Index(fields=['business', 'status', 'appointment_date'], name='appt_biz_status_date_idx'),
+            models.Index(fields=['payment_reference'], name='appt_payment_ref_idx'),
         ]
 
     # In appointment/models.py - Appointment.clean()

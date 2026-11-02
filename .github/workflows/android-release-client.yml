@@ -1,0 +1,333 @@
+# Release of the CLIENT (consumer) app, mobile_client/. Parallel to
+# android-release.yml (owner app, tags vX.Y.Z); this one runs only on
+# client-vX.Y.Z tags, so the two release trains never trigger each other.
+# Secrets are the same names as the owner workflow. If the client app should be
+# signed with its own keystore or announced in a different Telegram chat, add
+# separate secrets and change the env blocks below.
+name: Android Release (Client)
+
+on:
+  push:
+    tags:
+      - "client-v*.*.*"
+
+permissions:
+  contents: write
+
+# The version code is the last release's plus one (see "Derive version from
+# tag"), so two tag pushes running at once would both pick the same number.
+concurrency:
+  group: android-release-client
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile_client
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION_NAME="${TAG#client-v}"
+          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+
+          # Version code = last release's + 1. Every release writes its code
+          # into Config.xcconfig on develop ("Sync iOS version with tag"
+          # below), so develop's copy is the last one shipped — read from
+          # develop rather than the tagged commit, which may predate it.
+          # mobile_client/iosApp/Configuration/Config.xcconfig starts from an
+          # epoch-seconds value; stores only accept a higher code than the one
+          # they have, so the count goes on from there instead of restarting.
+          git fetch --depth=1 origin develop
+          PREV_CODE=$(git show FETCH_HEAD:mobile_client/iosApp/Configuration/Config.xcconfig \
+            | sed -n 's/^CURRENT_PROJECT_VERSION=\([0-9]*\)$/\1/p')
+          if [ -z "$PREV_CODE" ]; then
+            echo "::error::No numeric CURRENT_PROJECT_VERSION in Config.xcconfig on develop"
+            exit 1
+          fi
+          VERSION_CODE=$((PREV_CODE + 1))
+          echo "Version code: ${PREV_CODE} -> ${VERSION_CODE}"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
+
+      - name: Decode keystore
+        working-directory: mobile_client/composeApp
+        run: echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > release.keystore.jks
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build signed release APK
+        # The client app has a single flavor dimension "env": "prod" (real
+        # server) and "local" (dev server). Only "prod" is released; there are
+        # no store flavors, so one task yields the per-ABI APKs plus a universal one.
+        run: ./gradlew :composeApp:assembleProdRelease --no-daemon
+        env:
+          ANDROID_KEYSTORE_PATH: release.keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          ANDROID_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+
+      - name: Remove keystore
+        if: always()
+        working-directory: mobile_client/composeApp
+        run: rm -f release.keystore.jks
+
+      - name: Rename split APKs
+        id: apk
+        run: |
+          OUT_DIR="composeApp/build/outputs/apk/prod/release"
+          DEST_DIR="composeApp/build/outputs/apk/dist"
+          mkdir -p "$DEST_DIR"
+          VERSION="${{ steps.version.outputs.version_name }}"
+          for f in "$OUT_DIR"/*.apk; do
+            base=$(basename "$f" .apk)
+            # AGP names these composeApp-prod-arm64-v8a-release.apk and
+            # composeApp-prod-universal-release.apk (splits.abi.isUniversalApk
+            # makes "universal" an explicit abi name, not a special case)
+            arch=$(echo "$base" | sed -E 's/composeApp-prod-(.*)-release/\1/')
+            cp "$f" "$DEST_DIR/Noobatyar-Client-${VERSION}-${arch}.apk"
+          done
+          echo "dir=mobile_client/$DEST_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Extract Persian release notes
+        # CHANGELOG.md (repo root) carries a `<!-- fa:start -->` / `<!-- fa:end
+        # -->` delimited Persian summary right after each `## vX.Y.Z` header —
+        # see the comment at the top of that file. This is the single source
+        # used for both the GitHub Release body and the Telegram caption
+        # below, so the two never drift out of sync with each other.
+        id: notes
+        working-directory: .
+        run: |
+          # Section header for this train is `## client-vX.Y.Z` (the tag as-is).
+          TAG="${GITHUB_REF_NAME}"
+          SECTION=$(awk -v t="$TAG" '
+            $0 ~ ("^## " t "([^0-9.]|$)") { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md)
+          FA=$(printf '%s\n' "$SECTION" | sed -n '/<!-- fa:start -->/,/<!-- fa:end -->/p' | sed '1d;$d')
+          if [ -z "$FA" ]; then
+            echo "::error::No '<!-- fa:start -->' Persian summary found in CHANGELOG.md for tag ${TAG}. Add a ## ${TAG} section with a Persian fa:start/fa:end block before tagging — see the convention comment at the top of CHANGELOG.md."
+            exit 1
+          fi
+          {
+            echo "notes<<EOF_NOTES"
+            echo "$FA"
+            echo "EOF_NOTES"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify release APKs are properly configured
+        working-directory: .
+        run: |
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          APKSIGNER="${BUILD_TOOLS}apksigner"
+          AAPT="${BUILD_TOOLS}aapt"
+          EXPECTED_VERSION="${{ steps.version.outputs.version_name }}"
+          EXPECTED_CODE="${{ steps.version.outputs.version_code }}"
+          FAIL=0
+          for f in "${{ steps.apk.outputs.dir }}"/*.apk; do
+            echo "== Checking $f =="
+
+            if ! "$APKSIGNER" verify "$f"; then
+              echo "::error::$f is not properly signed"
+              FAIL=1
+            fi
+
+            BADGING=$("$AAPT" dump badging "$f")
+
+            if ! echo "$BADGING" | grep -q "versionName='${EXPECTED_VERSION}'"; then
+              echo "::error::$f versionName does not match tag ${EXPECTED_VERSION}"
+              FAIL=1
+            fi
+
+            if ! echo "$BADGING" | grep -q "versionCode='${EXPECTED_CODE}'"; then
+              echo "::error::$f versionCode does not match expected ${EXPECTED_CODE}"
+              FAIL=1
+            fi
+
+            if ! echo "$BADGING" | grep -q "package: name='xyz.sattar.javid.proqueue.client'"; then
+              echo "::error::$f has unexpected applicationId"
+              FAIL=1
+            fi
+
+            if echo "$BADGING" | grep -q "application-debuggable"; then
+              echo "::error::$f is debuggable, must not ship a debuggable release build"
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
+      - name: Upload APK to noobatyar.ir
+        # NOTE: parallel to the owner workflow and NOT verified for the client
+        # app: it assumes the same FTP account and a download button that
+        # requests wp-content/uploads/android/Noobatyar-client.apk. Check that
+        # file name against the website before relying on it; the step is
+        # continue-on-error, so a wrong target never blocks the release.
+        # (Owner description follows.) The WordPress download button on
+        # noobatyar.ir always requests a
+        # fixed URL under wp-content/uploads/android/Noobatyar-owner.apk, so
+        # deploying is just overwriting that file with the current universal
+        # build — no WordPress API/media-library involvement, and no trash
+        # step to worry about (that only applies to the WP media library).
+        # The FTP account is already jailed to that uploads/android
+        # directory, so the remote path is just the filename — an earlier
+        # version of this step used the full public_html/... path, which the
+        # server rejected (550/9: can't CWD above its own jail root).
+        # ftplib over curl: curl (--ftp-ssl-reqd) against this host silently
+        # truncated multi-MB uploads (timed out waiting for the transfer-done
+        # reply after the data connection had already dropped early) with no
+        # error surfaced beyond a generic response timeout; ftplib's
+        # storbinary reliably completes and lets us assert the byte count
+        # matches before declaring success — verified manually 2026-09-24.
+        # continue-on-error: the GitHub Release and Telegram send below are
+        # the real distribution channels; this WP mirror is a bonus and
+        # shouldn't block a release if the FTP host is misconfigured.
+        continue-on-error: true
+        working-directory: .
+        run: |
+          python3 - <<'PYEOF'
+          import ftplib, os, sys, time
+
+          host = os.environ["WP_FTP_HOST"]
+          port = int(os.environ["WP_FTP_PORT"])
+          user = os.environ["WP_FTP_USERNAME"]
+          password = os.environ["WP_FTP_PASSWORD"]
+          local_path = os.environ["APK_PATH"]
+          remote_name = "Noobatyar-client.apk"
+          expected_size = os.path.getsize(local_path)
+
+          def connect():
+              ftps = ftplib.FTP_TLS(timeout=120)
+              ftps.connect(host, port)
+              ftps.auth()
+              ftps.login(user, password)
+              ftps.prot_p()
+              ftps.set_pasv(True)
+              return ftps
+
+          def remote_size():
+              ftps = connect()
+              try:
+                  return ftps.size(remote_name)
+              finally:
+                  try:
+                      ftps.quit()
+                  except Exception:
+                      pass
+
+          # This host sometimes drops the control connection right after the
+          # data transfer, before sending "226 complete" — the file is fully
+          # written but storbinary raises EOFError. So the upload's own reply
+          # is not trusted: the size is checked on a fresh connection, and
+          # only a genuinely short/missing file triggers a retry.
+          for attempt in range(1, 4):
+              try:
+                  ftps = connect()
+                  with open(local_path, "rb") as f:
+                      ftps.storbinary(f"STOR {remote_name}", f, blocksize=262144)
+                  try:
+                      ftps.quit()
+                  except Exception:
+                      pass
+              except (EOFError, OSError, ftplib.Error) as exc:
+                  print(f"attempt {attempt}: upload connection ended early ({exc!r}); verifying")
+              try:
+                  actual_size = remote_size()
+              except Exception as exc:
+                  actual_size = None
+                  print(f"attempt {attempt}: size check failed ({exc!r})")
+              if actual_size == expected_size:
+                  print(f"Uploaded {remote_name}: {actual_size} bytes, matches local file")
+                  sys.exit(0)
+              print(f"attempt {attempt}: remote size {actual_size} != {expected_size}")
+              time.sleep(5)
+
+          print("::error::APK upload to noobatyar.ir did not complete after 3 attempts", file=sys.stderr)
+          sys.exit(1)
+          PYEOF
+        env:
+          WP_FTP_HOST: ${{ secrets.WP_FTP_HOST }}
+          WP_FTP_PORT: ${{ secrets.WP_FTP_PORT }}
+          WP_FTP_USERNAME: ${{ secrets.WP_FTP_USERNAME }}
+          WP_FTP_PASSWORD: ${{ secrets.WP_FTP_PASSWORD }}
+          APK_PATH: ${{ steps.apk.outputs.dir }}/Noobatyar-Client-${{ steps.version.outputs.version_name }}-universal.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: نسخه ${{ steps.version.outputs.version_name }} (اپ مشتری)
+          body: ${{ steps.notes.outputs.notes }}
+          files: ${{ steps.apk.outputs.dir }}/*.apk
+
+      - name: Send to Telegram
+        working-directory: .
+        run: |
+          # Telegram's document caption limit is 1024 characters; the notes
+          # block is meant to stay well under that on its own (see the
+          # convention comment in CHANGELOG.md), but truncate defensively so
+          # a future over-long entry degrades gracefully instead of failing
+          # the send outright. Done via python3, not `cut -c`/`${var:0:N}` —
+          # both are byte-counting rather than character-counting unless the
+          # shell's locale is explicitly UTF-8-aware, which would silently
+          # mangle Persian text mid-character on a misconfigured runner.
+          NOTES_TRUNCATED=$(python3 -c 'import sys; n = sys.argv[1]; print(n if len(n) <= 700 else n[:700] + "…")' "${{ steps.notes.outputs.notes }}")
+          for f in "${{ steps.apk.outputs.dir }}"/*.apk; do
+            name=$(basename "$f")
+            curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+              -F chat_id="${TELEGRAM_CHAT_ID}" \
+              -F document=@"$f" \
+              -F caption="$(printf '%s (build %s)\n\n%s' "$name" "${{ steps.version.outputs.version_code }}" "$NOTES_TRUNCATED")"
+          done
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Sync iOS version with tag
+        working-directory: .
+        run: |
+          VERSION_NAME="${{ steps.version.outputs.version_name }}"
+          VERSION_CODE="${{ steps.version.outputs.version_code }}"
+          XCCONFIG="iosApp/Configuration/Config.xcconfig"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # The tag checkout left us in detached HEAD, and actions/checkout
+          # only fetched the tag ref, so fetch develop before branching off
+          # a worktree for it. Editing there keeps this commit on top of the
+          # latest tip instead of fighting the detached tree.
+          rm -rf ../ios-version-sync-client
+          git fetch origin develop:develop
+          git worktree add ../ios-version-sync-client develop
+
+          sed -i \
+            -e "s/^MARKETING_VERSION=.*/MARKETING_VERSION=${VERSION_NAME}/" \
+            -e "s/^CURRENT_PROJECT_VERSION=.*/CURRENT_PROJECT_VERSION=${VERSION_CODE}/" \
+            "../ios-version-sync-client/mobile_client/${XCCONFIG}"
+
+          cd ../ios-version-sync-client
+          if git diff --quiet -- "mobile_client/${XCCONFIG}"; then
+            echo "iOS version already up to date, nothing to commit."
+          else
+            git add "mobile_client/${XCCONFIG}"
+            git commit -m "chore(client): sync iOS version to ${VERSION_NAME} (${VERSION_CODE})"
+            git push origin develop
+          fi

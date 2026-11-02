@@ -41,6 +41,7 @@ enum class DeepLinkTarget {
     SMS_REPORT,
     ADD_ONS,
     SETTINGS,
+    REVIEWS,
 }
 
 /**
@@ -58,5 +59,6 @@ fun parseDeepLink(host: String?): DeepLinkTarget? = when (host?.lowercase()) {
     "sms-report", "smsreport" -> DeepLinkTarget.SMS_REPORT
     "addons", "add-ons", "subscription", "plans" -> DeepLinkTarget.ADD_ONS
     "settings" -> DeepLinkTarget.SETTINGS
+    "reviews" -> DeepLinkTarget.REVIEWS
     else -> null
 }

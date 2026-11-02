@@ -5,7 +5,15 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import xyz.sattar.javid.proqueue.core.network.HttpClientFactory
-import xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApiService
+import xyz.sattar.javid.proqueue.core.network.DefaultTokenStore
+import xyz.sattar.javid.proqueue.core.network.TokenStore
+import xyz.sattar.javid.proqueue.core.prefs.AppPreferences
+import xyz.sattar.javid.proqueue.core.prefs.DefaultAppPreferences
+import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
+import xyz.sattar.javid.proqueue.core.state.SelectedBusinessStore
+import xyz.sattar.javid.proqueue.core.ui.DefaultDispatcherProvider
+import xyz.sattar.javid.proqueue.core.ui.DispatcherProvider
+import xyz.sattar.javid.proqueue.data.localDataSource.LocalCacheCleaner
 import xyz.sattar.javid.proqueue.data.repository.appointment.AppointmentRepositoryImpl
 import xyz.sattar.javid.proqueue.data.repository.business.BusinessRepositoryImpl
 import xyz.sattar.javid.proqueue.data.repository.message.MessageRepositoryImpl
@@ -45,7 +53,6 @@ import xyz.sattar.javid.proqueue.domain.usecase.VisitorUpsertUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.CheckVersionUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.ClearTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetUserProfileUseCase
-import xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApiService
 import xyz.sattar.javid.proqueue.domain.usecase.push.SyncPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.push.UnregisterPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.HasTokenUseCase
@@ -57,6 +64,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.VerifyOTPUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMySubscriptionUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMyEntitlementsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetAddonsUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.user.GetWalletHistoryUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.BuyAddonUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetCurrentUserUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.SyncUserProfileUseCase
@@ -78,6 +86,7 @@ import xyz.sattar.javid.proqueue.feature.messages.MessagesViewModel
 import xyz.sattar.javid.proqueue.feature.notifications.NotificationsViewModel
 import xyz.sattar.javid.proqueue.feature.profile.UserViewModel
 import xyz.sattar.javid.proqueue.feature.addons.AddonsViewModel
+import xyz.sattar.javid.proqueue.feature.wallet.WalletViewModel
 import xyz.sattar.javid.proqueue.feature.register.RegisterViewModel
 import xyz.sattar.javid.proqueue.feature.settings.SettingsViewModel
 import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportViewModel
@@ -88,13 +97,19 @@ import xyz.sattar.javid.proqueue.feature.visitorSelection.VisitorSelectionViewMo
 val appModule: Module = module {
 
     // --- Network ---
+    single<DispatcherProvider> { DefaultDispatcherProvider }
+    single<SelectedBusinessStore> { BusinessStateHolder }
+    single<AppPreferences> { DefaultAppPreferences }
+    single<TokenStore> { DefaultTokenStore }
     single<HttpClient> { HttpClientFactory.create() }
-    single { UserApiService(get()) }
-    single { DeviceApiService(get()) }
-    single { xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApiService(get()) }
-    single { xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApiService(get()) }
-    single { xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApiService(get()) }
-    single<UserRepository> { UserRepositoryImpl(get(), get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.user.UserApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.device.DeviceApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.business.BusinessApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApiService(get()) }
+    single<xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.ShowcaseApi> { xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.ShowcaseApiService(get()) }
+    single { LocalCacheCleaner(get(), get(), get(), get(), get()) }
+    single<UserRepository> { UserRepositoryImpl(get(), get(), get(), get()) }
 
     // --- DAOs ---
     // The *LocalSource bindings (Room has no web target, see
@@ -108,13 +123,14 @@ val appModule: Module = module {
     single<VisitorRepository> { VisitorRepositoryImpl(get(), get()) }
     single<AppointmentRepository> { AppointmentRepositoryImpl(get(), get(), get(), get()) }
     single<MessageRepository> { MessageRepositoryImpl(get(), get()) }
+    single<xyz.sattar.javid.proqueue.domain.ShowcaseRepository> { xyz.sattar.javid.proqueue.data.repository.showcase.ShowcaseRepositoryImpl(get()) }
 
     // --- User UseCases ---
-    factory { RegisterUseCase(get()) }
-    factory { LoginUseCase(get()) }
+    factory { RegisterUseCase(get(), get()) }
+    factory { LoginUseCase(get(), get()) }
     factory { UserLogoutUseCase(get()) }
-    factory { HasTokenUseCase() }
-    factory { ClearTokenUseCase() }
+    factory { HasTokenUseCase(get()) }
+    factory { ClearTokenUseCase(get()) }
     factory { SyncPushTokenUseCase(get()) }
     factory { UnregisterPushTokenUseCase(get()) }
     factory { CheckVersionUseCase(get()) }
@@ -124,13 +140,15 @@ val appModule: Module = module {
     factory { ResetPasswordUseCase(get()) }
     factory { GetMySubscriptionUseCase(get()) }
     factory { GetCurrentUserUseCase(get()) }
-    factory { SyncUserProfileUseCase(get()) }
+    factory { SyncUserProfileUseCase(get(), get()) }
     factory { GetPlansUseCase(get()) }
     factory { CreatePaymentUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase(get(), get(), get()) }
     factory { GetMyEntitlementsUseCase(get()) }
     factory { GetAddonsUseCase(get()) }
+    factory { GetWalletHistoryUseCase(get()) }
     factory { BuyAddonUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.user.ConvertWalletUseCase(get()) }
 
     // --- Business UseCases ---
     factory { xyz.sattar.javid.proqueue.domain.usecase.ObserveBusinessesUseCase(get()) }
@@ -159,11 +177,12 @@ val appModule: Module = module {
     factory { CheckAppointmentConflictUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.SyncAppointmentsUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.GetDailyCountsUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.GetSourceSummaryUseCase(get()) }
     factory { xyz.sattar.javid.proqueue.domain.usecase.GetRangeReportUseCase(get()) }
 
     // --- Message UseCases ---
     factory { SendMessageUseCase(get()) }
-    factory { GenerateReminderMessageUseCase() }
+    factory { GenerateReminderMessageUseCase(get()) }
 
     // --- Visitor UseCases ---
     factory { VisitorUpsertUseCase(get()) }
@@ -178,10 +197,13 @@ val appModule: Module = module {
     // --- ViewModels ---
      viewModel { CreateBusinessViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
      viewModel { AddonsViewModel(get(), get()) }
+     viewModel { WalletViewModel(get(), get()) }
     viewModel { CreateVisitorViewModel(get(), get(), get()) }
-    viewModel { CreateAppointmentViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { CreateAppointmentViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel {
         HomeViewModel(
+            get(),
+            get(),
             get(),
             get(),
             get(),
@@ -211,16 +233,20 @@ val appModule: Module = module {
     viewModel { VisitorSelectionViewModel(get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
     viewModel { VersionViewModel(get()) }
-    viewModel { NotificationsViewModel(get(), get(), get(), get(), get()) }
+    viewModel { NotificationsViewModel(get(), get(), get(), get(), get(), get(), get()) }
     viewModel { BusinessListViewModel(get(), get(), get()) }
-    viewModel { VisitorDetailsViewModel(get(), get(), get(), get(), get(), get()) }
-    viewModel { MessagesViewModel(get(), get(), get()) }
+    viewModel { VisitorDetailsViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { MessagesViewModel(get(), get(), get(), get(), get()) }
     viewModel { SmsReportViewModel(get(), get(), get(), get()) }
     viewModel { xyz.sattar.javid.proqueue.feature.promo.PromoCampaignViewModel(get()) }
-    viewModel { CalendarViewModel(get(), get()) }
+    viewModel { CalendarViewModel(get(), get(), get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.banner.BannerViewModel(get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.reviews.ReviewsViewModel(get(), get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.showcase.ShowcaseViewModel(get(), get()) }
     viewModel { RegisterViewModel(get()) }
     viewModel { SendOTPViewModel(get(), get()) }
     viewModel { ResetPasswordViewModel(get()) }
     viewModel { LoginViewModel(get()) }
-    viewModel { UserViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.claimBusiness.ClaimBusinessViewModel(get()) }
+    viewModel { UserViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
 }

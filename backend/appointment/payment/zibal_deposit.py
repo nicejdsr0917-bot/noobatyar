@@ -23,19 +23,11 @@ success is decided by Zibal's verify response, never by ``success=1`` in the URL
 import logging
 from typing import Any, Dict
 
-import httpx
 from django.utils import timezone
 
-logger = logging.getLogger(__name__)
+from integrations import zibal
 
-BASE_URL = "https://gateway.zibal.ir"
-REQUEST_URL = f"{BASE_URL}/v1/request"
-VERIFY_URL = f"{BASE_URL}/v1/verify"
-SUCCESS_CODE = 100
-# Zibal returns 201 when a trackId was already verified. That is a success for
-# our purposes: the money moved, we just processed the callback twice.
-ALREADY_VERIFIED_CODE = 201
-TIMEOUT = 10.0
+logger = logging.getLogger(__name__)
 
 
 def deposit_amount_rial(business) -> int:
@@ -58,42 +50,31 @@ def create_deposit_payment(appointment, callback_url: str) -> Dict[str, Any]:
     if amount <= 0:
         return {"success": False, "error": "مبلغ بیعانه برای این کسب‌وکار تعیین نشده است"}
 
-    payload = {
-        "merchant": merchant,
-        "amount": amount,
-        "callbackUrl": callback_url,
-        "orderId": f"APT-{appointment.id}-{int(timezone.now().timestamp())}",
-        "description": f"بیعانه نوبت {appointment.id} — {business.title}",
-    }
-
-    try:
-        with httpx.Client() as client:
-            response = client.post(
-                REQUEST_URL,
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=TIMEOUT,
-            )
-            response.raise_for_status()
-            data = response.json()
-    except httpx.HTTPError as exc:
-        logger.error("Zibal deposit request failed for appointment %s: %s", appointment.id, exc)
+    result = zibal.request_payment(
+        merchant,
+        amount,
+        callback_url,
+        f"APT-{appointment.id}-{int(timezone.now().timestamp())}",
+        description=f"بیعانه نوبت {appointment.id} — {business.title}",
+    )
+    if result.transport_error:
+        logger.error("Zibal deposit request failed for appointment %s: %s", appointment.id, result.message)
         return {"success": False, "error": "خطا در اتصال به درگاه پرداخت"}
 
-    if data.get("result") != SUCCESS_CODE:
+    if not result.success:
         # A wrong merchant id is the usual cause, and it is the owner's
         # misconfiguration rather than anything the client can fix.
         logger.error(
             "Zibal deposit rejected for appointment %s (business %s): %s",
-            appointment.id, business.id, data,
+            appointment.id, business.id, result.message,
         )
         return {"success": False, "error": "درگاه پرداخت این کسب‌وکار در دسترس نیست"}
 
-    track_id = str(data["trackId"])
+    track_id = str(result.track_id)
     logger.info("Zibal deposit opened for appointment %s, trackId=%s", appointment.id, track_id)
     return {
         "success": True,
-        "payment_url": f"{BASE_URL}/start/{track_id}",
+        "payment_url": zibal.start_url(track_id),
         "track_id": track_id,
     }
 
@@ -109,27 +90,30 @@ def verify_deposit_payment(appointment, track_id: str) -> Dict[str, Any]:
     if not merchant:
         return {"success": False, "error": "درگاه پرداخت این کسب‌وکار پیکربندی نشده است"}
 
-    try:
-        with httpx.Client() as client:
-            response = client.post(
-                VERIFY_URL,
-                headers={"Content-Type": "application/json"},
-                json={"merchant": merchant, "trackId": track_id},
-                timeout=TIMEOUT,
-            )
-            response.raise_for_status()
-            data = response.json()
-    except httpx.HTTPError as exc:
-        logger.error("Zibal deposit verify failed for appointment %s: %s", appointment.id, exc)
+    result = zibal.verify(track_id, merchant=merchant)
+    if result.outcome is zibal.Outcome.TRANSPORT_ERROR:
+        logger.error(
+            "Zibal deposit verify unavailable for appointment %s, trackId=%s: %s",
+            appointment.id, track_id, result.data,
+        )
         return {"success": False, "error": "خطا در تایید پرداخت"}
-
-    result = data.get("result")
-    if result not in (SUCCESS_CODE, ALREADY_VERIFIED_CODE):
+    if not result.paid:
         logger.warning(
             "Zibal deposit not verified for appointment %s, trackId=%s: %s",
-            appointment.id, track_id, data,
+            appointment.id, track_id, result.data,
         )
-        return {"success": False, "error": "پرداخت تایید نشد", "response": data}
+        return {"success": False, "error": "پرداخت تایید نشد", "response": result.data}
+    data = result.data
+
+    # Zibal confirmed the money. Stamp it on the row so a deposit whose slot is
+    # then lost (callback lands after the hold expired and someone else booked)
+    # can be found in the admin and refunded. Queryset update: touches only this
+    # column, so it cannot clobber the status flip that follows.
+    # Stamped BEFORE the amount check so an underpayment is refundable too.
+    from appointment.models import Appointment
+    now = timezone.now()
+    Appointment.objects.filter(pk=appointment.pk).update(deposit_verified_at=now)
+    appointment.deposit_verified_at = now
 
     paid = int(data.get("amount") or 0)
     expected = deposit_amount_rial(business)

@@ -57,12 +57,15 @@ import xyz.sattar.javid.proqueue.feature.settings.ThemeScreen
 import xyz.sattar.javid.proqueue.feature.promo.PromoCampaignScreen
 import xyz.sattar.javid.proqueue.feature.settings.SettingsScreen
 import xyz.sattar.javid.proqueue.feature.smsReport.SmsReportScreen
+import xyz.sattar.javid.proqueue.feature.reviews.ReviewsScreen
+import xyz.sattar.javid.proqueue.feature.showcase.ShowcaseScreen
 import xyz.sattar.javid.proqueue.feature.visitorDetails.VisitorDetailsScreen
 import xyz.sattar.javid.proqueue.feature.visitorSelection.VisitorSelectionScreen
 import xyz.sattar.javid.proqueue.feature.aboutUs.AboutUsScreen
 import xyz.sattar.javid.proqueue.feature.share.ShareBusinessScreen
 import xyz.sattar.javid.proqueue.core.payment.PaymentWebViewScreen
 import xyz.sattar.javid.proqueue.feature.addons.AddonsScreen
+import xyz.sattar.javid.proqueue.feature.wallet.WalletScreen
 import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessRoute
 import xyz.sattar.javid.proqueue.feature.createBusiness.AdvancedSettingsRoute
 
@@ -106,6 +109,7 @@ fun MainNavHost(
                     DeepLinkTarget.SMS_REPORT -> AppScreens.SmsReport
                     DeepLinkTarget.ADD_ONS -> AppScreens.AddOns
                     DeepLinkTarget.SETTINGS -> AppScreens.Settings
+                    DeepLinkTarget.REVIEWS -> AppScreens.Reviews
                 }
                 screen?.let { navController.navigate(it) }
                 NotificationNavigationManager.consumeEvent()
@@ -295,6 +299,9 @@ private fun MainNavGraph(
                     onNavigateToAddons = {
                         navController.navigate(AppScreens.AddOns)
                     },
+                    onNavigateToWallet = {
+                        navController.navigate(AppScreens.Wallet)
+                    },
                     onNavigateToVisitors = { args: VisitorsNavArgs ->
                         // Same call the bottom bar's onTabSelected uses — this
                         // must land on the one shared MainTab.LastVisitors
@@ -403,6 +410,11 @@ private fun MainNavGraph(
                     onNavigateToPromoCampaign = {
                         navController.navigate(AppScreens.PromoCampaign)
                     },
+                    onNavigateToReviews = { navController.navigate(AppScreens.Reviews) },
+                    onNavigateToShowcase = { navController.navigate(AppScreens.Showcase) },
+                    onNavigateToWallet = {
+                        navController.navigate(AppScreens.Wallet)
+                    },
                     onNavigateToLogin = onNavigateToLogin
                 )
             }
@@ -468,6 +480,14 @@ private fun MainNavGraph(
                 SmsReportScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
+            }
+
+            composable<AppScreens.Reviews> {
+                ReviewsScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            composable<AppScreens.Showcase> {
+                ShowcaseScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable<AppScreens.EmergencyNotice> {
@@ -585,6 +605,13 @@ private fun MainNavGraph(
                     onNavigateToPayment = { url ->
                         navController.navigate(AppScreens.PaymentWebView(url))
                     }
+                )
+            }
+
+            composable<AppScreens.Wallet> {
+                WalletScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAddons = { navController.navigate(AppScreens.AddOns) }
                 )
             }
 

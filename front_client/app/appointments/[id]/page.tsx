@@ -1,8 +1,10 @@
 'use client';
 
+import { googleMapsSearchUrl } from '@/lib/maps';
+import { getVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAppointment, cancelAppointment, businessCategoryLabel, type Appointment } from '@/lib/api';
+import { getAppointment, cancelAppointment, businessCategoryLabel, mediaUrl, type Appointment } from '@/lib/api';
 import { STATUS_LABELS, formatDate } from '@/lib/format';
 import Toolbar from '@/app/components/Toolbar';
 import Icon from '@/app/components/Icon';
@@ -16,6 +18,8 @@ const CANCELLABLE = ['LOCKED', 'PENDING_APPROVAL', 'PENDING_VERIFICATION', 'WAIT
 
 export default function AppointmentDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  // Captured once at mount: "is it still ahead of us" does not need a live clock.
+  const [now] = useState(() => Date.now());
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,7 +29,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
 
   const handleCancel = async () => {
     if (!appointment) return;
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) return;
 
     setCancelling(true);
@@ -46,7 +50,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
   useEffect(() => {
     params.then((p) => {
       const aptId = parseInt(p.id, 10);
-      const token = localStorage.getItem('visitor_token');
+      const token = getVisitorToken();
       if (!token) {
         router.replace(`/auth/login?redirect=/appointments/${aptId}`);
         return;
@@ -86,6 +90,11 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
 
   const st = STATUS_LABELS[appointment.status] || { label: appointment.status, color: 'var(--color-muted)', bg: '#f3f4f6' };
   const biz = appointment.business;
+  const services = appointment.selected_services ?? [];
+  const receiptSrc = mediaUrl(appointment.payment_receipt);
+  const depositLabel =
+    appointment.deposit_payment_method === 'CARD' ? t('depositByCard')
+      : appointment.deposit_payment_method === 'GATEWAY' ? t('depositByGateway') : null;
 
   return (
     <div className="page-content" style={{ background: 'var(--color-bg)', minHeight: '100dvh' }}>
@@ -150,6 +159,50 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
         </div>
 
         {/* ── Contact ── */}
+        {/* The booking slip: services, note and the deposit proof the visitor sent. */}
+        {(services.length > 0 || appointment.description || depositLabel || appointment.payment_reference || receiptSrc) && (
+          <div style={{
+            background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)',
+            padding: 24, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 12,
+          }}>
+            <h2 style={{ fontSize: 13, color: 'var(--color-muted)', margin: 0 }}>{t('bookingSlip')}</h2>
+            {services.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>{t('requestedServices')}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, textAlign: 'end' }}>{services.join('، ')}</span>
+              </div>
+            )}
+            {appointment.description && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>{t('yourNote')}</span>
+                <span style={{ fontSize: 14, textAlign: 'end' }}>{appointment.description}</span>
+              </div>
+            )}
+            {depositLabel && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>{t('depositMethod')}</span>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{depositLabel}</span>
+              </div>
+            )}
+            {appointment.payment_reference && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>{t('paymentTrackingNumber')}</span>
+                <span dir="ltr" style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace' }}>{appointment.payment_reference}</span>
+              </div>
+            )}
+            {receiptSrc && (
+              <div>
+                <div style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 8 }}>{t('receiptPhoto')}</div>
+                <a href={receiptSrc} target="_blank" rel="noopener noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- media from our own API, any size */}
+                  <img src={receiptSrc} alt={t('receiptPhoto')}
+                    style={{ width: '100%', maxHeight: 360, objectFit: 'cover', borderRadius: 12, border: '1px solid var(--color-border)' }} />
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{
           background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)',
           padding: 24, marginBottom: 24,
@@ -160,7 +213,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
             <div style={{ fontSize: 12, color: 'var(--color-muted)', flexShrink: 0 }}>{t('address')}</div>
             {biz.address ? (
               <a
-                href={`https://maps.google.com/?q=${encodeURIComponent(biz.address)}`}
+                href={googleMapsSearchUrl(biz.address)}
                 target="_blank" rel="noopener noreferrer"
                 style={{ fontSize: 13, color: 'var(--color-primary)', lineHeight: 1.7, textAlign: 'end', textDecoration: 'none', fontWeight: 600 }}
               >
@@ -208,7 +261,7 @@ export default function AppointmentDetailsPage({ params }: { params: Promise<{ i
           {t('viewBusinessProfile')}</button>
 
         {/* ── Cancel (only while the appointment is still ahead of us) ── */}
-        {CANCELLABLE.includes(appointment.status) && appointment.appointment_date > Date.now() && (
+        {CANCELLABLE.includes(appointment.status) && appointment.appointment_date > now && (
           confirmCancel ? (
             <div style={{ marginTop: 12, padding: 16, borderRadius: 14, border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
               <div style={{ fontSize: 14, color: 'var(--color-text)', textAlign: 'center', marginBottom: 14, lineHeight: 1.8 }}>

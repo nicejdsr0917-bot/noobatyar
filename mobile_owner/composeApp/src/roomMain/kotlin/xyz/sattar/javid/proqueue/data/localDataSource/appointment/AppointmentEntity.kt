@@ -46,5 +46,6 @@ data class AppointmentEntity(
     val paymentReceipt: String? = null,
     val trackingCode: String? = null,
     val paymentReference: String? = null,
-    val depositPaymentMethod: String? = null
+    val depositPaymentMethod: String? = null,
+    val source: String? = null
 )

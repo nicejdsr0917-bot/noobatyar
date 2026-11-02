@@ -3,13 +3,13 @@ bale/notify.py
 
 Pushes a moderation-queue item into the operator's Bale chat.
 
-Threading follows the house pattern for "must not block the response and must
-not be able to fail it" (appointment/client_views.py): a ``daemon=True`` thread
-handed nothing but primitive ids, re-reading the database on its own connection.
-The public entry point wraps that in ``transaction.on_commit``, because two of
-its three call sites sit inside ``transaction.atomic`` and a thread that started
-early would query a row that is not committed yet — and, on a rollback, would
-announce a business that does not exist.
+Delivery goes through the DB outbox (core.outbox), the house pattern for "must
+not block the response and must not be able to fail it": the entry points write
+an outbox row holding nothing but primitive ids, and the run_outbox worker
+re-reads the database and sends. The row is written inside the caller's
+transaction (two of the three call sites sit inside ``transaction.atomic``), so
+it only becomes visible to the worker once the business row is committed — and,
+on a rollback, no business is announced that does not exist.
 
 Nothing here raises. A moderation queue entry is the source of truth; the Bale
 message is a convenience on top of it, and a chat outage must never cost someone
@@ -18,10 +18,8 @@ their business registration.
 
 import logging
 import os
-import threading
 
 from django.conf import settings
-from django.db import transaction
 
 from api.jalali import format_datetime
 
@@ -45,29 +43,19 @@ def notify_review_queued(business, kind=KIND_NEW, changed=None):
     message.
     """
     try:
-        business_id = business.pk
-        changed = list(changed or [])
-        transaction.on_commit(
-            lambda: _spawn(business_id, kind, changed)
+        from core.outbox.service import enqueue
+
+        enqueue(
+            'bale.review_card',
+            {'business_id': business.pk, 'kind': kind, 'changed': list(changed or [])},
         )
     except Exception:
         logger.exception('Failed to schedule Bale review notification')
 
 
-def _spawn(business_id, kind, changed):
-    try:
-        threading.Thread(
-            target=_send,
-            args=(business_id, kind, changed),
-            daemon=True,
-            name=f'bale-review-{business_id}',
-        ).start()
-    except Exception:
-        logger.exception('Failed to start Bale notification thread for %s', business_id)
-
-
-def _send(business_id, kind, changed):
-    """Thread body: load everything fresh, build the message, send it."""
+def send_review_card(business_id, kind, changed):
+    """Outbox handler body (``bale.review_card``): load everything fresh, build
+    the message, send it."""
     try:
         config = BaleSettings.load()
         if not config.is_configured:
@@ -82,7 +70,7 @@ def _send(business_id, kind, changed):
         )
         if business is None:
             # Created and deleted inside one request, or rolled back after the
-            # on_commit hook was queued.
+            # row was queued.
             logger.info('Bale notification skipped: business %s is gone', business_id)
             return
 
@@ -144,7 +132,7 @@ def _logo_path(business):
 
 
 def fire_owner_sms(business_id, to_status):
-    """Send the owner's moderation SMS *and* push off the request path.
+    """Queue the owner's moderation SMS *and* push (sent by the outbox worker).
 
     ``apply_moderation_decision(notify=True)`` sends both inline, and the SMS
     half costs the caller a round trip to Melipayamak with a 10s timeout. In
@@ -164,34 +152,33 @@ def fire_owner_sms(business_id, to_status):
     already sent both when notify=True, but the Bale path's notify=False
     skipped both, and only the SMS had a replacement here.
     """
-    def _run():
-        try:
-            from business.models import Business
-            from business.push_moderation import notify_moderation_decision_push
-            from business.sms_moderation import notify_moderation_decision
+    from core.outbox.service import safe_enqueue
 
-            business = Business.objects.select_related('user').filter(
-                pk=business_id).first()
-            if business is None:
-                return
-            # Push first, same ordering as apply_moderation_decision: a dead
-            # SMS provider should never be the reason the owner hears nothing.
-            try:
-                notify_moderation_decision_push(business, to_status)
-            except Exception:
-                logger.exception(
-                    'Owner moderation push failed for business %s', business_id
-                )
-            notify_moderation_decision(business, to_status)
-        except Exception:
-            logger.exception('Owner moderation SMS failed for business %s', business_id)
+    safe_enqueue('bale.owner_moderation_notify', {'business_id': business_id, 'to_status': to_status})
 
+
+def notify_owner_of_decision(business_id, to_status):
+    """Outbox handler body (``bale.owner_moderation_notify``)."""
     try:
-        threading.Thread(
-            target=_run, daemon=True, name=f'bale-sms-{business_id}',
-        ).start()
+        from business.models import Business
+        from business.push_moderation import notify_moderation_decision_push
+        from business.sms_moderation import notify_moderation_decision
+
+        business = Business.objects.select_related('user').filter(
+            pk=business_id).first()
+        if business is None:
+            return
+        # Push first, same ordering as apply_moderation_decision: a dead
+        # SMS provider should never be the reason the owner hears nothing.
+        try:
+            notify_moderation_decision_push(business, to_status)
+        except Exception:
+            logger.exception(
+                'Owner moderation push failed for business %s', business_id
+            )
+        notify_moderation_decision(business, to_status)
     except Exception:
-        logger.exception('Could not start owner notify thread for %s', business_id)
+        logger.exception('Owner moderation SMS failed for business %s', business_id)
 
 
 def build_text(business, kind, changed=None) -> str:
@@ -292,3 +279,64 @@ def _admin_url(business_id):
         return ''
     admin_path = getattr(settings, 'ADMIN_URL', 'admin/')
     return f'{site}/{admin_path}business/business/{business_id}/change/'
+
+
+# ── showcase (portfolio / certificate) review cards ─────────────────────────
+
+def notify_showcase_queued(kind, item_id):
+    """Queue a Bale review card for a portfolio item / certificate (outbox,
+    written inside the caller's transaction; never raises)."""
+    try:
+        from core.outbox.service import enqueue
+        enqueue('bale.showcase_card', {'kind': kind, 'item_id': item_id})
+    except Exception:
+        logger.exception('Failed to schedule Bale showcase notification')
+
+
+def _showcase_model(kind):
+    from showcase.services import MODELS
+    return MODELS[kind]
+
+
+def showcase_card_text(kind, item) -> str:
+    biz = item.business
+    head = '🖼 نمونه‌کار جدید در انتظار تأیید' if kind == 'portfolio' else '🎓 مدرک جدید در انتظار تأیید'
+    lines = [head, '', f'کسب‌وکار: {biz.title}']
+    if biz.unique_code:
+        lines.append(f'کد: {biz.unique_code}')
+    if kind == 'portfolio':
+        if item.caption:
+            lines.append(f'توضیح: {item.caption}')
+    else:
+        lines.append(f'عنوان: {item.title}')
+        if item.issuer:
+            lines.append(f'صادرکننده: {item.issuer}')
+        if item.year:
+            lines.append(f'سال: {item.year}')
+    return '\n'.join(lines)
+
+
+def send_showcase_card(kind, item_id):
+    """Outbox handler body (``bale.showcase_card``)."""
+    try:
+        from .keyboards import showcase_keyboard
+        config = BaleSettings.load()
+        if not config.is_configured:
+            return
+        item = _showcase_model(kind).objects.select_related('business').filter(pk=item_id).first()
+        if item is None:
+            return
+        try:
+            path = item.image.path
+        except (NotImplementedError, ValueError):
+            path = None
+        if path and os.path.exists(path):
+            send_photo(config.bot_token, config.chat_id, path)
+        result = send_message(
+            config.bot_token, config.chat_id, showcase_card_text(kind, item),
+            reply_markup=showcase_keyboard(kind, item.pk),
+        )
+        if not result['success']:
+            logger.warning('Bale showcase card not delivered (%s %s): %s', kind, item_id, result.get('error'))
+    except Exception:
+        logger.exception('Bale showcase notification failed (%s %s)', kind, item_id)

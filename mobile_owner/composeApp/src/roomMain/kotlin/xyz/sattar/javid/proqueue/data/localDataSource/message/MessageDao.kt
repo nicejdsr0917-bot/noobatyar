@@ -30,4 +30,7 @@ interface MessageDao {
         )
     """)
     suspend fun deleteMessagesByVisitorId(visitorId: Long): Int
+
+    @Query("DELETE FROM Message")
+    suspend fun clearAll()
 }

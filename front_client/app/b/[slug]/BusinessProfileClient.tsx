@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { googleMapsSearchUrl } from '@/lib/maps';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { businessCategoryLabel, closedWeekdaysJs, type Business } from '@/lib/api';
 import BusinessNotice from '@/app/components/BusinessNotice';
@@ -11,6 +12,7 @@ import BusinessMap from '@/app/components/BusinessMap';
 import LockedContact, { LockedMap, isWithheld } from '@/app/components/LockedContact';
 import { baladUrl, businessLocation, neshanUrl } from '@/lib/maps';
 import { toPersianDigits as toFa } from '@/lib/validation';
+import SocialLinks from '@/app/components/SocialLinks';
 import { useVisitorToken } from '@/lib/visitorToken';
 import { getLocale, intlLocale, t } from '@/lib/i18n';
 
@@ -27,9 +29,11 @@ const weekdayName = (day: number, style: 'narrow' | 'short' | 'long') =>
 interface Props {
   business: Business;
   slug: string;
+  /** Server-rendered showcase + reviews sections. */
+  children?: ReactNode;
 }
 
-export default function BusinessProfileClient({ business, slug }: Props) {
+export default function BusinessProfileClient({ business, slug, children }: Props) {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
   const isSignedIn = !!useVisitorToken();
@@ -227,6 +231,9 @@ export default function BusinessProfileClient({ business, slug }: Props) {
       {/* ── Owner notice — first thing under the hero, before any detail ── */}
       <BusinessNotice business={business} style={{ paddingTop: 16 }} />
 
+      {/* ── Social pages — hidden with the phone (public_policy) ── */}
+      <SocialLinks business={business} />
+
       {/* ── Stats strip ── */}
       <div className="section" style={{ paddingTop: 20, paddingBottom: 8 }}>
         <div className="stat-grid">
@@ -373,7 +380,7 @@ export default function BusinessProfileClient({ business, slug }: Props) {
         <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
           <a
             className="biz-address"
-            href={`https://maps.google.com/?q=${encodeURIComponent(business.address)}`}
+            href={googleMapsSearchUrl(business.address)}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -444,6 +451,8 @@ export default function BusinessProfileClient({ business, slug }: Props) {
             {t('bookingIsCurrentlyDisabled')}</div>
         </div>
       )}
+
+      {children}
 
       {/* ── Noobatyar Promo ──
           Takes this business's colour rather than Noobatyar purple: the page is

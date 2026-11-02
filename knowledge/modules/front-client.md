@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-28
+updated: 2026-11-02
 tags: [gf]
 ---
 # وب مشتری (front_client)
@@ -26,3 +26,17 @@ tags: [gf]
 
 ## وابستگی‌ها
 [[modules/backend-business]]، [[modules/backend-appointment]]، [[modules/backend-visitor]].
+
+## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
+- `lib/auth.ts` (توکن مشتری)، `apiFetch` با FormData، `getPaymentResult`، `app/components/PaymentResult.tsx`. lint باید بدون خطا باشد.
+- e2e: `npm run test:e2e` (Playwright، mock API در `e2e/` روی پورت 4187، Next روی 3187).
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
+- `app/components/ShowcaseSection.tsx` و `ReviewsSection.tsx` روی `b/[slug]` رندر می‌شوند. نمونه‌کار و صفحهٔ اول نظرات سمت سرور گرفته می‌شوند، و `aggregateRating` در JSON-LD آمده.
+- رزرو با `source: 'WEB'` ثبت می‌شود. mock-api در e2e حالا showcase و reviews را هم دارد؛ ۱۳ تست Playwright.
+
+## جلسهٔ 2026-11-02
+- `app/components/SocialLinks.tsx`: زیر اطلاعیهٔ مالک در `BusinessProfileClient`؛ عنوان `t('socialPages', business.title)`. آیکن‌ها در `public/icons/social/` (SVG از vectorهای اپ اونر، PNG برای بله/ایتا/روبیکا). استایل `.social-*` در `globals.css` با `popIn` و `prefers-reduced-motion`.
+- `Business.social_links` و `SocialKind` در `lib/api.ts`.
+- چک‌اوت (`b/[slug]/checkout/[id]/page.tsx`): `depositUncollectable` → نقد برای بیعانهٔ اجباری بی‌روش.
+- `npx tsc` فقط خطاهای Playwright نصب‌نشده (`e2e/`، `playwright.config.ts`) را دارد که قبلی‌اند.

@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import xyz.sattar.javid.proqueue.domain.model.business.SocialLinks
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.network.ApiException
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
@@ -41,9 +42,11 @@ class CreateBusinessViewModel(
                     intent.category,
                     intent.phone,
                     intent.extraPhones,
+                    intent.socialLinks,
                     intent.address,
                     intent.latitude,
                     intent.longitude,
+                    intent.cityCode,
                     intent.defaultProgress,
                     intent.workStartHour,
                     intent.workEndHour,
@@ -225,9 +228,11 @@ class CreateBusinessViewModel(
         category: String,
         phone: String,
         extraPhones: List<String>,
+        socialLinks: Map<String, String>,
         address: String,
         latitude: Double?,
         longitude: Double?,
+        cityCode: Int?,
         defaultProgress: String,
         workStartHour: Int,
         workEndHour: Int,
@@ -265,9 +270,11 @@ class CreateBusinessViewModel(
                     categoryLabel = BusinessCategory.fromString(category).persianName,
                     phone = phone,
                     extraPhones = extraPhones,
+                    socialLinks = SocialLinks.clean(socialLinks),
                     address = address,
                     latitude = latitude,
                     longitude = longitude,
+                    cityCode = cityCode,
                     logoPath = uiState.value.business?.logoPath ?: "Sample_path.jpg",
                     id = uiState.value.businessId,
                     defaultServiceDuration = defaultProgress.toIntOrNull() ?: 15,

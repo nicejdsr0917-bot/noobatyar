@@ -1,8 +1,12 @@
 # api/views.py
-from .responses import APIResponse
+from common.errors import extract_error
+from common.responses import APIResponse
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
-from .throttles import LoginRateThrottle, OTPRateThrottle
+from .throttles import (
+    LoginRateThrottle, OTPRateThrottle, client_ip, OTPSendPhoneThrottle,
+    OTPVerifyPhoneThrottle, OTPVerifyThrottle,
+)
 from .services.otp import send_otp as otp_send, verify_otp as otp_verify
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
@@ -19,6 +23,8 @@ from .models import User
 from .permissions import HasActiveSubscription
 from django.core.cache import cache
 from accounting.models import Plan, Subscription # اضافه شد
+from accounting.services import grant_trial
+from django.db import IntegrityError, transaction
 import secrets
 
 
@@ -74,19 +80,12 @@ def get_tokens(user):
     }
 
 
-def _extract_error(errors: dict) -> str:
-    """اولین پیام خطا رو از serializer errors بیرون میکشه"""
-    for field, messages in errors.items():
-        if isinstance(messages, list) and messages:
-            return f"{messages[0]}"
-        if isinstance(messages, str):
-            return messages
-    return 'اطلاعات نامعتبر'
+_extract_error = extract_error  # kept for old importers (remove in R15)
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([OTPRateThrottle])
+@throttle_classes([OTPRateThrottle, OTPSendPhoneThrottle])
 def send_otp_view(request):
     serializer = SendOTPSerializer(data=request.data)
     if not serializer.is_valid():
@@ -96,10 +95,11 @@ def send_otp_view(request):
 
     # Delegates to the Redis-backed service:
     #   - checks 3-min rate limit
-    #   - checks 24-h daily ban (>= 5 failures)
+    #   - checks the per-phone daily send cap
     #   - generates OTP, stores in cache
-    #   - dispatches SMS in a background daemon thread (non-blocking)
-    result = otp_send(phone)
+    #   - sends the SMS synchronously (blocks up to ~10 s on the provider call;
+    #     a later outbox phase will move this to a background worker)
+    result = otp_send(phone, ip=client_ip(request))
     if not result['success']:
         return APIResponse.error(result.get('error', 'خطا در ارسال کد'))
 
@@ -111,6 +111,7 @@ def send_otp_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([OTPVerifyThrottle, OTPVerifyPhoneThrottle])
 def verify_otp_view(request):
     serializer = VerifyOTPSerializer(data=request.data)
     if not serializer.is_valid():
@@ -119,7 +120,7 @@ def verify_otp_view(request):
     phone = serializer.validated_data['phone']
     code  = str(serializer.validated_data['code'])
 
-    # Delegates to the service: tracks attempts, increments daily fail counter
+    # Delegates to the service: tracks per-code attempts
     result = otp_verify(phone, code)
     if not result['success']:
         return APIResponse.error(result.get('error', 'کد نامعتبر است'))
@@ -171,20 +172,22 @@ def register_view(request):
             return APIResponse.error('توکن تأیید شماره نامعتبر یا منقضی شده است')
         cache.delete(f'register_token:{phone}')
 
-    user = User.objects.create_user(
-        phone=phone,
-        password=password or None,  # None → رمز غیرقابل استفاده (ورود فقط با OTP)
-        name=name
-    )
-
-    # فعال‌سازی خودکار پلن آزمایشی برای کاربر جدید
-    trial_plan = Plan.objects.filter(price=0, is_active=True).first()
-    if trial_plan:
-        Subscription.objects.create(
-            user=user,
-            plan=trial_plan,
-            ends_at=trial_plan.get_end_date()
-        )
+    # User + trial in one transaction. The serializer's exists() check can lose
+    # a race with a concurrent register for the same phone; the unique index
+    # then raises, which is reported like the normal duplicate error.
+    with transaction.atomic():
+        try:
+            # Inner savepoint so only the user insert's IntegrityError (the
+            # exists()->create race) is read as "already registered".
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    phone=phone,
+                    password=password or None,  # None → رمز غیرقابل استفاده (ورود فقط با OTP)
+                    name=name
+                )
+        except IntegrityError:
+            return APIResponse.error(message='این شماره قبلاً ثبت شده')
+        grant_trial(user)
 
     return APIResponse.success(
         data={
@@ -260,7 +263,7 @@ def logout_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([OTPRateThrottle])
+@throttle_classes([OTPRateThrottle, OTPSendPhoneThrottle])
 def forgot_password_send_otp(request):
     serializer = ForgotPasswordSendOTPSerializer(data=request.data)
     if not serializer.is_valid():
@@ -274,9 +277,9 @@ def forgot_password_send_otp(request):
         # Don't reveal whether the phone is registered (account enumeration).
         return APIResponse.success(message='اگر شماره ثبت شده باشد، کد ارسال می‌شود')
 
-    # Reuse the Redis-backed OTP service (rate limit + daily ban + async SMS).
+    # Reuse the Redis-backed OTP service (cooldown + send caps).
     # It stores the code internally and is verified later via otp_verify().
-    result = otp_send(phone)
+    result = otp_send(phone, ip=client_ip(request))
     if not result['success']:
         return APIResponse.error(result.get('error', 'خطا در ارسال پیامک'))
 
@@ -288,6 +291,7 @@ def forgot_password_send_otp(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([OTPVerifyThrottle, OTPVerifyPhoneThrottle])
 def forgot_password_verify_otp(request):
     serializer = ForgotPasswordVerifyOTPSerializer(data=request.data)
     if not serializer.is_valid():

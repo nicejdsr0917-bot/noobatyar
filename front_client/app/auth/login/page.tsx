@@ -1,5 +1,6 @@
 'use client';
 
+import { setVisitorToken } from '@/lib/auth';
 import { useState, Suspense, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { sendOtp, verifyOtp, completeRegister } from '@/lib/api';
@@ -64,7 +65,7 @@ function LoginForm() {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const saveToken = (token: string) => localStorage.setItem('visitor_token', token);
+  const saveToken = (token: string) => setVisitorToken(token);
 
   /* ── Step 1: send the OTP ── */
   const handleSendOtp = useCallback(async () => {

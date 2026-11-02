@@ -1,19 +1,25 @@
 from adrf.views import APIView
 from asgiref.sync import sync_to_async
 from rest_framework.permissions import AllowAny
-from rest_framework.exceptions import ValidationError as DRFValidationError
 from api.responses import APIResponse
-from business.serializers import normalize_service_names
 from visitor.auth import VisitorTokenAuthentication, IsVisitorAuthenticated
-from visitor.activity import record_activity
-from visitor.models import VisitorActivity
 from .models import Appointment
 from .client_serializers import ClientAppointmentSerializer
-from .cache_utils import invalidate_slots_cache
-from .occupancy import find_conflict, lock_expiry, refund_quota
 from api.pagination import StandardPagination
-from accounting import usage
-from django.utils import timezone
+from . import selectors
+from .services.client_booking import (
+    LOCK_EXPIRED_MESSAGE as _LOCK_EXPIRED_MESSAGE,
+    ClientBookingError,
+    client_book,
+    travel_estimate,
+    client_cancel,
+    client_deposit_returned,
+    client_submit_payment,
+)
+from .services.transitions import (
+    appointment_expire_lock_if_due,
+    appointment_store_gateway_track_id,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,12 +37,7 @@ class ClientAppointmentListView(APIView):
         return await sync_to_async(self._list_paginated)(request)
 
     def _list_paginated(self, request):
-        queryset = (
-            Appointment.objects
-            .filter(visitor=request.user)
-            .select_related('business', 'visitor')
-            .order_by('-appointment_date')
-        )
+        queryset = selectors.appointment_list_for_visitor(visitor=request.user)
 
         paginator = StandardPagination()
         page = paginator.paginate_queryset(queryset, request, view=self)
@@ -67,180 +68,33 @@ class ClientAppointmentListView(APIView):
         except Business.DoesNotExist:
             return APIResponse.error(message="کسب‌وکار یافت نشد", code=404)
 
-        # A business that is not publicly visible does not accept new bookings.
-        # Two unrelated causes end up here — the owner's plan lapsed
-        # (`is_locked`) and a moderator rejected/suspended the listing — and they
-        # deliberately share one neutral message: which one applies is the
-        # owner's business, not something to disclose to whoever followed a stale
-        # link. 403 rather than 404 because the client reached this from a real
-        # link and deserves to be told the booking was refused, not that the page
-        # never existed.
-        if not business.is_publicly_visible:
-            return APIResponse.error(
-                message="این کسب‌وکار در حال حاضر نوبت جدید نمی‌پذیرد",
-                code=403,
-            )
-
-        # Monthly appointment quota belongs to the business owner's plan.
-        if not await sync_to_async(usage.can_book_appointment)(business.user_id):
-            return APIResponse.error(
-                message="ظرفیت نوبت‌های این کسب‌وکار برای این ماه تکمیل شده است",
-                code=409,
-            )
-
         # request.user is the Visitor resolved by VisitorTokenAuthentication —
         # already exists, no account/get_or_create needed here.
-        visitor = request.user
-
-        app_date = datetime.fromtimestamp(serializer.validated_data['appointment_date'] / 1000.0, tz=timezone.utc)
-        duration = serializer.validated_data.get('service_duration') or business.default_service_duration
-
-        # A payment step only applies when the business actually collects money
-        # at booking time — a deposit, or a card/online method. Those are all
-        # premium capabilities, so they are re-checked against the owner's
-        # *current* plan: a downgraded owner whose business row still carries a
-        # stale CARD/deposit config must not push clients into a payment step.
-        requires_payment = await sync_to_async(_requires_payment)(business)
-
-        # What the client says they're coming for. Anything off-menu is rejected
-        # unless the owner opted into it — otherwise the switch in the business
-        # settings would be decoration, since the client controls the payload.
         try:
-            selected_services = normalize_service_names(
-                serializer.validated_data.get('selected_services')
+            appointment, requires_payment = await sync_to_async(client_book)(
+                business=business,
+                visitor=request.user,
+                appointment_date=datetime.fromtimestamp(
+                    serializer.validated_data['appointment_date'] / 1000.0, tz=timezone.utc
+                ),
+                duration=serializer.validated_data.get('service_duration'),
+                description=serializer.validated_data.get('description', ''),
+                raw_services=serializer.validated_data.get('selected_services'),
+                source=serializer.validated_data.get('source', 'WEB'),
+                travel=travel_estimate(request.data),
             )
-        except DRFValidationError as exc:
-            return APIResponse.error(message=str(exc.detail[0]), code=400)
-
-        if not business.allow_client_add_service:
-            menu = set(normalize_service_names(business.services))
-            unknown = [name for name in selected_services if name not in menu]
-            if unknown:
-                return APIResponse.error(
-                    message="خدمت انتخاب‌شده در لیست خدمات این کسب‌وکار نیست",
-                    code=400,
-                )
-
-        # Appointment.selected_services is a CharField(500); on Postgres an
-        # over-long value is an error, not a truncation. Trimmed *after* the
-        # menu check so dropping the overflow can never hide an off-menu name
-        # that should have been rejected.
-        while selected_services and len(','.join(selected_services)) > 500:
-            selected_services.pop()
-
-        # Create the row inside a transaction that first re-checks the slot, so
-        # two clients racing for the same time cannot both win.
-        appointment, conflict = await sync_to_async(self._create_if_free)(
-            business, visitor, app_date, duration,
-            serializer.validated_data.get('description', ''), requires_payment,
-            ','.join(selected_services),
-        )
-        if conflict:
-            return APIResponse.error(
-                message="این زمان به‌تازگی رزرو شد. لطفاً زمان دیگری انتخاب کنید",
-                code=409,
-            )
-
-        # Count this booking against the owner's monthly appointment quota, and
-        # remember which bucket paid so a cancellation can refund that one.
-        quota_source = await sync_to_async(usage.record_appointment)(business.user_id)
-        if quota_source:
-            appointment.quota_source = quota_source
-            await appointment.asave(update_fields=['quota_source'])
-
-        # Slot occupancy changed → drop cached slot views for this business/date.
-        await sync_to_async(invalidate_slots_cache)(business_id, app_date)
-
-        await sync_to_async(record_activity)(
-            visitor,
-            'APPOINTMENT_BOOKED',
-            actor_type=VisitorActivity.ACTOR_VISITOR,
-            business=business,
-            appointment=appointment,
-            status=appointment.status,
-        )
+        except ClientBookingError as exc:
+            return APIResponse.error(message=exc.message, code=exc.code)
 
         if requires_payment:
-            # SMS is deferred until payment is completed (ClientAppointmentPaymentView).
             return APIResponse.success(
                 data={'id': appointment.id, 'requires_payment': True},
                 message="نوبت با موفقیت قفل شد. لطفا پرداخت را انجام دهید."
             )
-
-        # No payment needed → confirm the booking and notify client + owner now.
-        appointment.business = business
-        appointment.visitor = visitor
-        _fire_booking_sms(appointment, visitor.phone_number)
         return APIResponse.success(
             data={'id': appointment.id, 'requires_payment': False},
             message="نوبت شما با موفقیت ثبت شد و در انتظار تایید کسب‌وکار است."
         )
-
-    @staticmethod
-    def _create_if_free(business, visitor, app_date, duration, description,
-                        requires_payment, selected_services=''):
-        """
-        Re-check the slot and create the appointment atomically.
-
-        Returns ``(appointment, conflict)``. The row-level lock on the business
-        serialises concurrent bookings for the same business, so the conflict
-        check cannot be overtaken between the SELECT and the INSERT.
-        """
-        from django.db import transaction
-        from business.models import Business as _Business
-
-        with transaction.atomic():
-            # Serialise bookings per business.
-            _Business.objects.select_for_update().only('id').get(id=business.id)
-
-            conflict = find_conflict(business.id, app_date, duration)
-            if conflict is not None:
-                return None, conflict
-
-            now = timezone.now()
-            appointment = Appointment.objects.create(
-                # No `User` involved in a self-booked appointment — only the
-                # Visitor identifies who this is for.
-                user=None,
-                business=business,
-                visitor=visitor,
-                appointment_date=app_date,
-                service_duration=duration,
-                description=description,
-                selected_services=selected_services,
-                status='LOCKED' if requires_payment else 'PENDING_APPROVAL',
-                # Hold the slot only while the client is paying; an abandoned
-                # lock expires on its own and frees the slot (see occupancy.py).
-                locked_at=now if requires_payment else None,
-                expires_at=lock_expiry(now) if requires_payment else None,
-            )
-            return appointment, None
-
-
-def _requires_payment(business):
-    """
-    Whether booking this business must go through the payment step.
-
-    Deposit and card/online collection are plan-gated capabilities, so the
-    owner's live entitlements decide — not just the stored business config,
-    which can be left over from a plan the owner no longer has.
-    """
-    from accounting import entitlements
-
-    owner_id = business.user_id
-    accepted = business.accepted_payment_methods or []
-
-    wants_deposit = business.deposit_mode in ('MANDATORY', 'OPTIONAL')
-    if wants_deposit and entitlements.has_feature(owner_id, entitlements.FEATURE_DEPOSIT):
-        return True
-
-    if 'CARD' in accepted and entitlements.has_feature(owner_id, entitlements.FEATURE_DEPOSIT):
-        return True
-
-    if 'ONLINE' in accepted and entitlements.has_feature(owner_id, entitlements.FEATURE_ONLINE_GATEWAY):
-        return True
-
-    return False
 
 
 class ClientAppointmentPaymentView(APIView):
@@ -249,87 +103,17 @@ class ClientAppointmentPaymentView(APIView):
 
     async def post(self, request, pk):
         try:
-            appointment = await Appointment.objects.select_related('business', 'visitor').aget(
-                id=pk, visitor=request.user
+            appointment, message = await sync_to_async(client_submit_payment)(
+                visitor=request.user,
+                appointment_id=pk,
+                method=request.data.get('method'),
+                payment_reference=request.data.get('payment_reference'),
+                payment_receipt=request.FILES.get('payment_receipt', None),
             )
-        except Appointment.DoesNotExist:
-            return APIResponse.error(message="نوبت یافت نشد", code=404)
+        except ClientBookingError as exc:
+            return APIResponse.error(message=exc.message, code=exc.code)
 
-        if appointment.status != 'LOCKED':
-            return APIResponse.error(message="این نوبت قابل پرداخت نیست", code=400)
-
-        # Lazy lock expiry — no cleanup job needed. Once the payment window has
-        # passed the hold is released (the slot already reads as free via
-        # occupancy.blocking_q) and the row is closed out as cancelled.
-        if appointment.expires_at and appointment.expires_at <= timezone.now():
-            appointment.status = 'CANCELLED'
-            # The client never paid, so the owner keeps the credit.
-            await sync_to_async(refund_quota)(appointment, appointment.business.user_id)
-            await appointment.asave(update_fields=['status', 'quota_source', 'updated_at'])
-            await sync_to_async(invalidate_slots_cache)(
-                appointment.business_id, appointment.appointment_date
-            )
-            return APIResponse.error(
-                message="مهلت پرداخت این نوبت به پایان رسیده است. لطفاً دوباره نوبت بگیرید",
-                code=400,
-            )
-
-        payment_reference = (request.data.get('payment_reference') or '').strip()
-        payment_receipt = request.FILES.get('payment_receipt', None)
-        # The client states how they are paying. Older clients that predate this
-        # field submitted a receipt/reference, so default to CARD for them.
-        method = (request.data.get('method') or 'CARD').upper()
-
-        if method not in ('CARD', 'ONLINE', 'CASH'):
-            return APIResponse.error(message="روش پرداخت نامعتبر است", code=400)
-
-        business = appointment.business
-
-        if method == 'CASH':
-            # Paying in person: nothing to verify, so the booking goes straight
-            # to the owner's approval queue instead of the receipt queue.
-            if business.deposit_mode == 'MANDATORY':
-                return APIResponse.error(
-                    message="پرداخت بیعانه برای این کسب‌وکار الزامی است",
-                    code=400,
-                )
-            appointment.status = 'PENDING_APPROVAL'
-            appointment.deposit_payment_method = 'NONE'
-            success_message = "نوبت شما ثبت شد و در انتظار تایید کسب‌وکار است"
-        else:
-            # Card / online transfers must come with proof, otherwise the owner
-            # sees a "verify the receipt" item with no receipt to verify.
-            if not payment_receipt and not payment_reference:
-                return APIResponse.error(
-                    message="لطفاً شماره پیگیری را وارد کنید یا تصویر فیش را آپلود نمایید",
-                    code=400,
-                )
-            appointment.status = 'PENDING_VERIFICATION'
-            appointment.payment_reference = payment_reference
-            appointment.deposit_payment_method = 'CARD'
-            if payment_receipt:
-                appointment.payment_receipt = payment_receipt
-            success_message = "پرداخت با موفقیت ثبت شد و نوبت در انتظار تایید است"
-
-        # The payment window is over once payment is submitted: the slot is now
-        # held by the status itself, so the lock timestamps are cleared.
-        appointment.locked_at = None
-        appointment.expires_at = None
-        await appointment.asave()
-
-        # Slot occupancy changed → drop cached slot views for this business/date.
-        await sync_to_async(invalidate_slots_cache)(
-            appointment.business_id, appointment.appointment_date
-        )
-
-        # ── SMS Notifications via Melipayamak ─────────────────────────
-        _fire_booking_sms(appointment, request.user.phone_number)
-        # ─────────────────────────────────────────────────────────────
-
-        return APIResponse.success(
-            data={'id': appointment.id},
-            message=success_message
-        )
+        return APIResponse.success(data={'id': appointment.id}, message=message)
 
 
 class ClientAppointmentOnlinePaymentView(APIView):
@@ -350,8 +134,8 @@ class ClientAppointmentOnlinePaymentView(APIView):
         from .payment.zibal_deposit import create_deposit_payment
 
         try:
-            appointment = await Appointment.objects.select_related('business').aget(
-                id=pk, visitor=request.user
+            appointment = await sync_to_async(selectors.appointment_get_for_visitor)(
+                pk=pk, visitor=request.user, select_related=('business',)
             )
         except Appointment.DoesNotExist:
             return APIResponse.error(message="نوبت یافت نشد", code=404)
@@ -361,17 +145,8 @@ class ClientAppointmentOnlinePaymentView(APIView):
 
         # Same lazy lock expiry as the manual payment path: an abandoned hold is
         # released rather than sending the client to a gateway for a dead slot.
-        if appointment.expires_at and appointment.expires_at <= timezone.now():
-            appointment.status = 'CANCELLED'
-            await sync_to_async(refund_quota)(appointment, appointment.business.user_id)
-            await appointment.asave(update_fields=['status', 'quota_source', 'updated_at'])
-            await sync_to_async(invalidate_slots_cache)(
-                appointment.business_id, appointment.appointment_date
-            )
-            return APIResponse.error(
-                message="مهلت پرداخت این نوبت به پایان رسیده است. لطفاً دوباره نوبت بگیرید",
-                code=400,
-            )
+        if await sync_to_async(appointment_expire_lock_if_due)(appointment):
+            return APIResponse.error(message=_LOCK_EXPIRED_MESSAGE, code=400)
 
         business = appointment.business
         if 'ONLINE' not in (business.accepted_payment_methods or []):
@@ -392,8 +167,10 @@ class ClientAppointmentOnlinePaymentView(APIView):
 
         # The trackId is how the callback finds this appointment again; the query
         # string it arrives with is not trusted for identification.
-        appointment.payment_reference = result['track_id']
-        await appointment.asave(update_fields=['payment_reference', 'updated_at'])
+        if not await sync_to_async(appointment_store_gateway_track_id)(
+            appointment=appointment, track_id=result['track_id']
+        ):
+            return APIResponse.error(message="این نوبت قابل پرداخت نیست", code=400)
 
         return APIResponse.success(
             data={'payment_url': result['payment_url'], 'track_id': result['track_id']},
@@ -416,8 +193,6 @@ class ClientDepositCallbackView(APIView):
         from django.conf import settings
         from django.shortcuts import redirect
 
-        from .payment.zibal_deposit import verify_deposit_payment
-
         client_web = getattr(settings, 'CLIENT_WEB_URL', '').rstrip('/')
         track_id = (request.GET.get('trackId') or '').strip()
 
@@ -428,41 +203,8 @@ class ClientDepositCallbackView(APIView):
         if not track_id:
             return _back('failed')
 
-        try:
-            appointment = await Appointment.objects.select_related('business', 'visitor').aget(
-                payment_reference=track_id
-            )
-        except Appointment.DoesNotExist:
-            logger.warning("Deposit callback for unknown trackId %s", track_id)
-            return _back('failed')
-
-        # Replayed callback for an appointment already settled — treat as success
-        # rather than re-running the side effects.
-        if appointment.status != 'LOCKED':
-            return _back('success', appointment.id)
-
-        result = await sync_to_async(verify_deposit_payment)(appointment, track_id)
-        if not result['success']:
-            return _back('failed', appointment.id)
-
-        # Verified by the bank, so there is no receipt for the owner to eyeball:
-        # the booking is confirmed outright instead of queueing for approval.
-        appointment.status = 'WAITING'
-        appointment.locked_at = None
-        appointment.expires_at = None
-        appointment.deposit_payment_method = 'GATEWAY'
-        await appointment.asave(
-            update_fields=[
-                'status', 'locked_at', 'expires_at',
-                'deposit_payment_method', 'updated_at',
-            ]
-        )
-        await sync_to_async(invalidate_slots_cache)(
-            appointment.business_id, appointment.appointment_date
-        )
-
-        _fire_deposit_paid_sms(appointment)
-        return _back('success', appointment.id)
+        state, appointment = await sync_to_async(client_deposit_returned)(track_id)
+        return _back(state, appointment.id if appointment else None)
 
 
 class ClientAppointmentCancelView(APIView):
@@ -471,317 +213,15 @@ class ClientAppointmentCancelView(APIView):
     authentication_classes = [VisitorTokenAuthentication]
     permission_classes = [IsVisitorAuthenticated]
 
-    # Anything still ahead of the appointment time can be dropped by the client.
-    CANCELLABLE_STATUSES = (
-        'LOCKED',
-        'PENDING_APPROVAL',
-        'PENDING_VERIFICATION',
-        'WAITING',
-        'CONFIRMED',
-    )
-
     async def post(self, request, pk):
         try:
-            appointment = await Appointment.objects.select_related('business', 'visitor').aget(
-                id=pk, visitor=request.user
+            appointment = await sync_to_async(client_cancel)(
+                visitor=request.user, appointment_id=pk
             )
-        except Appointment.DoesNotExist:
-            return APIResponse.error(message="نوبت یافت نشد", code=404)
-
-        if appointment.status not in self.CANCELLABLE_STATUSES:
-            return APIResponse.error(message="این نوبت قابل لغو نیست", code=400)
-
-        if appointment.appointment_date <= timezone.now():
-            return APIResponse.error(
-                message="زمان این نوبت گذشته است و قابل لغو نیست",
-                code=400,
-            )
-
-        previous_status = appointment.status
-        appointment.status = 'CANCELLED'
-        appointment.locked_at = None
-        appointment.expires_at = None
-        # A slot the owner never served should not keep costing them a credit.
-        await sync_to_async(refund_quota)(appointment, appointment.business.user_id)
-        await appointment.asave(
-            update_fields=['status', 'locked_at', 'expires_at', 'quota_source', 'updated_at']
-        )
-
-        # Freeing the slot changes availability for everyone.
-        await sync_to_async(invalidate_slots_cache)(
-            appointment.business_id, appointment.appointment_date
-        )
-
-        await sync_to_async(record_activity)(
-            appointment.visitor,
-            'APPOINTMENT_CANCELLED',
-            actor_type=VisitorActivity.ACTOR_VISITOR,
-            business=appointment.business,
-            appointment=appointment,
-            old=previous_status,
-            new='CANCELLED',
-        )
-
-        _fire_cancellation_sms(appointment)
+        except ClientBookingError as exc:
+            return APIResponse.error(message=exc.message, code=exc.code)
 
         return APIResponse.success(
             data={'id': appointment.id},
             message="نوبت شما لغو شد",
         )
-
-
-def _fire_cancellation_sms(appointment):
-    """Tell the owner their client cancelled, so the freed slot is not a surprise."""
-    import threading
-
-    from api.jalali import format_datetime
-    from api.sms import signed
-
-    time_str = format_datetime(appointment.appointment_date)
-
-    owner_msg = signed(
-        f"❌ لغو نوبت توسط مشتری\n"
-        f"مشتری: {appointment.visitor.full_name}\n"
-        f"تاریخ: {time_str}"
-    )
-
-    threading.Thread(
-        target=_send_booking_sms,
-        kwargs=dict(
-            client_phone=None,     # the client initiated this; no confirmation SMS
-            client_msg=None,
-            client_push_body=None,
-            owner_msg=owner_msg,
-            business_id=appointment.business_id,
-            visitor_id=appointment.visitor_id,
-            appointment_id=appointment.id,
-        ),
-        daemon=True,
-        name=f"cancel-sms-{appointment.id}",
-    ).start()
-
-
-def _fire_booking_sms(appointment, client_phone):
-    """Build the client/owner confirmation messages for a booked appointment and
-    dispatch the fire-and-forget SMS thread. ``appointment.business`` and
-    ``appointment.visitor`` must already be loaded (no DB access here)."""
-    import threading
-
-    from api.jalali import format_datetime
-    from api.sms import signed
-
-    time_str = format_datetime(appointment.appointment_date)
-
-    client_msg = signed(
-        f"✅ نوبت شما در {appointment.business.title}\n"
-        f"تاریخ: {time_str}\n"
-        f"در انتظار تایید کسب‌وکار"
-    )
-    owner_msg = signed(
-        f"📋 درخواست نوبت جدید\n"
-        f"مشتری: {appointment.visitor.full_name}\n"
-        f"تاریخ: {time_str}"
-    )
-    # Same wording as client_msg, minus signed()'s SMS-only regulatory footer
-    # (لغو11 etc.) — that text belongs on an SMS, not a push notification.
-    client_push_body = f"نوبت شما در {appointment.business.title} ثبت شد — تاریخ: {time_str} — در انتظار تایید کسب‌وکار"
-
-    # Fire-and-forget on a daemon thread so it is independent of the request's
-    # event loop (an asyncio task tied to the request loop can be dropped once
-    # the response is returned). Pass only primitive ids/values into the thread.
-    threading.Thread(
-        target=_send_booking_sms,
-        kwargs=dict(
-            client_phone=client_phone,
-            client_msg=client_msg,
-            client_push_body=client_push_body,
-            owner_msg=owner_msg,
-            business_id=appointment.business_id,
-            visitor_id=appointment.visitor_id,
-            appointment_id=appointment.id,
-        ),
-        daemon=True,
-        name=f"booking-sms-{appointment.id}",
-    ).start()
-
-
-def _fire_deposit_paid_sms(appointment):
-    """Messages for a booking settled through the gateway.
-
-    Separate from ``_fire_booking_sms`` because that one tells the client the
-    booking is "در انتظار تایید کسب‌وکار" — untrue here, where the bank already
-    confirmed the deposit and the appointment goes straight into the queue.
-    ``appointment.business`` and ``appointment.visitor`` must already be loaded.
-    """
-    import threading
-
-    from api.jalali import format_datetime
-    from api.sms import signed
-
-    time_str = format_datetime(appointment.appointment_date)
-
-    client_msg = signed(
-        f"✅ نوبت شما در {appointment.business.title} قطعی شد\n"
-        f"تاریخ: {time_str}\n"
-        f"بیعانه پرداخت شد"
-    )
-    owner_msg = signed(
-        f"💳 نوبت جدید با پرداخت آنلاین\n"
-        f"مشتری: {appointment.visitor.full_name}\n"
-        f"تاریخ: {time_str}"
-    )
-    client_push_body = f"نوبت شما در {appointment.business.title} قطعی شد — تاریخ: {time_str} — بیعانه پرداخت شد"
-
-    threading.Thread(
-        target=_send_booking_sms,
-        kwargs=dict(
-            client_phone=appointment.visitor.phone_number,
-            client_msg=client_msg,
-            client_push_body=client_push_body,
-            owner_msg=owner_msg,
-            business_id=appointment.business_id,
-            visitor_id=appointment.visitor_id,
-            appointment_id=appointment.id,
-        ),
-        daemon=True,
-        name=f"deposit-sms-{appointment.id}",
-    ).start()
-
-
-def _send_booking_sms(client_phone, client_msg, owner_msg, business_id, visitor_id, appointment_id=None, client_push_body=None):
-    """
-    Background daemon-thread target: sends SMS to client and business owner via
-    Melipayamak and logs the client SMS result in SmsLog.
-
-    Runs fully synchronously in its own thread (own DB connection), so it never
-    depends on the request's asyncio event loop still being alive.
-    """
-    from api.sms import send_sms
-    from visitor.models import SmsLog
-    from business.models import Business
-
-    # Resolve the owner whose plan pays for these SMS, and the number that
-    # actually reaches them. business.phone is a display number for
-    # customers — often a landline — and was never the owner's own contact;
-    # owner notifications go to the phone their account was registered with.
-    owner_id = None
-    owner_phone = None
-    notify_owner = True
-    try:
-        owner_id, owner_phone, notify_owner = Business.objects.values_list(
-            'user_id', 'user__phone', 'notify_owner_by_sms'
-        ).get(id=business_id)
-    except Business.DoesNotExist:
-        pass
-
-    # Send to client (consumes one SMS credit from the owner's plan/wallet).
-    # Callers pass client_msg=None when the client triggered the action
-    # themselves and does not need to be told about it (e.g. self-cancellation).
-    try:
-        if not client_phone or not client_msg:
-            pass
-        else:
-            receipt = usage.consume_sms(owner_id) if owner_id is not None else None
-            if owner_id is not None and not receipt:
-                logger.warning(f"SMS→client skipped for business {business_id}: SMS quota exhausted")
-                SmsLog.objects.create(
-                    business_id=business_id,
-                    visitor_id=visitor_id,
-                    message_text=client_msg,
-                    status='SKIPPED_QUOTA',
-                    error_detail="اعتبار پیامک این ماه تمام شده است",
-                )
-            else:
-                client_ok, client_err = send_sms(client_phone, client_msg)
-                if not client_ok:
-                    # The provider never accepted it, so the owner must not pay
-                    # for it — put the credit back where it came from.
-                    usage.refund_sms(receipt)
-                SmsLog.objects.create(
-                    business_id=business_id,
-                    visitor_id=visitor_id,
-                    message_text=client_msg,
-                    status='SENT' if client_ok else 'FAILED',
-                    error_detail=client_err if not client_ok else ""
-                )
-                logger.info(f"SMS→client {client_phone}: {'✓' if client_ok else '✗'}")
-    except Exception as e:
-        logger.error(f"SMS→client error: {e}")
-
-    # Push to the client — free, plan-gated (see push.send_visitor_appointment_push),
-    # sent alongside the SMS above rather than instead of it. client_push_body is
-    # None for the same cases client_msg is (self-cancellation): nothing to tell
-    # the client about their own action.
-    try:
-        if visitor_id and client_push_body:
-            from api.services import push
-
-            push.send_visitor_appointment_push(
-                business_id=business_id,
-                visitor_id=visitor_id,
-                appointment_id=appointment_id,
-                title="نوبت‌یار",
-                body=client_push_body,
-            )
-    except Exception as e:
-        logger.error(f"Push→client error: {e}")
-
-    # Push to the owner's app — free, so it goes out regardless of the SMS
-    # switch below. This is the channel notify_owner_by_sms was defaulted off in
-    # favour of: an owner should not pay, out of their own SMS quota, for a
-    # message that repeats what the app already shows them.
-    try:
-        if owner_id is not None and owner_msg:
-            from accounting.entitlements import FEATURE_PUSH_NOTIFICATIONS, has_feature
-            from api.services import push
-
-            if push.is_configured() and has_feature(owner_id, FEATURE_PUSH_NOTIFICATIONS):
-                push.send_to_user(
-                    owner_id,
-                    title="نوبت جدید",
-                    body=owner_msg,
-                    data={'type': 'NEW_BOOKING', 'business_id': business_id},
-                )
-    except Exception as e:
-        # Never let the push channel take the SMS channel down with it.
-        logger.error(f"Push→owner error: {e}")
-
-    # Send to business owner by SMS — off unless the owner explicitly asked for
-    # it. Business.notify_owner_by_sms defaults to False (and existing rows were
-    # switched off by business migration 0013); the push above is the intended
-    # replacement. An owner who still wants an SMS can turn this back on and
-    # keep paying for it.
-    try:
-        if not owner_phone or not owner_msg:
-            pass
-        elif not notify_owner:
-            logger.info(f"SMS→owner disabled for business {business_id}")
-        else:
-            receipt = usage.consume_sms(owner_id) if owner_id is not None else None
-            if owner_id is not None and not receipt:
-                logger.warning(f"SMS→owner skipped for business {business_id}: SMS quota exhausted")
-                SmsLog.objects.create(
-                    business_id=business_id,
-                    visitor_id=None,
-                    message_text=owner_msg,
-                    status='SKIPPED_QUOTA',
-                    error_detail="اعتبار پیامک این ماه تمام شده است",
-                )
-            else:
-                owner_ok, owner_err = send_sms(owner_phone, owner_msg)
-                if not owner_ok:
-                    usage.refund_sms(receipt)
-                # Logged like the client message: this one is billed too, so
-                # leaving it out made the SMS report undercount every booking by
-                # one and never reconcile against the quota the owner was charged.
-                # visitor is null — the recipient is the owner, not a client.
-                SmsLog.objects.create(
-                    business_id=business_id,
-                    visitor_id=None,
-                    message_text=owner_msg,
-                    status='SENT' if owner_ok else 'FAILED',
-                    error_detail=owner_err if not owner_ok else ""
-                )
-                logger.info(f"SMS→owner {owner_phone}: {'✓' if owner_ok else '✗'}")
-    except Exception as e:
-        logger.error(f"SMS→owner error: {e}")

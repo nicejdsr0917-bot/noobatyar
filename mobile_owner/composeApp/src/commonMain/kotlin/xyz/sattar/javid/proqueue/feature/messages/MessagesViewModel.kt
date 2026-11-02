@@ -1,13 +1,14 @@
 package xyz.sattar.javid.proqueue.feature.messages
 
+import xyz.sattar.javid.proqueue.core.state.SelectedBusinessStore
+import xyz.sattar.javid.proqueue.core.prefs.AppPreferences
+
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.network.ApiException
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
-import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
-import xyz.sattar.javid.proqueue.core.state.BusinessStateHolder
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementKeys
@@ -21,7 +22,9 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.GetMyEntitlementsUseCase
 class MessagesViewModel(
     private val generateReminderMessageUseCase: GenerateReminderMessageUseCase,
     private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase,
-    private val businessUpsertUseCase: BusinessUpsertUseCase
+    private val businessUpsertUseCase: BusinessUpsertUseCase,
+    private val businessStore: SelectedBusinessStore,
+    private val preferences: AppPreferences
 ) :
     BaseViewModel<MessagesState, MessagesState.PartialState, MessagesEvent, MessagesIntent>(
         initialState = MessagesState()
@@ -44,13 +47,13 @@ class MessagesViewModel(
     }
 
     private fun load(): Flow<MessagesState.PartialState> = flow {
-        val business = BusinessStateHolder.selectedBusiness.value
+        val business = businessStore.selectedBusiness.value
         if (business == null) {
             emit(MessagesState.PartialState.ShowMessage(UiMessage.warning(Str.no_business_selected)))
             return@flow
         }
         emit(MessagesState.PartialState.IsLoading(true))
-        val manualTemplate = PreferencesManager.messageTemplate(business.id).first()
+        val manualTemplate = preferences.messageTemplate(business.id).first()
             ?: defaultTemplates().first()
         // The server's value, not the local preference: it is what actually
         // times the panel SMS and the owner's push. The preference used to be
@@ -114,15 +117,15 @@ class MessagesViewModel(
     }
 
     private fun save(): Flow<MessagesState.PartialState> = flow {
-        val business = BusinessStateHolder.selectedBusiness.value
+        val business = businessStore.selectedBusiness.value
         if (business == null) {
             emit(MessagesState.PartialState.ShowMessage(UiMessage.warning(Str.no_business_selected)))
             return@flow
         }
         val state = uiState.value
         emit(MessagesState.PartialState.IsSaving(true))
-        PreferencesManager.setMessageTemplate(business.id, state.template)
-        PreferencesManager.setNotificationReminderMinutes(state.reminderMinutes)
+        preferences.setMessageTemplate(business.id, state.template)
+        preferences.setNotificationReminderMinutes(state.reminderMinutes)
 
         val updated = business.copy(
             reminderDelivery = state.reminderDelivery,
@@ -136,7 +139,7 @@ class MessagesViewModel(
         if (updated != business) {
             try {
                 val saved = businessUpsertUseCase(updated)
-                if (saved != null) BusinessStateHolder.selectBusiness(saved)
+                if (saved != null) businessStore.selectBusiness(saved)
             } catch (e: ApiException) {
                 // The whole business goes out on this save, so a 403 can be
                 // about any plan-gated setting — the server's message says
@@ -208,7 +211,7 @@ class MessagesViewModel(
         template: String,
         minutes: Int = uiState.value.reminderMinutes
     ): String {
-        val business = BusinessStateHolder.selectedBusiness.value
+        val business = businessStore.selectedBusiness.value
         return generateReminderMessageUseCase.generatePreview(
             template = template,
             businessTitle = business?.title ?: Str.your_business,

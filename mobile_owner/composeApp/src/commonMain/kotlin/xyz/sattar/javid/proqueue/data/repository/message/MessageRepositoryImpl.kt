@@ -4,13 +4,13 @@ import xyz.sattar.javid.proqueue.data.localDataSource.message.MessageLocalSource
 import xyz.sattar.javid.proqueue.domain.MessageRepository
 import xyz.sattar.javid.proqueue.domain.model.message.Message
 
-import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.visitor.VisitorApi
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 
 class MessageRepositoryImpl(
     private val messageDao: MessageLocalSource,
-    private val visitorApiService: VisitorApiService
+    private val visitorApiService: VisitorApi
 ) : MessageRepository {
     override suspend fun insertMessage(message: Message): Boolean {
         return try {

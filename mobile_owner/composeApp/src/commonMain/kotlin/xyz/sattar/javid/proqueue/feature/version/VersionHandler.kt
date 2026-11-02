@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.version
 
+import xyz.sattar.javid.proqueue.core.AppLinks
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,7 +37,7 @@ fun VersionHandler(
             versionInfo = state.updateInfo!!,
             onDismiss = { viewModel.sendIntent(VersionIntent.DismissDialog) },
             onUpdateClick = {
-                openUrl("https://noobatyar.ir")
+                openUrl(AppLinks.SITE)
             }
         )
     }

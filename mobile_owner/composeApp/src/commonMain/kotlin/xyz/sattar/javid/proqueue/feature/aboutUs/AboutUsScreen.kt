@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.aboutUs
 
+import xyz.sattar.javid.proqueue.core.AppLinks
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
@@ -163,54 +164,64 @@ fun AboutUsContent(
                         // Instagram/website are white glyphs on a drawn tile.
                         SocialRow(
                             title = Str.social_bale,
-                            handle = "ble.ir/noobatyar",
+                            handle = AppLinks.BALE_HANDLE,
                             painter = painterResource(Res.drawable.ic_social_bale),
                             tile = SolidColor(Color(0xFF00B894)),
                             iconPadding = 0.dp,
                             index = 0,
-                            onClick = { uriHandler.openUri("https://ble.ir/noobatyar") }
+                            onClick = { uriHandler.openUri(AppLinks.BALE) }
                         )
                         SocialDivider()
                         SocialRow(
                             title = Str.social_eitaa,
-                            handle = "eitaa.com/noobatyar",
+                            handle = AppLinks.EITAA_HANDLE,
                             painter = painterResource(Res.drawable.ic_social_eitaa),
                             tile = SolidColor(Color(0xFFF47435)),
                             iconPadding = 0.dp,
                             index = 1,
-                            onClick = { uriHandler.openUri("https://eitaa.com/noobatyar") }
+                            onClick = { uriHandler.openUri(AppLinks.EITAA) }
                         )
                         SocialDivider()
                         SocialRow(
                             title = Str.social_rubika,
-                            handle = "rubika.ir/noobatyar",
+                            handle = AppLinks.RUBIKA_HANDLE,
                             painter = painterResource(Res.drawable.ic_social_rubika),
                             // Rubika's icon is a hexagon on transparency — a white
                             // plate is what it sits on in every app store.
                             tile = SolidColor(Color.White),
                             iconPadding = 3.dp,
                             index = 2,
-                            onClick = { uriHandler.openUri("https://rubika.ir/noobatyar") }
+                            onClick = { uriHandler.openUri(AppLinks.RUBIKA) }
+                        )
+                        SocialDivider()
+                        SocialRow(
+                            title = Str.telegram,
+                            handle = AppLinks.TELEGRAM_HANDLE,
+                            painter = painterResource(Res.drawable.ic_social_telegram),
+                            tile = Brush.linearGradient(listOf(Color(0xFF37AEE2), Color(0xFF1E96C8))),
+                            iconPadding = 10.dp,
+                            index = 3,
+                            onClick = { uriHandler.openUri(AppLinks.TELEGRAM) }
                         )
                         SocialDivider()
                         SocialRow(
                             title = Str.instagram,
-                            handle = "@noobatyar",
+                            handle = AppLinks.INSTAGRAM_HANDLE,
                             painter = painterResource(Res.drawable.ic_social_instagram),
                             tile = InstagramGradient,
                             iconPadding = 11.dp,
-                            index = 3,
-                            onClick = { uriHandler.openUri("https://instagram.com/noobatyar") }
+                            index = 4,
+                            onClick = { uriHandler.openUri(AppLinks.INSTAGRAM) }
                         )
                         SocialDivider()
                         SocialRow(
                             title = Str.social_website,
-                            handle = "noobatyar.ir",
+                            handle = AppLinks.SITE_HOST,
                             painter = painterResource(Res.drawable.ic_social_website),
                             tile = Brush.linearGradient(listOf(Color(0xFFA855F7), Color(0xFF6D28D9))),
                             iconPadding = 10.dp,
-                            index = 4,
-                            onClick = { uriHandler.openUri("https://noobatyar.ir") }
+                            index = 5,
+                            onClick = { uriHandler.openUri(AppLinks.SITE) }
                         )
                     }
                 }
@@ -226,13 +237,13 @@ fun AboutUsContent(
                         )
                         SocialRow(
                             title = Str.about_us_developer,
-                            handle = "@javiddev",
+                            handle = AppLinks.DEVELOPER_HANDLE,
                             painter = null,
                             badge = "</>",
                             tile = Brush.linearGradient(listOf(Color(0xFF1E1B4B), Color(0xFF6D28D9))),
                             iconPadding = 11.dp,
                             index = 5,
-                            onClick = { uriHandler.openUri("https://instagram.com/javiddev") }
+                            onClick = { uriHandler.openUri(AppLinks.DEVELOPER) }
                         )
                     }
                 }
@@ -619,8 +630,8 @@ private fun SocialRow(
             Text(
                 // Wrapped in an LTR isolate (U+2066 … U+2069). Handles are Latin
                 // but sit in an RTL paragraph, so leading/trailing neutrals get
-                // reordered to the paragraph edge — "@javiddev" rendered as
-                // "javiddev@". The isolate pins the run to LTR without changing
+                // reordered to the paragraph edge — "@noobatyar" rendered as
+                // "noobatyar@". The isolate pins the run to LTR without changing
                 // where the block itself sits.
                 text = "⁦$handle⁩",
                 style = MaterialTheme.typography.bodySmall,

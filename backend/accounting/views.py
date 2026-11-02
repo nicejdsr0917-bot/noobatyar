@@ -1,12 +1,11 @@
-from asgiref.sync import sync_to_async
 from django.shortcuts import render
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from adrf.decorators import api_view
 
-from api.responses import APIResponse
-from api.views import _extract_error
-from .models import Plan, Subscription, AddOnPack
+from common.pagination import StandardPagination
+from common.responses import APIResponse
+from common.errors import extract_error as _extract_error
+from .models import Plan, AddOnPack, CreditLedger
 from .payment.zibal_payment import ZibalPaymentService
 from .payment.zibal_payment_verification import PaymentVerificationService
 from .payment.addon_payment import (
@@ -14,53 +13,16 @@ from .payment.addon_payment import (
 )
 from .serializers import (
     PlanSerializer, SubscriptionSerializer, BuyPlanSerializer,
-    AddOnPackSerializer, BuyAddOnSerializer,
+    AddOnPackSerializer, BuyAddOnSerializer, WalletLedgerEntrySerializer, WalletConvertSerializer,
 )
-from . import entitlements, pricing, usage
+from . import entitlements, services, toman_wallet, usage
 from rest_framework.decorators import api_view, permission_classes
 
 
-def _client_callback(path: str) -> str:
-    """Absolute URL on the customer web app for a payment gateway to return to.
-
-    These were hardcoded to https://noobatyar.ir/... — the bare domain, which
-    resolves to a *different server* than the one running this app. Zibal sent
-    every payer there after paying, so the page that calls the verify endpoint
-    never ran: transactions stayed `pending` with an empty zibal_response and
-    the plan or add-on was never applied.
-
-    CLIENT_WEB_URL already existed for exactly this (the deposit flow uses it)
-    and already defaults to the right host.
-    """
-    from django.conf import settings
-
-    base = (getattr(settings, 'CLIENT_WEB_URL', '') or '').rstrip('/')
-    return f'{base}{path}'
-
-
-def _from_web_panel(request) -> bool:
-    """True when the payment was started by the owner web panel (a browser),
-    not by the native apps.
-
-    The gateway sends the payer back to a web page either way, but only the
-    native apps own the ``noobatyar://`` link that page uses to return. In a
-    browser that link is an invalid address (Safari shows an error), so the
-    panel gets its own return page that goes back to the panel instead. The
-    browser tells us who is asking in the Origin header on its API calls.
-    """
-    from django.conf import settings
-
-    panel = (getattr(settings, 'PANEL_WEB_URL', '') or '').rstrip('/')
-    origin = (request.headers.get('Origin') or '').rstrip('/')
-    if not origin:
-        return False
-    return origin == panel or origin.startswith(('http://localhost', 'http://127.0.0.1'))
-
-
-def _payment_callback(request, path: str) -> str:
-    """The callback URL for this request: the panel's page for browsers,
-    the app-link page for everyone else."""
-    return _client_callback(f'{path}-web' if _from_web_panel(request) else path)
+# Kept under their old names: tests import and patch these from here.
+_client_callback = services.client_callback
+_from_web_panel = services.from_web_panel
+_payment_callback = services.payment_callback_url
 
 
 @api_view(['GET'])
@@ -80,17 +42,7 @@ def plan_list(request):
 def my_subscription(request):  # ✅ sync
     """اشتراک فعال یا آخرین وضعیت اشتراک کاربر"""
     
-    # ابتدا به دنبال اشتراک فعال می‌گردیم
-    subscription = Subscription.objects.filter(
-        user=request.user,
-        status='active'
-    ).select_related('plan').first()
-
-    # اگر اشتراک فعال نداشت، آخرین اشتراک ثبت شده (حتی منقضی) را نشان می‌دهیم
-    if not subscription:
-        subscription = Subscription.objects.filter(
-            user=request.user
-        ).select_related('plan').order_by('-started_at').first()
+    subscription = services.current_subscription(request.user)
 
     # NOTE: kept as a flat SubscriptionDto for backward compatibility with the
     # released clients. Entitlements + usage are served by /my-entitlements/.
@@ -123,8 +75,65 @@ def my_entitlements(request):
         'usage': {
             'appointments': usage.appointment_balance(user),
             'sms': usage.sms_balance(user),
+            'toman_wallet': toman_wallet.get_balance(user),
         },
     })
+
+
+WALLET_METRICS = (
+    CreditLedger.METRIC_TOMAN_WALLET, CreditLedger.METRIC_APPOINTMENT_WALLET, CreditLedger.METRIC_SMS_WALLET,
+)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def wallet_history(request):
+    """موجودی و تاریخچهٔ کیف‌پول تومانی و اعتبار اضافه (بسته‌های افزودنی) — صفحه‌بندی‌شده.
+
+    Only the persistent wallets are listed (toman, booking and SMS credit);
+    monthly counters are not something the owner owns. Wallets belong to the
+    user, so the history spans all of their businesses.
+    ``?metric=toman_wallet|appointment_wallet|sms_wallet`` narrows it.
+    """
+    user = request.user
+    metric = request.query_params.get('metric')
+    if metric and metric not in WALLET_METRICS:
+        return APIResponse.error(
+            f'metric باید یکی از این مقادیر باشد: {", ".join(WALLET_METRICS)}', code=400,
+        )
+    queryset = CreditLedger.objects.filter(
+        user=user, metric__in=[metric] if metric else WALLET_METRICS,
+    ).order_by('-created_at', '-id')
+
+    paginator = StandardPagination()
+    page = paginator.paginate_queryset(queryset, request)
+    data = paginator.get_paginated_response(WalletLedgerEntrySerializer(page, many=True).data).data
+    prices = toman_wallet.unit_prices()
+    data['balances'] = {
+        'toman_wallet': toman_wallet.get_balance(user),
+        'sms_unit_price': prices[toman_wallet.KIND_SMS],
+        'appointment_unit_price': prices[toman_wallet.KIND_APPOINTMENT],
+        'appointment_wallet': usage.get_appt_wallet(user),
+        'sms_wallet': usage.get_wallet(user),
+        'appointment_quota': entitlements.get_quota(user, entitlements.QUOTA_MONTHLY_APPOINTMENTS),
+        'sms_quota': entitlements.get_quota(user, entitlements.QUOTA_MONTHLY_SMS),
+    }
+    return APIResponse.success(data=data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def wallet_convert(request):
+    """تبدیل موجودی کیف‌پول تومانی به پیامک یا نوبت، با قیمت‌های TomanWalletSettings."""
+    serializer = WalletConvertSerializer(data=request.data)
+    if not serializer.is_valid():
+        return APIResponse.error(message=_extract_error(serializer.errors))
+    try:
+        data = toman_wallet.convert(request.user, **serializer.validated_data)
+    except toman_wallet.WalletError as exc:
+        return APIResponse.error(message=exc.message)
+    unit = 'پیامک' if data['kind'] == toman_wallet.KIND_SMS else 'نوبت'
+    return APIResponse.success(data=data, message=f"{data['count']} {unit} به اعتبارتان اضافه شد")
 
 
 @api_view(['GET'])
@@ -144,9 +153,9 @@ def buy_addon(request):
         return APIResponse.error(message=_extract_error(serializer.errors))
 
     try:
-        pack = AddOnPack.objects.get(id=serializer.validated_data['pack_id'], is_active=True)
-    except AddOnPack.DoesNotExist:
-        return APIResponse.error(message='بسته پیدا نشد', code=404)
+        pack = services.get_active_pack(serializer.validated_data['pack_id'])
+    except services.ServiceError as exc:
+        return APIResponse.error(message=exc.message, code=exc.code)
 
     if not can_buy_addon(request.user):
         return APIResponse.error(message=NO_SUBSCRIPTION_MESSAGE, code=403)
@@ -155,9 +164,13 @@ def buy_addon(request):
         user=request.user,
         pack=pack,
         callback_url=_payment_callback(request, '/home/payment-result-addon'),
+        use_wallet=serializer.validated_data['use_wallet'] or serializer.validated_data['wallet_only'],
+        wallet_only=serializer.validated_data['wallet_only'],
     )
     if not result['success']:
         return APIResponse.error(message=result.get('error', 'خطا در ایجاد درخواست پرداخت'))
+    if result.get('paid_with_wallet'):
+        return APIResponse.success(data={'paid_with_wallet': True, **result.get('data', {})}, message=result['message'])
 
     return APIResponse.success(
         data={'payment_url': result['payment_url'], 'track_id': result.get('track_id')},
@@ -169,21 +182,9 @@ def buy_addon(request):
 @permission_classes([AllowAny])
 def addon_payment_callback(request):
     """Zibal callback for add-on purchases."""
-    track_id = request.GET.get('trackId')
-    if not track_id:
-        return render(request, 'payment_result.html', {
-            'success': False, 'message': 'شناسه پرداخت یافت نشد', 'data': {}
-        })
-
-    result = AddOnVerificationService(track_id).verify_and_grant()
-    return render(request, 'payment_result.html', {
-        'success': result['success'],
-        'message': result['message'],
-        'data': result.get('data', {}),
-    })
-
-
-
+    return render(request, 'payment_result.html', services.callback_context(
+        request.GET.get('trackId'), lambda t: AddOnVerificationService(t).verify_and_grant(),
+    ))
 
 
 # ============ PAYMENT ============
@@ -198,28 +199,24 @@ def pay_for_plan(request):  # ✅ sync
     plan_id = serializer.validated_data['plan_id']
 
     try:
-        plan = Plan.objects.get(id=plan_id, is_active=True)  # ✅ بدون await
-    except Plan.DoesNotExist:
-        return APIResponse.error(message='پلن پیدا نشد', code=404)
+        plan = services.get_payable_plan(plan_id)
+    except services.ServiceError as exc:
+        return APIResponse.error(message=exc.message, code=exc.code)
 
-    # جلوگیری از خرید پلن‌های رایگان/آزمایشی از طریق درگاه
-    price = plan.discount_price if plan.discount_price is not None else plan.price
-    if price <= 0:
-        return APIResponse.error(message='پلن‌های رایگان را نمی‌توان از طریق درگاه خریداری کرد')
-
-    user = request.user
-
-    payment_service = ZibalPaymentService()
-    result = payment_service.create_payment(  # ✅ بدون await
-        user=user,
+    result = ZibalPaymentService().create_payment(
+        user=request.user,
         plan=plan,
         callback_url=_payment_callback(request, '/home/payment-result'),
+        use_wallet=serializer.validated_data['use_wallet'] or serializer.validated_data['wallet_only'],
+        wallet_only=serializer.validated_data['wallet_only'],
     )
 
     if not result['success']:
         return APIResponse.error(
             message=result.get('error', 'خطا در ایجاد درخواست پرداخت')
         )
+    if result.get('paid_with_wallet'):
+        return APIResponse.success(data={'paid_with_wallet': True, **result.get('data', {})}, message=result['message'])
 
     return APIResponse.success(
         data={
@@ -236,23 +233,9 @@ def payment_callback(request):
     Zibal callback — render HTML page
     Expected params: trackId, success, status, orderId
     """
-    track_id = request.GET.get('trackId')
-
-    if not track_id:
-        return render(request, 'payment_result.html', {
-            'success': False,
-            'message': 'شناسه پرداخت یافت نشد',
-            'data': {}
-        })
-
-    service = PaymentVerificationService(track_id)
-    result = service.verify_and_activate()
-
-    return render(request, 'payment_result.html', {
-        'success': result['success'],
-        'message': result['message'],
-        'data': result.get('data', {})
-    })
+    return render(request, 'payment_result.html', services.callback_context(
+        request.GET.get('trackId'), lambda t: PaymentVerificationService(t).verify_and_activate(),
+    ))
 
 
 @api_view(['GET'])
@@ -263,28 +246,16 @@ def checkout_quote(request):
     پیش از رفتن به درگاه یا مایکت آن را به کاربر نشان دهد و تأیید بگیرد.
     Query: kind=plan|addon, id, channel=zibal|myket
     """
-    kind = request.query_params.get('kind')
-    channel = request.query_params.get('channel') or pricing.CHANNEL_ZIBAL
-    if channel not in pricing.CHANNELS:
-        return APIResponse.error(message='روش پرداخت نامعتبر است')
     try:
-        item_id = int(request.query_params.get('id'))
-    except (TypeError, ValueError):
-        return APIResponse.error(message='شناسه نامعتبر است')
-
-    if kind == 'plan':
-        item = Plan.objects.filter(id=item_id, is_active=True).first()
-        base = pricing.plan_base(item) if item else None
-    elif kind == 'addon':
-        item = AddOnPack.objects.filter(id=item_id, is_active=True).first()
-        base = item.price if item else None
-    else:
-        return APIResponse.error(message='نوع خرید نامعتبر است')
-    if item is None:
-        return APIResponse.error(message='مورد پیدا نشد', code=404)
-
-    data = pricing.quote(base, channel)
-    data['title'] = item.name
+        data = services.checkout_quote(
+            request.query_params.get('kind'),
+            request.query_params.get('id'),
+            request.query_params.get('channel'),
+            user=request.user,
+            use_wallet=request.query_params.get('use_wallet') in ('1', 'true', 'True'),
+        )
+    except services.ServiceError as exc:
+        return APIResponse.error(message=exc.message, code=exc.code)
     return APIResponse.success(data=data)
 
 

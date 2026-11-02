@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: nobatyar
+          POSTGRES_USER: nobatyar
+          POSTGRES_PASSWORD: nobatyar
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nobatyar"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # core/settings.py switches to Postgres when POSTGRES_DB is set.
+      DEBUG: "True"
+      POSTGRES_DB: nobatyar
+      POSTGRES_USER: nobatyar
+      POSTGRES_PASSWORD: nobatyar
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt  # includes requirements_prod.txt
+      - name: Check for missing migrations
+        run: python manage.py makemigrations --check --dry-run
+      - name: Tests
+        # Serial on Postgres: --parallel clones test DBs and the race tests then
+        # hit "connection already closed" / missing test_postgres_N.
+        run: python manage.py test --noinput
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: front_client/package-lock.json
+      - name: Install
+        run: npm ci
+        working-directory: front_client
+      - name: Type-check
+        run: npx tsc --noEmit -p .
+        working-directory: front_client
+      - name: Lint
+        run: npm run lint
+        working-directory: front_client
+
+  web-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: front_client/package-lock.json
+      - name: Install
+        run: npm ci
+        working-directory: front_client
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('front_client/package-lock.json') }}
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: front_client
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+      - name: Install Chromium system deps
+        run: npx playwright install-deps chromium
+        working-directory: front_client
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+      - name: E2E
+        run: npm run test:e2e
+        working-directory: front_client
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: front_client/test-results
+
+  kmp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: mobile_owner
+            task: ":composeApp:testLocalSiteDebugUnitTest"
+          - app: mobile_client
+            task: ":composeApp:testLocalDebugUnitTest"
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew
+      - name: Unit tests (single variant)
+        run: ./gradlew ${{ matrix.task }} --no-daemon --stacktrace

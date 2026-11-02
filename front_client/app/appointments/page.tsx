@@ -1,5 +1,6 @@
 'use client';
 
+import { getVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getMyAppointments, type Appointment } from '@/lib/api';
@@ -26,11 +27,13 @@ export default function AppointmentsPage() {
   // Set when the deposit gateway sends the client back here. Read from the URL
   // client-side rather than via useSearchParams, which would force this whole
   // page behind a Suspense boundary for one optional banner.
-  const [paymentResult, setPaymentResult] = useState<'success' | 'failed' | null>(null);
+  const [paymentResult, setPaymentResult] = useState<'success' | 'failed' | 'conflict' | null>(null);
 
   useEffect(() => {
     const state = new URLSearchParams(window.location.search).get('payment');
-    if (state === 'success' || state === 'failed') {
+    if (state === 'success' || state === 'failed' || state === 'conflict') {
+      // One-time read of the gateway's return param; it cannot be known during SSR.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPaymentResult(state);
       // Drop the parameter so a refresh does not replay the banner.
       window.history.replaceState({}, '', '/appointments');
@@ -38,7 +41,7 @@ export default function AppointmentsPage() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) {
       router.replace('/auth/login?redirect=/appointments');
       return;
@@ -77,15 +80,26 @@ export default function AppointmentsPage() {
               gap: 9,
               textAlign: 'start',
               background:
-                paymentResult === 'success' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-              color: paymentResult === 'success' ? '#16a34a' : '#dc2626',
+                paymentResult === 'success'
+                  ? 'rgba(34,197,94,0.12)'
+                  : paymentResult === 'conflict'
+                    ? 'rgba(245,158,11,0.14)'
+                    : 'rgba(239,68,68,0.12)',
+              color:
+                paymentResult === 'success'
+                  ? '#16a34a'
+                  : paymentResult === 'conflict'
+                    ? '#b45309'
+                    : '#dc2626',
             }}
           >
             <Icon name={paymentResult === 'success' ? 'checkCircle' : 'error'} size={20} />
             <span>
               {paymentResult === 'success'
                 ? t('depositPaidSuccessfullyYourAppointment')
-                : t('paymentFailedYourAppointmentHasnt')}
+                : paymentResult === 'conflict'
+                  ? t('depositPaidButSlotTaken')
+                  : t('paymentFailedYourAppointmentHasnt')}
             </span>
           </div>
         )}

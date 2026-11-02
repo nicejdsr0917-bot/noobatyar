@@ -3,9 +3,15 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from api.exceptions import custom_404_handler
+from core.health import healthz, readyz
 
 
 urlpatterns = [
+    # Probes. /api/ aliases exist because nginx only proxies /api, /admin, ...
+    path('healthz', healthz),
+    path('readyz', readyz),
+    path('api/healthz', healthz),
+    path('api/readyz', readyz),
     # Path comes from settings.ADMIN_URL (env: ADMIN_URL), already normalised to
     # a single trailing slash there. nginx must be taught the new prefix too —
     # see the note in core/settings.py.
@@ -24,9 +30,16 @@ urlpatterns = [
     path('api/bale/', include('bale.urls')),
     # Client APIs
     path('api/client/business/', include('business.client_urls')),
+    path('api/client/businesses/', include('business.client_urls')),
     path('api/client/appointments/', include('appointment.client_urls')),
     path('api/client/auth/', include('visitor.client_auth_urls')),
     path('api/client/activity/', include('visitor.client_activity_urls')),
+    path('api/public/site/', include('business.site_urls')),
+    path('api/client/reviews/', include('reviews.client_urls')),
+    path('api/reviews/', include('reviews.owner_urls')),
+    path('api/', include('showcase.urls')),
+    path('api/owner/banners/', include('banners.urls')),
+    path('api/client/promos/', include('banners.client_urls')),
 ]
 
 handler404 = custom_404_handler

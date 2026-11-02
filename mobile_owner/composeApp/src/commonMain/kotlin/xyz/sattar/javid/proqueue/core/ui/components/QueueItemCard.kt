@@ -127,8 +127,10 @@ fun QueueItemCard(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f, fill = false)
                 )
+                SourceBadge(item.appointment.source, modifier = Modifier.padding(horizontal = 8.dp))
+                Spacer(modifier = Modifier.weight(1f))
 
                 var showMenu by remember { mutableStateOf(false) }
                 Box {

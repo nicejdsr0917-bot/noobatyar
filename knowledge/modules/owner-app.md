@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-29
+updated: 2026-11-02
 tags: [gf]
 ---
 # اپ صاحب کسب‌وکار (mobile_owner)
@@ -28,3 +28,32 @@ tags: [gf]
 ## نکته‌ها
 - TODO: `iosMain/.../Theme.ios.kt` (status bar)، `wasmJsMain/.../ContactActions.wasmJs.kt`.
 - ریلیز APK فقط از CI با تگ — [[modules/ops-deploy]].
+
+## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
+- تست: `bash ./gradlew :composeApp:testLocalSiteDebugUnitTest` (۵۰ تست؛ هرگز allTests). JAVA_HOME از jbr اندروید استودیو و ANDROID_HOME لازم است.
+- رابط‌های `SelectedBusinessStore`، `AppPreferences`، `TokenStore` و API در Koin. `DispatcherProvider`، `runCatchingCancellable`، `AppLinks`.
+- `AppointmentRepositoryImpl.serverDayWindow`: پنجرهٔ همگام‌سازی همان روز سرور است. خروج از حساب: اول API، بعد توکن، بعد `LocalCacheCleaner`.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
+- لوگو هنگام ساخت کسب‌وکار اجباری است: `isLogoMissing` در `CreateBusinessState.kt`، و فیلد `logo_required=1` در `BusinessApiService`.
+- `feature/banner/` بنر چرخشی ۳:۱ صفحهٔ اصلی است (`/api/owner/banners/`). `feature/reviews/` صفحهٔ نظرات است؛ روی اندروید، پوش `NEW_REVIEW` به آن deep link می‌شود. `feature/showcase/` نمونه‌کار و مدارک را با `RectImageCropperDialog` و `cropImageToRect` (۱:۱ و ۴:۵) مدیریت می‌کند.
+- `source` نوبت با `SourceBadge` نشان داده می‌شود. Room نسخهٔ ۲۰ است (destructive؛ Room فقط کش است).
+- ⚠️ روی wasm هیچ‌وقت از `TimeZone.of(...)` استفاده نکنید، چون دیتابیس js-joda نیست و صفحهٔ اصلی کرش می‌کرد. `SERVER_ZONE` آفست ثابت UTC+3:30 است. تست JVM آن در `androidUnitTest/.../ServerZoneMatchesTehranTest.kt` است.
+
+## به‌روزرسانی ۲۰۲۶-۱۰-۳۰ (عصر)
+- صفحهٔ اصلی: `SourceSummaryCard` (`feature/home/HomeSourceCard.kt`) زیر کارت ماه، داخل `trendBlock`. داده از `GetSourceSummaryUseCase` ← `AppointmentRepository.getSourceCounts` (پیش‌فرض `null` در interface تا stubها نشکنند) ← `appointment/stats/` با `date_from` = اول ماه (`monthOverview.current.rangeStart`) و `date_to` = امروز. اگر APP و WEB هر دو صفر باشند نمایش داده نمی‌شود.
+- `HomeViewModel` یک پارامتر سازندهٔ جدید دارد (`getSourceSummaryUseCase`)؛ Koin ۱۴ تا `get()` می‌دهد.
+
+## جلسهٔ 2026-11-02
+- **شبکه‌های اجتماعی:** `Business.socialLinks: Map<String,String>`، `SocialLinks` (`domain/model/business/SocialLinks.kt`: ترتیب، `clean`، `encode`/`decode` JSON). در multipart به شکل `social_links` (رشتهٔ JSON). Room: ستون `BusinessEntity.socialLinks` (JSON)، **نسخهٔ دیتابیس 21**.
+- `CreateBusinessIntent.CreateBusiness.socialLinks` عمداً پیش‌فرض ندارد؛ هر جایی که intent می‌سازد (`AdvancedSettingsRoute`، `ShareBusinessScreen`) باید `business.socialLinks` را رد کند، وگرنه ذخیره لینک‌ها را پاک می‌کند.
+- `SocialLinksField.kt` (فرم کسب‌وکار، زیر شماره‌ها): هر شبکه یک ردیف؛ کاشی تا خالی است خاکستری است و با تایپ رنگ برند می‌گیرد.
+- `CityPicker`: state جدا برای لیست استان و شهر.
+- `AdvancedSettingsTabs` → `CapacityTab`: بیعانهٔ اجباری بدون `CARD`/`ONLINE` هشدار قرمز و دکمهٔ «رفتن به تب پرداخت» دارد.
+
+## کیف‌پول (۲۰۲۶-۱۱-۰۲)
+- `feature/wallet/` (MVI: `WalletIntent` Load/LoadMore/Convert/ClearMessage): کارت تومانی، دیالوگ تبدیل، تاریخچه. از کارت مصرف خانه و ردیف تنظیمات باز می‌شود.
+- `CheckoutConfirmation.confirm(quote, requote)` → `Choice(useWallet)?`؛ کلید کیف‌پول دوباره quote می‌گیرد. `PurchaseUseCase` در بیلد استوری `walletOnly=true` می‌فرستد.
+- `core/billing/CreditsChanged`: بعد از خرید/تبدیل/hold بالا می‌رود و `HomeViewModel` کارت مصرف را تازه می‌کند.
+- علامت +/− در RTL با isolate `⁦…⁩` داخل عدد (نه دور «تومان»).
+- تست‌ها ۹۹ تا؛ `Str` در تست JVM کرش می‌کند، helperهای بدون Str را تست کنید. JAVA_HOME: `~/.jdks/jbr-17.0.14`.

@@ -5,22 +5,41 @@ import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
 import xyz.sattar.javid.proqueue.data.localDataSource.appointment.AppointmentLocalSource
 import xyz.sattar.javid.proqueue.data.localDataSource.business.BusinessLocalSource
 import xyz.sattar.javid.proqueue.data.localDataSource.visitor.VisitorLocalSource
-import xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApiService
+import xyz.sattar.javid.proqueue.data.remoteDataSource.appointment.AppointmentApi
 import xyz.sattar.javid.proqueue.domain.AppointmentRepository
 import xyz.sattar.javid.proqueue.domain.model.appointment.Appointment
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentWithDetails
 import xyz.sattar.javid.proqueue.domain.model.DashboardStats
 import xyz.sattar.javid.proqueue.domain.model.appointment.AppointmentOrdering
 import xyz.sattar.javid.proqueue.domain.model.visitor.Visitor
+import kotlinx.coroutines.CancellationException
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.FixedOffsetTimeZone
+import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlin.time.ExperimentalTime
 
 class AppointmentRepositoryImpl(
     private val appointmentDao: AppointmentLocalSource,
     private val businessDao: BusinessLocalSource,
     private val visitorDao: VisitorLocalSource,
-    private val appointmentApiService: AppointmentApiService
+    private val appointmentApiService: AppointmentApi
 ) : AppointmentRepository {
+    override suspend fun getSourceCounts(businessId: Long, dateFrom: Long, dateTo: Long): Map<String, Int>? =
+        try {
+            when (val response = appointmentApiService.getAppointmentStats(businessId, dateFrom, dateTo)) {
+                is ApiResponse.Success -> response.data.sourceCounts.takeIf { it.isNotEmpty() }
+                is ApiResponse.Error -> null
+            }
+        } catch (e: Exception) {
+            null
+        }
+
     override suspend fun getRangeReport(
         businessId: Long,
         dateFrom: Long,
@@ -106,6 +125,7 @@ class AppointmentRepositoryImpl(
                     trackingCode = dto.trackingCode,
                     paymentReference = dto.paymentReference,
                     depositPaymentMethod = dto.depositPaymentMethod,
+                    source = dto.source,
                     createdAt = DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
                     updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                 )
@@ -210,14 +230,6 @@ class AppointmentRepositoryImpl(
         }
     }
 
-    override suspend fun getVisitorHistory(visitorId: Long): List<AppointmentWithDetails> {
-        return try {
-            appointmentDao.getVisitorHistory(visitorId) 
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
     override suspend fun getVisitorHistoryForBusiness(visitorId: Long, businessId: Long): List<AppointmentWithDetails> {
         return try {
             appointmentDao.getVisitorHistoryForBusiness(visitorId, businessId) 
@@ -308,7 +320,8 @@ class AppointmentRepositoryImpl(
         dateTo: Long?,
         ordering: AppointmentOrdering?,
         page: Int,
-        pageSize: Int
+        pageSize: Int,
+        replaceWindow: Boolean
     ): Boolean {
         return try {
             val response = appointmentApiService.queryAppointments(
@@ -356,17 +369,67 @@ class AppointmentRepositoryImpl(
                     trackingCode = dto.trackingCode,
                     paymentReference = dto.paymentReference,
                     depositPaymentMethod = dto.depositPaymentMethod,
+                    source = dto.source,
                         createdAt = DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
                         updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                     )
                 }
-                appointmentDao.upsertAppointments(appointments)
+                val window = if (replaceWindow && visitorId == null && status == null &&
+                    response.data.next == null && (response.data.currentPage ?: page) == 1
+                ) syncWindow(date, dateFrom, dateTo) else null
+                if (window != null) {
+                    appointmentDao.replaceWindow(businessId, window.first, window.second, appointments)
+                } else {
+                    appointmentDao.upsertAppointments(appointments)
+                }
                 true
             } else {
                 false
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             false
+        }
+    }
+
+    companion object {
+        /**
+         * Asia/Tehran as a fixed UTC+3:30 (Iran dropped DST in 2022). Not
+         * `TimeZone.of("Asia/Tehran")`: on wasm that needs the js-joda tz
+         * database, which the web panel does not ship, so it threw and took
+         * the whole home screen down.
+         */
+        private val SERVER_ZONE = FixedOffsetTimeZone(UtcOffset(hours = 3, minutes = 30))
+
+        /**
+         * Mirrors the backend's `_utc_day_start` (appointment_query_view.py),
+         * which the `date`, `date_from` and `date_to` filters use: it takes
+         * the UTC calendar date D of the epoch-ms it is sent, then returns
+         * D 00:00 *in the server's TIME_ZONE (Asia/Tehran)*. So `date=X`
+         * selects [D 00:00 Tehran, D+1 00:00 Tehran), which is NOT the UTC day
+         * and not the Tehran day of X. Must stay in step with the server;
+         * the server cannot change while old app versions are in the field.
+         */
+        @OptIn(ExperimentalTime::class)
+        internal fun serverDayWindow(epochMillis: Long): Pair<Long, Long> {
+            val d = Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(TimeZone.UTC).date
+            val from = d.atStartOfDayIn(SERVER_ZONE).toEpochMilliseconds()
+            val to = d.plus(1, DateTimeUnit.DAY).atStartOfDayIn(SERVER_ZONE).toEpochMilliseconds()
+            return from to to
+        }
+
+        /**
+         * The [from, to) window the server's date filters select, or null
+         * when the request has no date bound ("everything" is not a window
+         * we can safely replace).
+         */
+        internal fun syncWindow(date: Long?, dateFrom: Long?, dateTo: Long?): Pair<Long, Long>? {
+            if (date != null) return serverDayWindow(date)
+            if (dateFrom == null || dateTo == null) return null
+            val from = serverDayWindow(dateFrom).first
+            val to = serverDayWindow(dateTo).second
+            return if (to > from) from to to else null
         }
     }
 }

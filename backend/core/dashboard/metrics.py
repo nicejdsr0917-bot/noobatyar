@@ -42,16 +42,16 @@ Day bucketing is done in ``settings.TIME_ZONE`` (Asia/Tehran), never UTC:
     a local calendar date rather than by subtracting hours from ``now()``.
 """
 
-from datetime import datetime, time, timedelta
-from zoneinfo import ZoneInfo
+from datetime import timedelta
 
-from django.conf import settings
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
 
+from accounting.addon_kinds import ADDON_KINDS  # noqa: F401 -- re-exported
 from accounting.models import AddOnPack, AddOnPurchase, Subscription, Transaction
-from api import jalali
+from common import jalali
+from common.timeutils import local_midnight, project_tz  # noqa: F401 -- project_tz re-exported
 from api.models import User
 from appointment.models import Appointment
 from business.models import Business, ContentReport
@@ -77,20 +77,9 @@ ALERT_ROWS = 8
 
 WINDOWS = ('today', 'week', 'month', 'all')
 
-# The kind lives on the pack, not the purchase — a purchase is split by
-# `pack__kind`.
-ADDON_KINDS = (
-    AddOnPack.KIND_SMS,
-    AddOnPack.KIND_APPOINTMENT,
-    AddOnPack.KIND_FEATURE,
-)
 
 
 # ── Time helpers ──────────────────────────────────────────────────────────────
-
-def project_tz():
-    return ZoneInfo(settings.TIME_ZONE)
-
 
 def local_day_start(now=None, days_ago=0):
     """Midnight of the local calendar day ``days_ago`` days before ``now``.
@@ -103,7 +92,7 @@ def local_day_start(now=None, days_ago=0):
     """
     tz = project_tz()
     local = timezone.localtime(now or timezone.now(), tz)
-    return datetime.combine(local.date() - timedelta(days=days_ago), time.min, tzinfo=tz)
+    return local_midnight(local.date() - timedelta(days=days_ago), tz)
 
 
 def window_starts(now=None):

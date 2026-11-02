@@ -14,12 +14,15 @@ export default function ThemeToggle() {
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
+    // localStorage / matchMedia only exist after hydration, so this must run in an effect.
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (stored === 'light' || stored === 'dark') {
       setTheme(stored);
     } else {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       setTheme(prefersDark ? 'dark' : 'light');
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const toggle = () => {

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-29
+updated: 2026-11-02
 tags: [gf]
 ---
 # backend: accounting (اشتراک و پرداخت)
@@ -27,3 +27,15 @@ tags: [gf]
 - تأیید زیبال/مایکت idempotent: replay = همان پاسخ موفق؛ 201 موفق؛ خطای شبکه pending (503)؛ فقط 202/203 failed و هرگز روی success؛ مبلغ تأییدشده باید `amount*10` ریال باشد. اعتبار add-on داخل همان تراکنش.
 - `entitlements.get_entitlements` کش ۶۰ ثانیه (`ent:{version}:{user}`)، پاک‌شدن با `accounting/signals.py`.
 - viewها/ادمین به `accounting/services.py` و `admin_services.py` تفویض می‌کنند. کلاینت زیبال: `backend/integrations/zibal.py` (`accounting/payment/zibal_client.py` فقط shim).
+
+## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
+- `sms_billing.send_metered_sms`: فرستندهٔ واحد پیامک پولی (مصرف، ارسال، refund، SmsLog). خطای provider = refund. `services.grant_trial` atomic است.
+- `integrations/myket.py` و `integrations.zibal` مستقیم؛ shim `zibal_client` حذف شد. بخش‌بندی «کیف پول کم» روی `CreditBalance` است.
+
+## کیف‌پول (۲۰۲۶-۱۱-۰۲، برنچ mobile-client)
+- `wallet/history/` (تاریخچهٔ صفحه‌بندی‌شدهٔ `CreditLedger` + موجودی‌ها و قیمت واحد)، `wallet/convert/` (`kind` = sms|appointment، `count` ۱..۱۰۰۰۰۰).
+- `accounting/toman_wallet.py`: متریک `toman_wallet` (فقط DB، کلید Redis ندارد). `credit()` برای اپ‌های دیگر (برگشت تخفیف)، `spend()` None اگر کم باشد.
+- خرید با `use_wallet`/`wallet_only` در `plans/payment/` و `addons/buy/`. `wallet_part`: یا کامل، یا حداقل `MIN_SELLABLE_PRICE` برای زیبال؛ مایکت همه یا هیچ. بخش کیف‌پول با `hold()` روی `wallet_amount` (migration `0016`) نگه داشته می‌شود؛ `give_back` idempotent است. رد درگاه / verify FAILED / رها شدن ۱ ساعت (`release_stale_holds` در `run_subscription_lifecycle`) پول را برمی‌گرداند.
+- `TomanWalletSettings` (singleton، ادمین) قیمت تبدیل. `manage.py toman_wallet_credit`.
+- order_id پلن و add-on دنبالهٔ uuid دارد (برخورد در یک ثانیه). گزارش درآمد فقط `amount` نقدی.
+- تست: `tests_toman_wallet.py`، `tests_wallet_history.py`.

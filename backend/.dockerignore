@@ -1,0 +1,15 @@
+db.sqlite3*
+*.bak*
+*.zip
+.env
+.env.*
+media/
+static/
+__pycache__/
+*.pyc
+.venv/
+.git/
+*.postman_collection*.json
+test_*.sh
+test_api.txt
+docs/

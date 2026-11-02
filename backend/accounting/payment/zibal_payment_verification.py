@@ -1,117 +1,117 @@
 # accounting/payment/zibal_payment_verification.py
-import httpx
 import logging
 from typing import Dict, Any, Optional
-from django.conf import settings
 from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from accounting.models import Transaction, Subscription
+from integrations import zibal
 
 logger = logging.getLogger(__name__)
 
 class PaymentVerificationService:
-    """Handles Zibal payment verification and subscription activation"""
+    """Verifies a Zibal payment and activates the plan — safe to run any number
+    of times, concurrently, for the same track id.
 
-    ZIBAL_VERIFY_URL = "https://gateway.zibal.ir/v1/verify"
-    SUCCESS_CODE = 100
+    Zibal is asked OUTSIDE any DB lock; the Transaction row is then locked and
+    re-checked, so the plan is granted exactly once. A network error leaves the
+    row pending (the callback can be retried); only a definitive Zibal "not
+    paid" marks it failed, and never over a success.
+    """
 
     def __init__(self, track_id: str):
         self.track_id = track_id
         self.transaction: Optional[Transaction] = None
 
-    def verify_and_activate(self) -> Dict[str, Any]:  # ✅ sync
-        """Main orchestration method"""
+    def verify_and_activate(self) -> Dict[str, Any]:
         try:
-            # 1. Load transaction
-            if not self._load_transaction():
+            try:
+                self.transaction = Transaction.objects.select_related('user', 'plan').get(
+                    track_id=self.track_id
+                )
+            except Transaction.DoesNotExist:
                 return self._error_response("تراکنش یافت نشد", 404)
 
-            # 2. Check idempotency
-            if self._is_already_processed():
-                return self._error_response("این تراکنش قبلاً پردازش شده است", 400)
+            if self.transaction.status == 'success':
+                return self._success_response(self.transaction)
+            if self.transaction.status == 'cancelled':
+                return self._error_response("این تراکنش لغو شده است", 400)
 
-            # 3. Verify with Zibal
-            verify_result = self._verify_with_zibal()  # ✅ بدون await
-            if not verify_result['success']:
-                self._mark_failed(verify_result['data'])
+            # A 'failed' row is re-verified too: older code could mark a paid
+            # transaction failed after a timeout.
+            result = zibal.verify(self.track_id)
+
+            if result.paid and not zibal.amount_matches(result.data, self.transaction.amount):
+                # Paid, but not the sum we asked for: grant nothing and leave the
+                # row pending for a human; never mark it failed.
+                logger.error(
+                    "Zibal amount mismatch for %s: verified=%r expected=%s toman",
+                    self.track_id, (result.data or {}).get('amount'), self.transaction.amount,
+                )
                 return self._error_response(
-                    verify_result.get('message', 'پرداخت ناموفق بود'),
-                    400,
-                    verify_result['data']
+                    "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503
                 )
 
-            # 4. Activate subscription
-            subscription_data = self._activate_subscription(verify_result['data'])
+            if result.outcome == zibal.Outcome.TRANSPORT_ERROR:
+                return self._error_response(
+                    "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503, result.data
+                )
+
+            if result.outcome == zibal.Outcome.FAILED:
+                if self.transaction.wallet_amount:
+                    # Definitively not paid: cancel (never re-verified) and
+                    # give the wallet part back.
+                    from accounting import toman_wallet
+                    Transaction.objects.filter(pk=self.transaction.pk, status='pending').update(
+                        zibal_response=result.data, updated_at=timezone.now()
+                    )
+                    toman_wallet.cancel_hold(self.transaction, "Transaction")
+                    return self._error_response(result.message, 400, result.data)
+                Transaction.objects.filter(pk=self.transaction.pk, status='pending').update(
+                    status='failed', zibal_response=result.data, updated_at=timezone.now()
+                )
+                return self._error_response(result.message, 400, result.data)
+
+            with db_transaction.atomic():
+                locked = Transaction.objects.select_for_update().select_related(
+                    'user', 'plan'
+                ).get(pk=self.transaction.pk)
+                if locked.status == 'success':
+                    return self._success_response(locked)
+                if locked.status == 'cancelled':
+                    return self._error_response("این تراکنش لغو شده است", 400)
+                data = activate_plan_transaction(locked, result.data)
 
             return {
                 'success': True,
-                'message': f'پلن {subscription_data["plan_name"]} با موفقیت فعال شد',
-                'data': subscription_data,
+                'message': f'پلن {data["plan_name"]} با موفقیت فعال شد',
+                'data': data,
                 'status_code': 201
             }
 
-        except Exception as e:
+        except Exception:
             logger.exception(f"Unexpected error in payment verification: {self.track_id}")
-            self._mark_failed({'error': str(e)})
+            # Never mark failed here: the payment may well have succeeded.
             return self._error_response("خطای سیستمی در پردازش پرداخت", 500)
 
-    def _load_transaction(self) -> bool:  # ✅ sync
-        """Load transaction from database"""
-        try:
-            self.transaction = Transaction.objects.select_related('user', 'plan').get(
-                track_id=self.track_id
-            )
-            return True
-        except Transaction.DoesNotExist:
-            return False
-
-    def _is_already_processed(self) -> bool:
-        """Check if transaction was already processed"""
-        return self.transaction.status in ['success', 'failed']
-
-    def _verify_with_zibal(self) -> Dict[str, Any]:  # ✅ sync
-        """Call Zibal verify API"""
-        with httpx.Client(timeout=10.0) as client:  # ✅ Client به جای AsyncClient
-            try:
-                response = client.post(  # ✅ بدون await
-                    self.ZIBAL_VERIFY_URL,
-                    headers={"Content-Type": "application/json"},
-                    json={
-                        "merchant": settings.ZIBAL_MERCHANT_ID,
-                        "trackId": int(self.track_id)
-                    }
-                )
-                response.raise_for_status()
-                data = response.json()
-
-                if data.get('result') == self.SUCCESS_CODE:
-                    return {'success': True, 'data': data}
-                else:
-                    return {
-                        'success': False,
-                        'message': data.get('message', 'پرداخت تایید نشد'),
-                        'data': data
-                    }
-
-            except httpx.HTTPError as e:
-                logger.error(f"Zibal API error for track_id {self.track_id}: {e}")
-                return {
-                    'success': False,
-                    'message': 'خطا در ارتباط با درگاه پرداخت',
-                    'data': {'error': str(e)}
-                }
-
-    def _activate_subscription(self, verify_data: Dict) -> Dict[str, Any]:  # ✅ sync
-        """Activate subscription in atomic transaction"""
-        return activate_plan_transaction(self.transaction, verify_data)
-
-    def _mark_failed(self, error_data: Dict):  # ✅ sync
-        """Mark transaction as failed"""
-        if self.transaction:
-            self.transaction.status = 'failed'
-            self.transaction.zibal_response = error_data
-            self.transaction.save(update_fields=['status', 'zibal_response', 'updated_at'])
+    @staticmethod
+    def _success_response(txn: Transaction) -> Dict[str, Any]:
+        """The same answer a first-time success gives, rebuilt from stored state."""
+        sub = Subscription.objects.filter(user=txn.user, plan=txn.plan).order_by('-id').first()
+        stored = txn.zibal_response if isinstance(txn.zibal_response, dict) else {}
+        return {
+            'success': True,
+            'message': f'پلن {txn.plan.name} با موفقیت فعال شد',
+            'data': {
+                'subscription_id': sub.id if sub else None,
+                'plan_name': txn.plan.name,
+                'ends_at': sub.ends_at.isoformat() if sub else None,
+                'ref_number': stored.get('refNumber'),
+                'card_number': stored.get('cardNumber'),
+                'amount': str(txn.amount),
+            },
+            'status_code': 201
+        }
 
     @staticmethod
     def _error_response(message: str, status_code: int, data: Optional[Dict] = None) -> Dict:

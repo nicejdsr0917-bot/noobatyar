@@ -13,7 +13,6 @@ interface AppointmentRepository {
     suspend fun updateAppointmentStatus(appointmentId: Long, status: String): Boolean
     suspend fun updateAppointment(appointmentId: Long, date: Long, duration: Int?, description: String?, selectedServices: String? = null): Boolean
     suspend fun removeAppointment(appointmentId: Long): Boolean
-    suspend fun getVisitorHistory(visitorId: Long): List<AppointmentWithDetails>
     suspend fun getVisitorHistoryForBusiness(visitorId: Long, businessId: Long): List<AppointmentWithDetails>
     suspend fun getTodayStats(businessId: Long, date: Long): DashboardStats
     suspend fun getAppointmentById(appointmentId: Long): Appointment?
@@ -22,6 +21,13 @@ interface AppointmentRepository {
     suspend fun getConflictingAppointments(businessId: Long, startTime: Long, endTime: Long, defaultDuration: Int): List<AppointmentWithDetails>
     suspend fun getAppointmentsForDate(businessId: Long, date: Long): List<AppointmentWithDetails>
     suspend fun getDailyCounts(businessId: Long, days: Int, daysAhead: Int = 0): List<xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.DailyCountDto>
+
+    /**
+     * Bookings per origin (APP / WEB / OWNER / UNKNOWN) between two days,
+     * both inclusive. Null when the call fails or the server is too old to
+     * report sources.
+     */
+    suspend fun getSourceCounts(businessId: Long, dateFrom: Long, dateTo: Long): Map<String, Int>? = null
 
     /**
      * Range report for the مراجعین screen's third tab. Server-only, with no
@@ -52,6 +58,13 @@ interface AppointmentRepository {
         dateTo: Long? = null,
         ordering: AppointmentOrdering? = AppointmentOrdering.DATE_DESC,
         page: Int = 1,
-        pageSize: Int = 20
+        pageSize: Int = 20,
+        /**
+         * When true and the request is an unfiltered, complete window (no
+         * visitor/status filter, the whole result fit in this page), local
+         * rows of [businessId] in that window the server no longer returns
+         * are deleted before the upsert. Otherwise behaves as a plain upsert.
+         */
+        replaceWindow: Boolean = false
     ): Boolean
 }

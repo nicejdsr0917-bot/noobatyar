@@ -11,6 +11,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.ContentWidth
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.businessList.BusinessListScreen
 import xyz.sattar.javid.proqueue.feature.createBusiness.CreateBusinessRoute
+import xyz.sattar.javid.proqueue.feature.claimBusiness.ClaimBusinessScreen
 
 import androidx.navigation.toRoute
 
@@ -43,7 +44,19 @@ fun BusinessNavHost(
                 },
                 onNavigateToLogin = {
                     onNavigateToAuth()
+                },
+                onNavigateToClaim = {
+                    navController.navigate(AppScreens.ClaimBusiness)
                 }
+            )
+        }
+
+        composable<AppScreens.ClaimBusiness> {
+            ClaimBusinessScreen(
+                onNavigateBack = { navController.popBackStack() },
+                // Returning re-enters BusinessListScreen, whose ObserveBusinesses
+                // refetch picks up the newly owned business.
+                onFinished = { navController.popBackStack() }
             )
         }
 

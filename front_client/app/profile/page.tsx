@@ -1,5 +1,6 @@
 'use client';
 
+import { getVisitorToken, clearVisitorToken } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getMe, getMyActivity, type ActivityEntry, type Visitor } from '@/lib/api';
@@ -63,12 +64,12 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
 
   function signOut() {
-    localStorage.removeItem('visitor_token');
+    clearVisitorToken();
     router.replace('/auth/login');
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('visitor_token');
+    const token = getVisitorToken();
     if (!token) {
       router.replace('/auth/login?redirect=/profile');
       return;

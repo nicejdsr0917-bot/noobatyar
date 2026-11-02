@@ -9,6 +9,7 @@ data class CreateBusinessRequestDto(
     @SerialName("category") val category: String,
     @SerialName("phone") val phone: String,
     @SerialName("extra_phones") val extraPhones: List<String> = emptyList(),
+    @SerialName("social_links") val socialLinks: Map<String, String> = emptyMap(),
     @SerialName("address") val address: String,
     @SerialName("latitude") val latitude: Double? = null,
     @SerialName("longitude") val longitude: Double? = null,

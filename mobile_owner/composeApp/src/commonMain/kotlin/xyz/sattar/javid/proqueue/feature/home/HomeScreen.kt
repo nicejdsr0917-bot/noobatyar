@@ -118,6 +118,8 @@ import xyz.sattar.javid.proqueue.core.ui.components.PullToRefreshBox
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
+import xyz.sattar.javid.proqueue.feature.wallet.signedAmount
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementKeys
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
@@ -132,6 +134,7 @@ fun HomeScreen(
     onNavigateToLogin: () -> Unit,
     onChangeBusiness: () -> Unit = {},
     onNavigateToAddons: () -> Unit = {},
+    onNavigateToWallet: () -> Unit = {},
     onNavigateToVisitors: (VisitorsNavArgs) -> Unit = {},
     onNavigateToPayment: (String) -> Unit = {}
 ) {
@@ -158,7 +161,9 @@ fun HomeScreen(
         onNavigateToLogin = onNavigateToLogin,
         onChangeBusiness = onChangeBusiness,
         onNavigateToAddons = onNavigateToAddons,
-        onNavigateToVisitors = onNavigateToVisitors
+        onNavigateToWallet = onNavigateToWallet,
+        onNavigateToVisitors = onNavigateToVisitors,
+        bannerSlot = { xyz.sattar.javid.proqueue.feature.banner.HomeBannerCarousel(businessId = uiState.business?.id) }
     )
 }
 
@@ -202,7 +207,10 @@ fun HomeScreenContent(
     onNavigateToLogin: () -> Unit,
     onChangeBusiness: () -> Unit = {},
     onNavigateToAddons: () -> Unit = {},
-    onNavigateToVisitors: (VisitorsNavArgs) -> Unit = {}
+    onNavigateToWallet: () -> Unit = {},
+    onNavigateToVisitors: (VisitorsNavArgs) -> Unit = {},
+    /** Rotating banners, just under the header; injected so previews need no Koin. */
+    bannerSlot: @Composable () -> Unit = {}
 ) {
     var visible by remember { mutableStateOf(false) }
 
@@ -320,7 +328,7 @@ fun HomeScreenContent(
                     )
                 }
             }
-            val trendBlock: @Composable () -> Unit = {
+            val trendBlock: @Composable () -> Unit = { Column {
                 if (!uiState.chartLoaded) {
                     HomeChartShimmer()
                 } else {
@@ -340,14 +348,21 @@ fun HomeScreenContent(
                         }
                     )
                 }
-            }
+                // Inside the same block so the wide layout's column keeps it
+                // next to the month card it counts from.
+                uiState.sourceSummary?.takeUnless { it.isEmpty }?.let { summary ->
+                    Spacer(Modifier.height(14.dp))
+                    SourceSummaryCard(summary)
+                }
+            } }
             val usageBlock: @Composable () -> Unit = {
                 if (!uiState.entitlementsLoaded) {
                     HomeUsageShimmer()
                 } else if (uiState.entitlements != null) {
                     UsageMeterSection(
                         entitlements = uiState.entitlements,
-                        onNavigateToAddons = onNavigateToAddons
+                        onNavigateToAddons = onNavigateToAddons,
+                        onNavigateToWallet = onNavigateToWallet
                     )
                 }
             }
@@ -372,6 +387,7 @@ fun HomeScreenContent(
                     .padding(horizontal = adaptivePagePadding()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                item(key = "banners") { bannerSlot() }
                 if (wide) {
                     item {
                         HomeReveal(visible, delayMillis = 120) {
@@ -1033,7 +1049,8 @@ fun StatCard(
 @Composable
 fun UsageMeterSection(
     entitlements: EntitlementsResponseDto,
-    onNavigateToAddons: () -> Unit = {}
+    onNavigateToAddons: () -> Unit = {},
+    onNavigateToWallet: () -> Unit = {}
 ) {
     val appt = entitlements.usage.appointments
     val sms = entitlements.usage.sms
@@ -1074,7 +1091,8 @@ fun UsageMeterSection(
                 icon = Icons.Rounded.Event,
                 used = appt.used,
                 quota = appt.quota,
-                trailingNote = if (appt.wallet > 0) Str.wallet(appt.wallet) else null
+                trailingNote = appointmentWalletNote(appt.wallet, appt.quota),
+                onNoteClick = onNavigateToWallet
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -1084,8 +1102,25 @@ fun UsageMeterSection(
                 icon = Icons.Rounded.Sms,
                 used = smsUsed,
                 quota = sms.quota,
-                trailingNote = if (sms.wallet > 0) Str.wallet(sms.wallet) else null
+                trailingNote = smsWalletNote(sms.wallet),
+                onNoteClick = onNavigateToWallet
             )
+
+            if (entitlements.usage.tomanWallet > 0) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = Str.wallet_toman_note(
+                        xyz.sattar.javid.proqueue.core.billing.formatToman(entitlements.usage.tomanWallet)
+                    ).toPersianDigits(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(onClick = onNavigateToWallet)
+                        .padding(vertical = 2.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -1108,7 +1143,8 @@ fun UsageRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     used: Int,
     quota: Int,
-    trailingNote: String? = null
+    trailingNote: String? = null,
+    onNoteClick: () -> Unit = {}
 ) {
     val unlimited = quota == EntitlementKeys.UNLIMITED
     val fraction = if (unlimited || quota <= 0) 0f else (used.toFloat() / quota.toFloat()).coerceIn(0f, 1f)
@@ -1173,7 +1209,11 @@ fun UsageRow(
             Text(
                 text = trailingNote,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable(onClick = onNoteClick)
+                    .padding(vertical = 2.dp)
             )
         }
     }
@@ -1215,3 +1255,18 @@ fun PreviewHomeScreen() {
         )
     }
 }
+
+/**
+ * Note under the bookings bar for add-on credit. Hidden on an unlimited plan:
+ * the plan quota never runs out there, so the credit can never be spent and
+ * showing it only reads as money that is stuck (the wallet screen explains it).
+ */
+internal fun appointmentWalletNote(wallet: Int, quota: Int): String? =
+    if (showsAppointmentWalletNote(wallet, quota)) Str.wallet_extra_appointments(signedAmount(wallet))
+    else null
+
+internal fun smsWalletNote(wallet: Int): String? =
+    if (wallet > 0) Str.wallet_extra_sms(signedAmount(wallet)) else null
+
+internal fun showsAppointmentWalletNote(wallet: Int, quota: Int): Boolean =
+    wallet > 0 && quota != EntitlementKeys.UNLIMITED
