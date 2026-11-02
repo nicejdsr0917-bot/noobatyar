@@ -15,6 +15,9 @@ data class WalletState(
     val canLoadMore: Boolean = false,
     /** Set when the first page failed — the screen shows a retry instead of an empty list. */
     val loadFailed: Boolean = false,
+    val isConverting: Boolean = false,
+    /** Bumped after a successful conversion so the screen can close its dialog. */
+    val convertedCount: Int = 0,
     val message: UiMessage? = null
 ) {
     /** Appointment credit is never spent while the plan's booking quota is unlimited. */
@@ -31,6 +34,8 @@ data class WalletState(
             val canLoadMore: Boolean
         ) : PartialState
         data object FirstPageFailed : PartialState
+        data class IsConverting(val converting: Boolean) : PartialState
+        data object Converted : PartialState
         data class ShowMessage(val message: UiMessage?) : PartialState
     }
 }

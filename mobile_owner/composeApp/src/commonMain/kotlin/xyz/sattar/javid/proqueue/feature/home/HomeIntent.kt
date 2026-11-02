@@ -4,6 +4,8 @@ sealed interface HomeIntent {
     data object LoadData : HomeIntent
     /** فقط صف نوبت را به‌روز کن (بدون دریافت دوباره پلن/اشتراک/entitlements) */
     data object RefreshQueue : HomeIntent
+    /** Balances changed elsewhere (wallet, purchase): refetch the usage card only. */
+    data object RefreshEntitlements : HomeIntent
     data class RemoveAppointment(val appointmentId: Long) : HomeIntent
     data class MarkAppointmentCompleted(val appointmentId: Long) : HomeIntent
     data class MarkAppointmentNoShow(val appointmentId: Long) : HomeIntent

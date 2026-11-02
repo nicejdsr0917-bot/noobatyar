@@ -59,9 +59,10 @@ interface UserApi {
     suspend fun getAddons(): ApiResponse<List<AddOnPackDto>>
     suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletHistoryDto>
 
-    suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto>
+    suspend fun buyAddon(packId: Int, useWallet: Boolean = false, walletOnly: Boolean = false): ApiResponse<PaymentResponseDto>
+    suspend fun convertWallet(body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertDto>
 
-    suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto>
+    suspend fun checkoutQuote(kind: String, id: Int, channel: String, useWallet: Boolean = false): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto>
 
     suspend fun storeIntent(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentDto>
 

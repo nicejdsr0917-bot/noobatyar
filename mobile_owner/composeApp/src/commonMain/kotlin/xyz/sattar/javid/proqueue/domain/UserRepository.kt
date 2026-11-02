@@ -21,12 +21,13 @@ interface UserRepository {
     suspend fun getUserProfile(id: Int): ApiResponse<UserDto>
     suspend fun getMySubscription(): ApiResponse<SubscriptionDto>
     suspend fun getPlans(): ApiResponse<List<PlanDto>>
-    suspend fun createPayment(planId: String): ApiResponse<PaymentResponseDto>
+    suspend fun createPayment(planId: String, useWallet: Boolean = false, walletOnly: Boolean = false): ApiResponse<PaymentResponseDto>
     suspend fun getMyEntitlements(): ApiResponse<EntitlementsResponseDto>
     suspend fun getAddons(): ApiResponse<List<AddOnPackDto>>
     suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletHistoryDto>
-    suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto>
-    suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto>
+    suspend fun buyAddon(packId: Int, useWallet: Boolean = false, walletOnly: Boolean = false): ApiResponse<PaymentResponseDto>
+    suspend fun convertWallet(kind: String, count: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertDto>
+    suspend fun checkoutQuote(kind: String, id: Int, channel: String, useWallet: Boolean = false): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto>
     suspend fun storeIntent(store: String, kind: String, id: Int): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentDto>
     suspend fun storeVerify(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyDto>
 

@@ -118,6 +118,7 @@ import xyz.sattar.javid.proqueue.core.ui.components.PullToRefreshBox
 import xyz.sattar.javid.proqueue.core.ui.components.ToastyType
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import xyz.sattar.javid.proqueue.core.utils.DateTimeUtils
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.feature.wallet.signedAmount
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementKeys
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
@@ -1104,6 +1105,22 @@ fun UsageMeterSection(
                 trailingNote = smsWalletNote(sms.wallet),
                 onNoteClick = onNavigateToWallet
             )
+
+            if (entitlements.usage.tomanWallet > 0) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = Str.wallet_toman_note(
+                        xyz.sattar.javid.proqueue.core.billing.formatToman(entitlements.usage.tomanWallet)
+                    ).toPersianDigits(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(onClick = onNavigateToWallet)
+                        .padding(vertical = 2.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(14.dp))
 

@@ -1,6 +1,13 @@
 package xyz.sattar.javid.proqueue.feature.wallet
 
 import androidx.compose.foundation.background
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertKind
+import xyz.sattar.javid.proqueue.core.billing.formatToman
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -121,6 +128,21 @@ fun WalletContent(
         if (shouldLoadMore.value) onIntent(WalletIntent.LoadMore)
     }
 
+    var showConvert by remember { mutableStateOf(false) }
+    // Closed by a successful conversion, left open on an error so the owner can retry.
+    LaunchedEffect(uiState.convertedCount) { showConvert = false }
+    val balances = uiState.balances
+    if (showConvert && balances != null) {
+        ConvertDialog(
+            balance = balances.tomanWallet,
+            smsUnitPrice = balances.smsUnitPrice,
+            appointmentUnitPrice = balances.appointmentUnitPrice,
+            busy = uiState.isConverting,
+            onConvert = { kind, count -> onIntent(WalletIntent.Convert(kind, count)) },
+            onDismiss = { showConvert = false }
+        )
+    }
+
     Scaffold(
         snackbarHost = { ToastyHost(hostState = snackbarHostState) },
         topBar = {
@@ -150,6 +172,14 @@ fun WalletContent(
                 contentPadding = PaddingValues(horizontal = adaptivePagePadding(), vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                item(key = "toman") {
+                    TomanCard(
+                        balance = uiState.balances?.tomanWallet,
+                        canConvert = (uiState.balances?.tomanWallet ?: 0) > 0,
+                        onConvert = { showConvert = true }
+                    )
+                }
+
                 item(key = "explainer") {
                     Text(
                         text = Str.wallet_explainer,
@@ -307,14 +337,18 @@ private fun LedgerRow(entry: WalletLedgerEntryDto) {
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
+                val toman = entry.metric == WalletMetric.TOMAN
                 Text(
-                    text = signedAmount(entry.delta),
+                    text = if (toman) signedToman(entry.delta.toLong()) else signedAmount(entry.delta),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = accent
                 )
                 Text(
-                    text = Str.wallet_balance_after(entry.balanceAfter.fa()),
+                    text = Str.wallet_balance_after(
+                        if (toman) Str.toman(formatToman(entry.balanceAfter.toLong())).toPersianDigits()
+                        else entry.balanceAfter.fa()
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -334,6 +368,7 @@ internal fun signedDelta(delta: Int): String =
 fun signedAmount(delta: Int): String = "\u2066" + signedDelta(delta).toPersianDigits() + "\u2069"
 
 internal fun walletMetricLabel(metric: String): String? = when (metric) {
+    WalletMetric.TOMAN -> Str.toman_wallet_title
     WalletMetric.APPOINTMENTS -> Str.appointments_tab
     WalletMetric.SMS -> Str.sms
     else -> null
@@ -347,7 +382,14 @@ internal enum class WalletReason(val code: String) {
     SmsSend("sms_send"),
     SmsRefund("sms_refund"),
     Credit("wallet_credit"),
-    Debit("wallet_debit");
+    Debit("wallet_debit"),
+    DiscountReimbursement("discount_reimbursement"),
+    AdminCredit("admin_credit"),
+    AdminDebit("admin_debit"),
+    PlanPurchase("plan_purchase"),
+    PurchaseRefund("purchase_refund"),
+    Convert("convert"),
+    ConvertedFromToman("toman_conversion");
 
     val label: String
         get() = when (this) {
@@ -356,8 +398,13 @@ internal enum class WalletReason(val code: String) {
             CancellationRefund -> Str.wallet_reason_cancellation_refund
             SmsSend -> Str.wallet_reason_sms_send
             SmsRefund -> Str.wallet_reason_sms_refund
-            Credit -> Str.wallet_reason_credit
-            Debit -> Str.wallet_reason_debit
+            Credit, AdminCredit -> Str.wallet_reason_credit
+            Debit, AdminDebit -> Str.wallet_reason_debit
+            DiscountReimbursement -> Str.wallet_reason_discount
+            PlanPurchase -> Str.wallet_reason_plan_purchase
+            PurchaseRefund -> Str.wallet_reason_purchase_refund
+            Convert -> Str.wallet_reason_convert
+            ConvertedFromToman -> Str.wallet_reason_converted
         }
 
     companion object {
@@ -375,3 +422,117 @@ internal enum class WalletReason(val code: String) {
 
 internal fun walletReasonLabel(entry: WalletLedgerEntryDto): String =
     WalletReason.of(entry)?.label ?: entry.reasonLabel
+
+/** "+10,000 تومان" with the sign kept in front of the number in RTL. */
+internal fun signedToman(delta: Long): String =
+    Str.toman("\u2066" + (if (delta >= 0) "+" else "−") + formatToman(kotlin.math.abs(delta)) + "\u2069").toPersianDigits()
+
+/** How many credits [balance] toman buys at [unitPrice] each (0 when it is not for sale). */
+internal fun affordableCount(balance: Long, unitPrice: Long): Int =
+    if (unitPrice <= 0) 0 else (balance / unitPrice).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+
+@Composable
+private fun TomanCard(balance: Long?, canConvert: Boolean, onConvert: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Rounded.AccountBalanceWallet, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(Str.toman_wallet_title, style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = balance?.let { Str.toman(formatToman(it)).toPersianDigits() } ?: "—",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                Str.toman_wallet_explainer,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            )
+            if (canConvert) {
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onConvert, modifier = Modifier.fillMaxWidth()) {
+                    Text(Str.wallet_convert_button)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConvertDialog(
+    balance: Long,
+    smsUnitPrice: Long,
+    appointmentUnitPrice: Long,
+    busy: Boolean,
+    onConvert: (kind: String, count: Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var kind by remember { mutableStateOf(WalletConvertKind.SMS) }
+    val unitPrice = if (kind == WalletConvertKind.SMS) smsUnitPrice else appointmentUnitPrice
+    val max = affordableCount(balance, unitPrice)
+    var count by remember(kind) { mutableStateOf(if (max > 0) 1 else 0) }
+    val cost = unitPrice * count
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(Str.wallet_convert_title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = kind == WalletConvertKind.SMS,
+                        onClick = { kind = WalletConvertKind.SMS },
+                        label = { Text(Str.sms) }
+                    )
+                    FilterChip(
+                        selected = kind == WalletConvertKind.APPOINTMENT,
+                        onClick = { kind = WalletConvertKind.APPOINTMENT },
+                        label = { Text(Str.appointments_tab) }
+                    )
+                }
+                Text(
+                    Str.wallet_convert_unit_price(Str.toman(formatToman(unitPrice))).toPersianDigits(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()) {
+                    IconButton(onClick = { count = (count - 1).coerceAtLeast(if (max > 0) 1 else 0) }, enabled = count > 1) {
+                        Icon(Icons.Rounded.Remove, contentDescription = null)
+                    }
+                    Text(count.fa(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp))
+                    IconButton(onClick = { count = (count + 1).coerceAtMost(max) }, enabled = count < max) {
+                        Icon(Icons.Rounded.Add, contentDescription = null)
+                    }
+                    TextButton(onClick = { count = max }, enabled = max > 0 && count < max) { Text(Str.wallet_convert_max) }
+                }
+                Text(
+                    if (max == 0) Str.wallet_convert_not_enough
+                    else Str.wallet_convert_cost(Str.toman(formatToman(cost))).toPersianDigits(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConvert(kind, count) }, enabled = !busy && count in 1..max) {
+                Text(Str.wallet_convert_confirm)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } }
+    )
+}

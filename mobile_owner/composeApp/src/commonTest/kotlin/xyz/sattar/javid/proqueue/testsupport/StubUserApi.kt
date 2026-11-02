@@ -58,9 +58,10 @@ open class StubUserApi : UserApi {
     override suspend fun getAddons(): ApiResponse<List<AddOnPackDto>> = TODO("not stubbed")
     override suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<WalletHistoryDto> = TODO("not stubbed")
 
-    override suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> = TODO("not stubbed")
+    override suspend fun buyAddon(packId: Int, useWallet: Boolean, walletOnly: Boolean): ApiResponse<PaymentResponseDto> = TODO("not stubbed")
+    override suspend fun convertWallet(body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertDto> = TODO("not stubbed")
 
-    override suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto> = TODO("not stubbed")
+    override suspend fun checkoutQuote(kind: String, id: Int, channel: String, useWallet: Boolean): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto> = TODO("not stubbed")
 
     override suspend fun storeIntent(store: String, body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentDto> = TODO("not stubbed")
 

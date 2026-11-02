@@ -5,6 +5,8 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletLedgerEn
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletMetric
 import xyz.sattar.javid.proqueue.feature.home.showsAppointmentWalletNote
 import xyz.sattar.javid.proqueue.feature.wallet.WalletReason
+import xyz.sattar.javid.proqueue.feature.wallet.affordableCount
+import xyz.sattar.javid.proqueue.core.billing.formatToman
 import xyz.sattar.javid.proqueue.feature.wallet.signedDelta
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,5 +47,28 @@ class WalletLabelsTest {
         assertNull(WalletReason.of(row("gift", label = "هدیه")))
         assertEquals(WalletReason.Credit, WalletReason.of(row("gift", delta = 5)))
         assertEquals(WalletReason.Debit, WalletReason.of(row("gift", delta = -5)))
+    }
+
+    @Test
+    fun tomanAmountsAreGroupedByThousands() {
+        assertEquals("10,000", formatToman(10_000))
+        assertEquals("950", formatToman(950))
+        assertEquals("1,234,567", formatToman(1_234_567))
+    }
+
+    @Test
+    fun conversionOffersOnlyWhatTheBalanceBuys() {
+        assertEquals(50, affordableCount(10_000, 200))
+        assertEquals(1, affordableCount(999, 500))
+        assertEquals(0, affordableCount(100, 200))
+        assertEquals(0, affordableCount(10_000, 0))
+    }
+
+    @Test
+    fun walletReasonsMapToTheirOwnLabels() {
+        assertEquals(WalletReason.DiscountReimbursement, WalletReason.of(row("discount_reimbursement")))
+        assertEquals(WalletReason.Convert, WalletReason.of(row("convert", delta = -1000)))
+        assertEquals(WalletReason.ConvertedFromToman, WalletReason.of(row("toman_conversion")))
+        assertEquals(WalletReason.PurchaseRefund, WalletReason.of(row("purchase_refund")))
     }
 }

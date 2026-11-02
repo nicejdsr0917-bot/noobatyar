@@ -9,6 +9,9 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletBalances
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletHistoryDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletLedgerEntryDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletMetric
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertKind
+import xyz.sattar.javid.proqueue.domain.usecase.user.ConvertWalletUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetWalletHistoryUseCase
 import xyz.sattar.javid.proqueue.feature.wallet.WalletIntent
 import xyz.sattar.javid.proqueue.feature.wallet.WalletViewModel
@@ -30,12 +33,18 @@ class WalletViewModelTest {
     @AfterTest fun tearDown() = main.tearDown()
 
     private class FakeRepo(
+        val convertResult: ApiResponse<WalletConvertDto> = ApiResponse.Error("not stubbed", 0),
         val history: (page: Int, size: Int) -> ApiResponse<WalletHistoryDto>
     ) : StubUserRepository() {
         val asked = mutableListOf<Pair<Int, Int>>()
+        val converted = mutableListOf<Pair<String, Int>>()
         override suspend fun getWalletHistory(page: Int, pageSize: Int): ApiResponse<WalletHistoryDto> {
             asked += page to pageSize
             return history(page, pageSize)
+        }
+        override suspend fun convertWallet(kind: String, count: Int): ApiResponse<WalletConvertDto> {
+            converted += kind to count
+            return convertResult
         }
     }
 
@@ -44,7 +53,7 @@ class WalletViewModelTest {
 
     private val balances = WalletBalancesDto(appointmentWallet = 9, smsWallet = 50, appointmentQuota = 30, smsQuota = 100)
 
-    private fun viewModel(repo: FakeRepo) = WalletViewModel(GetWalletHistoryUseCase(repo))
+    private fun viewModel(repo: FakeRepo) = WalletViewModel(GetWalletHistoryUseCase(repo), ConvertWalletUseCase(repo))
 
     @Test
     fun loadsTheFirstPageWithBalances() = runTest {
@@ -104,5 +113,36 @@ class WalletViewModelTest {
         vm.sendIntent(WalletIntent.Load); advanceUntilIdle()
 
         assertTrue(vm.uiState.value.appointmentCreditIdle)
+    }
+
+    @Test
+    fun tomanBalanceComesWithTheHistory() = runTest {
+        val vm = viewModel(FakeRepo { _, _ ->
+            ApiResponse.Success(WalletHistoryDto(balances = balances.copy(tomanWallet = 10_000, smsUnitPrice = 200)))
+        })
+
+        vm.sendIntent(WalletIntent.Load); advanceUntilIdle()
+
+        assertEquals(10_000, vm.uiState.value.balances?.tomanWallet)
+        assertEquals(200, vm.uiState.value.balances?.smsUnitPrice)
+    }
+
+    @Test
+    fun aRefusedConversionKeepsTheDialogOpenAndShowsWhy() = runTest {
+        val repo = FakeRepo(convertResult = ApiResponse.Error("موجودی کیف‌پول کافی نیست", 400)) { _, _ ->
+            ApiResponse.Success(WalletHistoryDto(balances = balances))
+        }
+        val vm = viewModel(repo)
+        vm.sendIntent(WalletIntent.Load); advanceUntilIdle()
+
+        vm.sendIntent(WalletIntent.Convert(WalletConvertKind.SMS, 6)); advanceUntilIdle()
+
+        assertEquals(listOf(WalletConvertKind.SMS to 6), repo.converted)
+        val state = vm.uiState.value
+        assertEquals(0, state.convertedCount)
+        assertFalse(state.isConverting)
+        assertEquals("موجودی کیف‌پول کافی نیست", assertNotNull(state.message).text)
+        // Nothing changed server-side, so the history is not fetched again.
+        assertEquals(1, repo.asked.size)
     }
 }

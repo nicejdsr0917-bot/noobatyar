@@ -2,10 +2,12 @@ package xyz.sattar.javid.proqueue.feature.home
 
 import xyz.sattar.javid.proqueue.core.state.SelectedBusinessStore
 
+import xyz.sattar.javid.proqueue.core.billing.CreditsChanged
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseOutcome
 import xyz.sattar.javid.proqueue.domain.usecase.user.PurchaseUseCase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
@@ -61,6 +63,9 @@ class HomeViewModel(
                 sendIntent(HomeIntent.LoadData)
             }
         }
+        viewModelScope.launch {
+            CreditsChanged.version.drop(1).collect { sendIntent(HomeIntent.RefreshEntitlements) }
+        }
         // Store builds: finish any purchase that was paid in the store but
         // never activated (app killed mid-purchase, network drop). No-op on
         // the site build.
@@ -77,6 +82,7 @@ class HomeViewModel(
         return when (intent) {
             HomeIntent.LoadData -> loadData()
             HomeIntent.RefreshQueue -> refreshQueueAndStats()
+            HomeIntent.RefreshEntitlements -> refreshEntitlements()
             is HomeIntent.RemoveAppointment -> removeAppointment(intent.appointmentId)
             is HomeIntent.MarkAppointmentCompleted -> markCompleted(intent.appointmentId)
             is HomeIntent.MarkAppointmentNoShow -> markNoShow(intent.appointmentId)
@@ -84,6 +90,11 @@ class HomeViewModel(
             is HomeIntent.PurchasePlan -> purchasePlan(intent.planId)
             HomeIntent.ClearMessage -> flow { emit(HomeState.PartialState.ClearMessage) }
         }
+    }
+
+    private fun refreshEntitlements(): Flow<HomeState.PartialState> = flow {
+        val response = runCatching { getMyEntitlementsUseCase() }.getOrNull()
+        if (response is ApiResponse.Success) emit(HomeState.PartialState.LoadEntitlements(response.data))
     }
 
     override fun reduceState(

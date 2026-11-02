@@ -1,15 +1,21 @@
 package xyz.sattar.javid.proqueue.feature.wallet
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import xyz.sattar.javid.proqueue.core.billing.CreditsChanged
 import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.ui.BaseViewModel
 import xyz.sattar.javid.proqueue.core.ui.components.UiMessage
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertKind
+import xyz.sattar.javid.proqueue.domain.usecase.user.ConvertWalletUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetWalletHistoryUseCase
 
 class WalletViewModel(
-    private val getWalletHistoryUseCase: GetWalletHistoryUseCase
+    private val getWalletHistoryUseCase: GetWalletHistoryUseCase,
+    private val convertWalletUseCase: ConvertWalletUseCase
 ) : BaseViewModel<WalletState, WalletState.PartialState, Nothing, WalletIntent>(
     initialState = WalletState()
 ) {
@@ -19,6 +25,7 @@ class WalletViewModel(
         return when (intent) {
             WalletIntent.Load -> load(reset = true)
             WalletIntent.LoadMore -> load(reset = false)
+            is WalletIntent.Convert -> convert(intent.kind, intent.count)
             WalletIntent.ClearMessage -> flow { emit(WalletState.PartialState.ShowMessage(null)) }
         }
     }
@@ -58,6 +65,31 @@ class WalletViewModel(
         emit(busy(false))
     }
 
+    private fun convert(kind: String, count: Int): Flow<WalletState.PartialState> = flow {
+        if (uiState.value.isConverting) return@flow
+        emit(WalletState.PartialState.IsConverting(true))
+        val result = try {
+            convertWalletUseCase(kind, count)
+        } catch (e: Exception) {
+            ApiResponse.Error(e.message ?: Str.connection_error, 0)
+        }
+        emit(WalletState.PartialState.IsConverting(false))
+        when (result) {
+            is ApiResponse.Success -> {
+                CreditsChanged.notifyChanged()
+                emit(WalletState.PartialState.Converted)
+                val count = result.data.count.toString().toPersianDigits()
+                emit(WalletState.PartialState.ShowMessage(UiMessage.success(
+                    if (kind == WalletConvertKind.SMS) Str.wallet_converted_sms(count)
+                    else Str.wallet_converted_appointments(count)
+                )))
+                // Balances and both new ledger rows come back with page 1.
+                emitAll(load(reset = true))
+            }
+            is ApiResponse.Error -> emit(WalletState.PartialState.ShowMessage(UiMessage.error(result.message)))
+        }
+    }
+
     override fun reduceState(
         currentState: WalletState,
         partialState: WalletState.PartialState
@@ -84,6 +116,8 @@ class WalletViewModel(
                 )
             }
             WalletState.PartialState.FirstPageFailed -> currentState.copy(loadFailed = true)
+            is WalletState.PartialState.IsConverting -> currentState.copy(isConverting = partialState.converting)
+            WalletState.PartialState.Converted -> currentState.copy(convertedCount = currentState.convertedCount + 1)
             is WalletState.PartialState.ShowMessage -> currentState.copy(message = partialState.message)
         }
     }

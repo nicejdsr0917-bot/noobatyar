@@ -19,5 +19,8 @@ data class AddOnPackDto(
 
 @Serializable
 data class BuyAddonRequestDto(
-    @SerialName("pack_id") val packId: Int
+    @SerialName("pack_id") val packId: Int,
+    @SerialName("use_wallet") val useWallet: Boolean = false,
+    /** Store builds: pay entirely from the wallet or fail — never the Zibal gateway. */
+    @SerialName("wallet_only") val walletOnly: Boolean = false
 )

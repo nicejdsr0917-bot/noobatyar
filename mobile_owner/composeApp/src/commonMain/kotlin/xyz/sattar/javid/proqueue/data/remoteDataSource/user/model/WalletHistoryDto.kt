@@ -32,6 +32,10 @@ data class WalletLedgerEntryDto(
 
 @Serializable
 data class WalletBalancesDto(
+    /** Toman given back by Noobatyar (discounts it funds); spent on plans/packs or converted. */
+    @SerialName("toman_wallet") val tomanWallet: Long = 0,
+    @SerialName("sms_unit_price") val smsUnitPrice: Long = 0,
+    @SerialName("appointment_unit_price") val appointmentUnitPrice: Long = 0,
     @SerialName("appointment_wallet") val appointmentWallet: Int = 0,
     @SerialName("sms_wallet") val smsWallet: Int = 0,
     /** Monthly plan quota; -1 = unlimited, where appointment credit is never spent. */
@@ -40,6 +44,28 @@ data class WalletBalancesDto(
 )
 
 object WalletMetric {
+    const val TOMAN = "toman_wallet"
     const val APPOINTMENTS = "appointment_wallet"
     const val SMS = "sms_wallet"
+}
+
+/** Body of POST accounting/wallet/convert/. */
+@Serializable
+data class WalletConvertRequestDto(
+    /** [WalletConvertKind.SMS] or [WalletConvertKind.APPOINTMENT]. */
+    val kind: String,
+    val count: Int
+)
+
+@Serializable
+data class WalletConvertDto(
+    val kind: String = "",
+    val count: Int = 0,
+    val cost: Long = 0,
+    val balance: Long = 0
+)
+
+object WalletConvertKind {
+    const val SMS = "sms"
+    const val APPOINTMENT = "appointment"
 }

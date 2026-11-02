@@ -46,5 +46,10 @@ data class CheckoutQuoteDto(
     @SerialName("base") val base: Long,
     @SerialName("vat") val vat: Long,
     @SerialName("fee") val fee: Long,
-    @SerialName("total") val total: Long
+    @SerialName("total") val total: Long,
+    /** Toman taken from the owner's wallet in this quote (asked with use_wallet). */
+    @SerialName("wallet") val wallet: Long = 0,
+    @SerialName("wallet_balance") val walletBalance: Long = 0,
+    /** What the wallet would pay if the buyer turns it on; 0 hides the switch. */
+    @SerialName("wallet_available") val walletAvailable: Long = 0
 )

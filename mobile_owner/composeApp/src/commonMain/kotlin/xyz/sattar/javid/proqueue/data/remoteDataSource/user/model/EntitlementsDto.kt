@@ -42,7 +42,9 @@ data class EntitlementsResponseDto(
 @Serializable
 data class UsageDto(
     val appointments: AppointmentUsageDto = AppointmentUsageDto(),
-    val sms: SmsUsageDto = SmsUsageDto()
+    val sms: SmsUsageDto = SmsUsageDto(),
+    /** Toman wallet balance (see WalletBalancesDto.tomanWallet). */
+    @SerialName("toman_wallet") val tomanWallet: Long = 0
 )
 
 @Serializable

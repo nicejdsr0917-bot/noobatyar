@@ -148,6 +148,7 @@ val appModule: Module = module {
     factory { GetAddonsUseCase(get()) }
     factory { GetWalletHistoryUseCase(get()) }
     factory { BuyAddonUseCase(get()) }
+    factory { xyz.sattar.javid.proqueue.domain.usecase.user.ConvertWalletUseCase(get()) }
 
     // --- Business UseCases ---
     factory { xyz.sattar.javid.proqueue.domain.usecase.ObserveBusinessesUseCase(get()) }
@@ -196,7 +197,7 @@ val appModule: Module = module {
     // --- ViewModels ---
      viewModel { CreateBusinessViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
      viewModel { AddonsViewModel(get(), get()) }
-     viewModel { WalletViewModel(get()) }
+     viewModel { WalletViewModel(get(), get()) }
     viewModel { CreateVisitorViewModel(get(), get(), get()) }
     viewModel { CreateAppointmentViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel {

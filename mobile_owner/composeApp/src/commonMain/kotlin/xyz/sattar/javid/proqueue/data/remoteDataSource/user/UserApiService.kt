@@ -107,18 +107,26 @@ class UserApiService(private val httpClient: HttpClient) : UserApi {
         }.toApiResponse()
     }
 
-    override suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> {
+    override suspend fun buyAddon(packId: Int, useWallet: Boolean, walletOnly: Boolean): ApiResponse<PaymentResponseDto> {
         return httpClient.post("accounting/addons/buy/") {
             contentType(ContentType.Application.Json)
-            setBody(BuyAddonRequestDto(packId))
+            setBody(BuyAddonRequestDto(packId, useWallet, walletOnly))
         }.toApiResponse()
     }
 
-    override suspend fun checkoutQuote(kind: String, id: Int, channel: String): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto> {
+    override suspend fun convertWallet(body: xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertRequestDto): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertDto> {
+        return httpClient.post("accounting/wallet/convert/") {
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }.toApiResponse()
+    }
+
+    override suspend fun checkoutQuote(kind: String, id: Int, channel: String, useWallet: Boolean): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.CheckoutQuoteDto> {
         return httpClient.get("accounting/checkout/quote/") {
             parameter("kind", kind)
             parameter("id", id)
             parameter("channel", channel)
+            if (useWallet) parameter("use_wallet", "true")
         }.toApiResponse()
     }
 

@@ -2,11 +2,13 @@ package xyz.sattar.javid.proqueue.domain.usecase.user
 
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.billing.CheckoutConfirmation
+import xyz.sattar.javid.proqueue.core.billing.CreditsChanged
 import xyz.sattar.javid.proqueue.core.billing.OwnedPurchase
 import xyz.sattar.javid.proqueue.core.billing.StoreBilling
 import xyz.sattar.javid.proqueue.core.billing.StoreBillingProvider
 import xyz.sattar.javid.proqueue.core.billing.StorePurchaseResult
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PaymentResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreVerifyRequestDto
 import xyz.sattar.javid.proqueue.domain.UserRepository
 
@@ -14,7 +16,7 @@ import xyz.sattar.javid.proqueue.domain.UserRepository
 sealed interface PurchaseOutcome {
     /** Site build: open this Zibal gateway URL. */
     data class Redirect(val url: String) : PurchaseOutcome
-    /** Store build: paid in the store, verified and activated by the server. */
+    /** Paid in the store (verified by the server) or entirely from the toman wallet. */
     data class Completed(val message: String) : PurchaseOutcome
     data object Cancelled : PurchaseOutcome
     data class Failed(val message: String) : PurchaseOutcome
@@ -36,30 +38,50 @@ class PurchaseUseCase(
     suspend fun plan(planId: Int): PurchaseOutcome {
         val billing = StoreBillingProvider.billing
         if (billing != null && planId == TRIAL_PLAN_ID) return PurchaseOutcome.Failed(Str.trial_plan_cant_be_purchased)
-        confirmTotal(billing, KIND_PLAN, planId)?.let { return it }
-        if (billing == null) return createPaymentUseCase(planId).toRedirect { it.paymentUrl }
+        val useWallet = when (val c = confirmTotal(billing, KIND_PLAN, planId)) {
+            is Confirm.Stop -> return c.outcome
+            is Confirm.Go -> c.useWallet
+        }
+        // The wallet is paid through the server's own endpoint; in a store build
+        // it is only offered when it covers everything, so no gateway opens.
+        if (billing == null || useWallet) {
+            return createPaymentUseCase(planId, useWallet, walletOnly = billing != null).toOutcome(useWallet)
+        }
         return viaStore(billing, KIND_PLAN, planId)
     }
 
     suspend fun addon(packId: Int): PurchaseOutcome {
         val billing = StoreBillingProvider.billing
-        confirmTotal(billing, KIND_ADDON, packId)?.let { return it }
-        if (billing == null) return buyAddonUseCase(packId).toRedirect { it.paymentUrl }
+        val useWallet = when (val c = confirmTotal(billing, KIND_ADDON, packId)) {
+            is Confirm.Stop -> return c.outcome
+            is Confirm.Go -> c.useWallet
+        }
+        if (billing == null || useWallet) {
+            return buyAddonUseCase(packId, useWallet, walletOnly = billing != null).toOutcome(useWallet)
+        }
         return viaStore(billing, KIND_ADDON, packId)
+    }
+
+    private sealed interface Confirm {
+        data class Go(val useWallet: Boolean) : Confirm
+        data class Stop(val outcome: PurchaseOutcome) : Confirm
     }
 
     /**
      * Shows the price + VAT + gateway/store cut and waits for the buyer to
-     * accept it. Null means go ahead; otherwise the outcome to stop with.
+     * accept it, offering the toman wallet when it can pay part or all of it.
      */
-    private suspend fun confirmTotal(billing: StoreBilling?, kind: String, id: Int): PurchaseOutcome? {
+    private suspend fun confirmTotal(billing: StoreBilling?, kind: String, id: Int): Confirm {
         val channel = billing?.storeKey ?: CHANNEL_ZIBAL
         val quote = when (val r = repository.checkoutQuote(kind, id, channel)) {
             is ApiResponse.Success -> r.data
-            is ApiResponse.Error -> return PurchaseOutcome.Failed(r.message)
+            is ApiResponse.Error -> return Confirm.Stop(PurchaseOutcome.Failed(r.message))
         }
-        if (quote.total <= 0) return null
-        return if (CheckoutConfirmation.confirm(quote)) null else PurchaseOutcome.Cancelled
+        if (quote.total <= 0) return Confirm.Go(useWallet = false)
+        val choice = CheckoutConfirmation.confirm(quote) { useWallet ->
+            (repository.checkoutQuote(kind, id, channel, useWallet) as? ApiResponse.Success)?.data
+        } ?: return Confirm.Stop(PurchaseOutcome.Cancelled)
+        return Confirm.Go(choice.useWallet)
     }
 
     /**
@@ -94,7 +116,10 @@ class PurchaseUseCase(
             billing.storeKey,
             StoreVerifyRequestDto(purchase.payload, purchase.sku, purchase.token, purchase.orderId)
         )) {
-            is ApiResponse.Success -> PurchaseOutcome.Completed(r.data.message.ifBlank { Str.purchase_activated_successfully })
+            is ApiResponse.Success -> {
+                CreditsChanged.notifyChanged()
+                PurchaseOutcome.Completed(r.data.message.ifBlank { Str.purchase_activated_successfully })
+            }
             // Paid in the store but not activated yet: the purchase stays owned
             // in the store, so recoverPending() retries it on the next start.
             is ApiResponse.Error -> PurchaseOutcome.Failed(
@@ -102,8 +127,13 @@ class PurchaseUseCase(
             )
         }
 
-    private inline fun <T> ApiResponse<T>.toRedirect(url: (T) -> String): PurchaseOutcome = when (this) {
-        is ApiResponse.Success -> PurchaseOutcome.Redirect(url(data))
+    /** [usedWallet]: part of the wallet is now held for this payment, so balances changed. */
+    private fun ApiResponse<PaymentResponseDto>.toOutcome(usedWallet: Boolean): PurchaseOutcome = when (this) {
+        is ApiResponse.Success -> {
+            if (data.paidWithWallet || usedWallet) CreditsChanged.notifyChanged()
+            if (data.paidWithWallet) PurchaseOutcome.Completed(Str.purchase_activated_successfully)
+            else PurchaseOutcome.Redirect(data.paymentUrl)
+        }
         is ApiResponse.Error -> PurchaseOutcome.Failed(message)
     }
 

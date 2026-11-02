@@ -15,16 +15,19 @@
 <!-- fa:start -->
 تغییرات این نسخه:
 - اعتبار بسته‌های افزودنی حالا با واحدش نمایش داده می‌شود (مثلاً «+۴۹ نوبت اعتبار اضافه»)، و روی پلن نوبت نامحدود دیگر اعتبار نوبتی که خرج نمی‌شود نشان داده نمی‌شود.
-- صفحه‌ی تازه‌ی «اعتبار اضافه»: موجودی نوبت و پیامک و تاریخچه‌ی خرید و مصرف. از کارت «مصرف این ماه» در خانه یا از تنظیمات باز می‌شود.
+- صفحه‌ی تازه‌ی «کیف‌پول و اعتبار»: موجودی تومانی، اعتبار نوبت و پیامک و تاریخچه‌ی همه‌ی آن‌ها. از کارت «مصرف این ماه» در خانه یا از تنظیمات باز می‌شود.
+- کیف‌پول تومانی: مبلغی که نوبت‌یار به شما برمی‌گرداند (مثل تخفیف نوبت‌ها). نقد نمی‌شود؛ هنگام خرید اشتراک یا بسته می‌توانید تمام یا بخشی از مبلغ را از کیف‌پول بپردازید، یا موجودی را به پیامک و نوبت تبدیل کنید.
 <!-- fa:end -->
 
 ### mobile_owner
 - Home usage card: wallet note reads «+N نوبت/پیامک اعتبار اضافه» (local digits) instead of the unit-less «کیف‌پول: N»; the appointment note is hidden on an unlimited booking quota (it can never be spent there). Tapping the note opens the wallet screen. The SMS report badge uses the same wording.
 - New `feature/wallet` (MVI): both balances, a one-line explainer (spent only after the monthly allowance; shared across all businesses), a hint when appointment credit is idle on an unlimited plan, and the paginated history. Also reachable from Settings under the profile/plan card.
 - `commonTest` source set (kotlin-test, coroutines-test, ktor-client-mock, turbine — same setup as the `mobile-client` branch) with `WalletViewModelTest` and `WalletLabelsTest`.
+- Toman wallet: balance card + convert-to-SMS/bookings dialog on the wallet screen, «کیف‌پول: N تومان» on the home usage card, toman rows in the history. Checkout dialog gets a «پرداخت از کیف‌پول» switch that re-quotes (wallet line, tax and fee on the rest; a fully covered price skips the gateway). Store builds only ever pay fully from the wallet (`wallet_only`). `CreditsChanged` refreshes the home card after a purchase or conversion.
 
 ### backend
 - `GET accounting/wallet/history/` (authenticated, `?page`, `?page_size`, optional `?metric=appointment_wallet|sms_wallet`): the user's own `CreditLedger` rows for the two wallet metrics with `delta`, `balance_after`, `reason` + Persian `reason_label`, plus current `balances` and quotas. `usage.REASON_ADDON_PURCHASE` / `wallet_reason_label`. Tests in `accounting/tests_wallet_history.py`.
+- Toman wallet (`accounting/toman_wallet.py`, metric `toman_wallet` on `CreditBalance`/`CreditLedger`): `credit()`/`spend()` for other apps (booking discounts), `manage.py toman_wallet_credit`. `plans/payment/` and `addons/buy/` take `use_wallet` / `wallet_only`; the wallet part is held on the Transaction/AddOnPurchase (`wallet_amount`, migration `0016`) and given back when the gateway refuses, verification says not paid, or the payment is abandoned for an hour (`run_subscription_lifecycle`). `checkout/quote/` returns `wallet_balance`/`wallet_available`/`wallet`. `wallet/convert/` at the prices in `TomanWalletSettings` (admin). Revenue reports keep counting only cash (`amount`). Order ids get a random tail.
 
 ## v1.10.0 — 2026-11-02 (اپ اونر)
 

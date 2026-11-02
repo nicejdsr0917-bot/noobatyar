@@ -110,8 +110,8 @@ class UserRepositoryImpl(
         return userApiService.getPlans()
     }
 
-    override suspend fun createPayment(planId: String): ApiResponse<PaymentResponseDto> {
-        return userApiService.createPayment(PaymentRequestDto(planId))
+    override suspend fun createPayment(planId: String, useWallet: Boolean, walletOnly: Boolean): ApiResponse<PaymentResponseDto> {
+        return userApiService.createPayment(PaymentRequestDto(planId, useWallet, walletOnly))
     }
 
     override suspend fun getMyEntitlements(): ApiResponse<xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto> {
@@ -126,12 +126,15 @@ class UserRepositoryImpl(
         return userApiService.getWalletHistory(page, pageSize)
     }
 
-    override suspend fun buyAddon(packId: Int): ApiResponse<PaymentResponseDto> {
-        return userApiService.buyAddon(packId)
+    override suspend fun convertWallet(kind: String, count: Int) =
+        userApiService.convertWallet(xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.WalletConvertRequestDto(kind, count))
+
+    override suspend fun buyAddon(packId: Int, useWallet: Boolean, walletOnly: Boolean): ApiResponse<PaymentResponseDto> {
+        return userApiService.buyAddon(packId, useWallet, walletOnly)
     }
 
-    override suspend fun checkoutQuote(kind: String, id: Int, channel: String) =
-        userApiService.checkoutQuote(kind, id, channel)
+    override suspend fun checkoutQuote(kind: String, id: Int, channel: String, useWallet: Boolean) =
+        userApiService.checkoutQuote(kind, id, channel, useWallet)
 
     override suspend fun storeIntent(store: String, kind: String, id: Int) =
         userApiService.storeIntent(store, xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.StoreIntentRequestDto(kind, id))
