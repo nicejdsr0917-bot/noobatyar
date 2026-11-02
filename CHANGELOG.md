@@ -10,16 +10,19 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
-## Unreleased
+## v1.11.0
 
 <!-- fa:start -->
 تغییرات این نسخه:
 - اعتبار بسته‌های افزودنی حالا با واحدش نمایش داده می‌شود (مثلاً «+۴۹ نوبت اعتبار اضافه»)، و روی پلن نوبت نامحدود دیگر اعتبار نوبتی که خرج نمی‌شود نشان داده نمی‌شود.
 - صفحه‌ی تازه‌ی «کیف‌پول و اعتبار»: موجودی تومانی، اعتبار نوبت و پیامک و تاریخچه‌ی همه‌ی آن‌ها. از کارت «مصرف این ماه» در خانه یا از تنظیمات باز می‌شود.
-- کیف‌پول تومانی: مبلغی که نوبت‌یار به شما برمی‌گرداند (مثل تخفیف نوبت‌ها). نقد نمی‌شود؛ هنگام خرید اشتراک یا بسته می‌توانید تمام یا بخشی از مبلغ را از کیف‌پول بپردازید، یا موجودی را به پیامک و نوبت تبدیل کنید.
+- کیف‌پول تومانی: مبلغی که نوبت‌یار به شما برمی‌گرداند (مثل تخفیف نوبت‌ها). نقد نمی‌شود؛ هنگام خرید اشتراک یا بسته می‌توانید تمام یا بخشی از مبلغ را از کیف‌پول بپردازید، یا موجودی را به پیامک و نوبت تبدیل کنید. مالیات بر ارزش افزوده روی کل مبلغ حساب می‌شود و کارمزد درگاه فقط روی بخشی که از درگاه پرداخت می‌کنید.
+- صفحه‌ی خانه از نو طراحی شد: یک کارت «امروز» با صف زنده و وضعیت نوبت‌ها، نمودار روند تمیزتر، کارت مصرف با کیف‌پول، همه مرتب و هم‌تراز، با انیمیشن‌های نرم.
 <!-- fa:end -->
 
 ### mobile_owner
+- Home redesign (`feature/home`): shared `HomeCard`/`HomeCardHeader` (one radius, padding and header row), `HomeTodayCard` (today's count, live queue chip, four outcomes; 2×2 under 380dp) replacing the queue banner and tinted stat grid, trend card with total/caption/link on one row and a clean line chart that sweeps in, usage card with animated bars and a wallet row, flat plan cards. Motion: staggered entrance in the draw layer, count-up numbers, press feedback.
+- Checkout dialog lists price, VAT, wallet deduction, then fee.
 - Home usage card: wallet note reads «+N نوبت/پیامک اعتبار اضافه» (local digits) instead of the unit-less «کیف‌پول: N»; the appointment note is hidden on an unlimited booking quota (it can never be spent there). Tapping the note opens the wallet screen. The SMS report badge uses the same wording.
 - New `feature/wallet` (MVI): both balances, a one-line explainer (spent only after the monthly allowance; shared across all businesses), a hint when appointment credit is idle on an unlimited plan, and the paginated history. Also reachable from Settings under the profile/plan card.
 - `commonTest` source set (kotlin-test, coroutines-test, ktor-client-mock, turbine — same setup as the `mobile-client` branch) with `WalletViewModelTest` and `WalletLabelsTest`.
@@ -28,6 +31,7 @@
 ### backend
 - `GET accounting/wallet/history/` (authenticated, `?page`, `?page_size`, optional `?metric=appointment_wallet|sms_wallet`): the user's own `CreditLedger` rows for the two wallet metrics with `delta`, `balance_after`, `reason` + Persian `reason_label`, plus current `balances` and quotas. `usage.REASON_ADDON_PURCHASE` / `wallet_reason_label`. Tests in `accounting/tests_wallet_history.py`.
 - Toman wallet (`accounting/toman_wallet.py`, metric `toman_wallet` on `CreditBalance`/`CreditLedger`): `credit()`/`spend()` for other apps (booking discounts), `manage.py toman_wallet_credit`. `plans/payment/` and `addons/buy/` take `use_wallet` / `wallet_only`; the wallet part is held on the Transaction/AddOnPurchase (`wallet_amount`, migration `0016`) and given back when the gateway refuses, verification says not paid, or the payment is abandoned for an hour (`run_subscription_lifecycle`). `checkout/quote/` returns `wallet_balance`/`wallet_available`/`wallet`. `wallet/convert/` at the prices in `TomanWalletSettings` (admin). Revenue reports keep counting only cash (`amount`). Order ids get a random tail.
+- The wallet pays its part of a price plus the VAT on it (`toman_wallet.with_vat`); the gateway fee is only on what the gateway collects. `checkout/quote/` `vat` is now the whole price's VAT and `wallet` includes it.
 
 ## v1.10.0 — 2026-11-02 (اپ اونر)
 
