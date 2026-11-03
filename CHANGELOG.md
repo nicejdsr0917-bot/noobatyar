@@ -63,6 +63,23 @@
 - `Business.social_links` (`business/0036`); mandatory deposit with no card/online method is refused on change and no longer holds the slot.
 - `AppVersion.app` (OWNER/CLIENT): set `force_update` on the OWNER row for this version in admin when releasing.
 
+## client-v1.1.0 — 2026-11-03 (اپ مشتری)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- صفحه‌ی کاوش از نو طراحی شد: دسته‌ها در یک ردیف، فهرست مراکز در یک شیت که سه حالت دارد، و عنوان نتایج با دسته (مثلاً «مراکز دندان‌پزشکی در تهران»).
+- پیام خالی بودن نتایج و خطا ساده‌تر و روشن‌تر شد.
+- شبکه‌های اجتماعی هر مرکز در صفحه‌ی مرکز دیده می‌شود.
+- کد تأیید با نمایش متحرک وارد می‌شود.
+- مشکلی که در نوبت‌های دارای بیعانه نوبت را گیر می‌انداخت برطرف شد.
+- از این نسخه یک فایل جدا برای مایکت و بازار منتشر می‌شود.
+<!-- fa:end -->
+
+### mobile_client
+- Explore redesign: seven categories in one row, three-state results sheet (lowest state shows only the title line), results title carries the category, plain empty/error state.
+- Social links on the business page; animated OTP code entry; fix for the deposit deadlock on booking.
+- Release flavors: `store` dimension with `site` (noobatyar.ir, Telegram, GitHub) and `store` (one APK for Myket and Bazaar). The app has no purchases, so the two differ only in `BuildConfig.STORE`.
+
 ## client-v1.0.0 — منتشر نشده (اپ مشتری)
 
 <!-- fa:start -->
