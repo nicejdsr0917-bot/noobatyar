@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-03
 tags: [gf]
 ---
 # اپ موبایل مشتری (mobile_client — برنچ `mobile-client`)
