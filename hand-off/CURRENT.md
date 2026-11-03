@@ -34,7 +34,7 @@ tags: [gf, current]
   - adb در `C:/Users/j_sattar/AppData/Local/Android/Sdk/platform-tools/adb.exe`.
   - بعد از هر بوت `adb reverse tcp:8000 tcp:8000`.
   - بک‌اند: preview `backend` (پورت 8000)، venv در `backend/.venv` (پایتون 3.14). دستورهای Django با `DEBUG=True PYTHONUTF8=1`.
-  - بیلد: `cd mobile_client && ./gradlew :composeApp:assembleLocalDebug -q`.
+  - بیلد: `cd mobile_client && ./gradlew :composeApp:assembleLocalSiteDebug -q`.
 - تست بک‌اند در worktree کیف‌پول با venv پایتون 3.12 (پایتون 3.14 تست‌های ادمین Django 4.2 را می‌شکند). JAVA_HOME سالم: `C:/Users/j_sattar/.jdks/jbr-17.0.14`.
 - **محیط macOS:** امولاتور `Pixel_6a`، preview `backend_mobile_client_mac`. جزئیات در سشن [[sessions/2026-11-02-0005]].
 - کاربر هم‌زمان با امولاتور کار می‌کند.

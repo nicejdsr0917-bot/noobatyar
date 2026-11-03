@@ -39,7 +39,7 @@ tags: [gf]
 - وب worktree: preview `front_client_mobile_mac` روی :3010 (3000 دست کانتینر Docker کاربر است).
 
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
-- workflow جدای کلاینت: `android-release-client.yml` با تگ `client-v*.*.*`. assembleProdRelease می‌سازد و از secretهای اونر استفاده می‌کند. هنوز اجرا نشده.
+- workflow جدای کلاینت: `android-release-client.yml` با تگ `client-v*.*.*`. دو نسخه می‌سازد: assembleProdSiteRelease (سایت/تلگرام) و assembleProdStoreRelease (یک APK برای مایکت و بازار) و از secretهای اونر استفاده می‌کند. هنوز اجرا نشده.
 - محلی:
   - وب اونر با preview `mobile_owner_web_mobile_client_mac` روی :8081 (پورت 8080 دست Docker است).
   - اپ اونر اندروید: `sh ./gradlew :composeApp:assembleLocalSiteDebug -PlocalBaseUrl=http://127.0.0.1:8000`، سپس `adb install` نسخهٔ arm64. اول preview وب را stop کنید.

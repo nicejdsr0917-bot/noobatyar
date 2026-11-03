@@ -26,8 +26,8 @@
 ## اجرا
 
 ```bash
-./gradlew :composeApp:assembleLocalDebug   # به بک‌اند لوکال (127.0.0.1:8000 با adb reverse)
-./gradlew :composeApp:assembleProdRelease  # نسخه انتشار (فقط HTTPS)
+./gradlew :composeApp:assembleLocalSiteDebug   # به بک‌اند لوکال (127.0.0.1:8000 با adb reverse)
+./gradlew :composeApp:assembleProdSiteRelease :composeApp:assembleProdStoreRelease  # نسخه انتشار (فقط HTTPS)
 ```
 
 برای فلیور `local`: `adb reverse tcp:8000 tcp:8000`. فلیور `prod` ترافیک HTTP ساده را
