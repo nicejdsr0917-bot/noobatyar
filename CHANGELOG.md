@@ -10,6 +10,27 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.12.0 — 2026-11-04 (اپ اونر)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- صفحه‌ی شروع تازه با لوگوی متحرک نوبت‌یار.
+- موجودی کیف‌پول حالا در پنجره‌ی پروفایل هم دیده می‌شود و با زدن روی آن صفحه‌ی کیف‌پول باز می‌شود.
+- صفحه‌ی خانه هنگام اسکرول دیگر پرش ندارد.
+- نمودار روند نوبت‌ها مثل ماه‌ها از راست به چپ است و دکمه‌ی هفتگی/ماهانه مرتب‌تر شد.
+- مبلغ بیعانه حداکثر ۱٬۰۰۰٬۰۰۰ تومان است.
+<!-- fa:end -->
+
+### mobile_owner
+- `LaunchSplash`: the web panel's boot animation on Android/iOS (violet ring with a running light band, ticking amber dot, strike and check, fade), on `WaitingNoobatyarMark`. Dark launch theme (`Theme.Noobatyar`, transparent system-splash icon on Android 12+); light status-bar icons while it shows. Not on wasm (index.html has its own loader).
+- Home: the header folds through nested scroll (no more jump), trend chart runs right to left in RTL, weekly/monthly toggle no longer padded to a 48dp touch target.
+- Profile sheet shows the toman wallet balance (from `my-entitlements`) and opens the wallet.
+- Deposit field warns above 1,000,000 toman.
+
+### backend (already deployed 2026-11-04)
+- New-client reward into the owner's toman wallet (`TomanWalletSettings.new_client_reward`, 0 = off; lifetime cap per business, default 500,000; optional monthly cap per owner), logged in `NewClientReward` with risk flags (same IP as the owner, new account, quick completion, burst). Client bookings store `booking_ip`; owner IPs recorded by `IpRecordingJWTAuthentication`.
+- `Business.MAX_DEPOSIT_AMOUNT` = 1,000,000 toman, enforced on change.
+
 ## v1.11.0
 
 <!-- fa:start -->
@@ -62,6 +83,16 @@
 - P2 apps: `showcase`, `reviews`, `banners`, `marketing`; `Appointment.source`; `Business.rank_score` + nightly `compute_rank_scores`; `first_free_slot`; site services under `api/public/site/`.
 - `Business.social_links` (`business/0036`); mandatory deposit with no card/online method is refused on change and no longer holds the slot.
 - `AppVersion.app` (OWNER/CLIENT): set `force_update` on the OWNER row for this version in admin when releasing.
+
+## client-v1.2.0 — 2026-11-04 (اپ مشتری)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- صفحه‌ی شروع تازه با لوگوی متحرک نوبت‌یار.
+<!-- fa:end -->
+
+### mobile_client
+- `LaunchSplash` (same as the owner app's), with `NoobatyarMark.kt` copied in; dark launch theme `Theme.Noobatyar`.
 
 ## client-v1.1.0 — 2026-11-03 (اپ مشتری)
 
