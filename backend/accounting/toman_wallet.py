@@ -224,8 +224,9 @@ def reward_new_client(appointment):
     the app count, never the owner's own phone, and each visitor earns it once
     per business: the ledger row (``ref_type`` ``business:<id>``, ``ref_id`` the
     visitor) is the record, so deleting the appointment cannot earn it twice.
-    The monthly cap is checked with the owner's wallet row locked, so two
-    businesses of one owner cannot both slip under it.
+    Two optional caps: a lifetime total per business and a monthly total per
+    owner. Both are checked with the owner's wallet row locked, so two
+    businesses of one owner cannot both slip under the monthly one.
     """
     from appointment.models import Appointment
 
@@ -256,13 +257,17 @@ def reward_new_client(appointment):
         )
         if rewards.filter(ref_type=ref_type, ref_id=visitor.pk).exists():
             return 0
-        cap = settings.new_client_reward_monthly_cap
-        if cap > 0:
+        business_cap = settings.new_client_reward_business_cap
+        if business_cap > 0:
+            given = sum(rewards.filter(ref_type=ref_type).values_list("delta", flat=True))
+            amount = min(amount, business_cap - given)
+        monthly_cap = settings.new_client_reward_monthly_cap
+        if monthly_cap > 0:
             month_start = usage._period_start(usage._period())
             given = sum(rewards.filter(created_at__gte=month_start).values_list("delta", flat=True))
-            amount = min(amount, cap - given)
-            if amount <= 0:
-                return 0
+            amount = min(amount, monthly_cap - given)
+        if amount <= 0:
+            return 0
         credit(owner_id, amount, REASON_NEW_CLIENT_REWARD, ref_type=ref_type, ref_id=visitor.pk)
     logger.info("New-client reward: owner=%s visitor=%s appointment=%s amount=%s",
                 owner_id, visitor.pk, appointment.pk, amount)

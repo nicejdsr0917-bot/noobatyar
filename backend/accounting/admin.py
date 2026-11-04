@@ -370,7 +370,7 @@ class TomanWalletSettingsAdmin(ModelAdmin):
             ),
         }),
         ('پاداش مشتری تازه', {
-            'fields': ('new_client_reward', 'new_client_reward_monthly_cap'),
+            'fields': ('new_client_reward', 'new_client_reward_business_cap', 'new_client_reward_monthly_cap'),
             'description': (
                 'وقتی صاحب کسب‌وکار اولین نوبت یک مشتری را «انجام‌شده» می‌زند و آن نوبت از سایت یا اپ گرفته شده، '
                 'این مبلغ به کیف‌پول تومانی او می‌رود. هر مشتری در هر کسب‌وکار فقط یک بار.'

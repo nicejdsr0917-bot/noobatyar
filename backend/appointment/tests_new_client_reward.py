@@ -120,3 +120,17 @@ class NewClientRewardTests(TestCase):
         a.refresh_from_db()
         self.assertEqual(a.status, 'COMPLETED')
         self.assertEqual(self.balance(), 0)
+
+    def test_business_cap_is_a_lifetime_total_per_business(self):
+        TomanWalletSettings.objects.update(new_client_reward_business_cap=50_000)
+        for i in range(4):
+            v = Visitor.objects.create(full_name=f'ک{i}', phone_number=f'0939000070{i}')
+            self._complete(self._book(visitor=v, hours=i + 1))
+        self.assertEqual(self.balance(), 50_000)
+        # Another business of the same owner has its own cap.
+        other = self._business(self.owner)
+        self._complete(self._book(business=other, hours=9))
+        self.assertEqual(self.balance(), 70_000)
+
+    def test_default_business_cap_is_500k(self):
+        self.assertEqual(TomanWalletSettings.load().new_client_reward_business_cap, 500_000)

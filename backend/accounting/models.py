@@ -556,6 +556,11 @@ class TomanWalletSettings(models.Model):
         help_text='بیشترین پاداش مشتری تازه برای هر صاحب کسب‌وکار در یک ماه (تومان). صفر یعنی بدون سقف.',
         verbose_name='سقف ماهانهٔ پاداش',
     )
+    new_client_reward_business_cap = models.PositiveIntegerField(
+        default=500_000,
+        help_text='بیشترین پاداش مشتری تازه‌ای که یک کسب‌وکار در کل می‌تواند بگیرد (تومان). صفر یعنی بدون سقف.',
+        verbose_name='سقف پاداش هر کسب‌وکار',
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:
