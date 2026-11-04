@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-03
 tags: [gf]
 ---
 # اپ موبایل مشتری (mobile_client — برنچ `mobile-client`)
@@ -25,7 +25,7 @@ tags: [gf]
 - (قدیمی) رزرو قبلاً سایت را باز می‌کرد؛ حالا رزرو نیتیو است (پایین‌تر).
 
 ## اجرا
-- پکیج `xyz.sattar.javid.proqueue.client.local`؛ `:composeApp:assembleLocalDebug`؛ نصب با `adb install -r .../apk/local/debug/composeApp-local-arm64-v8a-debug.apk` (`installLocalDebug` به‌خاطر ABI split خطا می‌دهد)
+- پکیج `xyz.sattar.javid.proqueue.client.local`؛ `:composeApp:assembleLocalSiteDebug`؛ نصب با `adb install -r .../apk/localSite/debug/composeApp-local-site-arm64-v8a-debug.apk` (`installLocalDebug` به‌خاطر ABI split خطا می‌دهد)
 - بک‌اند باید **از worktree** اجرا شود: preview `backend_mobile_client_mac` (پایتون venv repo اصلی؛ `.env.local` در worktree کپی شده)
 
 ## نکته‌ها
@@ -41,7 +41,7 @@ tags: [gf]
 
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
 - کد اونری حذف شد (۱۴۷ فایل). Room بدون DAO و schema نسخهٔ 17 بدون تغییر. `ClientBusinessApi`، `ClientPreferences`، `CityCatalog`، `core/config/BrandConfig.kt`.
-- تست: `bash ./gradlew :composeApp:testLocalDebugUnitTest` (۲۴ تست). iOS: `:composeApp:compileKotlinIosSimulatorArm64`. `PushMessagingService` در manifest نیست.
+- تست: `bash ./gradlew :composeApp:testLocalSiteDebugUnitTest` (۲۴ تست). iOS: `:composeApp:compileKotlinIosSimulatorArm64`. `PushMessagingService` در manifest نیست.
 
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
 - رزرو نیتیو در `feature/booking/` (`BookingViewModel` و `BookingScreen`): خدمت ← روز و ساعت ← OTP (فقط بار اول؛ توکن در `ClientPreferences.visitorToken`) ← تأیید ← بیعانه (آنلاین، کارت با شمارهٔ پیگیری، یا حضوری). نوبت با `source=APP` ثبت می‌شود.
@@ -59,7 +59,7 @@ tags: [gf]
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰ (عصر)
 - `feature/businessDetail/PaymentInfo.kt`: `paymentInfo(business)` خط بیعانه و برچسب روش‌های پرداخت را می‌سازد (`ONLINE/GATEWAY/CARD/CASH`)؛ `formatToman` (۱۵۰٬۰۰۰ تومان). بخش «بیعانه و پرداخت» در `ClientBusinessDetailScreen` فقط برای مراکز claim‌شده. تست: `commonTest/.../PaymentInfoTest.kt`.
 - مقدار `deposit_mode` سرور `MANDATORY/OPTIONAL/NONE` است، نه `REQUIRED`؛ از ثابت‌های `DEPOSIT_MANDATORY`/`DEPOSIT_OPTIONAL` استفاده کن.
-- تسک تست Gradle: `testProdDebugUnitTest` یا `testLocalDebugUnitTest` (`testDebugUnitTest` مبهم است).
+- تسک تست Gradle: `testProdSiteDebugUnitTest` یا `testLocalSiteDebugUnitTest` (`testDebugUnitTest` مبهم است).
 
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۱
 - **رزرو:**

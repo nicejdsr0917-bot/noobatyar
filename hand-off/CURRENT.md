@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02 21:18
+updated: 2026-11-03 17:55
 tags: [gf, current]
 ---
 # وضعیت فعلی
@@ -15,6 +15,8 @@ tags: [gf, current]
 - **شارژ کیف‌پول هنوز به جایی وصل نیست:** سشن تخفیف بیعانه باید `toman_wallet.credit(...)` را صدا بزند.
 - DB محلی تازه seed شد: ۱۰۰ کسب‌وکار نمایشی، «سالن زیبایی ستاره» id 52 با لوگو و ۸ نمونه‌کار. DB قبلی: `backend/db.sqlite3.bak-20261102`.
 - **دیپلوی سرور از سشن قبل نیمه‌کاره است** (checkout سرور روی `45a9b96`، migrate انجام نشده).
+
+- **اپ کلاینت دو flavor دارد:** `site` و `store` (یک APK برای مایکت و بازار)؛ workflow ریلیز کلاینت هر دو را می‌سازد، هنوز با تگ واقعی اجرا نشده. اونر دست نخورده. جزئیات: [[sessions/2026-11-03-1755]].
 
 ## قدم‌های بعدی
 1. وصل کردن شارژ کیف‌پول در سشن تخفیف بیعانه: فقط وقتی نوبت تخفیف‌دار واقعاً پرداخت/تأیید شد `toman_wallet.credit(user, amount, reason="discount_reimbursement", ref_type=..., ref_id=...)`.
@@ -34,7 +36,7 @@ tags: [gf, current]
   - adb در `C:/Users/j_sattar/AppData/Local/Android/Sdk/platform-tools/adb.exe`.
   - بعد از هر بوت `adb reverse tcp:8000 tcp:8000`.
   - بک‌اند: preview `backend` (پورت 8000)، venv در `backend/.venv` (پایتون 3.14). دستورهای Django با `DEBUG=True PYTHONUTF8=1`.
-  - بیلد: `cd mobile_client && ./gradlew :composeApp:assembleLocalDebug -q`.
+  - بیلد: `cd mobile_client && ./gradlew :composeApp:assembleLocalSiteDebug -q`.
 - تست بک‌اند در worktree کیف‌پول با venv پایتون 3.12 (پایتون 3.14 تست‌های ادمین Django 4.2 را می‌شکند). JAVA_HOME سالم: `C:/Users/j_sattar/.jdks/jbr-17.0.14`.
 - **محیط macOS:** امولاتور `Pixel_6a`، preview `backend_mobile_client_mac`. جزئیات در سشن [[sessions/2026-11-02-0005]].
 - کاربر هم‌زمان با امولاتور کار می‌کند.
@@ -48,10 +50,10 @@ tags: [gf, current]
 - `mobile_owner/.../feature/wallet/` و `core/billing/CheckoutConfirmation.kt`: صفحهٔ کیف‌پول و پرداخت با کیف‌پول
 
 ## سشن‌های اخیر
+- [[sessions/2026-11-03-1755]]: اپ کلاینت: دو نسخهٔ سایت و استور (مایکت و بازار)
 - [[sessions/2026-11-02-2118]]: کیف‌پول اونر — اعتبار نوبت/پیامک و کیف‌پول تومانی، تست سخت‌گیرانه
 - [[sessions/2026-11-02-1455]]: کاوش با دسته‌ها در یک ردیف، شیت سه‌حالته، حالت خالی ساده؛ ایدهٔ کیف پول اونر
 - [[sessions/2026-11-02-0005]]: شبکه‌های اجتماعی در سه اپ، کد تایید متحرک، رفع بن‌بست بیعانه، دیپلوی نیمه‌کاره
 - [[sessions/2026-11-01-1741]]: صفحهٔ مرکز با هدر جمع‌شونده، تب پروفایل، کش نقشه
-- [[sessions/2026-11-01-0014]]: ادمین با ورود از فایل و فرم هر صنف؛ «بیمه من» در اپ
 
 ببین: [نقشهٔ پروژه](../knowledge/INDEX.md)

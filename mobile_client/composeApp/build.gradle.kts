@@ -165,8 +165,21 @@ android {
     // BuildKonfig's un-flavored `defaultConfigs { }` — i.e. the production
     // URL — regardless of which Android flavor it was. AGP's own
     // buildConfigField, by contrast, genuinely varies per product flavor.
-    flavorDimensions += "env"
+    //
+    // "store" splits each release in two APKs: "site" (noobatyar.ir, Telegram,
+    // GitHub) and "store" (the one build uploaded to both Myket and Bazaar).
+    // The client app has no purchases, so the two differ only in the STORE
+    // constant — it exists so store-only behaviour has a switch later.
+    flavorDimensions += listOf("env", "store")
     productFlavors {
+        create("site") {
+            dimension = "store"
+            buildConfigField("String", "STORE", "\"site\"")
+        }
+        create("store") {
+            dimension = "store"
+            buildConfigField("String", "STORE", "\"store\"")
+        }
         create("prod") {
             dimension = "env"
         }
