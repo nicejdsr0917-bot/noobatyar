@@ -702,6 +702,7 @@
     <string name="collect_deposit_from_customer_when">از مشتری هنگام رزرو بیعانه دریافت کنید.</string>
     <string name="cut_down_on_no_shows">نوبت‌های بی‌حاضری را کم کنید: مشتری هنگام رزرو بخشی از مبلغ را پرداخت می‌کند.</string>
     <string name="deposit_amount_toman">مبلغ بیعانه (تومان)</string>
+    <string name="deposit_amount_max">مبلغ بیعانه حداکثر ۱٬۰۰۰٬۰۰۰ تومان است</string>
     <string name="deposit_is_collected_with_methods">بیعانه از همان روش‌هایی گرفته می‌شود که در تب «پرداخت» </string>
     <string name="card_transfer_or_online_gateway">فعال کرده‌اید — کارت به کارت یا درگاه آنلاین.</string>
     <string name="promotional_sms_campaign">کمپین پیامک تبلیغاتی</string>

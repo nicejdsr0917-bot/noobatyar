@@ -330,6 +330,9 @@ class Business(models.Model):
         help_text='الزام دریافت بیعانه',
         verbose_name='حالت بیعانه',
     )
+    # Highest deposit an owner may ask for (toman). Enforced on save through
+    # BusinessSerializer; rows set before the cap keep their amount.
+    MAX_DEPOSIT_AMOUNT = 1_000_000
     deposit_amount = models.PositiveIntegerField(
         default=0,
         help_text='مبلغ بیعانه به تومان',

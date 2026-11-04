@@ -426,6 +426,9 @@ enum class DepositMode(val value: String, private val labelRef: () -> String) {
     }
 }
 
+/** Highest deposit in toman; mirrors Business.MAX_DEPOSIT_AMOUNT on the server. */
+const val MAX_DEPOSIT_AMOUNT = 1_000_000L
+
 /** Capacity control and deposit — both gated capabilities, grouped together. */
 @Composable
 private fun CapacityTab(
@@ -516,6 +519,16 @@ private fun CapacityTab(
                         keyboardType = KeyboardType.Number,
                         visualTransformation = xyz.sattar.javid.proqueue.core.ui.utils.CurrencyVisualTransformation()
                     )
+                    // The server refuses more (Business.MAX_DEPOSIT_AMOUNT); say
+                    // so while typing rather than after «ذخیره».
+                    if ((depositAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) > MAX_DEPOSIT_AMOUNT) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = Str.deposit_amount_max,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     Spacer(modifier = Modifier.height(6.dp))
                     // The deposit amount lives here but the *method* is chosen in
                     // the «پرداخت» tab. Without saying so, the two screens look

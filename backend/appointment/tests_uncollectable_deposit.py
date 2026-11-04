@@ -113,3 +113,30 @@ class MandatoryDepositValidationTests(TestCase):
             'title': 'new name', 'deposit_mode': 'MANDATORY', 'accepted_payment_methods': ['CASH'],
         }, partial=True)
         self.assertTrue(s.is_valid(), s.errors)
+
+
+class DepositCapTests(UncollectableDepositTests):
+    """A deposit is at most Business.MAX_DEPOSIT_AMOUNT (1,000,000 toman)."""
+
+    def _save(self, **data):
+        return BusinessSerializer(self.business, data={
+            'deposit_mode': 'OPTIONAL', 'accepted_payment_methods': ['CARD'],
+            'card_number': '6037991234567890', **data,
+        }, partial=True)
+
+    def test_the_cap_itself_is_allowed(self):
+        s = self._save(deposit_amount=1_000_000)
+        self.assertTrue(s.is_valid(), s.errors)
+
+    def test_above_the_cap_is_refused(self):
+        s = self._save(deposit_amount=1_000_001)
+        self.assertFalse(s.is_valid())
+        self.assertEqual(s.errors['deposit_amount'][0], 'مبلغ بیعانه حداکثر ۱٬۰۰۰٬۰۰۰ تومان است')
+
+    def test_an_older_deposit_above_the_cap_does_not_block_other_edits(self):
+        Business.objects.filter(pk=self.business.pk).update(
+            deposit_mode='OPTIONAL', deposit_amount=2_000_000,
+            accepted_payment_methods=['CARD'], card_number='6037991234567890')
+        self.business.refresh_from_db()
+        s = self._save(title='new name', deposit_amount=2_000_000)
+        self.assertTrue(s.is_valid(), s.errors)

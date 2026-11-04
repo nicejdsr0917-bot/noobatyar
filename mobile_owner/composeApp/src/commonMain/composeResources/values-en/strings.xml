@@ -653,6 +653,7 @@
     <string name="collect_deposit_from_customer_when">Collect a deposit from the customer when they book.</string>
     <string name="cut_down_on_no_shows">Cut down on no-shows: the customer pays part of the price when booking.</string>
     <string name="deposit_amount_toman">Deposit amount (toman)</string>
+    <string name="deposit_amount_max">The deposit can be at most 1,000,000 toman</string>
     <string name="deposit_is_collected_with_methods">The deposit is collected with the methods you enabled in the “Payment” tab </string>
     <string name="card_transfer_or_online_gateway">— card transfer or online gateway.</string>
     <string name="promotional_sms_campaign">Promotional SMS campaign</string>

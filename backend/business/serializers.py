@@ -351,6 +351,16 @@ class BusinessSerializer(serializers.ModelSerializer):
                 'deposit_mode': 'برای بیعانه‌ی اجباری، پرداخت کارت به کارت یا آنلاین را فعال کنید'
             })
 
+        # Checked only when the amount changes, so an owner whose deposit was
+        # set above the cap before it existed can still save other edits.
+        amount = current('deposit_amount') or 0
+        if amount > Business.MAX_DEPOSIT_AMOUNT and (
+            self.instance is None or amount != self.instance.deposit_amount
+        ):
+            raise serializers.ValidationError({
+                'deposit_amount': 'مبلغ بیعانه حداکثر ۱٬۰۰۰٬۰۰۰ تومان است'
+            })
+
         if current('deposit_mode') in ('MANDATORY', 'OPTIONAL') and not current('deposit_amount'):
             raise serializers.ValidationError({
                 'deposit_amount': 'برای دریافت بیعانه، مبلغ آن باید بیشتر از صفر باشد'
