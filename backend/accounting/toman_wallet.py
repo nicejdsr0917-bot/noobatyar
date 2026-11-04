@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 METRIC = usage._DB_WALLET_TOMAN
 
 REASON_DISCOUNT_REIMBURSEMENT = "discount_reimbursement"
+REASON_NEW_CLIENT_REWARD = "new_client_reward"
 REASON_ADMIN_CREDIT = "admin_credit"
 REASON_ADMIN_DEBIT = "admin_debit"
 REASON_PLAN_PURCHASE = "plan_purchase"
@@ -40,6 +41,7 @@ REASON_CONVERTED_FROM_TOMAN = "toman_conversion"
 
 REASON_LABELS = {
     REASON_DISCOUNT_REIMBURSEMENT: "بازگشت تخفیف نوبت",
+    REASON_NEW_CLIENT_REWARD: "پاداش مشتری تازه",
     REASON_ADMIN_CREDIT: "افزایش موجودی",
     REASON_ADMIN_DEBIT: "کسر موجودی",
     REASON_PLAN_PURCHASE: "خرید اشتراک",
@@ -202,6 +204,69 @@ def convert(user, kind, count):
         add = usage.add_wallet if kind == KIND_SMS else usage.add_appt_wallet
         add(user, count, reason=REASON_CONVERTED_FROM_TOMAN, ref_type="toman", ref_id=cost)
     return {"kind": kind, "count": count, "cost": cost, "balance": balance}
+
+
+# Bookings a client made themselves; owner-entered ones earn nothing.
+REWARDED_SOURCES = ("WEB", "APP")
+
+
+def _phone_tail(phone):
+    digits = "".join(ch for ch in str(phone or "") if ch.isdigit())
+    return digits[-10:]
+
+
+def reward_new_client(appointment):
+    """Credit the owner ``TomanWalletSettings.new_client_reward`` toman for a
+    client's first completed booking at the business. Returns the amount given.
+
+    Call it inside the transaction that marks ``appointment`` COMPLETED, with
+    the business row locked. Only bookings the client made on the website or
+    the app count, never the owner's own phone, and each visitor earns it once
+    per business: the ledger row (``ref_type`` ``business:<id>``, ``ref_id`` the
+    visitor) is the record, so deleting the appointment cannot earn it twice.
+    The monthly cap is checked with the owner's wallet row locked, so two
+    businesses of one owner cannot both slip under it.
+    """
+    from appointment.models import Appointment
+
+    from .models import CreditBalance, CreditLedger, TomanWalletSettings
+
+    if appointment.status != "COMPLETED" or appointment.source not in REWARDED_SOURCES:
+        return 0
+    settings = TomanWalletSettings.load()
+    amount = settings.new_client_reward
+    if amount <= 0:
+        return 0
+    business = appointment.business
+    owner_id = business.user_id
+    visitor = appointment.visitor
+    if _phone_tail(visitor.phone_number) == _phone_tail(business.user.phone):
+        return 0
+    if Appointment.objects.filter(
+        business_id=business.pk, visitor_id=visitor.pk, status="COMPLETED",
+    ).exclude(pk=appointment.pk).exists():
+        return 0
+
+    ref_type = f"business:{business.pk}"
+    with transaction.atomic():
+        usage._ensure_row(owner_id, METRIC)
+        CreditBalance.objects.select_for_update().get(user_id=owner_id, metric=METRIC, period="")
+        rewards = CreditLedger.objects.filter(
+            user_id=owner_id, metric=METRIC, reason=REASON_NEW_CLIENT_REWARD,
+        )
+        if rewards.filter(ref_type=ref_type, ref_id=visitor.pk).exists():
+            return 0
+        cap = settings.new_client_reward_monthly_cap
+        if cap > 0:
+            month_start = usage._period_start(usage._period())
+            given = sum(rewards.filter(created_at__gte=month_start).values_list("delta", flat=True))
+            amount = min(amount, cap - given)
+            if amount <= 0:
+                return 0
+        credit(owner_id, amount, REASON_NEW_CLIENT_REWARD, ref_type=ref_type, ref_id=visitor.pk)
+    logger.info("New-client reward: owner=%s visitor=%s appointment=%s amount=%s",
+                owner_id, visitor.pk, appointment.pk, amount)
+    return amount
 
 
 def release_stale_holds(now=None):

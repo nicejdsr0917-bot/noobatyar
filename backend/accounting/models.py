@@ -545,6 +545,17 @@ class TomanWalletSettings(models.Model):
     appointment_unit_price = models.PositiveIntegerField(
         default=500, help_text='قیمت هر نوبت هنگام تبدیل موجودی کیف‌پول (تومان)', verbose_name='قیمت هر نوبت',
     )
+    new_client_reward = models.PositiveIntegerField(
+        default=0,
+        help_text='مبلغی که برای هر مشتری تازه (اولین نوبت انجام‌شدهٔ او در این کسب‌وکار، گرفته‌شده از سایت یا اپ) '
+                  'به کیف‌پول صاحب کسب‌وکار اضافه می‌شود (تومان). صفر یعنی خاموش.',
+        verbose_name='پاداش مشتری تازه',
+    )
+    new_client_reward_monthly_cap = models.PositiveIntegerField(
+        default=0,
+        help_text='بیشترین پاداش مشتری تازه برای هر صاحب کسب‌وکار در یک ماه (تومان). صفر یعنی بدون سقف.',
+        verbose_name='سقف ماهانهٔ پاداش',
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 
     class Meta:

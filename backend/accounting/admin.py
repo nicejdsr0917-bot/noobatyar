@@ -359,7 +359,7 @@ class TransactionAdmin(ModelAdmin):
 
 @admin.register(TomanWalletSettings)
 class TomanWalletSettingsAdmin(ModelAdmin):
-    list_display = ('__str__', 'sms_unit_price', 'appointment_unit_price', 'updated_at')
+    list_display = ('__str__', 'sms_unit_price', 'appointment_unit_price', 'new_client_reward', 'updated_at')
     readonly_fields = ('updated_at',)
     fieldsets = (
         (None, {
@@ -367,6 +367,13 @@ class TomanWalletSettingsAdmin(ModelAdmin):
             'description': (
                 'قیمت تبدیل موجودی کیف‌پول تومانی صاحب کسب‌وکار به پیامک و نوبت. '
                 'افزایش دستی موجودی: <code>python manage.py toman_wallet_credit &lt;phone&gt; &lt;amount&gt;</code>'
+            ),
+        }),
+        ('پاداش مشتری تازه', {
+            'fields': ('new_client_reward', 'new_client_reward_monthly_cap'),
+            'description': (
+                'وقتی صاحب کسب‌وکار اولین نوبت یک مشتری را «انجام‌شده» می‌زند و آن نوبت از سایت یا اپ گرفته شده، '
+                'این مبلغ به کیف‌پول تومانی او می‌رود. هر مشتری در هر کسب‌وکار فقط یک بار.'
             ),
         }),
     )

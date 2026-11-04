@@ -10,6 +10,7 @@ moved the row wins and only one caller ever refunds the credit.
 """
 
 import enum
+import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -17,6 +18,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from accounting import toman_wallet
 from appointment.cache_utils import invalidate_slots_cache
 from appointment.models import Appointment
 from appointment.occupancy import refund_quota
@@ -25,6 +27,8 @@ from visitor.models import VisitorActivity
 
 from .booking import appointment_update_details_for_owner, business_lock
 from .notifications import notify_client_of_decision
+
+logger = logging.getLogger(__name__)
 
 # Anything still ahead of the appointment time can be dropped by the client.
 CLIENT_CANCELLABLE_STATUSES = (
@@ -184,6 +188,14 @@ def appointment_change_status_by_owner(*, appointment, new_status):
             updated.append('quota_source')
         locked.save(update_fields=updated)
         invalidate_slots_cache(locked.business_id, locked.appointment_date)
+
+        if new_status == 'COMPLETED' and old_status != 'COMPLETED':
+            # A reward that fails must not keep the booking from completing.
+            try:
+                with transaction.atomic():
+                    toman_wallet.reward_new_client(locked)
+            except Exception:
+                logger.exception("New-client reward failed for appointment %s", locked.pk)
 
         # The caller is already scoped to the business owner, so the owner of
         # the business is the actor.
