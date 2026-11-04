@@ -203,6 +203,10 @@ fun App() {
 
         CheckoutConfirmHost()
         ToastyHost(hostState = globalSnackbarHostState)
+        // The web panel shows the same moment in index.html before wasm loads.
+        if (!AppInfo.isWeb) {
+            xyz.sattar.javid.proqueue.core.ui.components.LaunchSplash()
+        }
         }
         }
         }

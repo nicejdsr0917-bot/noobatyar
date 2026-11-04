@@ -66,6 +66,7 @@ fun App() {
                 MainNavHost()
             }
             ToastyHost(hostState = globalSnackbarHostState)
+            xyz.sattar.javid.proqueue.core.ui.components.LaunchSplash()
         }
     }
 }

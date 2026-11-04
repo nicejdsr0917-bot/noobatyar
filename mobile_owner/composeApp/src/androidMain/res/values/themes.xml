@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark from the first frame, matching LaunchSplash, so the app does not
+         open on a white flash before the animated splash takes over. -->
+    <style name="Theme.Noobatyar" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+    <color name="splash_background">#0F0F0F</color>
+</resources>
