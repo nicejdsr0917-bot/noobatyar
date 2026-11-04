@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SubscriptionDto
 import xyz.sattar.javid.proqueue.feature.home.SubscriptionCard
+import xyz.sattar.javid.proqueue.feature.home.WalletRow
 
 @Composable
 fun ProfileBottomSheet(
@@ -48,6 +49,8 @@ fun ProfileBottomSheet(
     subscription: SubscriptionDto?,
     onDismiss: () -> Unit,
     onLogout: () -> Unit,
+    tomanWallet: Long? = null,
+    onOpenWallet: (() -> Unit)? = null,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val ring = Brush.linearGradient(
@@ -139,6 +142,11 @@ fun ProfileBottomSheet(
             Spacer(modifier = Modifier.height(20.dp))
 
             SubscriptionCard(subscription = subscription)
+
+            if (tomanWallet != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                WalletRow(amount = tomanWallet, onClick = onOpenWallet ?: {})
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 

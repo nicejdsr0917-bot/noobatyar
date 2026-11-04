@@ -29,6 +29,7 @@ import xyz.sattar.javid.proqueue.core.ui.collectWithLifecycleAware
 fun ProfileAvatar(
     onNavigateToLogin: () -> Unit,
     onChangeBusiness: () -> Unit = {},
+    onNavigateToWallet: (() -> Unit)? = null,
     userViewModel: UserViewModel = koinViewModel()
 ) {
     val userState by userViewModel.uiState.collectAsState()
@@ -58,7 +59,11 @@ fun ProfileAvatar(
             .padding(2.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.primaryContainer)
-            .clickable { showProfileSheet = true },
+            .clickable {
+                // Fresh balance each time: it changes with bookings and purchases.
+                userViewModel.sendIntent(UserIntent.LoadProfile)
+                showProfileSheet = true
+            },
         contentAlignment = Alignment.Center
     ) {
         val displayChar = userState.userName?.firstOrNull()?.uppercaseChar()?.toString()
@@ -78,6 +83,8 @@ fun ProfileAvatar(
             userName = userState.userName,
             userEmail = userState.userNumber,
             subscription = userState.subscription,
+            tomanWallet = userState.tomanWallet,
+            onOpenWallet = onNavigateToWallet?.let { open -> { showProfileSheet = false; open() } },
             onDismiss = { showProfileSheet = false },
             onLogout = {
                 showProfileSheet = false

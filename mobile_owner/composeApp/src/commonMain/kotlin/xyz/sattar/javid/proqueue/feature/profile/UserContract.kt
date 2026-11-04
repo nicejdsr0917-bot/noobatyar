@@ -9,12 +9,15 @@ data class UserState(
     val userName: String? = null,
     val userNumber: String? = null,
     val subscription: SubscriptionDto? = null,
+    /** Toman wallet balance; null until loaded. */
+    val tomanWallet: Long? = null,
     val error: String? = null
 ) {
     sealed class PartialState {
         data class IsLoading(val isLoading: Boolean) : PartialState()
         data class UserProfile(val name: String, val phone: String) : PartialState()
         data class Subscription(val subscription: SubscriptionDto) : PartialState()
+        data class TomanWallet(val balance: Long) : PartialState()
         data class Error(val message: String) : PartialState()
     }
 }

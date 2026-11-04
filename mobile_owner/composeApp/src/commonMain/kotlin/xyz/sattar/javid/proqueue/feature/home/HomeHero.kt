@@ -59,6 +59,9 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
  * value the caller derives from list scroll — so there is one source of truth
  * for the animation and no second scroll listener.
  */
+/** How far the hero folds: the height of its expanded action row. */
+val HomeHeroCollapseRange = 64.dp
+
 @Composable
 fun HomeHero(
     collapseFraction: Float,
@@ -121,7 +124,7 @@ fun HomeHero(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height((64.dp * expanded))
+                        .height(HomeHeroCollapseRange * expanded)
                         .alpha(expanded)
                         .padding(bottom = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),

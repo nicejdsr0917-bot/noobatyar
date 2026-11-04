@@ -89,6 +89,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -99,6 +100,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -167,12 +172,6 @@ fun HomeScreen(
     )
 }
 
-/**
- * Scroll distance, in pixels, over which [HomeHero] folds from expanded to
- * compact. Roughly the height of its action row, so the fold finishes just as
- * that row would have scrolled out of view.
- */
-private const val COLLAPSE_DISTANCE_PX = 130f
 
 /**
  * Arguments for jumping into the visitors/appointments tab pre-filtered —
@@ -213,14 +212,32 @@ fun HomeScreenContent(
     bannerSlot: @Composable () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
-    // 0 = hero fully expanded, 1 = folded to its compact row. derivedStateOf so
-    // the fraction is read during layout without recomposing the whole screen
-    // on every scroll pixel; once past the first item the hero is simply
-    // pinned collapsed rather than tracking an offset it can no longer see.
-    val collapseFraction by remember {
-        derivedStateOf {
-            if (listState.firstVisibleItemIndex > 0) 1f
-            else (listState.firstVisibleItemScrollOffset / COLLAPSE_DISTANCE_PX).coerceIn(0f, 1f)
+    // 0 = hero fully expanded, 1 = folded to its compact row. The fold takes
+    // the scroll itself, like a collapsing toolbar: scrolling up folds the hero
+    // first and only then moves the list; scrolling down moves the list back to
+    // its top and only then unfolds it. Deriving the fold from the list offset
+    // instead made each one move the other — the hero shrank, the list grew
+    // under the finger, and the content jumped.
+    val collapseRangePx = with(LocalDensity.current) { HomeHeroCollapseRange.toPx() }
+    var collapsedPx by remember { mutableFloatStateOf(0f) }
+    val collapseFraction = if (collapseRangePx > 0f) collapsedPx / collapseRangePx else 0f
+    val heroScroll = remember(collapseRangePx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y >= 0f) return Offset.Zero
+                val next = (collapsedPx - available.y).coerceAtMost(collapseRangePx)
+                val taken = next - collapsedPx
+                collapsedPx = next
+                return Offset(0f, -taken)
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.y <= 0f) return Offset.Zero
+                val next = (collapsedPx - available.y).coerceAtLeast(0f)
+                val given = collapsedPx - next
+                collapsedPx = next
+                return Offset(0f, given)
+            }
         }
     }
 
@@ -240,6 +257,7 @@ fun HomeScreenContent(
             MainTopAppBar(
                 onNavigateToLogin = onNavigateToLogin,
                 onChangeBusiness = onChangeBusiness,
+                onNavigateToWallet = onNavigateToWallet,
                 actions = {
                     Box(
                         modifier = Modifier
@@ -276,6 +294,7 @@ fun HomeScreenContent(
             modifier = modifier
                 .fillMaxSize()
                 .padding(top = paddingValues.calculateTopPadding())
+                .nestedScroll(heroScroll)
         ) {
             // Pinned, collapsing head. Holds the two actions an owner reaches
             // for most (calendar, booking link), which used to be a tab away
@@ -872,7 +891,7 @@ fun UsageMeterSection(
 
 /** The toman wallet as a full-width row: icon, label, balance, chevron. */
 @Composable
-private fun WalletRow(amount: Long, onClick: () -> Unit) {
+internal fun WalletRow(amount: Long, onClick: () -> Unit) {
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Surface(
         onClick = onClick,

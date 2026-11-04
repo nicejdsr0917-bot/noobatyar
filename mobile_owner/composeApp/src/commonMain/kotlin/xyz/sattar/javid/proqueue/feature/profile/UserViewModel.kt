@@ -12,6 +12,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.UserLogoutUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.push.UnregisterPushTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.ClearTokenUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetCurrentUserUseCase
+import xyz.sattar.javid.proqueue.domain.usecase.user.GetMyEntitlementsUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMySubscriptionUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.SyncUserProfileUseCase
 
@@ -23,7 +24,8 @@ class UserViewModel(
     private val clearTokenUseCase: ClearTokenUseCase,
     private val syncUserProfileUseCase: SyncUserProfileUseCase,
     private val businessStore: SelectedBusinessStore,
-    private val preferences: AppPreferences
+    private val preferences: AppPreferences,
+    private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase? = null,
 ) : BaseViewModel<UserState, UserState.PartialState, UserEvent, UserIntent>(
     initialState = UserState()
 ) {
@@ -62,6 +64,7 @@ class UserViewModel(
                 subscription = partialState.subscription,
                 isLoading = false
             )
+            is UserState.PartialState.TomanWallet -> currentState.copy(tomanWallet = partialState.balance)
             is UserState.PartialState.Error -> currentState.copy(error = partialState.message, isLoading = false)
         }
     }
@@ -89,6 +92,14 @@ class UserViewModel(
             }
         } catch (e: Exception) {
             // Error handling
+        }
+        try {
+            val response = getMyEntitlementsUseCase?.invoke()
+            if (response is ApiResponse.Success) {
+                emit(UserState.PartialState.TomanWallet(response.data.usage.tomanWallet))
+            }
+        } catch (e: Exception) {
+            // The sheet just leaves the wallet row out.
         } finally {
             emit(UserState.PartialState.IsLoading(false))
         }

@@ -248,5 +248,5 @@ val appModule: Module = module {
     viewModel { ResetPasswordViewModel(get()) }
     viewModel { LoginViewModel(get()) }
     viewModel { xyz.sattar.javid.proqueue.feature.claimBusiness.ClaimBusinessViewModel(get()) }
-    viewModel { UserViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { UserViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
 }

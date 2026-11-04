@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -199,18 +200,19 @@ fun HomeTrendCard(
                 Spacer(Modifier.height(6.dp))
                 // Only the ends are labelled. A label per point at this width
                 // overlaps into an unreadable smear, and the two ends are what
-                // anchor the axis anyway.
+                // anchor the axis anyway. Oldest first, at the start side, like
+                // the chart and the month chips above it.
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = axis.lastOrNull().orEmpty().toPersianDigits(),
+                        text = axis.firstOrNull().orEmpty().toPersianDigits(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )
                     Text(
-                        text = axis.firstOrNull().orEmpty().toPersianDigits(),
+                        text = axis.lastOrNull().orEmpty().toPersianDigits(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     )
@@ -236,7 +238,7 @@ private fun PeriodToggle(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
     ) {
-        Row(modifier = Modifier.padding(3.dp)) {
+        Row(modifier = Modifier.padding(3.dp), verticalAlignment = Alignment.CenterVertically) {
             TrendPeriod.entries.forEach { option ->
                 val isSelected = option == selected
                 val bg by androidx.compose.animation.animateColorAsState(
@@ -249,19 +251,20 @@ private fun PeriodToggle(
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                     tween(220), label = "periodFg",
                 )
-                Surface(
-                    onClick = { onSelect(option) },
-                    shape = RoundedCornerShape(9.dp),
-                    color = bg,
-                ) {
-                    Text(
-                        text = option.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = fg,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                    )
-                }
+                // A plain clickable box, not Surface(onClick): that one pads
+                // itself out to a 48dp touch target, which left the pill sitting
+                // at the top of a box taller than it.
+                Text(
+                    text = option.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = fg,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(bg)
+                        .clickable { onSelect(option) }
+                        .padding(horizontal = 12.dp, vertical = 5.dp),
+                )
             }
         }
     }

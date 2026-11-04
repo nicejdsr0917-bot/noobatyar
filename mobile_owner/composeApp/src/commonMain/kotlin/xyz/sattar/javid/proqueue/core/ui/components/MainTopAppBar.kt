@@ -35,6 +35,7 @@ fun MainTopAppBar(
     actions: @Composable RowScope.() -> Unit = {},
     onNavigateToLogin: () -> Unit,
     onChangeBusiness: () -> Unit = {},
+    onNavigateToWallet: (() -> Unit)? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
     val selectedBusiness by BusinessStateHolder.selectedBusiness.collectAsState()
@@ -59,7 +60,8 @@ fun MainTopAppBar(
             actions()
             ProfileAvatar(
                 onNavigateToLogin = onNavigateToLogin,
-                onChangeBusiness = onChangeBusiness
+                onChangeBusiness = onChangeBusiness,
+                onNavigateToWallet = onNavigateToWallet
             )
         },
         scrollBehavior = scrollBehavior,

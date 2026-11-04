@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
@@ -89,8 +90,13 @@ fun NeonLineCanvas(
             val maxV = peak.toFloat()
             val n = counts.size
             val stepX = (w - padH * 2) / (n - 1)
+            // Canvas is not mirrored for RTL, so time runs from the start side
+            // by hand: right to left in Persian, matching the month chips and
+            // everything else on the screen.
+            val rtl = layoutDirection == LayoutDirection.Rtl
             val pts = (0 until n).map { i ->
-                Offset(padH + stepX * i, plotBottom - (counts[i] / maxV) * (plotBottom - plotTop))
+                val x = padH + stepX * i
+                Offset(if (rtl) w - x else x, plotBottom - (counts[i] / maxV) * (plotBottom - plotTop))
             }
             val line = smoothPath(pts)
             val fill = smoothPath(pts).apply {
@@ -99,7 +105,8 @@ fun NeonLineCanvas(
                 close()
             }
 
-            clipRect(right = padH + (w - padH * 2) * sweep.value + 4.dp.toPx()) {
+            val reveal = padH + (w - padH * 2) * sweep.value + 4.dp.toPx()
+            clipRect(left = if (rtl) w - reveal else 0f, right = if (rtl) w else reveal) {
                 drawPath(fill, color = lineColor.copy(alpha = 0.10f))
                 drawPath(
                     line,
