@@ -34,6 +34,7 @@ from . import admin_services, reports
 from .models import (
     Plan, Subscription, AddOnPack, AddOnPurchase, Transaction, CreditLedger,
     SubscriptionReminderSettings, StorePurchase, ContactVisibilityPolicy, TomanWalletSettings,
+    NewClientReward,
 )
 
 
@@ -388,6 +389,40 @@ class TomanWalletSettingsAdmin(ModelAdmin):
         if request.user.is_superuser:
             TomanWalletSettings.load()
         return super().changelist_view(request, extra_context)
+
+
+@admin.register(NewClientReward)
+class NewClientRewardAdmin(ModelAdmin):
+    """Every new-client reward that was considered. Blocked rows are the ones a
+    risk flag held back; staff can look at them and pay the genuine ones."""
+
+    list_display = ('created_at', 'business', 'visitor', 'amount', 'status', 'flag_labels', 'decided_by')
+    list_filter = ('status',)
+    search_fields = ('business__title', 'visitor__phone_number', 'owner__phone')
+    list_select_related = ('business', 'visitor')
+    readonly_fields = [f.name for f in NewClientReward._meta.fields]
+    actions = ['grant_action']
+
+    @admin.display(description='پرچم‌های خطر')
+    def flag_labels(self, obj):
+        from .toman_wallet import FLAG_LABELS
+
+        return '، '.join(FLAG_LABELS.get(f, f) for f in obj.flags) or '—'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.action(description='پرداخت پاداش ردیف‌های مشکوکِ انتخاب‌شده')
+    def grant_action(self, request, queryset):
+        from .toman_wallet import grant_blocked_reward
+
+        paid = [grant_blocked_reward(r, request.user.get_username())
+                for r in queryset.filter(status=NewClientReward.STATUS_BLOCKED)]
+        paid = [a for a in paid if a]
+        self.message_user(request, f'{len(paid)} پاداش پرداخت شد ({sum(paid):,} تومان).', level=messages.SUCCESS)
 
 
 @admin.register(SubscriptionReminderSettings)

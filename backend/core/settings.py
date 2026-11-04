@@ -221,7 +221,7 @@ PASSWORD_HASHERS = [
 # JWT authentication
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'api.authentication.IpRecordingJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -582,6 +582,8 @@ UNFOLD = {
                     _item('خرید بسته', 'shopping_cart', _changelist('accounting', 'addonpurchase'), 'accounting.view_addonpurchase'),
                     _item('مایکت', 'store', _changelist('accounting', 'storepurchase'), 'accounting.view_storepurchase'),
                     _item('دفتر اعتبار', 'account_balance_wallet', _changelist('accounting', 'creditledger'), 'accounting.view_creditledger'),
+                    _item('پاداش مشتری', 'person_add', _changelist('accounting', 'newclientreward'), 'accounting.view_newclientreward'),
+                    _item('کیف‌پول تومانی', 'savings', _changelist('accounting', 'tomanwalletsettings'), 'accounting.view_tomanwalletsettings'),
                     _item('پلن‌ها', 'sell', _changelist('accounting', 'plan'), 'accounting.view_plan'),
                     _item('بسته‌ها', 'inventory_2', _changelist('accounting', 'addonpack'), 'accounting.view_addonpack'),
                     _item('یادآوری تمدید', 'schedule_send', _changelist('accounting', 'subscriptionremindersettings'), 'accounting.view_subscriptionremindersettings'),

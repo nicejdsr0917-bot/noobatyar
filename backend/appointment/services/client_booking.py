@@ -177,7 +177,7 @@ def travel_estimate(data):
 
 
 def client_book(*, business, visitor, appointment_date, duration, description='', raw_services=None,
-                source=Appointment.SOURCE_WEB, travel=None):
+                source=Appointment.SOURCE_WEB, travel=None, ip=None):
     """
     Book ``business`` for ``visitor`` at ``appointment_date`` (aware datetime).
 
@@ -229,9 +229,12 @@ def client_book(*, business, visitor, appointment_date, duration, description=''
         if result.failure is not None:
             raise ClientBookingError("این زمان به‌تازگی رزرو شد. لطفاً زمان دیگری انتخاب کنید", 409)
         appointment = result.appointment
-        if travel:
-            Appointment.objects.filter(pk=appointment.pk).update(**travel)
-            for field, value in travel.items():
+        extra = dict(travel or {})
+        if ip:
+            extra['booking_ip'] = ip
+        if extra:
+            Appointment.objects.filter(pk=appointment.pk).update(**extra)
+            for field, value in extra.items():
                 setattr(appointment, field, value)
         appointment.business = business
         appointment.visitor = visitor

@@ -581,3 +581,42 @@ class TomanWalletSettings(models.Model):
     def load(cls):
         obj, _ = cls.objects.get_or_create(pk=cls.SINGLETON_PK)
         return obj
+
+
+class NewClientReward(models.Model):
+    """One row per (business, visitor) the new-client reward was considered
+    for: granted, blocked by a risk flag, or left out by a cap. The row itself
+    makes it once per visitor per business, whatever happened.
+
+    A blocked row can be granted from the admin after a look at its flags."""
+
+    STATUS_GRANTED = 'granted'
+    STATUS_BLOCKED = 'blocked'
+    STATUS_CAPPED = 'capped'
+    STATUS_CHOICES = [
+        (STATUS_GRANTED, 'پرداخت شد'),
+        (STATUS_BLOCKED, 'مشکوک، پرداخت نشد'),
+        (STATUS_CAPPED, 'سقف پر بود'),
+    ]
+
+    owner = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='new_client_rewards', verbose_name='صاحب کسب‌وکار')
+    business = models.ForeignKey('business.Business', on_delete=models.CASCADE, related_name='new_client_rewards', verbose_name='کسب‌وکار')
+    visitor = models.ForeignKey('visitor.Visitor', on_delete=models.CASCADE, related_name='new_client_rewards', verbose_name='مشتری')
+    appointment = models.ForeignKey('appointment.Appointment', on_delete=models.SET_NULL, null=True, blank=True, related_name='+', verbose_name='نوبت')
+    amount = models.PositiveIntegerField(default=0, help_text='مبلغ پاداش (برای ردیف مشکوک: مبلغی که پرداخت می‌شد)', verbose_name='مبلغ')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, verbose_name='وضعیت')
+    flags = models.JSONField(default=list, blank=True, verbose_name='پرچم‌های خطر')
+    decided_by = models.CharField(max_length=150, blank=True, default='', verbose_name='تأیید دستی توسط')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ')
+
+    class Meta:
+        verbose_name = 'پاداش مشتری تازه'
+        verbose_name_plural = 'پاداش‌های مشتری تازه'
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['business', 'visitor'], name='uniq_new_client_reward'),
+        ]
+        indexes = [models.Index(fields=['business', 'created_at'])]
+
+    def __str__(self):
+        return f'{self.business_id}/{self.visitor_id} {self.status} {self.amount}'

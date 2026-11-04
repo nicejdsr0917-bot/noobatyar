@@ -55,6 +55,7 @@ class ClientAppointmentListView(APIView):
 
     async def post(self, request):
         from datetime import datetime, timezone
+        from api.throttles import client_ip
         from business.models import Business
         from .client_serializers import ClientAppointmentCreateSerializer
 
@@ -82,6 +83,7 @@ class ClientAppointmentListView(APIView):
                 raw_services=serializer.validated_data.get('selected_services'),
                 source=serializer.validated_data.get('source', 'WEB'),
                 travel=travel_estimate(request.data),
+                ip=client_ip(request) or None,
             )
         except ClientBookingError as exc:
             return APIResponse.error(message=exc.message, code=exc.code)

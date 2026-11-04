@@ -124,3 +124,23 @@ class DeviceToken(models.Model):
 
     def __str__(self):
         return f"{self.user.phone} · {self.platform} · {self.token[:12]}…"
+
+
+class UserIpSighting(models.Model):
+    """An IP an owner's app or panel was seen on (refreshed at most hourly).
+
+    Only used to spot an owner booking their own business as a "new client"
+    for the new-client reward (accounting.toman_wallet.reward_new_client).
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ip_sightings', verbose_name='کاربر')
+    ip = models.GenericIPAddressField(verbose_name='IP')
+    last_seen = models.DateTimeField(verbose_name='آخرین بار')
+
+    class Meta:
+        verbose_name = 'IP دیده‌شدهٔ کاربر'
+        verbose_name_plural = 'IPهای دیده‌شدهٔ کاربران'
+        constraints = [models.UniqueConstraint(fields=['user', 'ip'], name='uniq_user_ip_sighting')]
+
+    def __str__(self):
+        return f'{self.user_id} {self.ip}'

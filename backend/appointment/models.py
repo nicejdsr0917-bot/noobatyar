@@ -215,6 +215,11 @@ class Appointment(models.Model):
         null=True, blank=True, verbose_name='زمان تقریبی رانندگی، تا (دقیقه)',
     )
 
+    # Where a client booking came from; compared with the owner's own IPs to
+    # spot owners booking themselves for the new-client reward.
+    booking_ip = models.GenericIPAddressField(
+        null=True, blank=True, editable=False, verbose_name='IP ثبت نوبت',
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
 

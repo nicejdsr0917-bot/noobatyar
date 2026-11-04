@@ -215,22 +215,79 @@ def _phone_tail(phone):
     return digits[-10:]
 
 
+# ── Risk flags ────────────────────────────────────────────────────────────
+# A fake "new client" costs an owner a phone number that can take an OTP, so
+# the reward is withheld when the booking looks like the owner made it. One
+# strong flag, or two weak ones, blocks it; the row stays in the admin
+# (NewClientReward, status blocked) where staff can still grant it.
+FLAG_SAME_IP = "same_ip"                  # strong: booked from an IP the owner uses
+FLAG_NEW_ACCOUNT = "new_account"          # weak: client first seen just before, nowhere else
+FLAG_QUICK_COMPLETE = "quick_complete"    # weak: marked done right after it was booked
+FLAG_BURST = "burst"                      # weak: many new clients in one day
+STRONG_FLAGS = {FLAG_SAME_IP}
+FLAG_LABELS = {
+    FLAG_SAME_IP: "از IP خود صاحب کسب‌وکار ثبت شده",
+    FLAG_NEW_ACCOUNT: "مشتری تازه‌ساخت و جای دیگری نوبت نگرفته",
+    FLAG_QUICK_COMPLETE: "خیلی زود بعد از ثبت، انجام‌شده زده شده",
+    FLAG_BURST: "تعداد زیاد مشتری تازه در یک روز",
+}
+OWNER_IP_WINDOW = timedelta(days=30)
+NEW_ACCOUNT_WINDOW = timedelta(days=1)
+QUICK_COMPLETE_WINDOW = timedelta(minutes=30)
+BURST_WINDOW = timedelta(days=1)
+BURST_COUNT = 5
+
+
+def risk_flags(appointment, now=None):
+    """Why ``appointment`` looks like an owner rewarding themself (list of FLAG_*)."""
+    from api.models import UserIpSighting
+    from appointment.models import Appointment
+
+    from .models import NewClientReward
+
+    now = now or timezone.now()
+    business = appointment.business
+    visitor = appointment.visitor
+    flags = []
+    if appointment.booking_ip and UserIpSighting.objects.filter(
+        user_id=business.user_id, ip=appointment.booking_ip, last_seen__gte=now - OWNER_IP_WINDOW,
+    ).exists():
+        flags.append(FLAG_SAME_IP)
+    booked_at = appointment.created_at or now
+    if visitor.created_at and visitor.created_at >= booked_at - NEW_ACCOUNT_WINDOW and not (
+        Appointment.objects.filter(visitor_id=visitor.pk).exclude(business_id=business.pk).exists()
+    ):
+        flags.append(FLAG_NEW_ACCOUNT)
+    if now - booked_at < QUICK_COMPLETE_WINDOW:
+        flags.append(FLAG_QUICK_COMPLETE)
+    if NewClientReward.objects.filter(
+        business_id=business.pk, created_at__gte=now - BURST_WINDOW,
+    ).count() >= BURST_COUNT:
+        flags.append(FLAG_BURST)
+    return flags
+
+
+def is_blocked(flags):
+    return bool(STRONG_FLAGS.intersection(flags)) or len(flags) >= 2
+
+
 def reward_new_client(appointment):
     """Credit the owner ``TomanWalletSettings.new_client_reward`` toman for a
     client's first completed booking at the business. Returns the amount given.
 
     Call it inside the transaction that marks ``appointment`` COMPLETED, with
     the business row locked. Only bookings the client made on the website or
-    the app count, never the owner's own phone, and each visitor earns it once
-    per business: the ledger row (``ref_type`` ``business:<id>``, ``ref_id`` the
-    visitor) is the record, so deleting the appointment cannot earn it twice.
-    Two optional caps: a lifetime total per business and a monthly total per
-    owner. Both are checked with the owner's wallet row locked, so two
-    businesses of one owner cannot both slip under the monthly one.
+    the app count, never the owner's own phone, and each visitor is considered
+    once per business: a ``NewClientReward`` row records the outcome (granted,
+    blocked by :func:`risk_flags`, or capped), so deleting the appointment or
+    booking again cannot earn it twice. Two optional caps: a lifetime total per
+    business and a monthly total per owner. Both are checked with the owner's
+    wallet row locked, so two businesses of one owner cannot both slip under
+    the monthly one.
     """
     from appointment.models import Appointment
 
-    from .models import CreditBalance, CreditLedger, TomanWalletSettings
+    from .models import CreditBalance, CreditLedger, NewClientReward, TomanWalletSettings
 
     if appointment.status != "COMPLETED" or appointment.source not in REWARDED_SOURCES:
         return 0
@@ -252,6 +309,8 @@ def reward_new_client(appointment):
     with transaction.atomic():
         usage._ensure_row(owner_id, METRIC)
         CreditBalance.objects.select_for_update().get(user_id=owner_id, metric=METRIC, period="")
+        if NewClientReward.objects.filter(business_id=business.pk, visitor_id=visitor.pk).exists():
+            return 0
         rewards = CreditLedger.objects.filter(
             user_id=owner_id, metric=METRIC, reason=REASON_NEW_CLIENT_REWARD,
         )
@@ -266,12 +325,42 @@ def reward_new_client(appointment):
             month_start = usage._period_start(usage._period())
             given = sum(rewards.filter(created_at__gte=month_start).values_list("delta", flat=True))
             amount = min(amount, monthly_cap - given)
+        flags = risk_flags(appointment)
         if amount <= 0:
+            status = NewClientReward.STATUS_CAPPED
+        elif is_blocked(flags):
+            status = NewClientReward.STATUS_BLOCKED
+        else:
+            status = NewClientReward.STATUS_GRANTED
+        NewClientReward.objects.create(
+            owner_id=owner_id, business_id=business.pk, visitor_id=visitor.pk,
+            appointment_id=appointment.pk, amount=max(amount, 0), status=status, flags=flags,
+        )
+        if status != NewClientReward.STATUS_GRANTED:
+            logger.warning("New-client reward %s: owner=%s visitor=%s appointment=%s flags=%s",
+                           status, owner_id, visitor.pk, appointment.pk, flags)
             return 0
         credit(owner_id, amount, REASON_NEW_CLIENT_REWARD, ref_type=ref_type, ref_id=visitor.pk)
-    logger.info("New-client reward: owner=%s visitor=%s appointment=%s amount=%s",
-                owner_id, visitor.pk, appointment.pk, amount)
+    logger.info("New-client reward: owner=%s visitor=%s appointment=%s amount=%s flags=%s",
+                owner_id, visitor.pk, appointment.pk, amount, flags)
     return amount
+
+
+def grant_blocked_reward(reward, staff_name):
+    """Staff decided a blocked reward is genuine: pay it. Returns the amount
+    paid, 0 when the row is no longer blocked."""
+    from .models import NewClientReward
+
+    with transaction.atomic():
+        locked = NewClientReward.objects.select_for_update().get(pk=reward.pk)
+        if locked.status != NewClientReward.STATUS_BLOCKED or locked.amount <= 0:
+            return 0
+        credit(locked.owner_id, locked.amount, REASON_NEW_CLIENT_REWARD,
+               ref_type=f"business:{locked.business_id}", ref_id=locked.visitor_id)
+        locked.status = NewClientReward.STATUS_GRANTED
+        locked.decided_by = staff_name[:150]
+        locked.save(update_fields=["status", "decided_by"])
+    return locked.amount
 
 
 def release_stale_holds(now=None):
