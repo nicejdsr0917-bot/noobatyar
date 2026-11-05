@@ -53,6 +53,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -102,6 +103,8 @@ fun ClientBusinessDetailScreen(
     onSignIn: () -> Unit = {},
     /** Booking with a day (ISO date) and slot already picked on this page. */
     onBookSlot: (id: Long, date: String, slotAt: Long) -> Unit = { id, _, _ -> onBook(id) },
+    /** Stars picked on the "rate your visit" sheet; > 0 opens the review form with them. */
+    openReviewWith: Int = 0,
     viewModel: ClientBusinessDetailViewModel = koinViewModel(),
     social: BusinessSocialViewModel = koinViewModel(),
 ) {
@@ -112,6 +115,13 @@ fun ClientBusinessDetailScreen(
     var showReport by remember { mutableStateOf(false) }
     var showReviewDialog by remember { mutableStateOf(false) }
     var reportingReview by remember { mutableStateOf<Long?>(null) }
+    var reviewHandled by rememberSaveable { mutableStateOf(openReviewWith == 0) }
+    LaunchedEffect(socialState.isSignedIn) {
+        if (!reviewHandled && socialState.isSignedIn) {
+            reviewHandled = true
+            showReviewDialog = true
+        }
+    }
 
     LaunchedEffect(businessId) {
         viewModel.load(businessId)
@@ -195,6 +205,7 @@ fun ClientBusinessDetailScreen(
     if (showReviewDialog) {
         ReviewDialog(
             existing = socialState.myReview,
+            initialRating = openReviewWith,
             isSaving = socialState.isSavingReview,
             onDismiss = { showReviewDialog = false },
             onSubmit = { rating, text -> social.saveReview(rating, text) { showReviewDialog = false } },

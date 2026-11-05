@@ -46,6 +46,10 @@ expect object PreferencesManager {
     fun hasSeenWelcome(): Boolean
     suspend fun setWelcomeSeen()
 
+    /** Finished appointments whose "rate your visit" sheet was answered or skipped. */
+    fun dismissedReviewPrompts(): Set<Long>
+    suspend fun dismissReviewPrompt(appointmentId: Long)
+
     /** The visitor session token from OTP sign-in (`Authorization: Visitor <token>`); null when signed out. */
     val visitorToken: Flow<String?>
     fun getVisitorToken(): String?
@@ -68,6 +72,9 @@ const val ALL_IRAN = 0
 
 internal fun List<Int>.withRecentCity(code: Int): List<Int> =
     (listOf(code) + filterNot { it == code }).take(MAX_RECENT_CITIES)
+
+internal fun String?.toIdSet(): Set<Long> =
+    orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
 
 internal fun String?.toCityCodes(): List<Int> =
     orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() }

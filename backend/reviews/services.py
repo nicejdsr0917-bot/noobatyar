@@ -120,3 +120,77 @@ def send_new_review_push(review_id):
         f'{first} به «{review.business.title}» امتیاز {review.rating} از ۵ داد.',
         {'type': 'NEW_REVIEW', 'business_id': str(review.business_id), 'review_id': str(review.id)},
     )
+
+
+# ── Asking for a review after a finished appointment ─────────────────────────
+
+# How long a finished appointment keeps asking for a review in the client app.
+REVIEW_PROMPT_WINDOW = timedelta(days=14)
+
+
+def queue_review_request(appointment):
+    """
+    Called inside the owner's status-change transaction when an appointment
+    becomes COMPLETED: queue a push asking the client to rate the business,
+    unless they already did. Free (no SMS), so not plan-gated.
+    """
+    if Review.objects.filter(business_id=appointment.business_id, visitor_id=appointment.visitor_id).exists():
+        return
+    safe_enqueue('reviews.review_request_push', {'appointment_id': appointment.id},
+                 dedupe_key=f'review_request:{appointment.id}')
+
+
+def send_review_request_push(appointment_id):
+    """Outbox handler body: push "how was it?" to the client's devices."""
+    from django.conf import settings
+
+    from api.services.push import deliver_to_visitor
+    from appointment.models import Appointment
+    from visitor.models import PushLog
+
+    appt = Appointment.objects.select_related('business').filter(pk=appointment_id).first()
+    if appt is None or appt.status != 'COMPLETED' or not appt.visitor_id:
+        return
+    if Review.objects.filter(business_id=appt.business_id, visitor_id=appt.visitor_id).exists():
+        return
+    business = appt.business
+    title = 'نوبتتان چطور بود؟'
+    body = f'به «{business.title}» امتیاز بدهید؛ نظر شما به بقیه کمک می‌کند.'
+    link = None
+    if business.unique_code:
+        link = f'{settings.CLIENT_WEB_URL.rstrip("/")}/b/Noobatyar-{business.unique_code}?review=1'
+    result = deliver_to_visitor(
+        appt.visitor_id, title, body,
+        {'type': 'REVIEW_REQUEST', 'business_id': str(business.id), 'appointment_id': str(appt.id)},
+        link=link,
+    )
+    if result.delivered or result.failed:
+        PushLog.objects.create(
+            business_id=business.id, visitor_id=appt.visitor_id, appointment_id=appt.id,
+            title=title, body=body, status='SENT' if result.delivered else 'FAILED',
+        )
+
+
+def pending_review_prompts(visitor):
+    """
+    Businesses the visitor finished an appointment at in the last two weeks and
+    has not reviewed yet, newest first, one row per business. The client app
+    shows the first it has not dismissed as a "rate your visit" sheet.
+    """
+    from appointment.models import Appointment
+
+    since = timezone.now() - REVIEW_PROMPT_WINDOW
+    reviewed = Review.objects.filter(visitor=visitor).values('business_id')
+    rows = (Appointment.objects
+            .filter(visitor=visitor, status='COMPLETED', updated_at__gte=since)
+            .exclude(business_id__in=reviewed)
+            .filter(business__in=Business.objects.filter(Business.public_filter()))
+            .select_related('business')
+            .order_by('-updated_at'))
+    seen, out = set(), []
+    for appt in rows[:50]:
+        if appt.business_id in seen:
+            continue
+        seen.add(appt.business_id)
+        out.append(appt)
+    return out

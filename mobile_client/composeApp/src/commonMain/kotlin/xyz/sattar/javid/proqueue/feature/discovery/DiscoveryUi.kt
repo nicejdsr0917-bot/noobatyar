@@ -204,31 +204,38 @@ fun Business.monogram(): String {
 /** Instagram-style ring around a business with a story up; tapping it opens the story. */
 private val StoryRing = Brush.sweepGradient(listOf(Color(0xFFA78BFA), Color(0xFF7C3AED), Color(0xFFC026D3), Color(0xFFA78BFA)))
 
+/**
+ * [corner] is the outer corner radius; callers that clip the avatar to a
+ * rounder frame pass theirs so the story ring follows it. Inside the ring the
+ * photo uses the concentric radius, so the gap stays even at the corners.
+ */
 @Composable
-fun BusinessAvatar(business: Business, size: Dp) {
+fun BusinessAvatar(business: Business, size: Dp, corner: Dp = 12.dp) {
     val stories = koinInject<StoryCenter>()
     val active by stories.activeIds.collectAsState()
     LaunchedEffect(Unit) { stories.refresh(Clock.System.now().toEpochMilliseconds()) }
     if (business.id in active) {
         val ring = if (size >= 48.dp) 3.dp else 2.dp
+        val inset = ring + 2.dp
+        val outer = RoundedCornerShape(corner)
         Box(
             Modifier
                 .size(size)
-                .clip(Radius.md)
-                .border(ring, StoryRing, Radius.md)
+                .clip(outer)
+                .border(ring, StoryRing, outer)
                 .clickable { stories.open(business.id) }
-                .padding(ring + 2.dp),
+                .padding(inset),
             contentAlignment = Alignment.Center
-        ) { PlainBusinessAvatar(business, size - (ring + 2.dp) * 2) }
+        ) { PlainBusinessAvatar(business, size - inset * 2, (corner - inset).coerceAtLeast(4.dp)) }
     } else {
-        PlainBusinessAvatar(business, size)
+        PlainBusinessAvatar(business, size, corner)
     }
 }
 
 @Composable
-private fun PlainBusinessAvatar(business: Business, size: Dp) {
+private fun PlainBusinessAvatar(business: Business, size: Dp, corner: Dp) {
     val url = logoUrl(business)
-    val shape = Radius.md
+    val shape = RoundedCornerShape(corner)
     val claimed = business.isClaimed
     Box(
         modifier = Modifier

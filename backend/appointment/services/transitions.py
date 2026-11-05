@@ -196,6 +196,9 @@ def appointment_change_status_by_owner(*, appointment, new_status):
                     toman_wallet.reward_new_client(locked)
             except Exception:
                 logger.exception("New-client reward failed for appointment %s", locked.pk)
+            # Ask the client for a review — queued, so it commits with the status.
+            from reviews.services import queue_review_request
+            queue_review_request(locked)
 
         # The caller is already scoped to the business owner, so the owner of
         # the business is the actor.

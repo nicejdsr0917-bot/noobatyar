@@ -478,12 +478,13 @@ private fun ReviewRow(review: ReviewDto, isMine: Boolean, modifier: Modifier, on
 @Composable
 internal fun ReviewDialog(
     existing: MyReviewDto?,
+    initialRating: Int = 0,
     isSaving: Boolean,
     onDismiss: () -> Unit,
     onSubmit: (rating: Int, text: String) -> Unit,
     onDelete: () -> Unit,
 ) {
-    var rating by remember { mutableStateOf(existing?.rating ?: 0) }
+    var rating by remember { mutableStateOf(existing?.rating ?: initialRating) }
     var text by remember { mutableStateOf(existing?.text.orEmpty()) }
     var confirmDelete by remember { mutableStateOf(false) }
     AlertDialog(

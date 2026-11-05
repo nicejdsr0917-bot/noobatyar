@@ -98,14 +98,44 @@ fun RingedAvatar(url: String?, size: Dp, modifier: Modifier = Modifier) {
     }
 }
 
-/** The tab bar's icon: the avatar, ringed in the accent while its tab is open. */
+/**
+ * The tab bar's icon when the visitor has a photo: the photo, with an accent
+ * ring that draws itself round while its tab is open and fades when left.
+ * Without a photo the tab bar shows the outline/solid person icon instead.
+ */
 @Composable
-fun ProfileTabIcon(url: String?, selected: Boolean, modifier: Modifier = Modifier) {
-    val ringColor = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+fun ProfileTabIcon(url: String, selected: Boolean, modifier: Modifier = Modifier) {
+    val reduced = LocalReducedMotion.current
+    val sweep = remember { Animatable(if (selected) 1f else 0f) }
+    val alpha = remember { Animatable(if (selected) 1f else 0f) }
+    LaunchedEffect(selected) {
+        if (selected) {
+            alpha.snapTo(1f)
+            if (reduced) sweep.snapTo(1f) else {
+                sweep.snapTo(0f)
+                sweep.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
+            }
+        } else {
+            alpha.animateTo(0f, tween(160))
+        }
+    }
+    val ringColor = MaterialTheme.colorScheme.primary
     Box(
         modifier
             .size(28.dp)
-            .border(2.dp, ringColor, CircleShape)
+            .drawBehind {
+                val w = 2.dp.toPx()
+                drawArc(
+                    color = ringColor,
+                    startAngle = -90f,
+                    sweepAngle = 360f * sweep.value,
+                    useCenter = false,
+                    topLeft = Offset(w / 2, w / 2),
+                    size = Size(size.width - w, size.height - w),
+                    alpha = alpha.value,
+                    style = Stroke(width = w, cap = StrokeCap.Round),
+                )
+            }
             .padding(3.dp),
         contentAlignment = Alignment.Center,
     ) {

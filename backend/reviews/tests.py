@@ -218,3 +218,77 @@ class ReviewReportAndAdminTests(ReviewBase):
         adm.unhide_reviews(req, Review.objects.all())
         self.biz.refresh_from_db()
         self.assertEqual(self.biz.rating_count, 1)
+
+
+class ReviewRequestTests(ReviewBase):
+    """After a COMPLETED appointment the client is asked, by push and in the app, to rate it."""
+
+    def _appointment(self, visitor=None, business=None, status='WAITING'):
+        from appointment.models import Appointment
+        return Appointment.objects.create(
+            business=business or self.biz, visitor=visitor or self.v1, source='APP',
+            status=status, appointment_date=timezone.now() + timedelta(hours=1),
+        )
+
+    def _complete(self, appt):
+        from appointment.services.transitions import appointment_change_status_by_owner
+        appointment_change_status_by_owner(appointment=appt, new_status='COMPLETED')
+
+    def pending(self, auth):
+        return self.client.get(reverse('review-pending'), HTTP_AUTHORIZATION=auth)
+
+    def test_completing_queues_one_request(self):
+        appt = self._appointment()
+        self._complete(appt)
+        self._complete(appt)  # repeated status write: still one request
+        self.assertEqual(OutboxMessage.objects.filter(kind='reviews.review_request_push').count(), 1)
+
+    def test_no_request_when_already_reviewed(self):
+        self.post(self.a1)
+        self._complete(self._appointment())
+        self.assertFalse(OutboxMessage.objects.filter(kind='reviews.review_request_push').exists())
+
+    def test_other_statuses_do_not_ask(self):
+        from appointment.services.transitions import appointment_change_status_by_owner
+        appointment_change_status_by_owner(appointment=self._appointment(), new_status='CANCELLED')
+        self.assertFalse(OutboxMessage.objects.filter(kind='reviews.review_request_push').exists())
+
+    def test_push_handler_skips_when_reviewed_meanwhile(self):
+        from unittest import mock
+        from reviews.services import send_review_request_push
+        appt = self._appointment()
+        self._complete(appt)
+        self.post(self.a1)
+        with mock.patch('api.services.push.deliver_to_visitor') as deliver:
+            send_review_request_push(appt.id)
+        deliver.assert_not_called()
+
+    def test_push_handler_links_to_review_form(self):
+        from unittest import mock
+        from api.services.push import SendResult
+        from reviews.services import send_review_request_push
+        appt = self._appointment()
+        self._complete(appt)
+        with mock.patch('api.services.push.deliver_to_visitor', return_value=SendResult()) as deliver:
+            send_review_request_push(appt.id)
+        args, kwargs = deliver.call_args
+        self.assertEqual(args[0], self.v1.id)
+        self.assertEqual(args[3]['type'], 'REVIEW_REQUEST')
+        self.assertTrue(kwargs['link'].endswith(f'/b/Noobatyar-{self.biz.unique_code}?review=1'))
+
+    def test_pending_lists_unreviewed_finished_visits(self):
+        self.assertEqual(self.pending(self.a1).json()['data'], [])
+        self._complete(self._appointment())
+        self._complete(self._appointment())  # second visit, same business: one row
+        self._complete(self._appointment(business=self.other_biz))
+        self._appointment(status='WAITING')  # not finished
+        rows = self.pending(self.a1).json()['data']
+        self.assertEqual(sorted(r['business_id'] for r in rows), sorted([self.biz.id, self.other_biz.id]))
+        self.post(self.a1)
+        rows = self.pending(self.a1).json()['data']
+        self.assertEqual([r['business_id'] for r in rows], [self.other_biz.id])
+        # nobody else's visits
+        self.assertEqual(self.pending(self.a2).json()['data'], [])
+
+    def test_pending_needs_sign_in(self):
+        self.assertEqual(self.client.get(reverse('review-pending')).status_code, 401)

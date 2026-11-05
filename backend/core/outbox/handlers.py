@@ -63,6 +63,12 @@ def new_review_push(payload):
     send_new_review_push(payload['review_id'])
 
 
+@register('reviews.review_request_push')
+def review_request_push(payload):
+    from reviews.services import send_review_request_push
+    send_review_request_push(payload['appointment_id'])
+
+
 @register('business.new_follower_push')
 def new_follower_push(payload):
     from business.follows import send_new_follower_push

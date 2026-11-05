@@ -255,7 +255,7 @@ internal fun DetailHero(
                             .background(Color.White, RoundedCornerShape(28.dp))
                             .padding(6.dp)
                     ) {
-                        Box(Modifier.clip(RoundedCornerShape(22.dp))) { BusinessAvatar(business, 104.dp) }
+                        Box(Modifier.clip(RoundedCornerShape(22.dp))) { BusinessAvatar(business, 104.dp, corner = 22.dp) }
                     }
                 }
                 Spacer(Modifier.height(Space.lg))
@@ -432,7 +432,7 @@ internal fun PinnedDetailBar(
                             scaleY = s
                         }
                         .clip(RoundedCornerShape(10.dp))
-                ) { BusinessAvatar(business, 32.dp) }
+                ) { BusinessAvatar(business, 32.dp, corner = 10.dp) }
                 Spacer(Modifier.width(Space.sm))
                 Text(
                     business.title,

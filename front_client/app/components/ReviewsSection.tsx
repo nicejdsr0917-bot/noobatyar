@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   deleteMyReview, getMyReview, getReviewSummary, getReviews, reportReview, saveMyReview,
@@ -61,6 +61,14 @@ export default function ReviewsSection({ businessId, summary: initialSummary, in
     return () => { stale = true; };
   }, [token, businessId]);
 
+  // Opened from the "how was your visit?" push (…?review=1): bring the form into view.
+  const sectionRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('review') !== '1') return;
+    const id = window.setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400);
+    return () => window.clearTimeout(id);
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
       const page = await getReviews(businessId, 1);
@@ -105,7 +113,7 @@ export default function ReviewsSection({ businessId, summary: initialSummary, in
   const showForm = !!token && (!mine || editing);
 
   return (
-    <section className="section" style={{ paddingTop: 8, paddingBottom: 8 }} data-testid="reviews-section">
+    <section ref={sectionRef} className="section" style={{ paddingTop: 8, paddingBottom: 8 }} data-testid="reviews-section">
       <h2 className="section-title">{t('reviews')}</h2>
 
       {summary && summary.count > 0 ? (

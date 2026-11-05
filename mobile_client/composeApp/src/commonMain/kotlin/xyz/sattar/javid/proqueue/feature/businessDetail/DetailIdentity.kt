@@ -4,16 +4,13 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Navigation
 import com.composables.icons.lucide.Phone
 import com.composables.icons.lucide.Share2
-import com.composables.icons.lucide.UserCheck
-import com.composables.icons.lucide.UserPlus
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.runtime.getValue
-import xyz.sattar.javid.proqueue.feature.booking.pressScale
 import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -178,43 +175,27 @@ internal fun FollowRow(count: Int, following: Boolean, busy: Boolean, onToggle: 
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(
-                count.toPersianDigits(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
+            // The count rolls up or down when the visitor follows or leaves.
+            AnimatedContent(
+                count,
+                transitionSpec = {
+                    val dir = if (targetState > initialState) 1 else -1
+                    (slideInVertically { it * dir } + fadeIn()).togetherWith(slideOutVertically { -it * dir } + fadeOut())
+                },
+                label = "followers",
+            ) { n ->
+                Text(
+                    n.toPersianDigits(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
             Text(
                 "دنبال‌کننده",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        val interaction = remember { MutableInteractionSource() }
-        val container by animateColorAsState(
-            if (following) Color.Transparent else MaterialTheme.colorScheme.primary,
-            label = "followBg",
-        )
-        val content by animateColorAsState(
-            if (following) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
-            label = "followFg",
-        )
-        Button(
-            onClick = onToggle,
-            enabled = !busy,
-            interactionSource = interaction,
-            shape = Radius.md,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = container, contentColor = content,
-                disabledContainerColor = container, disabledContentColor = content,
-            ),
-            // Following: a quiet outlined pill, so the call to action is the unfollowed state.
-            border = if (following) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
-            contentPadding = PaddingValues(horizontal = Space.lg),
-            modifier = Modifier.height(40.dp).pressScale(interaction),
-        ) {
-            Icon(if (following) Lucide.UserCheck else Lucide.UserPlus, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(if (following) "دنبال می‌کنید" else "دنبال کردن", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-        }
+        FollowButton(following, busy, onToggle)
     }
 }

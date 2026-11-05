@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.stories
 
+import xyz.sattar.javid.proqueue.feature.businessDetail.FollowButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -16,8 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -80,6 +79,7 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
     var progress by remember(businessId) { mutableFloatStateOf(0f) }
     var followState by remember(businessId) { mutableStateOf<Boolean?>(null) }
     var following by remember(businessId) { mutableStateOf(false) }
+    var followedHere by remember(businessId) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(businessId) {
@@ -188,20 +188,25 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
                 if (!story?.caption.isNullOrBlank()) {
                     Text(story!!.caption, color = Color.White, textAlign = TextAlign.Center)
                 }
-                // Only for a signed-in visitor who does not follow yet.
-                if (followState == false) {
+                // Only for a signed-in visitor who did not follow when the story opened;
+                // it stays after the tap so the "following" pop is seen.
+                if (followState == false || followedHere) {
                     Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = {
+                    FollowButton(
+                        following = followState == true,
+                        busy = following || followState == true,
+                        onToggle = {
                             following = true
                             scope.launch {
-                                if (center.follow(businessId) == true) followState = true
+                                if (center.follow(businessId) == true) {
+                                    followState = true
+                                    followedHere = true
+                                }
                                 following = false
                             }
                         },
-                        enabled = !following,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-                    ) { Text("دنبال کردن") }
+                        onImage = true,
+                    )
                 }
             }
         }

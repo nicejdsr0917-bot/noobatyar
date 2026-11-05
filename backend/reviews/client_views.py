@@ -135,3 +135,23 @@ class ReviewReportView(APIView):
             reporter_visitor=reporter,
         )
         return APIResponse.success(message='گزارش شما ثبت شد و توسط تیم بررسی خواهد شد', status=201)
+
+
+class PendingReviewPromptsView(APIView):
+    """Finished visits the signed-in customer has not rated yet (newest first)."""
+    authentication_classes = [VisitorTokenAuthentication]
+    permission_classes = [IsVisitorAuthenticated]
+
+    async def get(self, request):
+        def _load():
+            return [
+                {
+                    'appointment_id': a.id,
+                    'business_id': a.business_id,
+                    'business_title': a.business.title,
+                    'business_logo': a.business.logo.url if a.business.logo else '',
+                    'completed_at': a.updated_at.isoformat(),
+                }
+                for a in services.pending_review_prompts(request.user)
+            ]
+        return APIResponse.success(data=await sync_to_async(_load)())

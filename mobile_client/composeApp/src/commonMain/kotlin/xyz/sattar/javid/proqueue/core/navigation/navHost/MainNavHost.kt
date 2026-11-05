@@ -45,11 +45,17 @@ import xyz.sattar.javid.proqueue.feature.discovery.LocalMyInsuranceSlug
 import xyz.sattar.javid.proqueue.feature.explore.ExploreScreen
 import xyz.sattar.javid.proqueue.feature.profile.ProfileScreen
 import xyz.sattar.javid.proqueue.feature.profile.ProfileTabIcon
+import xyz.sattar.javid.proqueue.feature.reviews.ReviewPrompt
 import xyz.sattar.javid.proqueue.feature.profile.ProfileViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -133,8 +139,10 @@ fun MainNavHost() {
                     )
                 }
                 composable<AppScreens.ClientBusinessDetail> { entry ->
+                    val route = entry.toRoute<AppScreens.ClientBusinessDetail>()
                     ClientBusinessDetailScreen(
-                        businessId = entry.toRoute<AppScreens.ClientBusinessDetail>().businessId,
+                        businessId = route.businessId,
+                        openReviewWith = route.rate,
                         onNavigateBack = { navController.popBackStack() },
                         onBook = book,
                         onBookSlot = { id, date, slotAt ->
@@ -216,6 +224,9 @@ fun MainNavHost() {
             }
 
             if (selectedTab != null) {
+                ReviewPrompt(onRate = { businessId, stars ->
+                    navController.navigate(AppScreens.ClientBusinessDetail(businessId, rate = stars))
+                })
                 TabBar(
                     selected = selectedTab,
                     avatarUrl = profileState.me?.avatar,
@@ -241,7 +252,10 @@ private fun TabBar(selected: MainTab, avatarUrl: String?, onSelect: (MainTab) ->
             Row(Modifier.fillMaxWidth().height(60.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                 tabs.forEach { tab ->
                     val isSelected = tab == selected
-                    val color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    val color by animateColorAsState(
+                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        tween(180),
+                    )
                     Surface(
                         onClick = { onSelect(tab) },
                         color = MaterialTheme.colorScheme.background,
@@ -252,23 +266,31 @@ private fun TabBar(selected: MainTab, avatarUrl: String?, onSelect: (MainTab) ->
                             verticalArrangement = Arrangement.Center
                         ) {
                             // Pops when its tab is picked: shrinks a touch and springs back.
+                            // When left it dips briefly instead; nothing moves on first show.
                             val pop = remember { Animatable(1f) }
+                            var shown by remember { mutableStateOf(false) }
                             LaunchedEffect(isSelected) {
                                 if (isSelected) {
                                     pop.snapTo(0.78f)
                                     pop.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = Spring.StiffnessMedium))
+                                } else if (shown) {
+                                    pop.animateTo(0.86f, tween(90))
+                                    pop.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium))
                                 }
+                                shown = true
                             }
                             val iconModifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value }
-                            if (tab == MainTab.More) {
+                            if (tab == MainTab.More && avatarUrl != null) {
                                 ProfileTabIcon(avatarUrl, isSelected, iconModifier)
                             } else {
-                                Icon(
-                                    if (isSelected) tab.iconSelected else tab.iconUnSelected,
-                                    contentDescription = null,
-                                    tint = color,
-                                    modifier = iconModifier.size(24.dp)
-                                )
+                                // Outline when idle, solid the moment it is picked.
+                                Crossfade(isSelected, iconModifier, tween(160), label = "tab-icon") { solid ->
+                                    if (solid) {
+                                        SolidTabIcon(tab, color, MaterialTheme.colorScheme.background)
+                                    } else {
+                                        Icon(tab.iconUnSelected, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+                                    }
+                                }
                             }
                             Spacer(Modifier.height(4.dp))
                             Text(

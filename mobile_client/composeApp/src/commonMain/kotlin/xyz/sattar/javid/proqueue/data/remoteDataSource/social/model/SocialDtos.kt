@@ -71,3 +71,12 @@ data class ReviewRequestDto(val rating: Int, val text: String)
 
 @Serializable
 data class ReviewReportRequestDto(val reason: String, val detail: String)
+
+/** A finished visit not rated yet (`client/reviews/pending/`), newest first. */
+@Serializable
+data class PendingReviewDto(
+    @SerialName("appointment_id") val appointmentId: Long,
+    @SerialName("business_id") val businessId: Long,
+    @SerialName("business_title") val businessTitle: String = "",
+    @SerialName("business_logo") val businessLogo: String = "",
+)

@@ -22,8 +22,9 @@ sealed class AppScreens {
     @Serializable
     object More : AppScreens()
 
+    /** [rate] > 0 opens the review form with that many stars picked (from the "rate your visit" sheet). */
     @Serializable
-    data class ClientBusinessDetail(val businessId: Long) : AppScreens()
+    data class ClientBusinessDetail(val businessId: Long, val rate: Int = 0) : AppScreens()
 
     @Serializable
     object AboutUs : AppScreens()

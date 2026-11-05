@@ -16,6 +16,7 @@ import xyz.sattar.javid.proqueue.core.network.PaginatedResponseDto
 import xyz.sattar.javid.proqueue.core.network.safeApiCall
 import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.social.model.MyReviewDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.social.model.PendingReviewDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.social.model.ReviewDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.social.model.ReviewReportRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.social.model.ReviewRequestDto
@@ -40,6 +41,9 @@ interface BusinessSocialApi {
 
     /** [token] is optional: the server accepts anonymous reports. */
     suspend fun reportReview(token: String?, reviewId: Long, reason: String, detail: String): ApiResponse<Unit>
+
+    /** Finished visits the visitor has not rated yet; a fake need not override it. */
+    suspend fun pendingReviews(token: String): ApiResponse<List<PendingReviewDto>> = ApiResponse.Success(emptyList())
 }
 
 class KtorBusinessSocialApi(private val httpClient: HttpClient) : BusinessSocialApi {
@@ -99,6 +103,12 @@ class KtorBusinessSocialApi(private val httpClient: HttpClient) : BusinessSocial
                 setBody(ReviewReportRequestDto(reason, detail))
             }.toApiResponse()
         }
+
+    override suspend fun pendingReviews(token: String): ApiResponse<List<PendingReviewDto>> = safeApiCall {
+        httpClient.get("client/reviews/pending/") {
+            header(HttpHeaders.Authorization, "Visitor $token")
+        }.toApiResponse()
+    }
 
     private companion object {
         const val REVIEWS_PAGE_SIZE = 10

@@ -19,6 +19,7 @@ actual object PreferencesManager {
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_RECENT_SEARCHES = "recent_searches"
     private const val KEY_WELCOME_SEEN = "welcome_seen"
+    private const val KEY_REVIEW_PROMPTS_DISMISSED = "review_prompts_dismissed"
     private const val KEY_VISITOR_TOKEN = "visitor_token"
     private const val KEY_LAST_LOCATION = "last_location"
     private const val KEY_MY_INSURANCE = "my_insurance"
@@ -148,6 +149,14 @@ actual object PreferencesManager {
 
     actual suspend fun setWelcomeSeen() {
         defaults.setBool(true, KEY_WELCOME_SEEN)
+    }
+
+    actual fun dismissedReviewPrompts(): Set<Long> =
+        defaults.stringForKey(KEY_REVIEW_PROMPTS_DISMISSED).toIdSet()
+
+    actual suspend fun dismissReviewPrompt(appointmentId: Long) {
+        val ids = (dismissedReviewPrompts() + appointmentId).toList().takeLast(50)
+        defaults.setObject(ids.joinToString(","), KEY_REVIEW_PROMPTS_DISMISSED)
     }
 
     private val _visitorToken = MutableStateFlow(defaults.stringForKey(KEY_VISITOR_TOKEN))
