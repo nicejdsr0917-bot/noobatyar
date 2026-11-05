@@ -40,6 +40,10 @@ data class StoryDto(
 data class BusinessStoriesDto(
     @SerialName("business_id") val businessId: Long,
     val title: String = "",
+    /** The business's photo (absolute URL); null for none and for Noobatyar. */
+    val logo: String? = null,
+    /** Specialty under the name, as on the business page. */
+    val subtitle: String = "",
     val stories: List<StoryDto> = emptyList(),
     /** Absent for a guest. */
     @SerialName("is_following") val isFollowing: Boolean? = null,

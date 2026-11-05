@@ -92,6 +92,9 @@ class ClientBusinessStoriesView(APIView):
         data = {
             'business_id': business.id,
             'title': business.title,
+            # The viewer's header: photo, name, and the specialty under it.
+            'logo': request.build_absolute_uri(business.logo.url) if business.logo else None,
+            'subtitle': business.get_category_display() or '',
             'stories': StorySerializer(stories, many=True, context={'request': request}).data,
         }
         if isinstance(request.user, Visitor):
@@ -128,5 +131,7 @@ class ClientPlatformStoriesView(APIView):
         return APIResponse.success(data={
             'business_id': 0,
             'title': Story.PLATFORM_TITLE,
+            'logo': None,
+            'subtitle': 'سامانه نوبت‌دهی آنلاین',
             'stories': StorySerializer(stories, many=True, context={'request': request}).data,
         })

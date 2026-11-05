@@ -1,5 +1,18 @@
 package xyz.sattar.javid.proqueue.feature.stories
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import com.composables.icons.lucide.Store
+import org.jetbrains.compose.resources.painterResource
+import proqueue.composeapp.generated.resources.Res
+import proqueue.composeapp.generated.resources.main_icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.platform.LocalUriHandler
@@ -108,15 +121,18 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
         progress = 0f
     }
 
+    // Held down: the story stops where it is, like Instagram, and the chrome fades.
+    var paused by remember(businessId) { mutableStateOf(false) }
     LaunchedEffect(index, stories.size) {
         if (stories.isEmpty()) return@LaunchedEffect
         progress = 0f
         while (progress < 1f) {
             delay(TICK_MILLIS)
-            progress += TICK_MILLIS.toFloat() / STORY_MILLIS
+            if (!paused) progress += TICK_MILLIS.toFloat() / STORY_MILLIS
         }
         next()
     }
+    val chrome by animateFloatAsState(if (paused) 0f else 1f, tween(180), label = "storyChrome")
 
     Dialog(onDismissRequest = { center.close() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -137,13 +153,25 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
             }
 
             // Tap zones: the start half goes back, the end half forward (follows RTL).
+            // Pressing anywhere pauses until the finger lifts; a quick tap still navigates.
             Row(Modifier.fillMaxSize()) {
-                val none = remember { MutableInteractionSource() }
-                Box(Modifier.weight(1f).fillMaxHeight().clickable(none, null) { previous() })
-                Box(Modifier.weight(1f).fillMaxHeight().clickable(none, null) { next() })
+                listOf(::previous, ::next).forEach { go ->
+                    Box(
+                        Modifier.weight(1f).fillMaxHeight().pointerInput(go) {
+                            detectTapGestures(
+                                onPress = {
+                                    paused = true
+                                    tryAwaitRelease()
+                                    paused = false
+                                },
+                                onTap = { go() },
+                            )
+                        }
+                    )
+                }
             }
 
-            Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Column(Modifier.fillMaxWidth().graphicsLayer { alpha = chrome }.safeDrawingPadding().padding(horizontal = 10.dp, vertical = 8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     stories.forEachIndexed { i, _ ->
                         LinearProgressIndicator(
@@ -156,11 +184,11 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        data?.title.orEmpty(),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
+                    StoryHeader(
+                        data = data,
+                        isPlatform = businessId == PLATFORM_STORY_ID,
+                        onOpen = { center.openBusinessPage(businessId) },
+                        modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = { center.close() }) {
                         Icon(Lucide.X, contentDescription = "بستن", tint = Color.White)
@@ -186,6 +214,7 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
 
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .graphicsLayer { alpha = chrome }
                     .background(Color.Black.copy(alpha = 0.4f))
                     .safeDrawingPadding().padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -230,6 +259,53 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
                         onImage = true,
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Who posted it: photo, name and specialty. A business's header opens its
+ * page (and closes the viewer); Noobatyar's has nowhere to go.
+ */
+@Composable
+private fun StoryHeader(data: BusinessStoriesDto?, isPlatform: Boolean, onOpen: () -> Unit, modifier: Modifier) {
+    val shape = RoundedCornerShape(10.dp)
+    Row(
+        modifier
+            .clip(RoundedCornerShape(12.dp))
+            .then(if (!isPlatform && data != null) Modifier.clickable(onClick = onOpen) else Modifier)
+            .padding(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(38.dp).clip(shape).border(1.5.dp, Color.White.copy(alpha = 0.85f), shape)
+                .background(Color.White.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                isPlatform -> Image(
+                    painterResource(Res.drawable.main_icon), contentDescription = null,
+                    contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
+                )
+                data?.logo != null -> AsyncImage(
+                    model = data.logo, contentDescription = null,
+                    contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
+                )
+                else -> Icon(Lucide.Store, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(
+                data?.title.orEmpty(), color = Color.White, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            data?.subtitle?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    it, color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

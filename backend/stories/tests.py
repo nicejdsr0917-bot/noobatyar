@@ -98,6 +98,8 @@ class StoryTests(TestCase):
         self.assertEqual(self.client.get(reverse('client-stories-active')).json()['data']['business_ids'], [self.biz.id])
         r = self.client.get(reverse('client-business-stories', args=[self.biz.id]))
         self.assertNotIn('is_following', r.json()['data'])
+        self.assertIsNone(r.json()['data']['logo'])  # no logo uploaded
+        self.assertEqual(r.json()['data']['subtitle'], self.biz.get_category_display() or '')
         auth = f'Visitor {sign_visitor_token(self.visitor.id)}'
         r = self.client.get(reverse('client-business-stories', args=[self.biz.id]), HTTP_AUTHORIZATION=auth)
         self.assertEqual(r.json()['data']['is_following'], False)
@@ -170,6 +172,7 @@ class StoryFeedAndPlatformTests(TestCase):
         data = self.client.get(reverse('client-stories-platform')).json()['data']
         self.assertEqual(data['business_id'], 0)
         self.assertEqual(data['title'], Story.PLATFORM_TITLE)
+        self.assertIsNone(data['logo'])
         self.assertEqual(data['stories'][0]['link_url'], 'business:5')
         self.assertNotIn('is_following', data)
         # the ring list for avatars only has businesses
