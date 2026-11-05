@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.discovery
 
+import com.composables.icons.lucide.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.koin.compose.koinInject
 import xyz.sattar.javid.proqueue.feature.stories.StoryCenter
 import kotlin.time.Clock
@@ -422,6 +425,8 @@ fun BusinessRow(
     modifier: Modifier = Modifier,
     /** The row whose pin is selected on the map. */
     highlighted: Boolean = false,
+    /** Books the first free slot straight away (ISO date, slot timestamp); null keeps it as text. */
+    onBookFirstSlot: ((date: String, slotAt: Long) -> Unit)? = null,
 ) {
     val status = remember(business) { business.openStatus() }
     val bg by animateColorAsState(
@@ -463,7 +468,11 @@ fun BusinessRow(
                 Spacer(Modifier.height(6.dp))
                 MetaLine(business, status)
                 val freeSlot = remember(business.firstFreeSlot) { formatFirstFreeSlot(business.firstFreeSlot) }
-                if (freeSlot != null) {
+                val slotAt = business.firstFreeSlot
+                if (freeSlot != null && slotAt != null && onBookFirstSlot != null && business.canBookOnline) {
+                    Spacer(Modifier.height(6.dp))
+                    FirstSlotButton(freeSlot) { onBookFirstSlot(slotDate(slotAt), slotAt) }
+                } else if (freeSlot != null) {
                     Spacer(Modifier.height(2.dp))
                     Text(
                         "اولین نوبت خالی: $freeSlot",
@@ -477,6 +486,44 @@ fun BusinessRow(
         }
     }
 }
+
+/** The first free slot as a tappable pill: one tap to its booking, time already picked. */
+@Composable
+private fun FirstSlotButton(label: String, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Surface(
+        onClick = onClick,
+        interactionSource = interaction,
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+        modifier = Modifier.pressScale(interaction),
+    ) {
+        Row(Modifier.padding(start = 10.dp, end = 6.dp, top = 5.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Lucide.Clock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "اولین نوبت: $label",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.width(8.dp))
+            Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primary) {
+                Text(
+                    "رزرو",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                )
+            }
+        }
+    }
+}
+
+/** The slot's day as the booking screen expects it (ISO, in the phone's zone like [formatFirstFreeSlot]). */
+private fun slotDate(epochMillis: Long): String =
+    kotlin.time.Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
 
 /** The user's own insurance (a slug), for the «بیمه شما را قبول می‌کند» marks; set once at the nav host. */
 val LocalMyInsuranceSlug = androidx.compose.runtime.compositionLocalOf<String?> { null }

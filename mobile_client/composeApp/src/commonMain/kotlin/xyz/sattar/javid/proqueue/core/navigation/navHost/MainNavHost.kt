@@ -123,6 +123,12 @@ fun MainNavHost() {
         if (PreferencesManager.getVisitorToken() != null) navController.navigate(AppScreens.Booking(id))
         else navController.navigate(AppScreens.Login(bookBusinessId = id))
     }
+    // A day and slot already picked (business page, a row's first free slot).
+    // A guest signs in first; the picked time is not carried through sign-in.
+    val bookSlot: (Long, String, Long) -> Unit = { id, date, slotAt ->
+        if (PreferencesManager.getVisitorToken() != null) navController.navigate(AppScreens.Booking(id, date = date, slotAt = slotAt))
+        else book(id)
+    }
 
     // Surface (not a bare background) so LocalContentColor follows the theme:
     // without it every Text that doesn't pick a colour renders black, which is
@@ -136,10 +142,10 @@ fun MainNavHost() {
                 modifier = Modifier.weight(1f)
             ) {
                 composable<AppScreens.Explore> {
-                    ExploreScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp)
+                    ExploreScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp, onBookSlot = bookSlot)
                 }
                 composable<AppScreens.Saved> {
-                    SavedScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp)
+                    SavedScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp, onBookSlot = bookSlot)
                 }
                 composable<AppScreens.More> {
                     ProfileScreen(
@@ -158,11 +164,7 @@ fun MainNavHost() {
                         openReviewWith = route.rate,
                         onNavigateBack = { navController.popBackStack() },
                         onBook = book,
-                        onBookSlot = { id, date, slotAt ->
-                            // A guest signs in first; the picked time is not carried through sign-in.
-                            if (PreferencesManager.getVisitorToken() != null) navController.navigate(AppScreens.Booking(id, date = date, slotAt = slotAt))
-                            else book(id)
-                        },
+                        onBookSlot = bookSlot,
                         onSignIn = signIn,
                         onOpenMap = { navController.navigate(AppScreens.BusinessMap(it)) },
                     )
