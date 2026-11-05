@@ -637,7 +637,7 @@ private fun LogRow(
     }
     // A null visitor means the message went to the owner (new-booking notice).
     val toOwner = visitor == null
-    val recipient = visitor?.let { it.fullName.ifBlank { it.phoneNumber } }
+    val recipient = visitor?.let { it.fullName.ifBlank { "\u2066" + it.phoneNumber + "\u2069" } }
         ?: Str.sms_report_owner_recipient
     val time = sentAt?.takeIf { it.isNotBlank() }?.let {
         runCatching { DateTimeUtils.formatDateTime(DateTimeUtils.parseIsoToEpochMillis(it)) }.getOrNull()
@@ -676,7 +676,9 @@ private fun LogRow(
                         Text(statusLabel, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = statusColor)
                     }
                 }
-                val sub = listOfNotNull(visitor?.phoneNumber?.takeIf { it.isNotBlank() }?.toPersianDigits(), time)
+                // LTR-isolated: in RTL the masked "0912***4567" otherwise renders back to front.
+                val phone = visitor?.phoneNumber?.takeIf { it.isNotBlank() }?.let { "\u2066" + it.toPersianDigits() + "\u2069" }
+                val sub = listOfNotNull(phone, time)
                 if (sub.isNotEmpty()) {
                     Text(
                         sub.joinToString("  ·  "), style = MaterialTheme.typography.labelSmall,
