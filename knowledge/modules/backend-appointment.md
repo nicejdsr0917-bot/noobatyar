@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05
+updated: 2026-11-06
 tags: [gf]
 ---
 # backend: appointment
@@ -30,7 +30,8 @@ tags: [gf]
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
 - `services/client_booking.py`: book، submit_payment، cancel، deposit_returned، با side effectها در `on_commit`. `validate_client_booking`: ساعت کاری (`working_hours.py`)، تعطیلی، زمان گذشته، مدت بین ۱ و ۴۸۰.
 - `slots.py`: `build_day_slots` و `day_bounds` (دو endpoint عمداً تفاوت دارند). `selectors_stats.py`: آمار. `services/reminders.py`: یادآوری؛ دستور management فقط حلقه است.
-- سرور روز را «تاریخ UTC ← نیمه‌شب تهران» حساب می‌کند (A3، عمداً حفظ شده چون اپ اونر تقلیدش می‌کند).
+- سرور روز را «تاریخ UTC ← نیمه‌شب تهران» حساب می‌کند (A3). این باگ واقعی است: تقویم اونر برای روز D نوبت‌های D-1 را می‌گیرد و خالی نشان می‌دهد. رفعش روی برنچ `a3-tehran-day-boundary` (`ae748ce`) است و هنوز merge نشده.
+- **لغو نوبت اعتبار برنمی‌گرداند** (تصمیم 2026-11-05): `occupancy.refund_quota` فقط `quota_source` را پاک می‌کند. پیامکِ ارسال‌نشده از سمت اپراتور هنوز refund می‌شود.
 
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
 - `slots.py`: توابع `first_free_window(now)` و `first_free_slot_ms(business, now, busy=None)` اضافه شدند. همان قواعد grid و occupancy صفحهٔ available-slots را دارند و در ۷ روز آینده می‌گردند.

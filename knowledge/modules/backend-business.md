@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05 22:42
+updated: 2026-11-06
 tags: [gf]
 ---
 # backend: business
@@ -106,7 +106,7 @@ tags: [gf]
     - `create_story` استوری‌های منقضی را پاک می‌کند (cron ندارد) و `stories.notify_followers` را با dedupe روزانه enqueue می‌کند.
     - `active_business_ids` حتماً با `.order_by()` قبل از `distinct()`.
   - **API:** `owner/stories/`، `client/stories/active/`، `client/businesses/<id>/stories/` (`is_following` با توکن مشتری). مستند در `docs/api/P2_SOCIAL_API.md` §10.
-  - **عکس:** helperهای `showcase/images.py`. هر نسبتی قبول می‌شود و تا 1080×1920 کوچک می‌شود.
+  - **عکس:** helperهای `showcase/images.py`. نمونه‌کار و مدرک هر دو یکی از سه قاب را قبول می‌کنند (۱:۱، ۴:۵، ۴:۳، با ±۱۰٪)، `SHOWCASE_SPEC`. حداکثر 1080×1350. عرض ≥ ۶۰۰ و ارتفاع ≥ ۴۵۰.
 
 ## نظرها و درخواست نظر (`backend/reviews/`، 2026-11-05)
 - یک نظر برای هر جفت (business, visitor). API مشتری زیر `api/client/reviews/` است.

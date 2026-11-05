@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05 22:42
+updated: 2026-11-06
 tags: [gf]
 ---
 # اپ صاحب کسب‌وکار (mobile_owner)
@@ -36,7 +36,7 @@ tags: [gf]
 
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
 - لوگو هنگام ساخت کسب‌وکار اجباری است: `isLogoMissing` در `CreateBusinessState.kt`، و فیلد `logo_required=1` در `BusinessApiService`.
-- `feature/banner/` بنر چرخشی ۳:۱ صفحهٔ اصلی است (`/api/owner/banners/`). `feature/reviews/` صفحهٔ نظرات است؛ روی اندروید، پوش `NEW_REVIEW` به آن deep link می‌شود. `feature/showcase/` نمونه‌کار و مدارک را با `RectImageCropperDialog` و `cropImageToRect` (۱:۱ و ۴:۵) مدیریت می‌کند.
+- `feature/banner/` بنر چرخشی ۳:۱ صفحهٔ اصلی است (`/api/owner/banners/`). `feature/reviews/` صفحهٔ نظرات است؛ روی اندروید، پوش `NEW_REVIEW` به آن deep link می‌شود. `feature/showcase/` نمونه‌کار و مدارک را با `RectImageCropperDialog` و `cropImageToRect` مدیریت می‌کند. اونر در کراپر قاب را انتخاب می‌کند: مربع، عمودی ۴:۵ یا افقی ۴:۳ (`ShowcaseShape`). صفحهٔ خانه: هدر (`HomeHero`) با اسکرول کامل جمع می‌شود و تقویم و اشتراک به نوار بالا می‌روند (`HomeTopBarActions`)، با snap. کارت امروز (`HomeTodayCard`): عدد کنار چهار وضعیت + نوار تقسیم روز. در گزارش ارسال‌ها شماره داخل `\u2066…\u2069` است تا در RTL برعکس نشود.
 - `source` نوبت با `SourceBadge` نشان داده می‌شود. Room نسخهٔ ۲۰ است (destructive؛ Room فقط کش است).
 - ⚠️ روی wasm هیچ‌وقت از `TimeZone.of(...)` استفاده نکنید، چون دیتابیس js-joda نیست و صفحهٔ اصلی کرش می‌کرد. `SERVER_ZONE` آفست ثابت UTC+3:30 است. تست JVM آن در `androidUnitTest/.../ServerZoneMatchesTehranTest.kt` است.
 
