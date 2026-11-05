@@ -38,6 +38,7 @@ urlpatterns = [
     path('api/client/reviews/', include('reviews.client_urls')),
     path('api/reviews/', include('reviews.owner_urls')),
     path('api/', include('showcase.urls')),
+    path('api/', include('stories.urls')),
     path('api/owner/banners/', include('banners.urls')),
     path('api/client/promos/', include('banners.client_urls')),
 ]

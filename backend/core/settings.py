@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'reviews',
     'bale',
     'showcase',
+    'stories',
     'banners',
     'marketing',
 ]

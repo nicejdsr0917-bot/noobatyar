@@ -111,3 +111,20 @@ Business payloads (public list/detail, client list/detail, owner `/api/business/
 ## 9. Client app version check
 
 `POST /api/version/check/` without `app` normally means the owner app. A `version_code` in the client-only range (1789813665..1790244241, which the owner app never shipped) is treated as `CLIENT`, because client builds up to client-v1.2.0 send no `app`. Client builds from now on send `"app": "CLIENT"`.
+
+## 10. Business stories (24 hours, photo only)
+
+No admin approval. A story is served until `expires_at` (created + 24h); expired rows are deleted when the owner posts the next one. At most 10 active per business.
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/owner/stories/?business_id=` | Owner JWT | active stories, oldest first |
+| POST | `/api/owner/stories/` | Owner JWT | multipart: `business_id`, `image` (any ratio; server scales to fit 1080×1920, JPEG), `caption` (≤100), `button` (`""` or `discount`), `discount_type` (`percent` 1..100 or `amount` toman ≥1000), `discount_value` |
+| DELETE | `/api/owner/stories/<id>/` | Owner JWT | 404 for others' |
+| GET | `/api/client/stories/active/` | none | `{business_ids: [...]}` — draw the purple ring around these |
+| GET | `/api/client/businesses/<id>/stories/` | optional customer token | `{business_id, title, stories: [{id, image, caption, button, discount_type, discount_value, created_at, expires_at}], is_following?}` — `is_following` only with a customer token |
+
+The discount is shown on the story only; it is not applied to bookings or deposits.
+
+Push: the first story of a day enqueues one push to every follower (`send_to_visitor`, title = business title, body = caption, data `type=NEW_STORY`, `business_id`); dedupe `story_push:<business>:<YYYYMMDD>`.
+

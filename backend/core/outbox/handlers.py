@@ -69,6 +69,12 @@ def new_follower_push(payload):
     send_new_follower_push(payload['business_id'], payload['visitor_id'])
 
 
+@register('stories.notify_followers')
+def stories_notify_followers(payload):
+    from stories.services import notify_followers
+    notify_followers(payload['story_id'])
+
+
 @register('bale.showcase_card')
 def bale_showcase_card(payload):
     from bale.notify import send_showcase_card
