@@ -6,9 +6,22 @@ from .models import AppVersion
 from .serializers import AppVersionSerializer
 
 
-def _requested_app(raw):
-    """Missing/blank -> OWNER (old clients). Unknown value -> None."""
+# Client-app builds up to client-v1.2.0 send no ``app`` at all, so they used
+# to be compared with the owner app's versions and told to update. Their
+# version codes sit in a range the owner app never shipped (owner went from
+# 1789813664 straight to 1790244242), so a code in it can only be the client.
+CLIENT_ONLY_CODES = range(1789813665, 1790244242)
+
+
+def _requested_app(raw, version_code=None):
+    """Missing/blank -> OWNER (old clients), or CLIENT for a code only the
+    client app uses. Unknown value -> None."""
     if raw in (None, ''):
+        try:
+            if int(version_code) in CLIENT_ONLY_CODES:
+                return AppVersion.App.CLIENT
+        except (TypeError, ValueError):
+            pass
         return AppVersion.App.OWNER
     value = str(raw).strip().upper()
     return value if value in AppVersion.App.values else None
@@ -32,7 +45,7 @@ class CheckVersionView(APIView):
                 "data": None
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        app = _requested_app(request.data.get('app'))
+        app = _requested_app(request.data.get('app'), client_version_code)
         if app is None:
             return Response({
                 "status": "error", "code": 400,

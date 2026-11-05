@@ -7,6 +7,7 @@ from .models import AppVersion
 class VersionCheckTests(TestCase):
     def setUp(self):
         self.api = APIClient()
+        AppVersion.objects.all().delete()  # start without the rows versions/0004 seeds
         AppVersion.objects.create(version_name='1.9.8', version_code=100, force_update=True)
         AppVersion.objects.create(version_name='0.1.0', version_code=100, app='CLIENT',
                                   force_update=False)
@@ -41,3 +42,30 @@ class VersionCheckTests(TestCase):
         self.assertEqual({v['version_code'] for v in r}, {100, 200})
         r = self.api.get('/api/version/changelog/').json()['data']
         self.assertEqual([v['version_name'] for v in r], ['1.9.8'])
+
+    def test_old_client_builds_without_app_get_client_rows(self):
+        """client-v1.1.0/1.2.0 send no ``app``; their codes are client-only."""
+        AppVersion.objects.create(version_name='1.2.0', version_code=1789813666, app='CLIENT')
+        d = self._check(version_code=1789813665)
+        self.assertEqual(d['latest_version']['version_name'], '1.2.0')
+        self.assertFalse(d['force_update'])
+        self.assertFalse(self._check(version_code=1789813666)['is_outdated'])
+
+    def test_owner_codes_around_the_client_range_stay_owner(self):
+        AppVersion.objects.create(version_name='1.12.0', version_code=1791557885)
+        for code in (1789813664, 1790244242, 1791557885):
+            self.assertEqual(self._check(version_code=code)['latest_version']['version_name'], '1.12.0')
+
+
+class SeededClientVersionTests(TestCase):
+    """versions/0004 gives the client app rows, so installed client builds
+    (which send no ``app``) are told they are current, not to update."""
+
+    def test_installed_client_builds_are_not_asked_to_update(self):
+        AppVersion.objects.create(version_name='1.12.0', version_code=1791557885)
+        api = APIClient()
+        for code, outdated in ((1789813665, True), (1789813666, False)):
+            d = api.post('/api/version/check/', {'version_code': code}, format='json').json()['data']
+            self.assertEqual(d['latest_version']['version_name'], '1.2.0')
+            self.assertEqual(d['is_outdated'], outdated)
+            self.assertFalse(d['force_update'])
