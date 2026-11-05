@@ -8,5 +8,6 @@ data class InsuranceDto(
     @SerialName("id") val id: Long,
     @SerialName("name") val name: String,
     @SerialName("slug") val slug: String,
-    @SerialName("insurance_type") val insuranceType: String = "SUPPLEMENTARY"
+    @SerialName("insurance_type") val insuranceType: String = "SUPPLEMENTARY",
+    @SerialName("logo") val logo: String? = null
 )

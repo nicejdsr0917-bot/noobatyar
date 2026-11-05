@@ -36,6 +36,9 @@ class Insurance(models.Model):
     )
     is_active = models.BooleanField(default=True)
     display_order = models.PositiveSmallIntegerField(default=100)
+    # Shown beside the name in the client app's insurance lists; uploaded from
+    # the admin. Optional: the app falls back to a shield icon without one.
+    logo = models.ImageField(upload_to='insurance_logos/', blank=True, null=True, verbose_name='لوگو')
 
     class Meta:
         db_table = 'insurance'

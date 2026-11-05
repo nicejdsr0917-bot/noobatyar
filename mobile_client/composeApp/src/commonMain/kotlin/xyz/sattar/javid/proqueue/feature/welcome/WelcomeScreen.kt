@@ -12,6 +12,12 @@ import xyz.sattar.javid.proqueue.core.location.IranCities
 import xyz.sattar.javid.proqueue.core.prefs.ALL_IRAN
 import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.feature.explore.CityPickerSheet
+import xyz.sattar.javid.proqueue.feature.explore.InsuranceLogo
+import xyz.sattar.javid.proqueue.feature.explore.InsuranceSheet
+import xyz.sattar.javid.proqueue.feature.more.MyInsuranceViewModel
+import xyz.sattar.javid.proqueue.domain.model.business.Insurance
+import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.runtime.collectAsState
 import xyz.sattar.javid.proqueue.feature.explore.SearchArea
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -114,7 +120,7 @@ import kotlin.math.sin
  * page rather than past it.
  */
 @Composable
-fun WelcomeScreen(onDone: () -> Unit) {
+fun WelcomeScreen(onDone: () -> Unit, myInsurance: MyInsuranceViewModel = koinViewModel()) {
     val pager = rememberPagerState { Pages.size }
     val scope = rememberCoroutineScope()
     val isLast = pager.currentPage == Pages.lastIndex
@@ -122,6 +128,11 @@ fun WelcomeScreen(onDone: () -> Unit) {
     // explore screen opens on it instead of asking again.
     var city by remember { mutableStateOf<Pair<Int, String>?>(null) }
     var showAllCities by remember { mutableStateOf(false) }
+    // The insurance page asks first whether there is one at all; only a
+    // «دارم» opens the list. Saved straight to «بیمه من», as from the profile.
+    val insurance by myInsurance.state.collectAsState()
+    var hasInsurance by remember { mutableStateOf<Boolean?>(null) }
+    var pickInsurance by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -165,6 +176,20 @@ fun WelcomeScreen(onDone: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
+                    if (index == InsurancePage) {
+                        Spacer(Modifier.height(20.dp))
+                        InsuranceQuestion(
+                            hasInsurance = hasInsurance,
+                            mine = insurance.mine,
+                            onHas = { hasInsurance = true; pickInsurance = true },
+                            onHasNot = {
+                                hasInsurance = false
+                                myInsurance.select(null)
+                                scope.launch { pager.animateScrollToPage(InsurancePage + 1) }
+                            },
+                            onChange = { pickInsurance = true },
+                        )
+                    }
                     if (last) {
                         Spacer(Modifier.height(20.dp))
                         CityChooser(city, settled, onPick = { city = it }, onMore = { showAllCities = true })
@@ -201,6 +226,26 @@ fun WelcomeScreen(onDone: () -> Unit) {
                 )
             }
         }
+    }
+    if (pickInsurance) {
+        InsuranceSheet(
+            insurances = insurance.insurances.filter { it.insuranceType == "SUPPLEMENTARY" },
+            selectedSlug = insurance.mySlug,
+            onDismiss = {
+                pickInsurance = false
+                // Closed without choosing: back to the question.
+                if (insurance.mine == null) hasInsurance = null
+            },
+            onSelect = { slug ->
+                myInsurance.select(slug)
+                pickInsurance = false
+                hasInsurance = slug != null
+                if (slug != null) scope.launch { pager.animateScrollToPage(InsurancePage + 1) }
+            },
+            title = "بیمه تکمیلی شما",
+            subtitle = "مراکزی که این بیمه را می‌پذیرند در کاوش مشخص می‌شوند.",
+            noneLabel = "ندارم",
+        )
     }
     if (showAllCities) {
         CityPickerSheet(
@@ -278,7 +323,45 @@ private fun CityChip(label: String, selected: Boolean, index: Int, icon: ImageVe
     }
 }
 
+/** «بیمه تکمیلی دارید؟» with دارم / ندارم; once picked, the insurer and a way to change it. */
+@Composable
+private fun InsuranceQuestion(
+    hasInsurance: Boolean?,
+    mine: Insurance?,
+    onHas: () -> Unit,
+    onHasNot: () -> Unit,
+    onChange: () -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (mine != null) {
+            Surface(
+                onClick = onChange,
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+            ) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    InsuranceLogo(mine.logoPath, size = 32.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(mine.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(12.dp))
+                    Text("تغییر", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        } else {
+            Text("بیمه تکمیلی دارید؟", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CityChip("دارم", selected = hasInsurance == true, index = 0, icon = Lucide.ShieldCheck, onClick = onHas)
+                CityChip("ندارم", selected = hasInsurance == false, index = 1, onClick = onHasNot)
+            }
+        }
+    }
+}
+
 private class Page(val title: String, val body: String, val picture: @Composable (settled: Boolean) -> Unit)
+
+private const val InsurancePage = 3
 
 private val Pages = listOf(
     Page(
@@ -295,7 +378,7 @@ private val Pages = listOf(
     ) { BookingPicture() },
     Page(
         "بیمه تکمیلی شما",
-        "یک بار بیمه‌تان را انتخاب کنید تا مراکزی که آن را می‌پذیرند مشخص شوند.",
+        "مراکزی که بیمه شما را می‌پذیرند در کاوش مشخص می‌شوند.",
     ) { InsurancePicture() },
     Page(
         "استوری و تخفیف",

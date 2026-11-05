@@ -7,5 +7,7 @@ data class Insurance(
     val id: Long = 0,
     val name: String,
     val slug: String,
-    val insuranceType: String = "SUPPLEMENTARY"
+    val insuranceType: String = "SUPPLEMENTARY",
+    /** Site-relative (or absolute) URL; null until the admin uploads one. */
+    val logoPath: String? = null
 )

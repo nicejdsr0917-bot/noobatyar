@@ -65,6 +65,7 @@ class InsuranceModelAndSerializerTests(TestCase):
                 'name': 'بیمه دانا',
                 'slug': 'dana',
                 'insurance_type': 'SUPPLEMENTARY',
+                'logo': None,
             }
         )
 

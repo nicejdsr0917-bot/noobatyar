@@ -43,7 +43,7 @@ def shape(d):
 ENVELOPE = {'status', 'code', 'message', 'data'}
 PAGE_KEYS = {'count': 'int', 'total_pages': 'int', 'current_page': 'int',
              'next': 'null', 'previous': 'null', 'results': 'list'}
-INSURANCE_KEYS = {'id': 'int', 'name': 'str', 'slug': 'str', 'insurance_type': 'str'}
+INSURANCE_KEYS = {'id': 'int', 'name': 'str', 'slug': 'str', 'insurance_type': 'str', 'logo': 'null'}
 
 PUBLIC_BUSINESS_SHAPE = {
     'id': 'int',

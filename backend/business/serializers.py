@@ -4,6 +4,7 @@ from rest_framework.exceptions import ValidationError
 from api.phone import is_iran_phone, normalize_phone
 from visitor.models import PushLog, SmsLog
 
+from .claims import mask_phone
 from .iran_cities import get_city
 from .models import BIO_MAX_LENGTH, Business, Insurance, ServiceCatalogItem
 # Re-exported: the policy moved to public_policy.py (audit R11).
@@ -13,9 +14,16 @@ from .public_policy import (  # noqa: F401
 )
 
 class InsuranceSerializer(serializers.ModelSerializer):
+    # A site-relative path, like Business.logo: this serializer runs with and
+    # without a request (cached payloads), and the apps prefix their base URL.
+    logo = serializers.SerializerMethodField()
+
     class Meta:
         model = Insurance
-        fields = ['id', 'name', 'slug', 'insurance_type']
+        fields = ['id', 'name', 'slug', 'insurance_type', 'logo']
+
+    def get_logo(self, obj):
+        return obj.logo.url if obj.logo else None
 
 # Caps on Business.services. The menu is a picker on a phone screen, not a
 # catalogue: past a few dozen chips it stops being usable for the client it
@@ -407,10 +415,16 @@ class SmsLogVisitorSerializer(serializers.Serializer):
     notifications are logged with ``visitor=None`` (they are billed to the same
     quota, so they belong in the report), and a null object says "this one went
     to you" far more clearly than three independently-null columns.
+
+    The phone is masked (0912***4567): the report only needs to say who got
+    the message, and a log of full numbers is a leak waiting to happen.
     """
     id = serializers.IntegerField()
     full_name = serializers.CharField()
-    phone_number = serializers.CharField()
+    phone_number = serializers.SerializerMethodField()
+
+    def get_phone_number(self, visitor):
+        return mask_phone(visitor.phone_number)
 
 
 class SmsLogSerializer(serializers.ModelSerializer):

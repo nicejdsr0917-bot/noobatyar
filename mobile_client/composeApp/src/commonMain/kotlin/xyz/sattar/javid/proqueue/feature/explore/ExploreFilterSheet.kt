@@ -30,6 +30,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
+import coil3.compose.AsyncImage
+import xyz.sattar.javid.proqueue.core.utils.AppConfig
 import xyz.sattar.javid.proqueue.domain.model.business.Insurance
 import xyz.sattar.javid.proqueue.feature.discovery.FilterChip
 import xyz.sattar.javid.proqueue.feature.discovery.Radius
@@ -167,10 +180,10 @@ internal fun InsuranceSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                OptionRow(noneLabel, selectedSlug == null) { onSelect(null) }
+                OptionRow(noneLabel, selectedSlug == null, leading = { InsuranceLogo(null) }) { onSelect(null) }
             }
             val groups = insurances.groupBy { it.insuranceType }
-            listOf("SUPPLEMENTARY" to "بیمه‌های تکمیلی", "BASIC" to "بیمه‌های پایه").forEach { (type, title) ->
+            listOf("BASIC" to "بیمه‌های پایه", "SUPPLEMENTARY" to "بیمه‌های تکمیلی").forEach { (type, title) ->
                 val list = groups[type].orEmpty()
                 if (list.isNotEmpty()) {
                     item(key = "h-$type") {
@@ -181,7 +194,9 @@ internal fun InsuranceSheet(
                             modifier = Modifier.padding(start = Space.page, top = Space.lg, bottom = Space.xs)
                         )
                     }
-                    items(list, key = { it.slug }) { ins -> OptionRow(ins.name, ins.slug == selectedSlug) { onSelect(ins.slug) } }
+                    items(list, key = { it.slug }) { ins ->
+                        OptionRow(ins.name, ins.slug == selectedSlug, leading = { InsuranceLogo(ins.logoPath) }) { onSelect(ins.slug) }
+                    }
                 }
             }
         }
@@ -189,9 +204,18 @@ internal fun InsuranceSheet(
 }
 
 @Composable
-internal fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun OptionRow(
+    label: String,
+    selected: Boolean,
+    leading: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.height(52.dp).padding(horizontal = Space.page), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.height(56.dp).padding(horizontal = Space.page), verticalAlignment = Alignment.CenterVertically) {
+            if (leading != null) {
+                leading()
+                Spacer(Modifier.width(Space.md))
+            }
             Text(
                 label,
                 style = MaterialTheme.typography.bodyLarge,
@@ -200,6 +224,33 @@ internal fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
                 modifier = Modifier.weight(1f)
             )
             if (selected) Icon(Lucide.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+/**
+ * An insurer's logo on a white tile (logos are drawn for white, in either
+ * theme), or a shield while the admin hasn't uploaded one / for "all".
+ */
+@Composable
+internal fun InsuranceLogo(logoPath: String?, size: Dp = 36.dp) {
+    val url = logoPath?.takeIf { it.isNotBlank() }?.let { if (it.startsWith("http")) it else "${AppConfig.baseUrl}$it" }
+    val shape = RoundedCornerShape(10.dp)
+    if (url != null) {
+        Box(
+            Modifier.size(size).clip(shape).background(Color.White)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                .padding(4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+        }
+    } else {
+        Box(
+            Modifier.size(size).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Lucide.ShieldPlus, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(size * 0.5f))
         }
     }
 }

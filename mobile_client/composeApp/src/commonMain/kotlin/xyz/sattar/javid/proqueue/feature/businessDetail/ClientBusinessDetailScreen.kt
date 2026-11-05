@@ -409,7 +409,7 @@ internal fun DetailContent(
                                 )
                                 Spacer(Modifier.height(Space.sm))
                             }
-                            Tags(business.insurances.map { it.name })
+                            Tags(business.insurances.sortedBy { it.insuranceType != "BASIC" }.map { it.name })
                             if (!business.isClaimed) {
                                 Spacer(Modifier.height(Space.sm))
                                 Text(

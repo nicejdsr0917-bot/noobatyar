@@ -12,7 +12,8 @@ fun InsuranceDto.toDomain() = Insurance(
     id = id,
     name = name,
     slug = slug,
-    insuranceType = insuranceType
+    insuranceType = insuranceType,
+    logoPath = logo
 )
 
 fun BusinessDto.toDomain(): Business {
