@@ -17,26 +17,36 @@ const src = (f) => path.join(BRAND, f);
 const out = (...p) => path.join(ROOT, ...p);
 const mkdir = (f) => fs.mkdirSync(path.dirname(f), { recursive: true });
 
+// The owner app («نوبت‌یار کارفرما») wears the same mark on black, so it never
+// reads as the purple customer app on a phone. Same SVGs with the violet
+// gradient stops swapped; the amber dot and white mark stay.
+const OWNER_STOPS = { '#8B5CF6': '#3A3A40', '#7C3AED': '#18181B', '#4C1D95': '#000000' };
+const ownerSvg = (file) => Buffer.from(Object.entries(OWNER_STOPS).reduce(
+  (svg, [from, to]) => svg.split(from).join(to), fs.readFileSync(src(file), 'utf8')));
+const OWNER_FLAT = '#18181B';
+
 // Rasterise from vector at high density rather than upscaling a small bitmap.
-const render = (file, size) => sharp(src(file), { density: 900 }).resize(size, size);
+// [owner] picks the black variant.
+const render = (file, size, owner = false) =>
+  sharp(owner ? ownerSvg(file) : src(file), { density: 900 }).resize(size, size);
 
 const written = [];
-const png = async (file, size, dest) => {
+const png = async (file, size, dest, owner = false) => {
   mkdir(dest);
-  await render(file, size).png({ compressionLevel: 9 }).toFile(dest);
+  await render(file, size, owner).png({ compressionLevel: 9 }).toFile(dest);
   written.push(dest);
 };
 // Android ships launcher icons as lossless webp — lossy smears the crisp edges.
-const webp = async (file, size, dest) => {
+const webp = async (file, size, dest, owner = false) => {
   mkdir(dest);
-  await render(file, size).webp({ lossless: true, effort: 6 }).toFile(dest);
+  await render(file, size, owner).webp({ lossless: true, effort: 6 }).toFile(dest);
   written.push(dest);
 };
 // iOS rejects app icons that carry an alpha channel, so these are flattened
 // onto the brand violet rather than left transparent at the corners.
-const opaquePng = async (file, size, dest) => {
+const opaquePng = async (file, size, dest, owner = false) => {
   mkdir(dest);
-  await render(file, size).flatten({ background: '#7C3AED' })
+  await render(file, size, owner).flatten({ background: owner ? OWNER_FLAT : '#7C3AED' })
     .png({ compressionLevel: 9 }).toFile(dest);
   written.push(dest);
 };
@@ -101,10 +111,10 @@ async function ico(dest) {
   // The owner web panel (panel.noobatyar.ir) ships its own copies next to its
   // index.html; same files, same rules as the client web above.
   const panel = 'mobile_owner/composeApp/src/wasmJsMain/resources/icons';
-  await png('noobatyar-icon.svg', 180, out(`${panel}/apple-touch-icon.png`));
-  await png('noobatyar-icon.svg', 192, out(`${panel}/icon-192.png`));
-  await png('noobatyar-icon.svg', 512, out(`${panel}/icon-512.png`));
-  await png('noobatyar-icon-square.svg', 512, out(`${panel}/icon-maskable-512.png`));
+  await png('noobatyar-icon.svg', 180, out(`${panel}/apple-touch-icon.png`), true);
+  await png('noobatyar-icon.svg', 192, out(`${panel}/icon-192.png`), true);
+  await png('noobatyar-icon.svg', 512, out(`${panel}/icon-512.png`), true);
+  await png('noobatyar-icon-square.svg', 512, out(`${panel}/icon-maskable-512.png`), true);
 
   // ── 2. Android ───────────────────────────────────────────────────────────
   // Legacy launcher icons are pre-masked and sized in dp*density; adaptive
@@ -117,16 +127,16 @@ async function ico(dest) {
   for (const app of ['mobile_owner']) {
     const res = out(app, 'composeApp/src/androidMain/res');
     for (const [density, size] of Object.entries(legacy)) {
-      await webp('noobatyar-icon.svg', size, path.join(res, `mipmap-${density}/ic_launcher.webp`));
-      await webp('android/ic_launcher_round.svg', size, path.join(res, `mipmap-${density}/ic_launcher_round.webp`));
+      await webp('noobatyar-icon.svg', size, path.join(res, `mipmap-${density}/ic_launcher.webp`), true);
+      await webp('android/ic_launcher_round.svg', size, path.join(res, `mipmap-${density}/ic_launcher_round.webp`), true);
     }
     for (const [density, size] of Object.entries(adaptive)) {
-      await webp('android/ic_launcher_background.svg', size, path.join(res, `mipmap-${density}/ic_launcher_background.webp`));
-      await webp('android/ic_launcher_foreground.svg', size, path.join(res, `mipmap-${density}/ic_launcher_foreground.webp`));
+      await webp('android/ic_launcher_background.svg', size, path.join(res, `mipmap-${density}/ic_launcher_background.webp`), true);
+      await webp('android/ic_launcher_foreground.svg', size, path.join(res, `mipmap-${density}/ic_launcher_foreground.webp`), true);
     }
     // Play Store listing icon: 512x512, and the Play Console rejects alpha.
     await opaquePng('noobatyar-icon-square.svg', 512,
-      out(app, 'composeApp/src/androidMain/ic_launcher-playstore.png'));
+      out(app, 'composeApp/src/androidMain/ic_launcher-playstore.png'), true);
 
     // Two DIFFERENT files both named main_icon.png, resolved by two different
     // resource systems — so each gets the artwork its consumer actually needs:
@@ -139,7 +149,7 @@ async function ico(dest) {
     //                                    rebuilds from the alpha channel alone,
     //                                    so it wants a white silhouette.
     await png('noobatyar-icon.svg', 512,
-      out(app, 'composeApp/src/commonMain/composeResources/drawable/main_icon.png'));
+      out(app, 'composeApp/src/commonMain/composeResources/drawable/main_icon.png'), true);
     await png('android/ic_notification.svg', 96,
       out(app, 'composeApp/src/androidMain/res/drawable/main_icon.png'));
   }
@@ -149,7 +159,7 @@ async function ico(dest) {
   // that name and size so Contents.json stays valid. Opaque, per Apple's rule.
   for (const app of ['mobile_owner']) {
     await opaquePng('noobatyar-icon-square.svg', 512,
-      out(app, 'iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/icon-ios-512.png'));
+      out(app, 'iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/icon-ios-512.png'), true);
   }
 
   console.log(`wrote ${written.length} files`);
