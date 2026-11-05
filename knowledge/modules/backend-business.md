@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05
+updated: 2026-11-05 22:42
 tags: [gf]
 ---
 # backend: business
@@ -127,3 +127,9 @@ tags: [gf]
 - `capacity_views.py`: `GET/PUT /api/business/<id>/booking-capacity/` برای `slot_capacity` و `hold_minutes` (migration `0040`).
   - ظرفیت بیش از ۱ با `validate_business_settings` قابلیت `FEATURE_CAPACITY_CONTROL` را چک می‌کند.
 - `stories/views.py`: پاسخ استوری `logo` و `subtitle` (`get_category_display`) دارد.
+
+## لوگوی بیمه و ماسک شماره (2026-11-05 شب)
+- `Insurance.logo` (migration `business/0042`) از ادمین آپلود می‌شود. `InsuranceSerializer.logo` آدرس نسبی (`/media/insurance_logos/...`) یا `null` برمی‌گرداند.
+- `manage.py seed_insurance_logos [--force]` لوگوهای `business/insurance_logos/<slug>.png` (۲۵۶ پیکسل) را وصل می‌کند. بدون `--force` لوگوی آپلودشده از ادمین را دست نمی‌زند. روی prod اجرا شد: ۲۰ از ۲۲. آتیه‌سازان حافظ و نیروهای مسلح لوگو ندارند.
+- منبع لوگوها: SVGهای `assets.bimeh.com/resources/images/logos/<NAME>.svg` (با Chrome headless رندر شدند)، تأمین اجتماعی از Wikimedia، سلامت از پیش‌نمایش زیپ کاربر.
+- `SmsLogVisitorSerializer.phone_number` و `visitor.SmsLogSerializer.visitor_phone` با `business.claims.mask_phone` ماسک می‌شوند. جستجوی شماره در سرور همچنان کار می‌کند. جزئیات کمپین پیامک تبلیغاتی (`promo-sms/<id>/`) هنوز شمارهٔ کامل می‌دهد (تست آن را عمداً چک می‌کند).

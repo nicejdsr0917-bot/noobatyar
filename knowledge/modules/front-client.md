@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05
+updated: 2026-11-05 22:42
 tags: [gf]
 ---
 # وب مشتری (front_client)
@@ -46,3 +46,6 @@ tags: [gf]
 - `lib/api.ts`: `getFollowState` و `setFollowing`. `Business.followers_count` و `is_following`، `Review.visitor_avatar`.
 - `ReviewsSection`: عکس یا حرف اول نام. با `?review=1` (لینک پوش «نظر بدهید») تا بخش نظرها اسکرول می‌کند. کلیدهای i18n: `follow`، `followingNow`، `followersCount`، `followNeedsLogin`.
 - type check محلی: خطاهای `e2e/` و `playwright.config` طبیعی‌اند، چون `@playwright/test` محلی نصب نیست.
+
+## تم روشن پیش‌فرض (2026-11-05 شب)
+- `themeScript` در `app/layout.tsx` همیشه `data-theme` می‌گذارد (`light` مگر اینکه کاربر dark ذخیره کرده باشد). دیگر به تم سیستم‌عامل نگاه نمی‌کند. `themeColor` فقط بنفش است.

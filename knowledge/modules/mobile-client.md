@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05
+updated: 2026-11-05 22:42
 tags: [gf]
 ---
 # اپ موبایل مشتری (mobile_client — برنچ `mobile-client`)
@@ -199,3 +199,10 @@ tags: [gf]
   - `FollowRow` تمام‌عرض.
   - دکمهٔ اولین نوبت (`FirstSlotButton`) داخل `QuickPickSection`.
 - `FirstVisitTag` روی ردیف لیست و در تأیید رزرو هست، روی صفحهٔ کسب‌وکار نیست.
+
+## تم و بیمه (2026-11-05 شب)
+- **ریشهٔ متن سیاه در دارک:** `LocalContentColor` بیرون از `Surface`/`Scaffold` پیش‌فرض سیاه است. حالا `AppTheme` آن را از `onBackground` می‌گیرد. متن بی‌رنگ روی `background()` خالی دیگر سیاه نمی‌شود.
+- **پیش‌فرض تم روشن است:** `PreferencesManager` (android/ios) فقط وقتی کلید ذخیره شده باشد آن را می‌خواند، وگرنه `LIGHT`.
+- `InsuranceSheet` (`feature/explore/ExploreFilterSheet.kt`): لوگو با `InsuranceLogo` (کاشی سفید، سپر برای بی‌لوگو)، بیمهٔ پایه اول، فیلد جستجو (`SheetSearchField` از `CityPickerSheet.kt`، که حالا internal است).
+- اینترو (`WelcomeScreen`): صفحهٔ بیمه (`InsurancePage = 3`) می‌پرسد «بیمه تکمیلی دارید؟». «دارم» لیست تکمیلی را باز می‌کند و با `MyInsuranceViewModel` ذخیره می‌کند. «ندارم» به صفحهٔ بعد می‌رود.
+- adb نمی‌تواند فارسی تایپ کند، پس جستجوی بیمه با تایپ تست نشد.

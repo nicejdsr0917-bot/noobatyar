@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05
+updated: 2026-11-05 22:42
 tags: [gf]
 ---
 # Ops: سرور، دیپلوی، CI، محیط محلی
@@ -51,3 +51,9 @@ tags: [gf]
 - ریلیزها `v1.12.0` و `client-v1.2.0`. دو CI را پشت سر هم بزن، چون هر دو بدون retry xcconfig را روی develop push می‌کنند.
 - بیلد release محلی اونر با کش قدیمی خطای MD5 داد؛ `./gradlew :composeApp:clean` حلش کرد.
 - لاگ nginx به stdout لینک است و `tail` روی access.log گیر می‌کند.
+
+## دیپلوی 2026-11-05 ساعت 22:30
+- bundle از `829ced1` تا `6c30d6a`، با dump `pre-deploy-20261105-2230.sql.gz`.
+- rebuild روی `web`، `worker`، `worker_bulk` و `frontend`، بعد `seed_insurance_logos`، بعد `deploy-panel.sh`.
+- ⚠️ **بعد از rebuild وب، nginx را reload کن** (`docker compose exec -T nginx nginx -s reload`). nginx به IP قدیمی کانتینر وصل می‌ماند و همهٔ درخواست‌های API خطای 502 می‌گیرند. این بار حدود یک دقیقه قطعی داشتیم.
+- قبل از push معمولاً CI یک commit «sync iOS version» روی origin گذاشته است. `git rebase --autostash origin/develop` کافی است.

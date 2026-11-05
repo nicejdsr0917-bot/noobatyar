@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05
+updated: 2026-11-05 22:42
 tags: [gf]
 ---
 # اپ صاحب کسب‌وکار (mobile_owner)
@@ -87,3 +87,8 @@ tags: [gf]
 - `feature/createBusiness/BookingCapacityControls.kt`: `SlotCapacityControl` (−/+، ۱ تا ۵۰۰) و `HoldMinutesControl` (اسلایدر ۲ تا ۱۵). endpoint خودشان را صدا می‌زنند و جای فیلد «حداکثر در ساعت» را گرفته‌اند.
 - این endpointها در `ShowcaseApi` با پیاده‌سازی پیش‌فرض هستند (fakeها لازم نیست override کنند). فراخوانی‌ها در `runCatching` هستند؛ بدون آن قطعی شبکه اپ را کرش می‌دهد.
 - صف (`QueueItemCard`): `FirstVisitBadge`. Room v23 = `AppointmentEntity.firstVisitDiscount`.
+
+## آیکن مشکی و تم روشن (2026-11-05 شب)
+- آیکن «نوبت‌یار کارفرما» مشکی است: `brand/apply-to-apps.js` نسخهٔ اونر را از همان SVGها با جایگزینی رنگ‌های بنفش (`OWNER_STOPS`) می‌سازد (اندروید، iOS، پنل وب، `main_icon`). commit `664fdc6` آیکن سرمه‌ای قبلی را با بنفش جایگزین کرده بود.
+- فایل مارکت: `brand/png/noobatyar-owner-store-512.png`.
+- پیش‌فرض تم روشن است، در اندروید، iOS و wasm. wasm قبلاً پیش‌فرض دارک داشت.
