@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -16,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -42,9 +43,11 @@ private val QueueColor = Color(0xFF0B8BD9)
 
 /**
  * Today at a glance, in one card: how many bookings today, how many people
- * are waiting right now, and the four outcomes. It replaces a separate queue
- * banner and a 2×2 grid of differently tinted tiles, which put five colours
- * and three shapes on the first screen.
+ * are waiting right now, and the four outcomes.
+ *
+ * The count and the outcomes sit side by side, with a bar under them showing
+ * how the day's bookings split. Stacked (count over a 2×2 grid) they left
+ * half the card empty beside the number and in every grid cell.
  */
 @Composable
 fun HomeTodayCard(
@@ -60,31 +63,7 @@ fun HomeTodayCard(
             trailing = { QueueChip(count = queueCount, onClick = onQueueClick) },
         )
 
-        Spacer(Modifier.height(14.dp))
-
-        Row(verticalAlignment = Alignment.Bottom) {
-            AnimatedCount(
-                value = stats.totalAppointments,
-                style = MaterialTheme.typography.displaySmall,
-                modifier = Modifier.alignByBaseline(),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = Str.home_today_appointments,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.alignByBaseline(),
-            )
-        }
-
         Spacer(Modifier.height(12.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        )
-        Spacer(Modifier.height(8.dp))
 
         val cells = listOf(
             StatSpec(Str.complete_action, stats.completedAppointments, CompletedColor, "COMPLETED"),
@@ -92,46 +71,96 @@ fun HomeTodayCard(
             StatSpec(Str.status_cancelled, stats.cancelledAppointments, CancelledColor, "CANCELLED"),
             StatSpec(Str.total_clients, stats.totalVisitors, MaterialTheme.colorScheme.primary, null),
         )
-        // Four equal cells in a row, with hairline dividers so the numbers line
-        // up. A narrow card (a phone, or a column of the wide layout) gets two
-        // rows of two, so no label is cut short.
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val rows = if (maxWidth < 380.dp) cells.chunked(2) else listOf(cells)
-            Column {
-                rows.forEach { row ->
-                    StatRow(row, onStatClick)
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(0.4f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onStatClick(null) }
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                AnimatedCount(value = stats.totalAppointments, style = MaterialTheme.typography.displayMedium)
+                Text(
+                    text = Str.home_today_appointments,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+            Box(
+                Modifier
+                    .padding(horizontal = 8.dp)
+                    .width(1.dp)
+                    .fillMaxHeight(0.8f)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            )
+            Column(Modifier.weight(0.6f)) {
+                cells.forEach { cell -> StatLine(cell) { onStatClick(cell.status) } }
             }
         }
+
+        DaySplitBar(stats, Modifier.padding(top = 12.dp))
     }
 }
 
 private data class StatSpec(val label: String, val value: Int, val accent: Color, val status: String?)
 
+/** Dot, label, and the number at the far end: one row per outcome. */
 @Composable
-private fun StatRow(cells: List<StatSpec>, onStatClick: (String?) -> Unit) {
+private fun StatLine(cell: StatSpec, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min),
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        cells.forEachIndexed { i, cell ->
-            if (i > 0) {
-                Box(
-                    Modifier
-                        .width(1.dp)
-                        .fillMaxHeight(0.6f)
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                )
-            }
-            StatCell(
-                label = cell.label,
-                value = cell.value,
-                accent = cell.accent,
-                onClick = { onStatClick(cell.status) },
-                modifier = Modifier.weight(1f),
-            )
+        Box(Modifier.size(7.dp).clip(CircleShape).background(cell.accent))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = cell.label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        AnimatedCount(value = cell.value, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+/**
+ * Today's bookings as one bar: done, no-show, cancelled, and what is still to
+ * come. Hidden on a day with no bookings, where it would be an empty track.
+ */
+@Composable
+private fun DaySplitBar(stats: DashboardStats, modifier: Modifier = Modifier) {
+    val total = stats.totalAppointments
+    if (total <= 0) return
+    val done = stats.completedAppointments
+    val noShow = stats.noShowAppointments
+    val cancelled = stats.cancelledAppointments
+    val ahead = (total - done - noShow - cancelled).coerceAtLeast(0)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(6.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        listOf(
+            done to CompletedColor,
+            noShow to NoShowColor,
+            cancelled to CancelledColor,
+            ahead to MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+        ).filter { it.first > 0 }.forEach { (count, color) ->
+            Box(Modifier.weight(count.toFloat()).fillMaxHeight().background(color))
         }
     }
 }

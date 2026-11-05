@@ -36,6 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,18 +52,18 @@ import xyz.sattar.javid.proqueue.domain.model.business.Business
  *
  * Home held six stacked sections and the two things an owner reaches for most
  * — opening the calendar and sending the booking link — were the fifth item
- * down and a tap into another tab. Both now live here, above everything, and
- * the section stays on screen while the rest scrolls under it.
+ * down and a tap into another tab. Both now live here, above everything.
  *
- * Collapsing (rather than a fixed bar) is what keeps that from costing
- * permanent vertical space: at rest it shows the date and two
- * full-width actions; scrolled, it folds down to a single compact row with the
- * same two actions as icon buttons. Driven by [collapseFraction] — a 0..1
- * value the caller derives from list scroll — so there is one source of truth
- * for the animation and no second scroll listener.
+ * Scrolled, the whole head (date and the two full-width actions) folds away
+ * and the same two actions appear as icons in the top bar instead
+ * ([HomeTopBarActions]). An earlier version folded to a second row of small
+ * icons under the top bar's own: two rows of round buttons, one of them a
+ * duplicate calendar, and none of the space saved. Driven by
+ * [collapseFraction] — a 0..1 value the caller derives from list scroll — so
+ * there is one source of truth for the animation and no second scroll listener.
  */
-/** How far the hero folds: the height of its expanded action row. */
-val HomeHeroCollapseRange = 64.dp
+/** How far the hero folds: all of it, the date row and the action row. */
+val HomeHeroCollapseRange = 108.dp
 
 @Composable
 fun HomeHero(
@@ -72,80 +75,73 @@ fun HomeHero(
 ) {
     val expanded = 1f - collapseFraction.coerceIn(0f, 1f)
     val formattedDate = remember { DateTimeUtils.formatDate(DateTimeUtils.systemCurrentMilliseconds()) }
+    // Dropped from composition once folded rather than left at zero height.
+    if (expanded <= 0.01f) return
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(HomeHeroCollapseRange * expanded)
+            .clipToBounds(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Column(
+            modifier = Modifier
+                .wrapContentHeight(Alignment.Bottom, unbounded = true)
+                .alpha(expanded)
+                .padding(horizontal = 16.dp)
+        ) {
+            Text(
+                text = Str.today(formattedDate).toPersianDigits(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.height(40.dp).wrapContentHeight(Alignment.CenterVertically),
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = Str.today(formattedDate).toPersianDigits(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // The collapsed affordances: they fade in exactly as the
-                    // full-width buttons below fade out, so the actions are
-                    // never unavailable mid-scroll.
-                    if (collapseFraction > 0.05f) {
-                        Row(
-                            modifier = Modifier.alpha(collapseFraction),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            CompactAction(
-                                icon = Icons.Rounded.CalendarMonth,
-                                onClick = onOpenCalendar,
-                            )
-                            CompactAction(
-                                icon = Icons.Rounded.Share,
-                                onClick = onOpenShare,
-                                highlighted = true,
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Expanded actions. Height is animated to 0 so the collapse is a
-            // fold rather than a pop, and the row is dropped from composition
-            // once invisible instead of being left behind at zero height.
-            if (expanded > 0.02f) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(HomeHeroCollapseRange * expanded)
-                        .alpha(expanded)
-                        .padding(bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    HeroAction(
-                        icon = Icons.Rounded.CalendarMonth,
-                        label = Str.calendar_booking,
-                        primary = false,
-                        onClick = onOpenCalendar,
-                        modifier = Modifier.weight(1f),
-                    )
-                    HeroAction(
-                        icon = Icons.Rounded.Share,
-                        label = Str.share_booking_link,
-                        primary = true,
-                        onClick = onOpenShare,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                HeroAction(
+                    icon = Icons.Rounded.CalendarMonth,
+                    label = Str.calendar_booking,
+                    primary = false,
+                    onClick = onOpenCalendar,
+                    modifier = Modifier.weight(1f),
+                )
+                HeroAction(
+                    icon = Icons.Rounded.Share,
+                    label = Str.share_booking_link,
+                    primary = true,
+                    onClick = onOpenShare,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
+    }
+}
+
+/**
+ * The hero's two actions as top-bar icons. They grow in as the hero folds, so
+ * neither action is ever off screen and the bar holds no duplicate while the
+ * full-width buttons are showing.
+ */
+@Composable
+fun HomeTopBarActions(collapseFraction: Float, onOpenCalendar: () -> Unit, onOpenShare: () -> Unit) {
+    val shown = collapseFraction.coerceIn(0f, 1f)
+    if (shown <= 0.01f) return
+    Row(
+        modifier = Modifier.graphicsLayer {
+            alpha = shown
+            scaleX = 0.7f + 0.3f * shown
+            scaleY = 0.7f + 0.3f * shown
+        },
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        CompactAction(icon = Icons.Rounded.CalendarMonth, onClick = onOpenCalendar)
+        CompactAction(icon = Icons.Rounded.Share, onClick = onOpenShare, highlighted = true)
     }
 }
 
@@ -157,7 +153,7 @@ private fun CompactAction(
 ) {
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .size(36.dp)
             .clip(CircleShape)
             .background(
                 if (highlighted) MaterialTheme.colorScheme.primary
@@ -171,7 +167,7 @@ private fun CompactAction(
             contentDescription = null,
             tint = if (highlighted) Color.White
             else MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.size(17.dp),
+            modifier = Modifier.size(18.dp),
         )
     }
 }

@@ -108,6 +108,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Velocity
 import kotlinx.coroutines.flow.Flow
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
@@ -238,6 +239,15 @@ fun HomeScreenContent(
                 collapsedPx = next
                 return Offset(0f, given)
             }
+
+            // Never left half folded: a stub of the buttons under the bar reads as a bug.
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                val target = if (collapsedPx > collapseRangePx / 2f) collapseRangePx else 0f
+                if (collapsedPx != target) {
+                    androidx.compose.animation.core.animate(collapsedPx, target) { value, _ -> collapsedPx = value }
+                }
+                return Velocity.Zero
+            }
         }
     }
 
@@ -259,21 +269,9 @@ fun HomeScreenContent(
                 onChangeBusiness = onChangeBusiness,
                 onNavigateToWallet = onNavigateToWallet,
                 actions = {
-                    Box(
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .clickable { onNavigateToCalendar() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Event,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            contentDescription = "Calendar",
-                            modifier = Modifier.size(18.dp)
-                        )
+                    // Calendar and booking link move up here once the hero folds.
+                    Box(Modifier.padding(end = 8.dp)) {
+                        HomeTopBarActions(collapseFraction, onNavigateToCalendar, onNavigateToShare)
                     }
                 }
             )
