@@ -138,8 +138,19 @@ class ReviewReadTests(ReviewBase):
         self.assertEqual(data['count'], 1)
         row = data['results'][0]
         self.assertEqual(row['visitor_name'], 'علی')
-        self.assertEqual(row['visitor_phone'], '0912***4567')
-        self.assertNotIn('1234567', str(row))
+        # Nothing a stranger could contact the reviewer with, not even masked.
+        self.assertEqual(row['visitor_phone'], '')
+        self.assertNotIn('0912', str(row))
+        self.assertNotIn('4567', str(row))
+        self.assertIsNone(row['visitor_avatar'])
+
+    def test_public_list_shows_the_reviewers_photo(self):
+        from django.core.files.base import ContentFile
+        self.v1.avatar.save('a.jpg', ContentFile(b'x'), save=True)
+        Review.objects.create(business=self.biz, visitor=self.v1, rating=5, text='a')
+        row = self.client.get(reverse('review-public-list', args=[self.biz.id])).json()['data']['results'][0]
+        self.assertTrue(row['visitor_avatar'].startswith('http://testserver/'))
+        self.assertIn('visitor_avatars/', row['visitor_avatar'])
 
     def test_public_list_newest_first_and_isolation(self):
         Review.objects.create(business=self.biz, visitor=self.v1, rating=5, text='old')
@@ -173,6 +184,8 @@ class ReviewReadTests(ReviewBase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()['data']['count'], 1)
         self.assertTrue(r.json()['data']['results'][0]['is_hidden'])
+        # The owner keeps the masked number they always saw.
+        self.assertEqual(r.json()['data']['results'][0]['visitor_phone'], '0912***4567')
         self.assertEqual(api.get(url, {'business_id': self.other_biz.id}).status_code, 404)
         self.assertEqual(api.post(url).status_code, 405)
 

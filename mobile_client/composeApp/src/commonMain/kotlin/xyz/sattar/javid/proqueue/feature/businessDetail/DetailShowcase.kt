@@ -402,12 +402,21 @@ private fun ReviewRow(review: ReviewDto, isMine: Boolean, modifier: Modifier, on
                 .background(if (isMine) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                name.trim().take(1),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (review.visitorAvatar != null) {
+                coil3.compose.AsyncImage(
+                    model = review.visitorAvatar,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.size(36.dp),
+                )
+            } else {
+                Text(
+                    name.trim().take(1),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Spacer(Modifier.width(Space.md))
         Column(Modifier.weight(1f)) {

@@ -1,6 +1,7 @@
 package xyz.sattar.javid.proqueue.data.remoteDataSource.business
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -17,6 +18,7 @@ import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.ContentReportRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.InsuranceDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.FollowResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.RequestBookingResponseDto
 
 class KtorClientBusinessApi(
@@ -96,6 +98,20 @@ class KtorClientBusinessApi(
             contentType(ContentType.Application.Json)
             // One vote per install: the server de-duplicates on a hash of this.
             header("X-Device-Id", deviceId())
+        }.toApiResponse()
+    }
+
+    override suspend fun setFollowing(token: String, businessId: Long, follow: Boolean): ApiResponse<FollowResponseDto> = safeApiCall {
+        val url = "client/businesses/$businessId/follow/"
+        (if (follow) httpClient.post(url) { header(HttpHeaders.Authorization, "Visitor $token") }
+         else httpClient.delete(url) { header(HttpHeaders.Authorization, "Visitor $token") }).toApiResponse()
+    }
+
+    override suspend fun getFollowing(token: String, page: Int, pageSize: Int): ApiResponse<PaginatedResponseDto<BusinessDto>> = safeApiCall {
+        httpClient.get("client/businesses/following/") {
+            header(HttpHeaders.Authorization, "Visitor $token")
+            parameter("page", page)
+            parameter("page_size", pageSize)
         }.toApiResponse()
     }
 

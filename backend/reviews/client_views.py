@@ -47,7 +47,7 @@ class BusinessReviewListView(APIView):
                 return None
             return page_dict(
                 selectors.public_reviews(business_id), page, page_size,
-                lambda rows: PublicReviewSerializer(rows, many=True).data,
+                lambda rows: PublicReviewSerializer(rows, many=True, context={'request': request}).data,
             )
 
         data = await sync_to_async(_load)()

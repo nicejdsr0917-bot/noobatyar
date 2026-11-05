@@ -16,6 +16,8 @@ data class BusinessEntity(
     val extraPhones: String = "",
     /** [SocialLinks.encode]d JSON object. */
     val socialLinks: String = "",
+    /** Customers following the page (count only; never who). */
+    val followersCount: Int = 0,
     val address: String,
     val latitude: Double? = null,
     val longitude: Double? = null,

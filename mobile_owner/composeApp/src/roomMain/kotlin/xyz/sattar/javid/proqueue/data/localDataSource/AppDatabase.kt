@@ -48,7 +48,8 @@ internal const val dbFileName = "proQueue.db"
     // 19: BusinessEntity.latitude/longitude (the business's map pin).
     // 20: AppointmentEntity.source (where the booking came from).
     // 21: BusinessEntity.socialLinks (Instagram, Telegram, … handles).
-    version = 21
+    // 22: BusinessEntity.followersCount (customers following the page).
+    version = 22
 )
 @ConstructedBy(DbFactory::class)
 abstract class AppDatabase : RoomDatabase() {

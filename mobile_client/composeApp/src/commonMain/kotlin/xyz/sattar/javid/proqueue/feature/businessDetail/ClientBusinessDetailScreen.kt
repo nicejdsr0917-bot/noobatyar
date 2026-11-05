@@ -158,6 +158,7 @@ fun ClientBusinessDetailScreen(
                 onReportReview = { reportingReview = it.id },
                 onBack = onNavigateBack,
                 onToggleSave = viewModel::toggleSaved,
+                onToggleFollow = { viewModel.toggleFollow(onSignIn) },
                 onRequestBooking = viewModel::requestOnlineBooking,
                 onReport = { showReport = true },
                 onBook = {
@@ -227,6 +228,7 @@ internal fun DetailContent(
     onReportReview: (ReviewDto) -> Unit,
     onBack: () -> Unit,
     onToggleSave: () -> Unit,
+    onToggleFollow: () -> Unit = {},
     onRequestBooking: () -> Unit,
     onReport: () -> Unit,
     onBook: () -> Unit,
@@ -273,6 +275,8 @@ internal fun DetailContent(
                 StatsRow(business, social.summary)
                 Column(Modifier.offset(y = (-16).dp), verticalArrangement = Arrangement.spacedBy(Space.md)) {
                     var card = 0
+
+                    FollowRow(state.followersCount, state.isFollowing, state.followBusy, onToggleFollow)
 
                     if (state.days.isNotEmpty()) {
                         QuickPickSection(state, card++, onSelectDay, onSelectSlot)

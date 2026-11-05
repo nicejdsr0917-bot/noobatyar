@@ -146,6 +146,8 @@ class Business(models.Model):
     # public list. 0 until the first run.
     rank_score = models.FloatField(default=0, db_index=True, verbose_name='امتیاز رتبه‌بندی')
     rank_updated_at = models.DateTimeField(null=True, blank=True, verbose_name='زمان محاسبه رتبه')
+    # Kept in step by business/follows.py (F() updates), so lists never count rows.
+    followers_count = models.PositiveIntegerField(default=0, verbose_name='تعداد دنبال‌کننده‌ها')
     online_booking_requests_count = models.PositiveIntegerField(default=0, help_text="Number of client requests to enable online booking for an unclaimed business")
     insurances = models.ManyToManyField('Insurance', blank=True, related_name='businesses', help_text="Supported basic and supplementary insurances")
     # TextField, not CharField, because this cap has now moved twice (50 → 300

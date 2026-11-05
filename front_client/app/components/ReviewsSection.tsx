@@ -165,6 +165,12 @@ export default function ReviewsSection({ businessId, summary: initialSummary, in
         {reviews.map((r) => (
           <li key={r.id} className="review-item" data-testid="review-item">
             <div className="review-head">
+              {r.visitor_avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element -- remote media, sized by CSS
+                <img className="review-avatar" src={r.visitor_avatar} alt="" loading="lazy" />
+              ) : (
+                <span className="review-avatar empty" aria-hidden="true">{r.visitor_name?.trim().charAt(0)}</span>
+              )}
               <strong>{r.visitor_name}</strong>
               <Stars value={r.rating} />
               <time dateTime={r.created_at}>{new Date(r.created_at).toLocaleDateString('fa-IR')}</time>

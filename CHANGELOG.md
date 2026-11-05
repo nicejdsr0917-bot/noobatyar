@@ -10,6 +10,36 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## client-v1.3.0 — منتشر نشده (اپ مشتری)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- صفحه‌ی پروفایل از نو طراحی شد: ساده‌تر و مرتب‌تر، با نام و «درباره من» در بالا.
+- عکس پروفایل را قبل از ذخیره برش بزنید و جابه‌جا کنید.
+- «درباره من»: تا ۱۵۰ حرف درباره خودتان بنویسید؛ فقط خودتان می‌بینید.
+- صفحه‌ی مرکزها را دنبال کنید و فهرست «دنبال‌شده‌ها» را در پروفایل ببینید.
+- عکس پروفایل افراد کنار نظرهایشان دیده می‌شود.
+- شماره‌ی تلفن هیچ مشتری دیگر در نظرها نشان داده نمی‌شود.
+<!-- fa:end -->
+
+### mobile_client
+- Profile tab redesign: neutral surfaces with hairline borders, single-colour icons, name + bio header, one stats strip (bookings / following / saved), «فعالیت من» group with the new following list.
+- `ImageCropperDialog` (ported from the owner app, with `cropImageToSquare` actuals for Android and iOS) before the avatar upload.
+- Bio field with a live `n / 150` counter (cut at 150 on paste); `ProfileApi.update` saves name and bio together.
+- Follow / unfollow on the business page (`FollowRow`, optimistic, guest is sent to sign in), `FollowingScreen` (`AppScreens.Following`).
+- Reviewer photo in review rows; version check sends `app: "CLIENT"`.
+
+### backend
+- `BusinessFollow` + `Business.followers_count` (business/0037), `Visitor.bio` (visitor/0015), follow endpoints and `following/` list, `is_following` on the client detail for a signed-in visitor.
+- Public reviews: `visitor_avatar` added, `visitor_phone` always empty (owner list keeps the masked number).
+- Version check: old client builds (no `app`) are recognised by their client-only version codes; versions/0004 seeds the client's released versions.
+
+### front_client
+- Follower count and follow button on the business page; reviewer photo (or initial) in reviews.
+
+### mobile_owner
+- Settings business card shows the follower count (Room v22).
+
 ## v1.12.0 — 2026-11-04 (اپ اونر)
 
 <!-- fa:start -->

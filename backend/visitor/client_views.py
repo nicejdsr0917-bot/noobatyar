@@ -41,17 +41,19 @@ class ClientMeView(APIView):
         )
 
     async def patch(self, request):
-        """Rename: the only thing a visitor edits about themselves here."""
+        """Rename and/or set the bio (up to 150 characters)."""
         serializer = ClientMeUpdateSerializer(data=request.data)
         if not serializer.is_valid():
             first = next(iter(serializer.errors.values()))[0]
             return APIResponse.error(str(first), data=serializer.errors)
         visitor = request.user
-        visitor.full_name = serializer.validated_data['full_name']
-        await sync_to_async(visitor.save)(update_fields=['full_name', 'updated_at'])
+        changed = [field for field in ('full_name', 'bio') if field in serializer.validated_data]
+        for field in changed:
+            setattr(visitor, field, serializer.validated_data[field])
+        await sync_to_async(visitor.save)(update_fields=changed + ['updated_at'])
         return APIResponse.success(
             data=ClientMeSerializer(visitor, context={'request': request}).data,
-            message="نام شما ذخیره شد",
+            message="نام شما ذخیره شد" if changed == ['full_name'] else "پروفایل شما ذخیره شد",
         )
 
 

@@ -29,7 +29,7 @@ class OwnerReviewListView(APIView):
                 return None
             data = page_dict(
                 selectors.owner_reviews(business_id), page, page_size,
-                lambda rows: OwnerReviewSerializer(rows, many=True).data,
+                lambda rows: OwnerReviewSerializer(rows, many=True, context={'request': request}).data,
             )
             data['summary'] = selectors.rating_summary(business)
             return data

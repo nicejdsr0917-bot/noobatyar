@@ -73,10 +73,11 @@ val appModule: Module = module {
     viewModel { PromoViewModel(get()) }
     viewModel { BusinessSocialViewModel(get(), get()) }
     viewModel { SavedViewModel(get(), get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.following.FollowingViewModel(get(), get()) }
     viewModel { BookingViewModel(get(), get(), get()) }
     viewModel { LoginViewModel(get(), get()) }
     viewModel { MyInsuranceViewModel(get(), get()) }
-    viewModel { ProfileViewModel(get(), get(), get()) }
+    viewModel { ProfileViewModel(get(), get(), get(), businessRepository = get()) }
     viewModel { MyAppointmentsViewModel(get(), get()) }
     viewModel { AppointmentDetailViewModel(get(), get()) }
 }

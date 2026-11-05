@@ -400,6 +400,7 @@
     <string name="pay_in_myket">Pay in Myket</string>
     <string name="go_to_payment_gateway">Go to payment gateway</string>
     <string name="toman">%1$s toman</string>
+    <string name="followers_count">%1$s followers</string>
     <string name="manage_business">Manage business</string>
     <string name="switch_to_another_business_from">Switch to another business from the list</string>
     <string name="name_logo_opening_hours_and">Name, logo, opening hours and services</string>

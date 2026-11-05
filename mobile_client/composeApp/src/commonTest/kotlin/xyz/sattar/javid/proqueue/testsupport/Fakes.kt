@@ -16,6 +16,7 @@ import xyz.sattar.javid.proqueue.core.prefs.withRecentCity
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.ClientBusinessApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.InsuranceDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.FollowResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.RequestBookingResponseDto
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 
@@ -105,6 +106,16 @@ class FakeBusinessRepository : BusinessRepository {
 
     override suspend fun getInsurances(): ApiResponse<List<InsuranceDto>> = ApiResponse.Success(emptyList())
     override suspend fun requestOnlineBooking(businessId: Long) = bookingResponse
+
+    var followResponse: (Long, Boolean) -> ApiResponse<FollowResponseDto> = { id, f -> ApiResponse.Success(FollowResponseDto(id, f, if (f) 1 else 0)) }
+    val followCalls = mutableListOf<Pair<Long, Boolean>>()
+    override suspend fun setFollowing(token: String, businessId: Long, follow: Boolean): ApiResponse<FollowResponseDto> {
+        followCalls += businessId to follow
+        return followResponse(businessId, follow)
+    }
+    var followingList: List<BusinessDto> = emptyList()
+    override suspend fun getFollowing(token: String, page: Int): ApiResponse<PaginatedResponseDto<BusinessDto>> =
+        ApiResponse.Success(PaginatedResponseDto(count = followingList.size, results = followingList))
     override suspend fun reportBusiness(businessId: Long, reason: String, detail: String): ApiResponse<Unit> {
         reports += Triple(businessId, reason, detail)
         reportGate?.await()
@@ -133,4 +144,16 @@ class FakeClientBusinessApi : ClientBusinessApi {
     override suspend fun requestOnlineBooking(businessId: Long) = ApiResponse.Success(RequestBookingResponseDto(businessId, 1))
     override suspend fun reportBusiness(businessId: Long, reason: String, detail: String): ApiResponse<Unit> =
         ApiResponse.Success(Unit)
+
+    val followCalls = mutableListOf<Pair<Long, Boolean>>()
+    var followers = 0
+    override suspend fun setFollowing(token: String, businessId: Long, follow: Boolean): ApiResponse<FollowResponseDto> {
+        followCalls += businessId to follow
+        followers += if (follow) 1 else -1
+        return ApiResponse.Success(FollowResponseDto(businessId, follow, followers))
+    }
+
+    var following: List<BusinessDto> = emptyList()
+    override suspend fun getFollowing(token: String, page: Int, pageSize: Int): ApiResponse<PaginatedResponseDto<BusinessDto>> =
+        ApiResponse.Success(PaginatedResponseDto(count = following.size, results = following))
 }

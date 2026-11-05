@@ -129,6 +129,7 @@ fun MainNavHost() {
                         onSignIn = signIn,
                         onOpenAppointments = { selectTab(MainTab.Appointments) },
                         onOpenSaved = { selectTab(MainTab.Saved) },
+                        onOpenFollowing = { navController.navigate(AppScreens.Following) },
                     )
                 }
                 composable<AppScreens.ClientBusinessDetail> { entry ->
@@ -201,6 +202,12 @@ fun MainNavHost() {
                         onNavigateBack = { navController.popBackStack() },
                         onOpenBusiness = openDetail,
                         onCompletePayment = { businessId, id -> navController.navigate(AppScreens.Booking(businessId, id)) },
+                    )
+                }
+                composable<AppScreens.Following> {
+                    xyz.sattar.javid.proqueue.feature.following.FollowingScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onOpenBusiness = openDetail,
                     )
                 }
                 composable<AppScreens.AboutUs> {

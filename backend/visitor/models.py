@@ -39,6 +39,8 @@ class Visitor(models.Model):
     # Only the visitor sees it (it is not in VisitorSerializer, which owners
     # read), so it needs no moderation queue.
     avatar = models.ImageField(upload_to='visitor_avatars/', null=True, blank=True, verbose_name='عکس پروفایل')
+    # Shown only to the visitor themself (their profile tab), never publicly.
+    bio = models.CharField(max_length=150, blank=True, default='', verbose_name='درباره من')
     # Last successful client-app OTP login/registration; proof the person uses
     # this row themselves, so an owner may no longer re-number it.
     last_client_login_at = models.DateTimeField(null=True, blank=True, editable=False)

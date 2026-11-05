@@ -27,15 +27,24 @@ data class MeDto(
     @SerialName("phone_number") val phoneNumber: String = "",
     /** Absolute URL of the 512 px square photo, or null. */
     val avatar: String? = null,
+    /** Up to [BIO_MAX_LENGTH] characters; only ever shown to the visitor themself. */
+    val bio: String = "",
 )
 
+/** Same limit as the server (visitor.serializers.BIO_MAX_LENGTH). */
+const val BIO_MAX_LENGTH = 150
+
 @Serializable
-private data class RenameDto(@SerialName("full_name") val fullName: String)
+private data class UpdateMeDto(
+    @SerialName("full_name") val fullName: String,
+    @SerialName("bio") val bio: String,
+)
 
 /** Read and edit the visitor's own name and photo. Every call needs the visitor token. */
 interface ProfileApi {
     suspend fun me(token: String): ApiResponse<MeDto>
-    suspend fun rename(token: String, fullName: String): ApiResponse<MeDto>
+    /** Saves the name and the bio together. */
+    suspend fun update(token: String, fullName: String, bio: String): ApiResponse<MeDto>
     /** A JPEG; the server centre-crops it square and scales it to 512 px. */
     suspend fun uploadAvatar(token: String, jpeg: ByteArray): ApiResponse<MeDto>
     suspend fun deleteAvatar(token: String): ApiResponse<MeDto>
@@ -49,11 +58,11 @@ class KtorProfileApi(private val httpClient: HttpClient) : ProfileApi {
         httpClient.get("client/auth/me/") { visitor(token) }.toApiResponse()
     }
 
-    override suspend fun rename(token: String, fullName: String): ApiResponse<MeDto> = safeApiCall {
+    override suspend fun update(token: String, fullName: String, bio: String): ApiResponse<MeDto> = safeApiCall {
         httpClient.patch("client/auth/me/") {
             visitor(token)
             contentType(ContentType.Application.Json)
-            setBody(RenameDto(fullName))
+            setBody(UpdateMeDto(fullName, bio))
         }.toApiResponse()
     }
 

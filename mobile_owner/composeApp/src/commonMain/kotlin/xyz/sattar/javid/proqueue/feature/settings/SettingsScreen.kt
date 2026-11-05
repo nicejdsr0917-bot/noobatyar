@@ -1,6 +1,7 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
 import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.core.i18n.AppLanguage
 import xyz.sattar.javid.proqueue.core.i18n.AppLocale
 import androidx.compose.foundation.BorderStroke
@@ -899,6 +900,14 @@ private fun ProfileHeaderCard(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                     maxLines = 2
+                                )
+                                // Customers who follow the page in the client
+                                // app / website. A count only: who follows is
+                                // never sent to the owner.
+                                Text(
+                                    text = Str.followers_count(business.followersCount.toString().toPersianDigits()),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White.copy(alpha = 0.8f)
                                 )
                             }
 

@@ -88,6 +88,9 @@ data class BusinessDto(
     @SerialName("is_claimed") val isClaimed: Boolean = true,
     @SerialName("distance_km") val distanceKm: Double? = null,
     @SerialName("online_booking_requests_count") val onlineBookingRequestsCount: Int = 0,
+    @SerialName("followers_count") val followersCount: Int = 0,
+    // Only on the detail and following-list responses to a signed-in visitor.
+    @SerialName("is_following") val isFollowing: Boolean? = null,
     @SerialName("insurances") val insurances: List<InsuranceDto> = emptyList(),
     // Start (epoch ms) of the earliest bookable slot in the next 7 days; null
     // when none or not bookable. Older servers omit it.

@@ -4,6 +4,17 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Navigation
 import com.composables.icons.lucide.Phone
 import com.composables.icons.lucide.Share2
+import com.composables.icons.lucide.UserCheck
+import com.composables.icons.lucide.UserPlus
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.getValue
+import xyz.sattar.javid.proqueue.feature.booking.pressScale
+import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -152,6 +163,58 @@ internal fun Tags(items: List<String>) {
                     .background(MaterialTheme.colorScheme.surfaceVariant, Radius.sm)
                     .padding(horizontal = Space.md, vertical = 6.dp)
             )
+        }
+    }
+}
+
+/**
+ * Followers and the follow button, under the stats card. The count is public;
+ * who follows is never shown to anyone.
+ */
+@Composable
+internal fun FollowRow(count: Int, following: Boolean, busy: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = Space.page),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                count.toPersianDigits(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "دنبال‌کننده",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        val interaction = remember { MutableInteractionSource() }
+        val container by animateColorAsState(
+            if (following) Color.Transparent else MaterialTheme.colorScheme.primary,
+            label = "followBg",
+        )
+        val content by animateColorAsState(
+            if (following) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
+            label = "followFg",
+        )
+        Button(
+            onClick = onToggle,
+            enabled = !busy,
+            interactionSource = interaction,
+            shape = Radius.md,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = container, contentColor = content,
+                disabledContainerColor = container, disabledContentColor = content,
+            ),
+            // Following: a quiet outlined pill, so the call to action is the unfollowed state.
+            border = if (following) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+            contentPadding = PaddingValues(horizontal = Space.lg),
+            modifier = Modifier.height(40.dp).pressScale(interaction),
+        ) {
+            Icon(if (following) Lucide.UserCheck else Lucide.UserPlus, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (following) "دنبال می‌کنید" else "دنبال کردن", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         }
     }
 }

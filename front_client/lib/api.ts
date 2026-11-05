@@ -33,6 +33,10 @@ export interface Business {
    *  09… number for whatsapp, an https URL for website. Withheld (sent as
    *  {}) whenever the phone is. Absent on an older server. */
   social_links?: Partial<Record<SocialKind, string>>;
+  /** Public count; who follows is never sent. */
+  followers_count?: number;
+  /** Only when the request carried the visitor's token. */
+  is_following?: boolean;
   address: string | null;
   /** The owner's map pin. Null when none is set, and — like `address` —
    *  masked to null for a guest when allow_anonymous_view is off. Absent on
@@ -650,7 +654,10 @@ export interface Review {
   text: string;
   created_at: string;
   visitor_name: string;
+  /** Always empty: kept only for old builds. Contact details are never public. */
   visitor_phone: string;
+  /** The reviewer's profile photo, absolute URL, or null. */
+  visitor_avatar?: string | null;
 }
 export interface MyReview {
   id: number;
@@ -731,5 +738,24 @@ export async function reportReview(
     method: 'POST',
     headers: token ? visitorAuth(token) : {},
     body: JSON.stringify({ reason, detail }),
+  });
+}
+
+// ── Following business pages ────────────────────────────────────────────────
+export interface FollowState {
+  is_following: boolean;
+  followers_count: number;
+}
+
+/** This visitor's follow state and the fresh count, read from the detail endpoint. */
+export async function getFollowState(businessId: number, token: string): Promise<FollowState> {
+  const b = await apiFetch<Business>(`/api/client/business/${businessId}/`, { headers: visitorAuth(token) });
+  return { is_following: Boolean(b.is_following), followers_count: b.followers_count ?? 0 };
+}
+
+export async function setFollowing(businessId: number, follow: boolean, token: string): Promise<FollowState> {
+  return apiFetch<FollowState>(`/api/client/business/${businessId}/follow/`, {
+    method: follow ? 'POST' : 'DELETE',
+    headers: visitorAuth(token),
   });
 }

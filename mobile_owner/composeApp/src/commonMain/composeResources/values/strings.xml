@@ -449,6 +449,7 @@
     <string name="pay_in_myket">پرداخت در مایکت</string>
     <string name="go_to_payment_gateway">رفتن به درگاه پرداخت</string>
     <string name="toman">%1$s تومان</string>
+    <string name="followers_count">%1$s دنبال‌کننده</string>
     <string name="manage_business">مدیریت کسب‌وکار</string>
     <string name="switch_to_another_business_from">رفتن به کسب‌وکار دیگری از لیست</string>
     <string name="name_logo_opening_hours_and">نام، لوگو، ساعت کاری و خدمات</string>

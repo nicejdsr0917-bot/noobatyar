@@ -4,6 +4,7 @@ import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.network.PaginatedResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.InsuranceDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.FollowResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.RequestBookingResponseDto
 
 /**
@@ -38,4 +39,10 @@ interface ClientBusinessApi {
     suspend fun requestOnlineBooking(businessId: Long): ApiResponse<RequestBookingResponseDto>
 
     suspend fun reportBusiness(businessId: Long, reason: String, detail: String): ApiResponse<Unit>
+
+    /** Follow or unfollow; needs a signed-in visitor. */
+    suspend fun setFollowing(token: String, businessId: Long, follow: Boolean): ApiResponse<FollowResponseDto>
+
+    /** The businesses the visitor follows, newest first. */
+    suspend fun getFollowing(token: String, page: Int = 1, pageSize: Int = 30): ApiResponse<PaginatedResponseDto<BusinessDto>>
 }

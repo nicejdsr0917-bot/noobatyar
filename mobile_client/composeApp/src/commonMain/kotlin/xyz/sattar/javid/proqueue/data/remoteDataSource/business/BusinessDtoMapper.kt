@@ -76,6 +76,8 @@ fun BusinessDto.toDomain(): Business {
         isClaimed = isClaimed,
         distanceKm = distanceKm,
         onlineBookingRequestsCount = onlineBookingRequestsCount,
+        followersCount = followersCount,
+        isFollowing = isFollowing,
         insurances = insurances.map { it.toDomain() },
         firstFreeSlot = firstFreeSlot
     )

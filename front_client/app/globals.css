@@ -2122,3 +2122,22 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
   .social-tile { animation: none; opacity: 1; transition: none; }
   .social-logo { transition: none; }
 }
+
+/* ── Follow a business page ─────────────────────────────────────────────── */
+.follow-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 14px; }
+.follow-count { font-size: 13px; font-weight: 600; color: #fff; opacity: .9; }
+.follow-btn {
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  padding: 7px 18px; border-radius: 999px; border: 1px solid #fff;
+  background: #fff; color: var(--hero-color, #7c3aed);
+  transition: background .15s ease, color .15s ease;
+}
+.follow-btn.on { background: transparent; color: #fff; border-color: rgba(255,255,255,.7); }
+.follow-btn:disabled { opacity: .7; cursor: default; }
+
+/* Reviewer photo (or first letter) beside the name; never any contact detail. */
+.review-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: none; }
+.review-avatar.empty {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(128,128,128,.18); font-weight: 700; font-size: 12px;
+}

@@ -34,10 +34,12 @@ Write requests (POST/PUT/DELETE on `mine`) are throttled per visitor (20/hour) -
 Create/edit body: `{"rating": 5, "text": "عالی بود"}`.
 Own review: `{"id":7,"business_id":3,"rating":5,"text":"...","created_at":"...","updated_at":"..."}`.
 
-Public list row (name is first name only, phone masked):
+Public list row (first name and profile photo only; never any contact detail):
 ```json
-{"id":7,"rating":5,"text":"عالی بود","created_at":"2026-10-30T09:00:00Z","visitor_name":"علی","visitor_phone":"0912***4567"}
+{"id":7,"rating":5,"text":"عالی بود","created_at":"2026-10-30T09:00:00Z","visitor_name":"علی","visitor_phone":"","visitor_avatar":"https://api.noobatyar.ir/media/visitor_avatars/v7.jpg"}
 ```
+`visitor_phone` is always `""` (kept only for older app builds; it used to carry a masked number). `visitor_avatar` is an absolute URL or `null`.
+The owner list (`/api/reviews/owner/`) keeps the masked number the owner always saw.
 Owner list rows add `"is_hidden": false`; `data` also has `"summary"`.
 
 Summary (also returned as the new `rating` key in public business **list rows and detail** — `/api/client/business(es)/` and `/<id>/`):
@@ -80,3 +82,28 @@ Public business **list rows and detail** (`/api/client/business(es)/`, `/<id>/`)
 days, using the same grid/occupancy rules as `available-slots`. `null` when the business is not
 claimed, has booking off, or has nothing free. Added on top of the cached payload with its own 30 s
 cache per business, dropped whenever one of its appointments changes. Old clients ignore it.
+
+
+## 7. Following business pages
+
+Any signed-in customer may follow any number of businesses. Who follows a business is never returned to anyone, the owner included; only the count is public.
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/api/client/businesses/<business_id>/follow/` | Visitor | follow; idempotent; 404 for a business the public cannot see |
+| DELETE | `/api/client/businesses/<business_id>/follow/` | Visitor | unfollow; idempotent |
+| GET | `/api/client/businesses/following/` | Visitor | businesses the visitor follows, newest first, paginated (public business rows, each with `"is_following": true`) |
+
+Follow/unfollow response: `{"id":3,"is_following":true,"followers_count":12}`.
+
+Business payloads (public list/detail, client list/detail, owner `/api/business/…`) gain `followers_count` (int). The client detail adds `is_following` (bool) only when the request carries a visitor token; it is never in the shared cached copy.
+
+## 8. Customer bio
+
+- **GET /api/client/auth/me/** — `data` gains `bio` (string, may be empty).
+- **PATCH /api/client/auth/me/** — `full_name` and `bio` are both optional now (at least one). `bio`: up to 150 characters after trimming (runs of spaces collapsed, at most one blank line); `""` clears it. Over 150 -> 400.
+- The bio is shown only to the customer themself; no public endpoint returns it.
+
+## 9. Client app version check
+
+`POST /api/version/check/` without `app` normally means the owner app. A `version_code` in the client-only range (1789813665..1790244241, which the owner app never shipped) is treated as `CLIENT`, because client builds up to client-v1.2.0 send no `app`. Client builds from now on send `"app": "CLIENT"`.

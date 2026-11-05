@@ -9,10 +9,12 @@ import logging
 
 from api.phone import is_iran_phone, normalize_phone
 from api.throttles import client_ip
-from visitor.auth import VisitorTokenAuthentication
+from api.pagination import StandardPagination
+from visitor.auth import IsVisitorAuthenticated, VisitorTokenAuthentication
 from visitor.models import Visitor
 
 from . import cache as public_cache
+from . import follows
 from .geo import MAX_RADIUS_KM, haversine_km  # noqa: F401  (re-exported for older imports)
 from .models import Business, ContentReport, Insurance, OnlineBookingRequest
 from .selectors import (
@@ -218,7 +220,11 @@ class ClientBusinessDetailView(APIView):
             return data
 
         def _load_with_first_free():
-            return attach_first_free_slots([_load_and_serialize()])[0]
+            data = attach_first_free_slots([_load_and_serialize()])[0]
+            # Per viewer, so never part of the shared cached copy.
+            if isinstance(request.user, Visitor):
+                data['is_following'] = follows.is_following(request.user, business_id)
+            return data
 
         try:
             data = await sync_to_async(_load_with_first_free)()
@@ -309,3 +315,45 @@ class ClientContentReportView(APIView):
             message="گزارش شما ثبت شد و توسط تیم بررسی خواهد شد",
             status=201,
         )
+
+
+class ClientBusinessFollowView(APIView):
+    """POST follows a business page, DELETE unfollows it. Idempotent; any
+    number of businesses. Returns the new state and follower count."""
+
+    authentication_classes = [VisitorTokenAuthentication]
+    permission_classes = [IsVisitorAuthenticated]
+
+    async def post(self, request, business_id):
+        return await self._set(request, business_id, True)
+
+    async def delete(self, request, business_id):
+        return await self._set(request, business_id, False)
+
+    async def _set(self, request, business_id, follow):
+        try:
+            following, count = await sync_to_async(follows.set_following)(request.user, business_id, follow)
+        except Business.DoesNotExist:
+            return APIResponse.error(message="کسب و کار مورد نظر یافت نشد", code=404)
+        return APIResponse.success(
+            data={'id': business_id, 'is_following': following, 'followers_count': count},
+            message="دنبال شد" if following else "دنبال نمی‌کنید",
+        )
+
+
+class ClientFollowingListView(APIView):
+    """The businesses the signed-in customer follows, newest first."""
+
+    authentication_classes = [VisitorTokenAuthentication]
+    permission_classes = [IsVisitorAuthenticated]
+
+    async def get(self, request):
+        def _page():
+            paginator = StandardPagination()
+            page = paginator.paginate_queryset(follows.followed_businesses(request.user), request)
+            data = PublicBusinessSerializer(page, many=True, context={'request': request}).data
+            for row in data:
+                row['is_following'] = True
+            return paginator.get_paginated_response(data).data
+
+        return APIResponse.success(data=await sync_to_async(_page)(), message="کسب‌وکارهایی که دنبال می‌کنید")

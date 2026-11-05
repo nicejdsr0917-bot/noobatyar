@@ -11,6 +11,13 @@ data class RequestBookingResponseDto(
 )
 
 @Serializable
+data class FollowResponseDto(
+    @SerialName("id") val id: Long,
+    @SerialName("is_following") val isFollowing: Boolean,
+    @SerialName("followers_count") val followersCount: Int,
+)
+
+@Serializable
 data class ContentReportRequestDto(
     @SerialName("reason") val reason: String,
     @SerialName("detail") val detail: String = ""

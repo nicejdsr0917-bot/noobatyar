@@ -39,6 +39,7 @@ fun BusinessDto.toDomain(): Business {
         phone = phone,
         extraPhones = extraPhones.map { it.trim() }.filter { it.isNotEmpty() },
         socialLinks = socialLinks,
+        followersCount = followersCount,
         address = address,
         latitude = latitude,
         longitude = longitude,

@@ -16,6 +16,7 @@ data class BusinessDto(
     @SerialName("extra_phones") val extraPhones: List<String> = emptyList(),
     // Defaulted for an older backend that predates the column.
     @SerialName("social_links") val socialLinks: Map<String, String> = emptyMap(),
+    @SerialName("followers_count") val followersCount: Int = 0,
     @SerialName("address") val address: String,
     @SerialName("latitude") val latitude: Double? = null,
     @SerialName("longitude") val longitude: Double? = null,

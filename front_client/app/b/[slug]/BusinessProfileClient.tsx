@@ -1,5 +1,6 @@
 'use client';
 
+import FollowButton from '@/app/components/FollowButton';
 import { googleMapsSearchUrl } from '@/lib/maps';
 import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
@@ -200,6 +201,12 @@ export default function BusinessProfileClient({ business, slug, children }: Prop
         </span>
 
         {heroTagline && <p className="biz-hero-bio">{heroTagline}</p>}
+
+        <FollowButton
+          businessId={business.id}
+          initialCount={business.followers_count ?? 0}
+          loginHref={`/auth/login?redirect=${encodeURIComponent(`/b/${slug}`)}`}
+        />
 
         {business.phone && (
           <div className="biz-hero-actions">

@@ -96,7 +96,7 @@ class ClientMeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Visitor
-        fields = ['id', 'full_name', 'phone_number', 'avatar', 'created_at']
+        fields = ['id', 'full_name', 'phone_number', 'avatar', 'bio', 'created_at']
         read_only_fields = fields
 
     def get_avatar(self, obj):
@@ -106,10 +106,31 @@ class ClientMeSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(obj.avatar.url) if request else obj.avatar.url
 
 
-class ClientMeUpdateSerializer(serializers.Serializer):
-    """What a visitor may change about themselves: only their name."""
+BIO_MAX_LENGTH = 150
 
-    full_name = serializers.CharField(max_length=60)
+
+class ClientMeUpdateSerializer(serializers.Serializer):
+    """What a visitor may change about themselves: their name and bio. Either
+    may be sent alone."""
+
+    full_name = serializers.CharField(max_length=60, required=False)
+    # Counted in characters after trimming, the same way the app's counter does.
+    bio = serializers.CharField(max_length=BIO_MAX_LENGTH, required=False, allow_blank=True, trim_whitespace=True)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("چیزی برای ذخیره فرستاده نشد")
+        return attrs
+
+    def validate_bio(self, value):
+        # One blank line at most, no runs of spaces.
+        lines = [' '.join(line.split()) for line in value.splitlines()]
+        value = '\n'.join(lines).strip()
+        while '\n\n\n' in value:
+            value = value.replace('\n\n\n', '\n\n')
+        if len(value) > BIO_MAX_LENGTH:
+            raise serializers.ValidationError(f"درباره من حداکثر {BIO_MAX_LENGTH} حرف است")
+        return value
 
     def validate_full_name(self, value):
         value = ' '.join(value.split())

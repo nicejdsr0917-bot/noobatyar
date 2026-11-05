@@ -28,6 +28,9 @@ sealed class AppScreens {
     @Serializable
     object AboutUs : AppScreens()
 
+    @Serializable
+    object Following : AppScreens()
+
     /** [resumeAppointmentId] > 0 opens the payment step of an existing hold. */
     @Serializable
     data class Booking(

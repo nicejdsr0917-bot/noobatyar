@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -50,6 +51,9 @@ data class ClientBusinessDetailState(
     val selectedSlot: TimeSlotDto? = null,
     /** Pull-to-refresh in progress; the page stays on screen meanwhile. */
     val isRefreshing: Boolean = false,
+    val followersCount: Int = 0,
+    val isFollowing: Boolean = false,
+    val followBusy: Boolean = false,
 )
 
 sealed interface DetailMessage {
@@ -113,6 +117,8 @@ class ClientBusinessDetailViewModel(
                             isLoading = false,
                             business = business,
                             bookingRequestsCount = business.onlineBookingRequestsCount,
+                            followersCount = business.followersCount,
+                            isFollowing = business.isFollowing ?: false,
                         )
                     }
                     if (firstLoad && business.canBookOnline && bookingApi != null) {
@@ -135,7 +141,14 @@ class ClientBusinessDetailViewModel(
             when (val res = businessRepository.getClientBusinessDetail(businessId)) {
                 is ApiResponse.Success -> {
                     val business = res.data.toDomain()
-                    _state.update { it.copy(business = business, bookingRequestsCount = business.onlineBookingRequestsCount) }
+                    _state.update {
+                        it.copy(
+                            business = business,
+                            bookingRequestsCount = business.onlineBookingRequestsCount,
+                            followersCount = business.followersCount,
+                            isFollowing = business.isFollowing ?: it.isFollowing,
+                        )
+                    }
                 }
                 is ApiResponse.Error -> _messages.send(DetailMessage.Error(res.message))
             }
@@ -169,6 +182,36 @@ class ClientBusinessDetailViewModel(
             // A failed fetch just leaves the row empty; the booking flow still works.
             val slots = (api.availableSlots(businessId, day.date.toString()) as? ApiResponse.Success)?.data?.slots.orEmpty()
             _state.update { it.copy(slotsLoading = false, slots = slots) }
+        }
+    }
+
+    /**
+     * Follow or unfollow. Shown at once and put back if the server refuses.
+     * A guest is asked to sign in instead ([onNeedsSignIn]).
+     */
+    fun toggleFollow(onNeedsSignIn: () -> Unit) {
+        val current = _state.value
+        if (current.followBusy) return
+        viewModelScope.launch(dispatcher) {
+            val token = preferences.visitorToken.first()
+            if (token == null) {
+                _messages.send(DetailMessage.Error("برای دنبال کردن، وارد حساب شوید"))
+                onNeedsSignIn()
+                return@launch
+            }
+            val follow = !current.isFollowing
+            _state.update {
+                it.copy(followBusy = true, isFollowing = follow, followersCount = (it.followersCount + if (follow) 1 else -1).coerceAtLeast(0))
+            }
+            when (val res = businessRepository.setFollowing(token, businessId, follow)) {
+                is ApiResponse.Success -> _state.update {
+                    it.copy(followBusy = false, isFollowing = res.data.isFollowing, followersCount = res.data.followersCount)
+                }
+                is ApiResponse.Error -> {
+                    _state.update { it.copy(followBusy = false, isFollowing = current.isFollowing, followersCount = current.followersCount) }
+                    _messages.send(DetailMessage.Error(res.message))
+                }
+            }
         }
     }
 

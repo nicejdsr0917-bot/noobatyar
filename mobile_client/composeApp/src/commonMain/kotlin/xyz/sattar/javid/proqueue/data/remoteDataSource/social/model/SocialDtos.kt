@@ -50,6 +50,8 @@ data class ReviewDto(
     val text: String? = null,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("visitor_name") val visitorName: String? = null,
+    /** The reviewer's profile photo (absolute URL), or null. Never any contact detail. */
+    @SerialName("visitor_avatar") val visitorAvatar: String? = null,
 )
 
 @Serializable

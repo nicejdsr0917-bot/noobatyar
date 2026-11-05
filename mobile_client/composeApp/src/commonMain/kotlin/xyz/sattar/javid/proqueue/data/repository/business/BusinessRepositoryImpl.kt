@@ -5,6 +5,7 @@ import xyz.sattar.javid.proqueue.core.network.PaginatedResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.ClientBusinessApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.BusinessDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.InsuranceDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.FollowResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.RequestBookingResponseDto
 import xyz.sattar.javid.proqueue.domain.BusinessRepository
 
@@ -62,6 +63,12 @@ class BusinessRepositoryImpl(
 
     override suspend fun requestOnlineBooking(businessId: Long): ApiResponse<RequestBookingResponseDto> =
         api.requestOnlineBooking(businessId)
+
+    override suspend fun setFollowing(token: String, businessId: Long, follow: Boolean): ApiResponse<FollowResponseDto> =
+        api.setFollowing(token, businessId, follow)
+
+    override suspend fun getFollowing(token: String, page: Int): ApiResponse<PaginatedResponseDto<BusinessDto>> =
+        api.getFollowing(token, page)
 
     override suspend fun reportBusiness(businessId: Long, reason: String, detail: String): ApiResponse<Unit> =
         api.reportBusiness(businessId, reason, detail)

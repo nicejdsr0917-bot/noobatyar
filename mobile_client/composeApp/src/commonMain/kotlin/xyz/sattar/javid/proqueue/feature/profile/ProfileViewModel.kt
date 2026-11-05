@@ -17,7 +17,9 @@ import kotlinx.coroutines.launch
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.core.prefs.ClientPreferences
 import xyz.sattar.javid.proqueue.data.remoteDataSource.booking.BookingApi
+import xyz.sattar.javid.proqueue.data.remoteDataSource.profile.BIO_MAX_LENGTH
 import xyz.sattar.javid.proqueue.data.remoteDataSource.profile.MeDto
+import xyz.sattar.javid.proqueue.domain.BusinessRepository
 import xyz.sattar.javid.proqueue.data.remoteDataSource.profile.ProfileApi
 
 @Immutable
@@ -28,6 +30,8 @@ data class ProfileState(
     /** First page of the visitor's appointments, for the count in the header. */
     val appointmentCount: Int? = null,
     val savedCount: Int = 0,
+    /** How many business pages the visitor follows; null until loaded. */
+    val followingCount: Int? = null,
     val savingName: Boolean = false,
     val uploadingPhoto: Boolean = false,
 )
@@ -47,6 +51,8 @@ class ProfileViewModel(
     private val bookingApi: BookingApi,
     private val preferences: ClientPreferences,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+    /** Null leaves the following count out (tests that only cover the profile). */
+    private val businessRepository: BusinessRepository? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileState())
@@ -83,24 +89,33 @@ class ProfileViewModel(
         }
         val count = (bookingApi.myAppointments(token) as? ApiResponse.Success)?.data?.results?.size
         if (count != null) _state.update { it.copy(appointmentCount = count) }
+        val following = (businessRepository?.getFollowing(token) as? ApiResponse.Success)?.data?.count
+        if (following != null) _state.update { it.copy(followingCount = following) }
     }
 
-    fun rename(name: String, onDone: () -> Unit) {
+    /** Saves the name and the bio together (bio up to [BIO_MAX_LENGTH] characters). */
+    fun save(name: String, bio: String, onDone: () -> Unit) {
         val clean = name.trim().replace(Regex("\\s+"), " ")
+        val cleanBio = bio.trim()
         if (clean.length < 2) {
             viewModelScope.launch { _messages.send(ProfileMessage.Error("نام باید دست‌کم دو حرف باشد")) }
             return
         }
-        if (clean == _state.value.me?.fullName) {
+        if (cleanBio.length > BIO_MAX_LENGTH) {
+            viewModelScope.launch { _messages.send(ProfileMessage.Error("درباره من حداکثر ${BIO_MAX_LENGTH} حرف است")) }
+            return
+        }
+        val me = _state.value.me
+        if (clean == me?.fullName && cleanBio == me.bio) {
             onDone()
             return
         }
         withToken { token ->
             _state.update { it.copy(savingName = true) }
-            when (val res = api.rename(token, clean)) {
+            when (val res = api.update(token, clean, cleanBio)) {
                 is ApiResponse.Success -> {
                     _state.update { it.copy(savingName = false, me = res.data) }
-                    _messages.send(ProfileMessage.Success("نام شما ذخیره شد"))
+                    _messages.send(ProfileMessage.Success("پروفایل شما ذخیره شد"))
                     onDone()
                 }
                 is ApiResponse.Error -> {

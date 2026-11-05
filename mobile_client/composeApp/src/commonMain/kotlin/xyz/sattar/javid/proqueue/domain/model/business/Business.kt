@@ -105,6 +105,9 @@ data class Business(
     val isClaimed: Boolean = true,
     val distanceKm: Double? = null,
     val onlineBookingRequestsCount: Int = 0,
+    val followersCount: Int = 0,
+    /** Null when the server did not say (guest, or a list row). */
+    val isFollowing: Boolean? = null,
     val insurances: List<Insurance> = emptyList(),
     /** Start (epoch ms) of the earliest bookable slot within 7 days, or null. */
     val firstFreeSlot: Long? = null

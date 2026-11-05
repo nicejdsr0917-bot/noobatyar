@@ -113,7 +113,7 @@ class BusinessSerializer(serializers.ModelSerializer):
             'social_links', 'address', 'logo', 'theme_color',
             # Location & Discovery
             'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
-            'is_claimed', 'online_booking_requests_count', 'insurances', 'insurance_ids',
+            'is_claimed', 'online_booking_requests_count', 'followers_count', 'insurances', 'insurance_ids',
             # Schedule
             'default_service_duration', 'work_start_hour', 'work_end_hour',
             'work_start_minute', 'work_end_minute', 'closed_weekdays',
@@ -155,7 +155,7 @@ class BusinessSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'unique_code', 'created_at', 'updated_at', 'owner', 'is_locked',
-            'is_claimed', 'online_booking_requests_count',
+            'is_claimed', 'online_booking_requests_count', 'followers_count',
             # Only business/moderation.py may move these. If they were writable
             # an owner could PATCH themselves to APPROVED and walk straight past
             # review — the whole point of the layer.
@@ -494,6 +494,7 @@ class PublicBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
             'neighborhood',
             'is_claimed',
             'online_booking_requests_count',
+            'followers_count',
             'insurances',
             'distance_km',
             'phone',
@@ -560,7 +561,7 @@ class ClientBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
             'social_links',
             'address', 'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
-            'is_claimed', 'online_booking_requests_count', 'insurances', 'distance_km',
+            'is_claimed', 'online_booking_requests_count', 'followers_count', 'insurances', 'distance_km',
             'logo', 'theme_color',
             'default_service_duration', 'work_start_hour', 'work_end_hour',
             'work_start_minute', 'work_end_minute',
