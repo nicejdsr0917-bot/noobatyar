@@ -54,21 +54,20 @@ export async function generateMetadata(): Promise<Metadata> {
 // metadata above is what previously pointed the browser at a non-existent
 // /manifest.json.
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#7c3aed' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f0f0f' },
-  ],
+  // One colour: the page is light by default whatever the OS says.
+  themeColor: '#7c3aed',
 };
 
-// Applied before paint to prevent a flash of the wrong theme.
+// Applied before paint to prevent a flash of the wrong theme. Light unless
+// the visitor chose dark with the toggle — not the OS preference.
 const themeScript = `
 (function () {
+  var t = 'light';
   try {
-    var t = localStorage.getItem('theme');
-    if (t === 'dark' || t === 'light') {
-      document.documentElement.setAttribute('data-theme', t);
-    }
+    var s = localStorage.getItem('theme');
+    if (s === 'dark' || s === 'light') t = s;
   } catch (e) {}
+  document.documentElement.setAttribute('data-theme', t);
 })();
 `;
 

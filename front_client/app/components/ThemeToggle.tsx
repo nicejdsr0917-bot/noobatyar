@@ -6,7 +6,7 @@ import { t } from '@/lib/i18n';
 
 /**
  * Floating light/dark theme toggle, mirroring the owner app's theme modes.
- * Defaults to the system preference; once the user toggles, the choice is
+ * Defaults to light (layout's themeScript); once the user toggles, the choice is
  * remembered in localStorage and applied via [data-theme] on <html>.
  */
 export default function ThemeToggle() {
@@ -14,14 +14,9 @@ export default function ThemeToggle() {
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
-    // localStorage / matchMedia only exist after hydration, so this must run in an effect.
+    // localStorage only exists after hydration, so this must run in an effect.
     /* eslint-disable react-hooks/set-state-in-effect */
-    if (stored === 'light' || stored === 'dark') {
-      setTheme(stored);
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setTheme(prefersDark ? 'dark' : 'light');
-    }
+    setTheme(stored === 'dark' ? 'dark' : 'light');
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 

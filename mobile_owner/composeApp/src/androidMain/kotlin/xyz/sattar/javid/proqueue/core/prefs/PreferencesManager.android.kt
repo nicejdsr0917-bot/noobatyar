@@ -26,7 +26,10 @@ actual object PreferencesManager {
     private const val KEY_LANGUAGE = "app_language"
 
     private val _themeMode = MutableStateFlow(
-        AppThemeMode.values()[prefs.getInt(KEY_THEME_MODE, 0).coerceIn(0, 2)]
+        // Light until the user picks a theme (product decision); a stored
+        // choice, «خودکار» included, still wins.
+        if (prefs.contains(KEY_THEME_MODE)) AppThemeMode.values()[prefs.getInt(KEY_THEME_MODE, 0).coerceIn(0, 2)]
+        else AppThemeMode.LIGHT
     )
     private val _defaultBusinessId = MutableStateFlow<Long?>(
         if (prefs.contains(KEY_DEFAULT_BUSINESS_ID)) prefs.getLong(KEY_DEFAULT_BUSINESS_ID, 0L) else null

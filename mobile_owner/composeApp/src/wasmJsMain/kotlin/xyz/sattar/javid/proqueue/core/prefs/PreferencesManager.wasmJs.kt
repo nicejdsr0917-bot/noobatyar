@@ -15,11 +15,11 @@ import xyz.sattar.javid.proqueue.domain.model.business.DEFAULT_REMINDER_MINUTES
  * syncing between the two; see docs/OWNER_WEB_PLAN.md section 5 on why the
  * web build treats all local state as disposable).
  *
- * One default is deliberately different: [themeMode] falls back to
- * [AppThemeMode.DARK] instead of [AppThemeMode.SYSTEM] when nothing is
- * stored yet — docs/OWNER_WEB_PLAN.md section 7.2, "dark as the web
- * default". The user can still change it from SettingsScreen like normal;
- * only the unset-default differs.
+ * [themeMode] falls back to [AppThemeMode.LIGHT] when nothing is stored
+ * yet, like the Android/iOS actuals (light is the default in every app;
+ * this replaced the earlier "dark as the web default" of
+ * docs/OWNER_WEB_PLAN.md section 7.2). The user can still change it from
+ * SettingsScreen like normal.
  */
 actual object PreferencesManager {
     private const val KEY_THEME_MODE = "theme_mode"
@@ -40,7 +40,7 @@ actual object PreferencesManager {
     private val _themeMode = MutableStateFlow(
         safeGet(KEY_THEME_MODE)?.toIntOrNull()
             ?.let { AppThemeMode.values().getOrNull(it) }
-            ?: AppThemeMode.DARK
+            ?: AppThemeMode.LIGHT
     )
     private val _defaultBusinessId = MutableStateFlow(
         safeGet(KEY_DEFAULT_BUSINESS_ID)?.toLongOrNull()

@@ -52,7 +52,7 @@ val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
 @Composable
 fun AppTheme(
-    themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    themeMode: AppThemeMode = AppThemeMode.LIGHT,
     content: @Composable () -> Unit
 ) {
     val isDarkTheme = when (themeMode) {

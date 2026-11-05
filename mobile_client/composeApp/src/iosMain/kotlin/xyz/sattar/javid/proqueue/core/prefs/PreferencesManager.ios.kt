@@ -26,7 +26,10 @@ actual object PreferencesManager {
     private const val KEY_RECENT_CITIES = "recent_city_codes"
 
     private val _themeMode = MutableStateFlow(
-        AppThemeMode.values()[defaults.integerForKey(KEY_THEME_MODE).toInt().coerceIn(0, 2)]
+        // Light until the user picks a theme (product decision); a stored
+        // choice, «خودکار» included, still wins.
+        if (defaults.objectForKey(KEY_THEME_MODE) != null) AppThemeMode.values()[defaults.integerForKey(KEY_THEME_MODE).toInt().coerceIn(0, 2)]
+        else AppThemeMode.LIGHT
     )
     private fun readDefaultBusinessId(): Long? = if (defaults.objectForKey(KEY_DEFAULT_BUSINESS_ID) != null) {
         defaults.integerForKey(KEY_DEFAULT_BUSINESS_ID)

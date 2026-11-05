@@ -9,7 +9,7 @@ enum class AppThemeMode {
 }
 
 object ThemeStateHolder {
-    private val _themeMode = MutableStateFlow(AppThemeMode.SYSTEM)
+    private val _themeMode = MutableStateFlow(AppThemeMode.LIGHT)
     val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
     fun setThemeMode(mode: AppThemeMode) {
