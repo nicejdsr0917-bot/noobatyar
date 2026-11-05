@@ -19,7 +19,7 @@ from appointment.models import Appointment
 from visitor.models import SmsLog, Visitor, VisitorArchive
 
 from . import promo_sms
-from .models import Business, PromoCampaign, PromoCampaignRecipient
+from .models import Business, BusinessFollow, PromoCampaign, PromoCampaignRecipient
 
 User = get_user_model()
 
@@ -192,4 +192,51 @@ class PromoSmsTests(TestCase):
         response = client.get(f'/api/business/{self.business.id}/promo-sms/')
         self.assertEqual(response.status_code, 200)
         counts = {a['key']: a['count'] for a in response.json()['audiences']}
-        self.assertEqual(counts, {'all': 2, 'recent': 1, 'inactive': 1})
+        self.assertEqual(counts, {'all': 2, 'recent': 1, 'inactive': 1, 'followers': 0})
+
+
+class FollowersAudienceTests(TestCase):
+    """Followers as a campaign audience: consent by following, opt-out and
+    archive respected, and the owner never sees a stranger's number."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(phone='09120000021', password='x', name='مالک')
+        self.business = Business.objects.create(
+            user=self.owner, title='سالن رز', phone='02100000000', address='تهران',
+            default_service_duration=30, work_start_hour=9, work_end_hour=17,
+        )
+        self.customer = Visitor.objects.create(full_name='سارا احمدی', phone_number='09350000011')
+        Appointment.objects.create(business=self.business, visitor=self.customer,
+                                   appointment_date=timezone.now() - timedelta(days=3), status='COMPLETED')
+        self.stranger = Visitor.objects.create(full_name='علی رضایی', phone_number='09350000012')
+        self.opted_out = Visitor.objects.create(full_name='مینا', phone_number='09350000013', marketing_opt_out=True)
+        self.archived = Visitor.objects.create(full_name='بایگانی', phone_number='09350000014')
+        self.not_following = Visitor.objects.create(full_name='رضا', phone_number='09350000015')
+        for v in (self.customer, self.stranger, self.opted_out, self.archived):
+            BusinessFollow.objects.create(business=self.business, visitor=v)
+        VisitorArchive.objects.create(owner=self.owner, visitor=self.archived)
+
+    def test_followers_audience_respects_opt_out_and_archive(self):
+        rows = promo_sms._recipients(self.business, 'followers', 'سلام {name}')
+        self.assertEqual({r[1] for r in rows}, {'09350000011', '09350000012'})
+        names = {r[1]: r[0] for r in rows}
+        self.assertEqual(names['09350000012'], 'علی')  # stranger: first name only
+        self.assertEqual(names['09350000011'], 'سارا احمدی')  # own customer: as before
+
+    def test_owner_never_sees_a_strangers_number(self):
+        with _feature(), _window(), _credit(None):
+            campaign = promo_sms.create_campaign(self.business, 'followers', 'سلام {name}', self.owner)
+        with patch('api.sms.send_sms', return_value=(True, '')), \
+                patch('accounting.usage.consume_sms', return_value={'owner': self.owner.id}):
+            promo_sms.process_campaign(campaign.id)
+        self.assertEqual(SmsLog.objects.filter(business=self.business, visitor=self.stranger).count(), 0)
+        self.assertEqual(SmsLog.objects.filter(business=self.business, visitor=self.customer).count(), 1)
+
+        client = APIClient()
+        client.force_authenticate(self.owner)
+        detail = client.get(f'/api/business/{self.business.id}/promo-sms/{campaign.id}/').content.decode()
+        logs = client.get(f'/api/business/{self.business.id}/sms-logs/').content.decode()
+        for body in (detail, logs):
+            self.assertNotIn('09350000012', body)
+            self.assertNotIn('رضایی', body)
+        self.assertIn('09350000011', detail)

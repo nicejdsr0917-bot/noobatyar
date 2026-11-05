@@ -90,6 +90,7 @@ Any signed-in customer may follow any number of businesses. The count is public.
 
 - **GET /api/business/<id>/followers/?page=&page_size=** (owner JWT, 404 for others') — newest first, `{count, total_pages, current_page, next, previous, results: [{name, avatar, created_at}]}`.
 - Push: on a new follow the owner receives `دنبال‌کننده جدید` (data `type=NEW_FOLLOWER`, `business_id`). One push per customer and business ever (outbox dedupe `follow_push:<business>:<visitor>`), so unfollow/follow again does not repeat it.
+- Promo SMS audience `followers` (`/api/business/<id>/promo-sms/`): following counts as consent; `marketing_opt_out` and the owner's archive exclude. A follower who is not already in the owner's customer list is addressed by first name, shows with an empty `phone` in the campaign recipients, and is logged in SmsLog without the visitor link, so the owner never sees their number.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|

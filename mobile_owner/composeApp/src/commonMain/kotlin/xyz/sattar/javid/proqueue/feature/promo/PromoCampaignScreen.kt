@@ -298,6 +298,7 @@ fun PromoCampaignScreen(
 private fun audienceHint(key: String) = when (key) {
     "recent" -> Str.customers_who_came_in_last
     "inactive" -> Str.customers_who_havent_come_in
+    "followers" -> Str.promo_audience_followers_hint
     else -> Str.all_customers_on_your_list
 }
 

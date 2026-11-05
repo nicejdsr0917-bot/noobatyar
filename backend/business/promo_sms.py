@@ -93,6 +93,16 @@ def render(message: str, *, name: str, business_title: str) -> str:
 
 # ── Audience ──────────────────────────────────────────────────────────────────
 
+FOLLOWERS = 'followers'
+
+
+def owner_customer_ids(business):
+    """Visitors already in the owner's own customer list, whose numbers the
+    owner sees anyway. Any other follower is shown by first name only."""
+    from visitor.models import Visitor
+    return set(Visitor.readable_by(business.user).values_list('id', flat=True))
+
+
 def _audience_visitors(business, audience):
     """Visitors ``audience`` selects, from the owner's own customer list.
 
@@ -107,6 +117,12 @@ def _audience_visitors(business, audience):
     from visitor.models import Visitor
 
     owner = business.user
+    if audience == FOLLOWERS:
+        # Following counts as consent to promotional SMS from that business,
+        # unless the customer opted out of marketing altogether; the owner's
+        # archive still wins.
+        return (Visitor.objects.filter(follows__business=business, marketing_opt_out=False)
+                .exclude(archives__owner=owner).order_by('id'))
     base_ids = set(
         Visitor.readable_by(owner)
         .exclude(archives__owner=owner)
@@ -147,12 +163,16 @@ def _audience_choices():
 def _recipients(business, audience, message):
     """(name, phone, visitor, text, parts) for everyone reachable by SMS."""
     rows = []
+    known = owner_customer_ids(business) if audience == FOLLOWERS else None
     for visitor in _audience_visitors(business, audience):
         phone = normalize_phone(visitor.phone_number or '')
         if not is_iran_phone(phone):
             continue
-        text = render(message, name=visitor.full_name, business_title=business.title)
-        rows.append((visitor.full_name, phone, visitor, text, sms_parts(text)))
+        name = visitor.full_name
+        if known is not None and visitor.id not in known:
+            name = (name or '').strip().split(' ')[0]
+        text = render(message, name=name, business_title=business.title)
+        rows.append((name, phone, visitor, text, sms_parts(text)))
     return rows
 
 
@@ -270,6 +290,7 @@ def process_campaign(campaign_id):
     business = campaign.business
     owner_id = business.user_id
 
+    known = owner_customer_ids(business) if campaign.audience == FOLLOWERS else None
     pending_ids = list(
         PromoCampaignRecipient.objects
         .filter(campaign_id=campaign_id, status='PENDING')
@@ -282,7 +303,11 @@ def process_campaign(campaign_id):
         recipient = PromoCampaignRecipient.objects.get(id=rid)
 
         outcome = sms_billing.send_metered_sms_detailed(
-            owner_id, business.id, recipient.visitor_id, recipient.phone, recipient.text,
+            # The owner's SMS report shows the linked visitor's number, so a
+            # follower who is not their customer is logged without the link.
+            owner_id, business.id,
+            recipient.visitor_id if known is None or recipient.visitor_id in known else None,
+            recipient.phone, recipient.text,
             amount=recipient.parts, quota_detail=QUOTA_DETAIL,
         )
         if outcome.status == sms_billing.SKIPPED_QUOTA:

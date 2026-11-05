@@ -21,6 +21,10 @@ class PromoCampaign(models.Model):
         ('all', 'همه‌ی مشتری‌ها'),
         ('recent', 'مراجعه در ۳۰ روز اخیر'),
         ('inactive', 'بیش از ۶۰ روز مراجعه نکرده‌اند'),
+        # People who follow the business page. Many are not in the owner's
+        # customer list, so the owner never sees their numbers: see
+        # promo_sms.FOLLOWERS.
+        ('followers', 'دنبال‌کننده‌های صفحه'),
     ]
     STATUS_CHOICES = [
         ('SENDING', 'در حال ارسال'),

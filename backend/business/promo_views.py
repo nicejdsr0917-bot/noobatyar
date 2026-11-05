@@ -42,10 +42,11 @@ def _campaign_json(campaign, with_recipients=False):
         'finished_at': campaign.finished_at.isoformat() if campaign.finished_at else None,
     }
     if with_recipients:
+        known = promo_sms.owner_customer_ids(campaign.business) if campaign.audience == promo_sms.FOLLOWERS else None
         data['recipients'] = [
             {
                 'name': r.name,
-                'phone': r.phone,
+                'phone': r.phone if known is None or r.visitor_id in known else '',
                 'status': r.status,
                 'error_detail': r.error_detail,
             }

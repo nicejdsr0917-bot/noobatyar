@@ -823,6 +823,7 @@
     <string name="each_persian_sms_is_70_3">Each Persian SMS is 70 characters (67 in multi-part messages). Periods are removed because the SMS </string>
     <string name="line_treats_them_as_links">line treats them as links. Each SMS is deducted from your SMS credit.</string>
     <string name="customers_who_came_in_last">Customers who came in the last month; for introducing a new service or inviting them back</string>
+    <string name="promo_audience_followers_hint">People who follow your page; their numbers are not shown to you</string>
     <string name="customers_who_havent_come_in">Customers who haven't come in a while; the best group for a discount offer to win them back</string>
     <string name="all_customers_on_your_list">All customers on your list (except archived ones)</string>
     <string name="we_miss_you">We miss you</string>

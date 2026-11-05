@@ -872,6 +872,7 @@
     <string name="each_persian_sms_is_70_3">هر پیامک فارسی ۷۰ کاراکتر است (در پیام چندبخشی ۶۷). نقطه حذف می‌شود چون خط </string>
     <string name="line_treats_them_as_links">پیامکی آن را لینک حساب می‌کند. هر پیامک از اعتبار پیامک شما کسر می‌شود.</string>
     <string name="customers_who_came_in_last">مشتری‌هایی که در ماه اخیر آمده‌اند؛ برای معرفی خدمت جدید یا دعوت به مراجعه‌ی بعدی</string>
+    <string name="promo_audience_followers_hint">کسانی که صفحه شما را دنبال می‌کنند؛ شماره‌شان به شما نشان داده نمی‌شود</string>
     <string name="customers_who_havent_come_in">مشتری‌هایی که مدتی است نیامده‌اند؛ بهترین گروه برای پیشنهاد تخفیف و برگرداندنشان</string>
     <string name="all_customers_on_your_list">همه‌ی مشتری‌های فهرست شما (به جز بایگانی‌شده‌ها)</string>
     <string name="we_miss_you">دلتنگی</string>
