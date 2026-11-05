@@ -10,6 +10,18 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.13.1 — 2026-11-05 (اپ اونر)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- کارت منبع نوبت‌ها در صفحه‌ی خانه ساده شد: «نوبت‌های آنلاین این ماه: از اپ · از سایت».
+- در پنل وب، دکمه‌های «مدیریت کسب‌وکار» در چند ردیف می‌آیند و عنوان‌ها کامل دیده می‌شوند.
+<!-- fa:end -->
+
+### mobile_owner
+- `HomeSourceCard`: neutral title and a short body (was «مشتری‌هایی که نوبت‌یار آورد» and a sentence cut off on the panel).
+- Settings (wide layout): `SettingsTiles` columns from a 190dp minimum width instead of all tiles in one row.
+
 ## v1.13.0 — 2026-11-05 (اپ اونر)
 
 <!-- fa:start -->
