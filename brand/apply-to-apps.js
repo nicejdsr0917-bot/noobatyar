@@ -98,6 +98,14 @@ async function ico(dest) {
   // without eating the artwork.
   await png('noobatyar-icon-square.svg', 512, out('front_client/public/icons/icon-maskable-512.png'));
 
+  // The owner web panel (panel.noobatyar.ir) ships its own copies next to its
+  // index.html; same files, same rules as the client web above.
+  const panel = 'mobile_owner/composeApp/src/wasmJsMain/resources/icons';
+  await png('noobatyar-icon.svg', 180, out(`${panel}/apple-touch-icon.png`));
+  await png('noobatyar-icon.svg', 192, out(`${panel}/icon-192.png`));
+  await png('noobatyar-icon.svg', 512, out(`${panel}/icon-512.png`));
+  await png('noobatyar-icon-square.svg', 512, out(`${panel}/icon-maskable-512.png`));
+
   // ── 2. Android ───────────────────────────────────────────────────────────
   // Legacy launcher icons are pre-masked and sized in dp*density; adaptive
   // layers are a 108dp canvas, hence the second, larger ladder.

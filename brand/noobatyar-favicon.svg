@@ -13,10 +13,15 @@
 
   <rect width="512" height="512" rx="114" fill="url(#fvBg)"/>
 
+  <!-- The whole mark sits 16 units above where its geometry centres it: the
+       ring is the heavy part and hangs low (its centre is y≈278), so the
+       mark read as sinking toward the bottom edge. Shape unchanged. -->
+  <g transform="translate(0 -16)">
   <!-- Narrower gap than the full icon: at this size a wide gap plus a mark
        floating in it starts to read as a power-button glyph. -->
   <path d="M326 163.8A140 140 0 1 1 186 163.8"
         fill="none" stroke="#FFFFFF" stroke-width="56" stroke-linecap="round"/>
 
   <circle cx="256" cy="108" r="36" fill="#FBBF24"/>
+  </g>
 </svg>

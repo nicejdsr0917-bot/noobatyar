@@ -558,7 +558,10 @@ private fun DrawScope.drawNoobatyarMark(r: Float, alpha: Float) {
     // stroke ≈34, check and dot as measured), scaled so the ring spans ~46%
     // of the ball's radius.
     val k = r * 0.46f / 148f
-    val c = center.copy(y = center.y + 8f * k)
+    // 8 units ABOVE the ball's centre (it was 8 below): the ring is the heavy
+    // part, and centred geometrically the mark read as sinking toward the
+    // bottom rim. Same 16-unit lift as the brand SVGs.
+    val c = center.copy(y = center.y - 8f * k)
     val white = Color.White.copy(alpha = alpha)
 
     val ringR = 148f * k

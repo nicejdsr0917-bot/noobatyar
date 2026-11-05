@@ -19,6 +19,10 @@
   <rect width="512" height="512" rx="114" fill="url(#nbBg)"/>
   <rect width="512" height="512" rx="114" fill="url(#nbGlow)"/>
 
+  <!-- The whole mark sits 16 units above where its geometry centres it: the
+       ring is the heavy part and hangs low (its centre is y≈278), so the
+       mark read as sinking toward the bottom edge. Shape unchanged. -->
+  <g transform="translate(0 -16)">
   <!-- Open-top ring: reads as a clock face and as the bowl of the Persian ن -->
   <path d="M337.64 156.96A146 146 0 1 1 174.36 156.96"
         fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round"/>
@@ -31,4 +35,5 @@
 
   <!-- The dot of ن — and the marker for whose turn is next -->
   <circle cx="256" cy="122" r="28" fill="url(#nbDot)"/>
+  </g>
 </svg>

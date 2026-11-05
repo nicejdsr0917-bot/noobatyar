@@ -26,7 +26,9 @@
   <rect width="512" height="512" fill="url(#sqBg)"/>
   <rect width="512" height="512" fill="url(#sqGlow)"/>
 
-  <g transform="translate(256 260) scale(0.78) translate(-256 -268)">
+  <!-- Lifted 12.5 (16 units at this 0.78 scale) like noobatyar-icon.svg, so
+       the low-hanging ring doesn't read as sinking. -->
+  <g transform="translate(256 247.5) scale(0.78) translate(-256 -268)">
     <path d="M337.64 156.96A146 146 0 1 1 174.36 156.96"
           fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round"/>
     <path d="M191 276L234 323L327 221"

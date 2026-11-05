@@ -10,10 +10,44 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
-## client-v1.3.0 — منتشر نشده (اپ مشتری)
+## v1.13.0 — 2026-11-05 (اپ اونر)
 
 <!-- fa:start -->
 تغییرات این نسخه:
+- تب پروفایل گروه‌بندی شد و هر تنظیم یک ردیف جدا دارد.
+- ظرفیت هم‌زمان هر نوبت: چند مشتری در یک ساعت (۱ تا ۵۰۰).
+- «زمان نگه‌داشتن نوبت تا پرداخت» (۲ تا ۱۵ دقیقه) ردیف خودش را در منوی نوبت‌دهی دارد.
+- تخفیف اولین مراجعه برای مشتری تازه، با برچسب «مشتری تازه» در صف.
+- فهرست دنبال‌کننده‌های صفحه‌ی شما.
+- مرحله‌ی پرداخت در فرم کسب‌وکار: بیعانه، ظرفیت و روش‌های پرداخت یک‌جا.
+- موقعیت روی نقشه حالا لازم است؛ می‌توانید فقط محدوده را نشان دهید، نه جای دقیق.
+- نقشه همان ظاهر نرم و خوانای اپ مشتری را دارد.
+- آیکن نوبت‌یار مرتب‌تر وسط قرار گرفت.
+<!-- fa:end -->
+
+### mobile_owner
+- Profile tab grouped into sections; every advanced setting is its own row (`AdvancedSection.CAPACITY/PAYMENT/DEPOSIT/HOLD`).
+- Slot capacity (1-500) and deposit hold (2-15 min) on `/api/business/<id>/booking-capacity/`; payment step in the business form.
+- First-visit discount settings, «مشتری تازه» badge in the queue, followers list.
+- Business form: map pin required; `location_privacy` EXACT / AREA (segmented choice, circle preview). Room v24.
+- Map: HOT tiles + `TileRecolor`, dark dim, `noobatyar.ir` chip (same as the client app).
+- Brand mark lifted 16 units in every framed icon (launcher, round, adaptive foreground, `main_icon.png`) and on the nav ball.
+
+### backend
+- business/0039 first-visit discount, 0040 `slot_capacity` + `hold_minutes`, 0041 `location_privacy`; stories/0002. Area-only businesses: shifted public centre (HMAC of id), `location_approximate`, `location_radius_m`, distances to 0.5 km.
+
+## client-v1.3.0 — 2026-11-05 (اپ مشتری)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- استوری مرکزها و نوبت‌یار؛ برای مکث انگشت را نگه دارید.
+- دکمه‌ی «اولین نوبت خالی» در صفحه‌ی مرکز.
+- تخفیف اولین مراجعه در مرکزهایی که آن را دارند.
+- بعد از نوبت از شما نظر خواسته می‌شود.
+- صفحه‌ی شروع و معرفی تازه با انتخاب شهر.
+- نوار پایین تازه و متحرک.
+- مرکزهایی که فقط محدوده را نشان می‌دهند روی نقشه با یک دایره دیده می‌شوند.
+- آیکن نوبت‌یار مرتب‌تر وسط قرار گرفت.
 - صفحه‌ی پروفایل از نو طراحی شد: ساده‌تر و مرتب‌تر، با نام و «درباره من» در بالا.
 - عکس پروفایل را قبل از ذخیره برش بزنید و جابه‌جا کنید.
 - «درباره من»: تا ۱۵۰ حرف درباره خودتان بنویسید؛ فقط خودتان می‌بینید.

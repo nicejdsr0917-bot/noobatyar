@@ -62,7 +62,7 @@
 NODE_PATH=front_client/node_modules node brand/build-icons.js
 ```
 
-پخش آیکن روی همه‌ی اپ‌ها (وب، اندروید ×۲، iOS ×۲) — ۵۴ فایل:
+پخش آیکن روی همه‌ی اپ‌ها (وب، پنل وب اونر، اندروید ×۲، iOS ×۲):
 
 ```bash
 NODE_PATH=front_client/node_modules node brand/apply-to-apps.js
