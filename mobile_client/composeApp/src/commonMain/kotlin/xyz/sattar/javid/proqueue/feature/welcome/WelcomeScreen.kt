@@ -1,5 +1,18 @@
 package xyz.sattar.javid.proqueue.feature.welcome
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.runtime.mutableStateOf
+import com.composables.icons.lucide.Search
+import kotlinx.coroutines.delay
+import xyz.sattar.javid.proqueue.core.location.IranCities
+import xyz.sattar.javid.proqueue.core.prefs.ALL_IRAN
+import xyz.sattar.javid.proqueue.core.prefs.PreferencesManager
+import xyz.sattar.javid.proqueue.feature.explore.CityPickerSheet
+import xyz.sattar.javid.proqueue.feature.explore.SearchArea
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -96,15 +109,19 @@ import kotlin.math.sin
  * five pages, each an animated picture on the brand disc with small cards
  * floating beside it. Says what the app does for a customer: find on the map,
  * book without a call, insurance, and stories with discounts. The last page
- * leads to the city picker (the app is city-first, like Divar: the explore
- * screen opens the picker by itself on first launch). "رد شدن" jumps to that
- * last page rather than past it.
+ * also picks the city (the app is city-first, like Divar), saved before the
+ * app opens so the explore screen starts there. "رد شدن" jumps to that last
+ * page rather than past it.
  */
 @Composable
 fun WelcomeScreen(onDone: () -> Unit) {
     val pager = rememberPagerState { Pages.size }
     val scope = rememberCoroutineScope()
     val isLast = pager.currentPage == Pages.lastIndex
+    // The last page picks the city (code, name); saved on start, so the
+    // explore screen opens on it instead of asking again.
+    var city by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    var showAllCities by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -122,7 +139,8 @@ fun WelcomeScreen(onDone: () -> Unit) {
             val settled = pager.settledPage == index
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 // The picture gives way first on a short screen, so the text stays in view.
-                val picture = (maxHeight * 0.5f).coerceIn(160.dp, BaseSize)
+                val last = index == Pages.lastIndex
+                val picture = (maxHeight * if (last) 0.32f else 0.5f).coerceIn(120.dp, BaseSize)
                 Column(
                     Modifier
                         .fillMaxSize()
@@ -147,6 +165,10 @@ fun WelcomeScreen(onDone: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
+                    if (last) {
+                        Spacer(Modifier.height(20.dp))
+                        CityChooser(city, settled, onPick = { city = it }, onMore = { showAllCities = true })
+                    }
                 }
             }
         }
@@ -158,13 +180,100 @@ fun WelcomeScreen(onDone: () -> Unit) {
             Spacer(Modifier.height(20.dp))
             Button(
                 onClick = {
-                    if (isLast) onDone() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
+                    val picked = city
+                    if (!isLast) scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
+                    else if (picked != null) scope.launch {
+                        PreferencesManager.selectCity(picked.first)
+                        onDone()
+                    }
                 },
+                enabled = !isLast || city != null,
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
-                Text(if (isLast) "انتخاب شهر و شروع" else "بعدی", fontWeight = FontWeight.Bold)
+                Text(
+                    when {
+                        !isLast -> "بعدی"
+                        city == null -> "شهر خود را انتخاب کنید"
+                        else -> "شروع در ${city!!.second}"
+                    },
+                    fontWeight = FontWeight.Bold,
+                )
             }
+        }
+    }
+    if (showAllCities) {
+        CityPickerSheet(
+            selectedCode = city?.first,
+            recentCodes = emptyList(),
+            onDismiss = { showAllCities = false },
+            onPick = { area ->
+                city = (area as? SearchArea.City)?.let { it.code to it.label } ?: (ALL_IRAN to SearchArea.Anywhere.label)
+                showAllCities = false
+            },
+        )
+    }
+}
+
+/** The big cities as chips, "all of Iran", and the full list behind "شهر دیگر". */
+private val PopularCities = listOf("تهران", "مشهد", "اصفهان", "شیراز", "تبریز", "کرج")
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CityChooser(city: Pair<Int, String>?, settled: Boolean, onPick: (Pair<Int, String>) -> Unit, onMore: () -> Unit) {
+    var popular by remember { mutableStateOf<List<Pair<Int, String>>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        val all = IranCities.provinces().flatMap { it.cities }
+        popular = PopularCities.mapNotNull { name -> all.firstOrNull { it.name == name }?.let { it.id to it.name } }
+    }
+    val options = buildList {
+        addAll(popular)
+        // A city picked from the full list shows as a chip too, selected.
+        if (city != null && city.first != ALL_IRAN && popular.none { it.first == city.first }) add(city)
+        add(ALL_IRAN to SearchArea.Anywhere.label)
+    }
+    val replay = rememberReplayKey(settled)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        options.forEachIndexed { i, option ->
+            key(replay, option.first) {
+                CityChip(option.second, selected = city?.first == option.first, index = i) { onPick(option) }
+            }
+        }
+        key(replay, -1) { CityChip("شهر دیگر…", selected = false, index = options.size, icon = Lucide.Search, onClick = onMore) }
+    }
+}
+
+@Composable
+private fun CityChip(label: String, selected: Boolean, index: Int, icon: ImageVector? = null, onClick: () -> Unit) {
+    // Pops in one after another when the page comes into view.
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay(60L * index)
+        appear.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow))
+    }
+    val bg by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, tween(200), label = "chipBg",
+    )
+    val fg by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, tween(200), label = "chipFg",
+    )
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = bg,
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.graphicsLayer { scaleX = appear.value; scaleY = appear.value; alpha = appear.value.coerceIn(0f, 1f) },
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(label, color = fg, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -190,7 +299,7 @@ private val Pages = listOf(
     ) { InsurancePicture() },
     Page(
         "استوری و تخفیف",
-        "مراکز محبوبتان را دنبال کنید و استوری‌ها و تخفیف‌هایشان را از دست ندهید.",
+        "مراکز محبوبتان را دنبال کنید و تخفیف‌ها را از دست ندهید. شهرتان را انتخاب کنید و شروع کنید.",
     ) { StoryPicture() },
 )
 
