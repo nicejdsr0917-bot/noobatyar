@@ -30,7 +30,7 @@ from rest_framework import status
 from business.models import Business
 from ..models import Appointment
 from ..cache_utils import public_slots_key, SLOT_CACHE_TTL
-from ..occupancy import blocking_q
+from ..occupancy import blocking_q, full_intervals
 from ..slots import day_bounds
 
 
@@ -141,6 +141,17 @@ class PublicAvailableSlotsView(APIView):
                     "status": appt.status,
                 }
             )
+        # With room for several clients at once, a single booking does not take
+        # the time: only the stretches where the capacity is reached are sent.
+        capacity = business.slot_capacity or 1
+        if capacity > 1:
+            intervals = [
+                (datetime.fromisoformat(x["start_time"]), datetime.fromisoformat(x["end_time"])) for x in slots
+            ]
+            slots = [
+                {"start_time": s.isoformat(), "end_time": e.isoformat(), "status": "FULL"}
+                for s, e in full_intervals(intervals, capacity)
+            ]
 
         payload = {
             "business_id": business_id,

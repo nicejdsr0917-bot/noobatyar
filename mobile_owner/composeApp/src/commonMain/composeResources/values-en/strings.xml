@@ -646,7 +646,7 @@
     <string name="customer_can_pay_deposit_or">The customer can pay the deposit or choose “Pay on site”.</string>
     <string name="customer_must_pay_deposit_to">The customer must pay the deposit to confirm the appointment.</string>
     <string name="appointment_is_booked_without_deposit">The appointment is booked without a deposit.</string>
-    <string name="hourly_capacity_control">Hourly capacity control</string>
+    <string name="hourly_capacity_control">Clients per time slot</string>
     <string name="limit_maximum_number_of_appointments">Limit the maximum number of appointments per hour.</string>
     <string name="prevent_overcrowding_no_more_than">Prevent overcrowding: no more than this many appointments are accepted per hour.</string>
     <string name="max_appointments_per_hour_empty">Max appointments per hour (empty = unlimited)</string>
@@ -1110,8 +1110,19 @@
     <string name="profile_group_danger">Danger zone</string>
     <string name="payment_methods_title">Payment methods</string>
     <string name="payment_methods_subtitle">Cash, card transfer and online gateway</string>
-    <string name="capacity_row_subtitle">Maximum bookings per hour</string>
+    <string name="capacity_row_subtitle">Clients per slot and how long a booking is held</string>
     <string name="deposit_row_subtitle">Deposit mode and amount</string>
     <string name="deposit_amount_required">Enter the deposit amount</string>
     <string name="card_number_required">Enter the card number</string>
+    <string name="slot_capacity_title">Clients per time slot</string>
+    <string name="slot_capacity_desc">How many clients can book the same time, e.g. chairs or stylists. 1 means one person per slot.</string>
+    <string name="slot_capacity_hint">Up to %1$d people per slot</string>
+    <string name="slot_capacity_range">Enter a number from 1 to 500</string>
+    <string name="hold_minutes_title">Hold time for payment</string>
+    <string name="hold_minutes_desc">A booking is held this long while the client pays the deposit. Going to the online gateway holds it at least 10 minutes.</string>
+    <string name="hold_minutes_value">%1$d minutes</string>
+    <string name="capacity_save">Save</string>
+    <string name="capacity_saved">Saved</string>
+    <string name="capacity_save_failed">Not saved, try again</string>
+    <string name="capacity_after_create">Can be set once the business is created.</string>
 </resources>

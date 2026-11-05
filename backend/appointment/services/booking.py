@@ -98,7 +98,7 @@ def appointment_create_for_client(
         if not usage.can_book_appointment(business.user_id):
             return BookingResult(failure=BookingFailure.QUOTA)
 
-        conflict = find_conflict(business.id, appointment_date, duration)
+        conflict = find_conflict(business.id, appointment_date, duration, capacity=business.slot_capacity)
         if conflict is not None:
             return BookingResult(failure=BookingFailure.CONFLICT)
 
@@ -124,7 +124,7 @@ def appointment_create_for_client(
             # Hold the slot only while the client is paying; an abandoned
             # lock expires on its own and frees the slot (see occupancy.py).
             locked_at=now if requires_payment else None,
-            expires_at=lock_expiry(now) if requires_payment else None,
+            expires_at=lock_expiry(now, business.hold_minutes) if requires_payment else None,
             # Which bucket paid, so a cancellation can refund that same one.
             quota_source=quota_source,
             source=source,

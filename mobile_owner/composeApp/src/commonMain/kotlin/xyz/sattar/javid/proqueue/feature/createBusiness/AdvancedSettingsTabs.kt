@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createBusiness
 
+import androidx.compose.material.icons.rounded.Timer
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -100,6 +101,8 @@ fun AdvancedSettingsTabs(
     onOpenPromoCampaign: () -> Unit,
     onOpenReminders: () -> Unit,
     section: Int = AdvancedSection.ALL,
+    /** The business being edited; null while creating one (capacity is set after). */
+    businessId: Long? = null,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     // "روزهای تعطیل" moved to the business create/edit form, next to work
@@ -144,7 +147,8 @@ fun AdvancedSettingsTabs(
         acceptedPaymentMethods = acceptedPaymentMethods,
         onGoToPayment = goToPayment,
         showCapacity = showCapacity,
-        showDeposit = showDeposit
+        showDeposit = showDeposit,
+        businessId = businessId
     )
 
     @Composable
@@ -489,6 +493,7 @@ private fun CapacityTab(
     onGoToPayment: (() -> Unit)?,
     showCapacity: Boolean = true,
     showDeposit: Boolean = true,
+    businessId: Long? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (showCapacity) FeatureGate(
@@ -499,21 +504,18 @@ private fun CapacityTab(
             description = Str.limit_maximum_number_of_appointments,
             onUpgrade = onUpgrade
         ) {
+          // Clients per time slot replaces the old «max per hour» (which only
+          // limited the owner's own entries); that field stays on the server
+          // untouched for older apps.
           SettingCard(
               icon = Icons.Rounded.EventSeat,
-              title = Str.hourly_capacity_control,
-              description = Str.prevent_overcrowding_no_more_than
+              title = Str.slot_capacity_title,
+              description = Str.slot_capacity_desc
           ) {
-            AppTextField(
-                enabled = !isLoading,
-                value = maxAppointmentsPerHour,
-                onValueChange = onMaxAppointmentsPerHour,
-                label = Str.max_appointments_per_hour_empty,
-                modifier = Modifier.fillMaxWidth(),
-                keyboardType = KeyboardType.Number
-            )
+            SlotCapacityControl(businessId)
           }
         }
+
 
         if (showDeposit) FeatureGate(
             entitlements = entitlements,
@@ -606,6 +608,14 @@ private fun CapacityTab(
                 }
             }
           }
+        }
+
+        if (showDeposit) SettingCard(
+            icon = Icons.Rounded.Timer,
+            title = Str.hold_minutes_title,
+            description = Str.hold_minutes_desc
+        ) {
+            HoldMinutesControl(businessId)
         }
     }
 }

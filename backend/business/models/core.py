@@ -313,6 +313,24 @@ class Business(models.Model):
     )
 
     # ── Advanced Capacity & Deposit Settings ───────────────────────────────
+    # How many clients one time slot takes at once (chairs, staff, seats in a
+    # class). 1 = a slot is taken by its first booking, the original rule.
+    MIN_SLOT_CAPACITY, MAX_SLOT_CAPACITY = 1, 500
+    slot_capacity = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(MIN_SLOT_CAPACITY), MaxValueValidator(MAX_SLOT_CAPACITY)],
+        help_text='چند مشتری می‌توانند هم‌زمان یک ساعت را رزرو کنند (۱ تا ۵۰۰).',
+        verbose_name='ظرفیت هم‌زمان هر نوبت',
+    )
+    # How long a client's booking holds its slot while they pay the deposit.
+    # Going to the online gateway extends it (appointment.occupancy.GATEWAY_HOLD_MINUTES).
+    MIN_HOLD_MINUTES, MAX_HOLD_MINUTES = 2, 15
+    hold_minutes = models.PositiveSmallIntegerField(
+        default=5,
+        validators=[MinValueValidator(MIN_HOLD_MINUTES), MaxValueValidator(MAX_HOLD_MINUTES)],
+        help_text='چند دقیقه نوبت تا پرداخت بیعانه برای مشتری نگه داشته شود (۲ تا ۱۵).',
+        verbose_name='زمان نگه‌داشتن نوبت (دقیقه)',
+    )
     max_appointments_per_hour = models.IntegerField(
         null=True,
         blank=True,

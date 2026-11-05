@@ -139,7 +139,7 @@ class BusinessSerializer(serializers.ModelSerializer):
             # were missing here — so the owner app's advanced settings passed
             # validation, returned 200, and were then silently dropped by the
             # serializer instead of being saved.
-            'max_appointments_per_hour', 'deposit_mode', 'deposit_amount', 'first_visit_discount',
+            'max_appointments_per_hour', 'slot_capacity', 'hold_minutes', 'deposit_mode', 'deposit_amount', 'first_visit_discount',
             # Editorial review state — owner-visible, never owner-writable.
             # `moderation_note` carries the reviewer's reason verbatim; it is
             # written for the owner to read, so it is exposed as-is.

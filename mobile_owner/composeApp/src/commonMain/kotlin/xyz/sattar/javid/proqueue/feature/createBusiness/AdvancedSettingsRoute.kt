@@ -278,7 +278,8 @@ fun AdvancedSettingsRoute(
                     onPaymentLink = { paymentLink = it },
                     onOpenPromoCampaign = onOpenPromoCampaign,
                     onOpenReminders = onOpenReminders,
-                    section = section
+                    section = section,
+                    businessId = businessId.takeIf { it != 0L }
                 )
                     }
                 )

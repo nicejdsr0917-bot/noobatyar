@@ -695,7 +695,7 @@
     <string name="customer_can_pay_deposit_or">مشتری می‌تواند بیعانه را پرداخت کند یا «پرداخت در محل» را انتخاب کند.</string>
     <string name="customer_must_pay_deposit_to">مشتری برای نهایی شدن نوبت باید بیعانه را پرداخت کند.</string>
     <string name="appointment_is_booked_without_deposit">نوبت بدون دریافت بیعانه ثبت می‌شود.</string>
-    <string name="hourly_capacity_control">کنترل ظرفیت ساعتی</string>
+    <string name="hourly_capacity_control">ظرفیت هم‌زمان هر نوبت</string>
     <string name="limit_maximum_number_of_appointments">محدود کردن حداکثر تعداد نوبت در هر ساعت.</string>
     <string name="prevent_overcrowding_no_more_than">جلوی شلوغی را بگیرید: در هر ساعت بیش از این تعداد نوبت پذیرفته نمی‌شود.</string>
     <string name="max_appointments_per_hour_empty">حداکثر نوبت در هر ساعت (خالی = نامحدود)</string>
@@ -1159,8 +1159,19 @@
     <string name="profile_group_danger">منطقه خطر</string>
     <string name="payment_methods_title">روش‌های پرداخت</string>
     <string name="payment_methods_subtitle">نقدی، کارت به کارت و درگاه آنلاین</string>
-    <string name="capacity_row_subtitle">سقف نوبت در هر ساعت</string>
+    <string name="capacity_row_subtitle">مشتری هم‌زمان در هر ساعت و زمان نگه‌داشتن نوبت</string>
     <string name="deposit_row_subtitle">حالت و مبلغ بیعانه</string>
     <string name="deposit_amount_required">مبلغ بیعانه را وارد کنید</string>
     <string name="card_number_required">شماره کارت را وارد کنید</string>
+    <string name="slot_capacity_title">ظرفیت هم‌زمان هر نوبت</string>
+    <string name="slot_capacity_desc">چند مشتری می‌توانند هم‌زمان یک ساعت را رزرو کنند؛ مثلاً تعداد صندلی یا آرایشگر. ۱ یعنی هر ساعت فقط یک نفر.</string>
+    <string name="slot_capacity_hint">هر ساعت تا %1$d نفر</string>
+    <string name="slot_capacity_range">عددی بین ۱ تا ۵۰۰ وارد کنید</string>
+    <string name="hold_minutes_title">زمان نگه‌داشتن نوبت تا پرداخت</string>
+    <string name="hold_minutes_desc">نوبت مشتری تا این مدت برای پرداخت بیعانه برایش نگه داشته می‌شود. اگر به درگاه آنلاین برود، دست‌کم ۱۰ دقیقه.</string>
+    <string name="hold_minutes_value">%1$d دقیقه</string>
+    <string name="capacity_save">ذخیره</string>
+    <string name="capacity_saved">ذخیره شد</string>
+    <string name="capacity_save_failed">ذخیره نشد؛ دوباره تلاش کنید</string>
+    <string name="capacity_after_create">بعد از ساخت کسب‌وکار قابل تنظیم است.</string>
 </resources>

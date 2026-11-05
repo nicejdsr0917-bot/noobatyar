@@ -389,7 +389,7 @@ fun SettingsContent(
             }
 
             ProfileSection(Str.profile_group_booking, Icons.Rounded.EventSeat, Color(0xFF3B82F6)) {
-                ProfileRow(Icons.Rounded.Groups, Str.hourly_capacity_control, Str.capacity_row_subtitle, Color(0xFF3B82F6),
+                ProfileRow(Icons.Rounded.Groups, Str.slot_capacity_title, Str.capacity_row_subtitle, Color(0xFF3B82F6),
                     onClick = { onAdvancedSection(AdvancedSection.CAPACITY) }, last = true)
             }
 

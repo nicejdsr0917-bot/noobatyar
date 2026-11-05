@@ -76,7 +76,7 @@ def deposit_settle(track_id):
             duration = locked.service_duration or locked.business.default_service_duration
             clash = find_conflict(
                 locked.business_id, locked.appointment_date, duration,
-                exclude_id=locked.pk, now=now,
+                exclude_id=locked.pk, now=now, capacity=locked.business.slot_capacity,
             )
             if clash is not None:
                 # No status fits "paid but slot lost", so the row is left LOCKED

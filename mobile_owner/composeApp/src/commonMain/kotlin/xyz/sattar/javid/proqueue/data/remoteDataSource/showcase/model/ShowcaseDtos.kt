@@ -116,3 +116,14 @@ data class OwnerReviewsPageDto(
 /** `GET/PUT /api/business/<id>/first-visit-discount/`. */
 @Serializable
 data class FirstVisitDiscountDto(val percent: Int = 0)
+
+/** `GET/PUT /api/business/<id>/booking-capacity/`: clients per slot and the deposit hold, with their bounds. */
+@Serializable
+data class BookingCapacityDto(
+    @SerialName("slot_capacity") val slotCapacity: Int = 1,
+    @SerialName("hold_minutes") val holdMinutes: Int = 5,
+    @SerialName("min_slot_capacity") val minSlotCapacity: Int = 1,
+    @SerialName("max_slot_capacity") val maxSlotCapacity: Int = 500,
+    @SerialName("min_hold_minutes") val minHoldMinutes: Int = 2,
+    @SerialName("max_hold_minutes") val maxHoldMinutes: Int = 15,
+)

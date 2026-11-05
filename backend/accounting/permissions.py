@@ -105,6 +105,13 @@ def _gated_features(get, has):
     # Hourly capacity control
     if has("max_appointments_per_hour") and get("max_appointments_per_hour") not in (None, "", "null"):
         add(entitlements.FEATURE_CAPACITY_CONTROL)
+    # Several clients per time slot is the same paid capacity control.
+    if has("slot_capacity"):
+        try:
+            if int(get("slot_capacity")) > 1:
+                add(entitlements.FEATURE_CAPACITY_CONTROL)
+        except (TypeError, ValueError):
+            pass
 
     return features
 

@@ -3,6 +3,7 @@ package xyz.sattar.javid.proqueue.data.remoteDataSource.showcase
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BookingCapacityDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FirstVisitDiscountDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDto
@@ -28,6 +29,13 @@ interface ShowcaseApi {
     /** One page of the full followers list (first name and photo only); fakes need not override it. */
     suspend fun getFollowersPage(businessId: Long, page: Int, pageSize: Int): ApiResponse<FollowersPageDto> =
         if (page == 1) getFollowers(businessId, pageSize) else ApiResponse.Success(FollowersPageDto())
+
+    /** How a slot is booked (clients per slot, deposit hold); fakes need not override these. */
+    suspend fun getBookingCapacity(businessId: Long): ApiResponse<BookingCapacityDto> =
+        ApiResponse.Success(BookingCapacityDto())
+    /** [changes]: only the keys being changed ("slot_capacity", "hold_minutes"). */
+    suspend fun setBookingCapacity(businessId: Long, changes: Map<String, Int>): ApiResponse<BookingCapacityDto> =
+        ApiResponse.Success(BookingCapacityDto())
 
     /** The business's first-visit discount percent (0 = off); fakes need not override these. */
     suspend fun getFirstVisitDiscount(businessId: Long): ApiResponse<FirstVisitDiscountDto> =

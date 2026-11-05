@@ -1230,7 +1230,8 @@ fun CreateBusinessScreen(
                     onPaymentLink = onPaymentLink,
                     onOpenPromoCampaign = {},
                     onOpenReminders = {},
-                    section = AdvancedSection.SETUP
+                    section = AdvancedSection.SETUP,
+                    businessId = uiState.businessId.takeIf { it != 0L }
                 )
                 paymentError?.let {
                     Spacer(modifier = Modifier.height(8.dp))

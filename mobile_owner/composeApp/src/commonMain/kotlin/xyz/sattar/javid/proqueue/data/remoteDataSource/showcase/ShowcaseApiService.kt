@@ -20,6 +20,7 @@ import xyz.sattar.javid.proqueue.core.network.extractErrorMessage
 import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BookingCapacityDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FirstVisitDiscountDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDto
@@ -56,6 +57,15 @@ class ShowcaseApiService(private val httpClient: HttpClient) : ShowcaseApi {
         httpClient.get("business/$businessId/followers/") {
             parameter("page", page)
             parameter("page_size", pageSize)
+        }.toApiResponse()
+
+    override suspend fun getBookingCapacity(businessId: Long): ApiResponse<BookingCapacityDto> =
+        httpClient.get("business/$businessId/booking-capacity/").toApiResponse()
+
+    override suspend fun setBookingCapacity(businessId: Long, changes: Map<String, Int>): ApiResponse<BookingCapacityDto> =
+        httpClient.put("business/$businessId/booking-capacity/") {
+            contentType(ContentType.Application.Json)
+            setBody(changes)
         }.toApiResponse()
 
     override suspend fun getFirstVisitDiscount(businessId: Long): ApiResponse<FirstVisitDiscountDto> =

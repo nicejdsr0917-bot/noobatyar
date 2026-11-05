@@ -24,7 +24,7 @@ blocking filter        ``blocking_q()`` (clock read  ``blocking_q(now)`` with th
 from datetime import datetime, timedelta
 
 from appointment.models import Appointment
-from appointment.occupancy import blocking_q
+from appointment.occupancy import blocking_q, peak_concurrency
 from appointment.working_hours import LOCAL_TZ, working_window
 
 # Longest service the scan reaches back for, to catch appointments that start
@@ -69,6 +69,7 @@ def build_day_slots(business, date, busy, now):
     closing. ``busy`` is a list of ``(start, end)``; ``now`` an aware datetime.
     """
     duration = business.default_service_duration  # minutes
+    capacity = getattr(business, 'slot_capacity', 1) or 1
     current, day_end = working_window(business, date)
 
     grid = []
@@ -79,7 +80,9 @@ def build_day_slots(business, date, busy, now):
     slots = []
     for slot in grid:
         slot_end = slot + timedelta(minutes=duration)
-        is_booked = any(b_start < slot_end and slot < b_end for b_start, b_end in busy)
+        # Full when the business's capacity is reached at some moment of the slot
+        # (capacity 1: any overlapping booking).
+        is_booked = peak_concurrency(busy, slot, slot_end) >= capacity
         is_past = slot < now
         slots.append({
             'time': slot.strftime('%H:%M'),

@@ -129,10 +129,24 @@ def appointment_submit_payment(*, appointment, changes):
 
 
 def appointment_store_gateway_track_id(*, appointment, track_id):
-    """Remember the Zibal trackId on a still-LOCKED hold; False if it moved on."""
+    """Remember the Zibal trackId on a still-LOCKED hold; False if it moved on.
+
+    Going to the gateway also stretches the hold to at least
+    GATEWAY_HOLD_MINUTES from now (never shortens it), so a short owner-set
+    hold does not run out while the client is paying."""
+    from django.db.models import Value
+    from django.db.models.functions import Coalesce, Greatest
+
+    from appointment.occupancy import GATEWAY_HOLD_MINUTES, lock_expiry
+
+    now = timezone.now()
+    floor = lock_expiry(now, GATEWAY_HOLD_MINUTES)
     return bool(Appointment.objects.filter(
         pk=appointment.pk, status='LOCKED'
-    ).update(payment_reference=track_id, updated_at=timezone.now()))
+    ).update(
+        payment_reference=track_id, updated_at=now,
+        expires_at=Greatest(Coalesce('expires_at', Value(floor)), Value(floor)),
+    ))
 
 
 class StatusChangeFailure(enum.Enum):
