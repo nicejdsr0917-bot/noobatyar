@@ -1,6 +1,7 @@
 package xyz.sattar.javid.proqueue.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.darkColorScheme
@@ -77,7 +78,7 @@ val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
 @Composable
 fun AppTheme(
-    themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    themeMode: AppThemeMode = AppThemeMode.LIGHT,
     content: @Composable () -> Unit
 ) {
     val isDarkTheme = when (themeMode) {
@@ -97,8 +98,13 @@ fun AppTheme(
             colorScheme = colorScheme,
             typography = appTypography(),
         ) {
-            // The default for any text that names no style, typed text included.
-            ProvideTextStyle(MaterialTheme.typography.bodyMedium, content)
+            // LocalContentColor defaults to black and only a Surface/Scaffold
+            // resets it, so text on a bare `background()` (welcome, sheets,
+            // overlays) stayed black on the dark scheme. Seed it from the theme.
+            CompositionLocalProvider(LocalContentColor provides colorScheme.onBackground) {
+                // The default for any text that names no style, typed text included.
+                ProvideTextStyle(MaterialTheme.typography.bodyMedium, content)
+            }
         }
     }
 }
