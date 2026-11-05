@@ -319,8 +319,10 @@ internal fun DetailContent(
                     if (social.portfolio.isNotEmpty()) PortfolioSection(social.portfolio, card++)
                     if (social.certificates.isNotEmpty()) CertificatesSection(social.certificates, card++)
                     if (business.socialLinks.isNotEmpty()) SocialLinksSection(business.socialLinks, business.title, card++)
-                    if (social.summary != null) {
-                        ReviewsSection(social, card++, onWrite = onWriteReview, onMore = onMoreReviews, onReport = onReportReview)
+                    if (business.bio.isNotBlank()) {
+                        GroupCard(title = "درباره", index = card++) {
+                            Text(business.bio, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
 
                     // Contact: rows that do what they say, like a native contact card.
@@ -408,10 +410,8 @@ internal fun DetailContent(
                         }
                     }
 
-                    if (business.bio.isNotBlank()) {
-                        GroupCard(title = "درباره", index = card++) {
-                            Text(business.bio, style = MaterialTheme.typography.bodyMedium)
-                        }
+                    if (social.summary != null) {
+                        ReviewsSection(social, card++, onWrite = onWriteReview, onMore = onMoreReviews, onReport = onReportReview)
                     }
 
                     // Housekeeping links, grouped at the end like a settings list.
@@ -429,6 +429,8 @@ internal fun DetailContent(
                             Lucide.Flag,
                             "گزارش اطلاعات نادرست",
                             subtitle = if (!business.isClaimed) "اطلاعات از منابع عمومی است و ممکن است قدیمی باشد" else null,
+                            tint = MaterialTheme.colorScheme.error,
+                            titleColor = MaterialTheme.colorScheme.error,
                             onClick = onReport,
                         )
                     })

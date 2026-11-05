@@ -84,6 +84,8 @@ internal fun LinkRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    /** For a warning row (report), the title takes the same colour as the icon. */
+    titleColor: Color = Color.Unspecified,
     onClick: (() -> Unit)?,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -95,7 +97,7 @@ internal fun LinkRow(
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(Space.md))
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyMedium)
+                Text(title, style = MaterialTheme.typography.bodyMedium, color = titleColor)
                 if (subtitle != null) {
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
