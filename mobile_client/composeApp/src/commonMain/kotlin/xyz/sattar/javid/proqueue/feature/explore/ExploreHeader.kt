@@ -58,6 +58,7 @@ import xyz.sattar.javid.proqueue.feature.discovery.FilterChip
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
 import xyz.sattar.javid.proqueue.feature.discovery.Radius
 import xyz.sattar.javid.proqueue.feature.discovery.Space
+import xyz.sattar.javid.proqueue.feature.stories.StoryRow
 import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 
 // ── Header ───────────────────────────────────────────────────────────────────
@@ -82,25 +83,32 @@ internal fun Header(
             .background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        if (showLocation) Surface(
-            onClick = onLocationClick,
-            color = Color.Transparent,
-            modifier = Modifier.padding(start = Space.sm, top = Space.sm)
-        ) {
-            Column(Modifier.padding(horizontal = Space.sm, vertical = Space.xs)) {
-                Text("جستجو در", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val area = state.area
-                    val label = when {
-                        state.locationStatus == LocationStatus.Locating -> "در حال یافتن موقعیت…"
-                        area is SearchArea.NearMe -> "نزدیک من · ${state.radiusKm.toInt().toPersianDigits()} کیلومتر"
-                        area is SearchArea.Picked -> "روی نقشه · ${state.radiusKm.toInt().toPersianDigits()} کیلومتر"
-                        else -> area.label
+        // City picker on the start side, the story row filling the rest.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (showLocation) Surface(
+                onClick = onLocationClick,
+                color = Color.Transparent,
+                modifier = Modifier.padding(start = Space.sm, top = Space.sm)
+            ) {
+                Column(Modifier.padding(horizontal = Space.sm, vertical = Space.xs)) {
+                    Text("جستجو در", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val area = state.area
+                        val label = when {
+                            state.locationStatus == LocationStatus.Locating -> "در حال یافتن موقعیت…"
+                            area is SearchArea.NearMe -> "نزدیک من · ${state.radiusKm.toInt().toPersianDigits()} کیلومتر"
+                            area is SearchArea.Picked -> "روی نقشه · ${state.radiusKm.toInt().toPersianDigits()} کیلومتر"
+                            else -> area.label
+                        }
+                        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Icon(Lucide.ChevronDown, contentDescription = "تغییر موقعیت", modifier = Modifier.size(20.dp))
                     }
-                    Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Icon(Lucide.ChevronDown, contentDescription = "تغییر موقعیت", modifier = Modifier.size(20.dp))
                 }
             }
+            StoryRow(
+                cityCode = (state.area as? SearchArea.City)?.code,
+                modifier = Modifier.weight(1f).padding(top = Space.sm),
+            )
         }
         Row(
             Modifier.padding(horizontal = Space.page, vertical = Space.sm),

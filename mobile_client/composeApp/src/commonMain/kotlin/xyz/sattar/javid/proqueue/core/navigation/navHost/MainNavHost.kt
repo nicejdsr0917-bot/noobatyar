@@ -48,6 +48,8 @@ import xyz.sattar.javid.proqueue.feature.profile.ProfileTabIcon
 import xyz.sattar.javid.proqueue.feature.reviews.ReviewPrompt
 import xyz.sattar.javid.proqueue.feature.profile.ProfileViewModel
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.compose.koinInject
+import xyz.sattar.javid.proqueue.feature.stories.StoryCenter
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -104,6 +106,9 @@ fun MainNavHost() {
     }
     val openDetail: (Long) -> Unit = { navController.navigate(AppScreens.ClientBusinessDetail(it)) }
     val signIn: () -> Unit = { navController.navigate(AppScreens.Login()) }
+    // A Noobatyar story's "business:<id>" button opens that business's page.
+    val stories = koinInject<StoryCenter>()
+    LaunchedEffect(Unit) { stories.openBusiness.collect(openDetail) }
     // Browsing is open to everyone; booking needs an account, so a guest signs
     // in first and lands in the booking afterwards, as on the web.
     val book: (Long) -> Unit = { id ->

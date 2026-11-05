@@ -1,5 +1,10 @@
 package xyz.sattar.javid.proqueue.feature.stories
 
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.foundation.layout.width
+import com.composables.icons.lucide.ArrowLeft
 import xyz.sattar.javid.proqueue.feature.businessDetail.FollowButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -96,7 +101,7 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
     val stories = data?.stories.orEmpty()
     fun next() {
         if (index < stories.lastIndex) { index++; progress = 0f }
-        else { center.markSeen(businessId); center.close() }
+        else center.finished(businessId)
     }
     fun previous() {
         if (index > 0) index--
@@ -187,6 +192,23 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
             ) {
                 if (!story?.caption.isNullOrBlank()) {
                     Text(story!!.caption, color = Color.White, textAlign = TextAlign.Center)
+                }
+                story?.takeIf { it.button == "link" && it.linkLabel.isNotBlank() }?.let { s ->
+                    val uri = LocalUriHandler.current
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            val target = s.linkUrl.removePrefix("business:")
+                            if (target != s.linkUrl) target.toLongOrNull()?.let(center::openBusinessPage)
+                            else runCatching { uri.openUri(s.linkUrl) }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                    ) {
+                        Text(s.linkLabel, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(6.dp))
+                        Icon(Lucide.ArrowLeft, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
                 }
                 // Only for a signed-in visitor who did not follow when the story opened;
                 // it stays after the tap so the "following" pop is seen.

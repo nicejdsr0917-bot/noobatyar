@@ -95,3 +95,70 @@ def notify_followers(story_id):
     visitor_ids = BusinessFollow.objects.filter(business_id=story.business_id).values_list('visitor_id', flat=True)
     for visitor_id in visitor_ids.iterator():
         send_to_visitor(visitor_id, title, body, data)
+
+
+# ── Noobatyar's own stories and the client app's story row ──────────────────
+
+FEED_MAX = 30
+LINK_SCHEMES = ('https://', 'http://', 'business:')
+
+
+def validate_platform_link(button, link_label, link_url):
+    """Admin-side check of a story's link button; returns cleaned (label, url)."""
+    link_label, link_url = (link_label or '').strip(), (link_url or '').strip()
+    if button != Story.BUTTON_LINK:
+        return '', ''
+    if not link_label or not link_url:
+        raise StoryError('برای دکمهٔ لینک، متن و مقصد هر دو لازم است.')
+    if not link_url.startswith(LINK_SCHEMES):
+        raise StoryError('مقصد لینک باید با https:// یا business: شروع شود.')
+    if link_url.startswith('business:') and not link_url[len('business:'):].isdigit():
+        raise StoryError('بعد از business: شناسهٔ عددی کسب‌وکار بیاید.')
+    return link_label, link_url
+
+
+def process_admin_image(uploaded):
+    """Same scaling and re-encoding as an owner's upload."""
+    return _process_image(uploaded)
+
+
+def platform_stories():
+    return Story.active().filter(business__isnull=True)
+
+
+def feed(*, city_code=None, visitor=None):
+    """
+    The story row on the client app's explore screen: Noobatyar first (when it
+    has a story up), then businesses the visitor follows, then the rest of the
+    chosen city, each group newest story first. One row per business.
+    """
+    from django.db.models import Max
+
+    from business.models import Business, BusinessFollow
+
+    rings = []
+    latest_platform = platform_stories().order_by('-created_at').values_list('created_at', flat=True).first()
+    if latest_platform:
+        rings.append({'business_id': 0, 'title': Story.PLATFORM_TITLE, 'logo': None,
+                      'platform': True, 'followed': False, 'latest_at': latest_platform})
+
+    latest = dict(
+        Story.active().filter(business__in=Business.objects.filter(Business.public_filter()))
+        .order_by().values('business_id').annotate(at=Max('created_at')).values_list('business_id', 'at')
+    )
+    if not latest:
+        return rings
+    followed = set()
+    if visitor is not None:
+        followed = set(BusinessFollow.objects.filter(visitor=visitor, business_id__in=latest)
+                       .values_list('business_id', flat=True))
+    businesses = Business.objects.filter(id__in=latest).only('id', 'title', 'logo', 'city_code')
+    rows = []
+    for b in businesses:
+        is_followed = b.id in followed
+        if city_code and not is_followed and b.city_code != city_code:
+            continue
+        rows.append({'business_id': b.id, 'title': b.title, 'logo': b.logo.url if b.logo else None,
+                     'platform': False, 'followed': is_followed, 'latest_at': latest[b.id]})
+    rows.sort(key=lambda r: (not r['followed'], -r['latest_at'].timestamp()))
+    return rings + rows[:FEED_MAX]

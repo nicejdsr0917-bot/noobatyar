@@ -554,6 +554,7 @@ UNFOLD = {
                     _item('بنرها', 'image', _changelist('banners', 'banner'), 'banners.view_banner'),
                     _item('دسته‌های بنر', 'category', _changelist('banners', 'bannercategorygroup'), 'banners.view_bannercategorygroup'),
                     _item('لینک بنرها', 'link', _changelist('banners', 'sitesetting'), 'banners.view_sitesetting'),
+                    _item('استوری‌ها', 'amp_stories', _changelist('stories', 'story'), 'stories.view_story'),
                 ],
             },
             {

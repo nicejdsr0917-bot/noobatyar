@@ -97,3 +97,36 @@ class ClientBusinessStoriesView(APIView):
         if isinstance(request.user, Visitor):
             data['is_following'] = follows.is_following(request.user, business.id)
         return APIResponse.success(data=data)
+
+
+class ClientStoryFeedView(APIView):
+    """GET /api/client/stories/feed/?city_code= — the explore screen's story
+    row (see ``services.feed``). Optional customer token puts followed first."""
+    authentication_classes = CUSTOMER_AUTHENTICATION
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            city_code = int(request.query_params.get('city_code') or 0) or None
+        except ValueError:
+            city_code = None
+        visitor = request.user if isinstance(request.user, Visitor) else None
+        rings = services.feed(city_code=city_code, visitor=visitor)
+        for ring in rings:
+            if ring['logo']:
+                ring['logo'] = request.build_absolute_uri(ring['logo'])
+        return APIResponse.success(data={'rings': rings})
+
+
+class ClientPlatformStoriesView(APIView):
+    """GET /api/client/stories/platform/ — Noobatyar's own active stories, in
+    the same shape as a business's (business_id 0, no follow state)."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        stories = services.platform_stories()
+        return APIResponse.success(data={
+            'business_id': 0,
+            'title': Story.PLATFORM_TITLE,
+            'stories': StorySerializer(stories, many=True, context={'request': request}).data,
+        })

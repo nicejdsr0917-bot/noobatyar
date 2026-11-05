@@ -8,7 +8,8 @@ class StorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Story
-        fields = ['id', 'image', 'caption', 'button', 'discount_type', 'discount_value', 'created_at', 'expires_at']
+        fields = ['id', 'image', 'caption', 'button', 'discount_type', 'discount_value', 'link_label', 'link_url',
+                  'created_at', 'expires_at']
         read_only_fields = fields
 
     def get_image(self, obj):
