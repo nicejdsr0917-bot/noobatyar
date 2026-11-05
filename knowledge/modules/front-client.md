@@ -44,5 +44,5 @@ tags: [gf]
 ## جلسهٔ 2026-11-05
 - `app/components/FollowButton.tsx`: تعداد و دکمهٔ فالو در hero صفحهٔ `/b/[slug]`. مهمان به `/auth/login?redirect=` می‌رود.
 - `lib/api.ts`: `getFollowState` و `setFollowing`. `Business.followers_count` و `is_following`، `Review.visitor_avatar`.
-- `ReviewsSection`: عکس یا حرف اول نام. کلیدهای i18n: `follow`، `followingNow`، `followersCount`، `followNeedsLogin`.
+- `ReviewsSection`: عکس یا حرف اول نام. با `?review=1` (لینک پوش «نظر بدهید») تا بخش نظرها اسکرول می‌کند. کلیدهای i18n: `follow`، `followingNow`، `followersCount`، `followNeedsLogin`.
 - type check محلی: خطاهای `e2e/` و `playwright.config` طبیعی‌اند، چون `@playwright/test` محلی نصب نیست.

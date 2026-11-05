@@ -107,3 +107,11 @@ tags: [gf]
     - `active_business_ids` حتماً با `.order_by()` قبل از `distinct()`.
   - **API:** `owner/stories/`، `client/stories/active/`، `client/businesses/<id>/stories/` (`is_following` با توکن مشتری). مستند در `docs/api/P2_SOCIAL_API.md` §10.
   - **عکس:** helperهای `showcase/images.py`. هر نسبتی قبول می‌شود و تا 1080×1920 کوچک می‌شود.
+
+## نظرها و درخواست نظر (`backend/reviews/`، 2026-11-05)
+- یک نظر برای هر جفت (business, visitor). API مشتری زیر `api/client/reviews/` است.
+- **درخواست نظر:**
+  - وقتی `appointment_change_status_by_owner` نوبت را `COMPLETED` می‌کند، `queue_review_request` صدا زده می‌شود.
+  - job outbox `reviews.review_request_push` با dedupe روی `review_request:<id>`.
+  - `send_review_request_push` پوش رایگان و بدون محدودیت پلن به `VisitorDeviceToken`ها می‌فرستد، با لینک `?review=1` وب.
+- `GET pending/` با `pending_review_prompts`: نوبت‌های انجام‌شدهٔ ۱۴ روز اخیر، بدون نظر، و فقط کسب‌وکارهای عمومی.

@@ -167,5 +167,18 @@ tags: [gf]
   - `StoryViewerHost()` در `App.kt` است.
   - هر استوری ۵ ثانیه، با دو نیمهٔ لمسی.
   - برچسب تخفیف.
-  - دکمهٔ «دنبال کردن» فقط وقتی `is_following=false` است (مهمان آن را نمی‌بیند).
+  - دکمهٔ «دنبال کردن» (`FollowButton` با `onImage=true`) فقط وقتی `is_following=false` است (مهمان آن را نمی‌بیند). بعد از فالو می‌ماند تا انیمیشن دیده شود.
 - **حلقهٔ بنفش** در خود `BusinessAvatar` (`feature/discovery/DiscoveryUi.kt`) است، پس همه‌جا یکسان دیده می‌شود. `BusinessAvatar` حالا `koinInject<StoryCenter>()` دارد، پس بدون Koin رندر نمی‌شود (preview یا تست UI).
+
+## حرکت و درخواست نظر (2026-11-05 11:18)
+- **نوار پایین** (`core/navigation/navHost/MainNavHost.kt`، `TabBar`):
+  - crossfade بین آیکن خطی و توپُر، pop هنگام انتخاب، و فرورفتن کوتاه هنگام خروج از انتخاب. موقع باز شدن اپ هیچ آیکنی حرکت نمی‌کند.
+  - `SolidTabIcon.kt`: لایهٔ پُر با شکل Lucide، و جزئیات داخل آیکن به رنگ زمینه. `filled()` به درد نمی‌خورد، چون همه‌چیز را یک‌رنگ پر می‌کند.
+  - تب پروفایل: بدون عکس، آیکن توپُر `CircleUserRound`. با عکس، `ProfileTabIcon(url: String)` با حلقه‌ای که دور عکس کشیده می‌شود.
+- **`BusinessAvatar(business, size, corner = 12.dp)`:** هر جا قاب گردتری دارد شعاعش را پاس بدهد (hero 22dp و نوار جمع‌شده 10dp)، وگرنه گوشه‌های حلقهٔ استوری بریده می‌شوند.
+- **`feature/businessDetail/FollowButton.kt`:** گرادیان، برق گذرا، burst و pop. `FollowRow` شمارنده را رول می‌کند.
+- **`feature/reviews/ReviewPrompt.kt`:**
+  - روی تب‌های اصلی، اگر کاربر وارد شده باشد، `BusinessSocialApi.pendingReviews` را می‌گیرد. این متد در interface پیاده‌سازی پیش‌فرض دارد، پس fakeها لازم نیست override کنند.
+  - اولین موردی را که رد نشده نشان می‌دهد.
+  - ستاره → `AppScreens.ClientBusinessDetail(id, rate)` → `ReviewDialog(initialRating)`.
+  - رد شده‌ها در `PreferencesManager.dismissedReviewPrompts()` ذخیره می‌شوند (۵۰ مورد آخر).
