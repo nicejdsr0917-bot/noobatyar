@@ -182,3 +182,10 @@ tags: [gf]
   - اولین موردی را که رد نشده نشان می‌دهد.
   - ستاره → `AppScreens.ClientBusinessDetail(id, rate)` → `ReviewDialog(initialRating)`.
   - رد شده‌ها در `PreferencesManager.dismissedReviewPrompts()` ذخیره می‌شوند (۵۰ مورد آخر).
+
+## ردیف استوری (2026-11-05 11:35)
+- **`feature/stories/StoryRow.kt`:** در `ExploreHeader`، کنار انتخاب شهر.
+  - داده از `StoryCenter.rings` می‌آید (`client/stories/feed/?city_code=`). `businessId = 0` یعنی نوبت‌یار (`PLATFORM_STORY_ID`).
+  - `seen` فقط در حافظهٔ همان اجرای اپ است.
+- `open(id, then)` و `finished()` استوری را پشت‌سرهم به حلقه‌های بعدی می‌برند.
+- دکمهٔ لینک `business:<id>` با `StoryCenter.openBusiness` باز می‌شود و `MainNavHost` آن را collect می‌کند.

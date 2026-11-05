@@ -115,3 +115,9 @@ tags: [gf]
   - job outbox `reviews.review_request_push` با dedupe روی `review_request:<id>`.
   - `send_review_request_push` پوش رایگان و بدون محدودیت پلن به `VisitorDeviceToken`ها می‌فرستد، با لینک `?review=1` وب.
 - `GET pending/` با `pending_review_prompts`: نوبت‌های انجام‌شدهٔ ۱۴ روز اخیر، بدون نظر، و فقط کسب‌وکارهای عمومی.
+
+## استوری نوبت‌یار و فید (`backend/stories/`، 2026-11-05)
+- `Story.business` اختیاری است. استوری بدون کسب‌وکار یعنی استوری نوبت‌یار، که از ادمین ساخته می‌شود (`StoryAdmin` در unfold، منوی «رشد»).
+- `button = 'link'` با `link_label` و `link_url` فقط برای نوبت‌یار است (اعتبارسنجی در `validate_platform_link`).
+- `services.feed`: نوبت‌یار، بعد کسب‌وکارهای فالوشده، بعد کسب‌وکارهای همان شهر.
+- endpointها: `client/stories/feed/` و `client/stories/platform/`. `active_business_ids` فقط کسب‌وکارها را برمی‌گرداند.
