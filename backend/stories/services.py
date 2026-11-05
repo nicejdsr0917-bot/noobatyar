@@ -76,7 +76,9 @@ def active_business_ids():
     from business.models import Business
     return list(
         Story.active().filter(business__in=Business.objects.filter(Business.public_filter()))
-        .values_list('business_id', flat=True).distinct()
+        # order_by(): the model's default ordering would add created_at to
+        # the SELECT and defeat distinct().
+        .order_by().values_list('business_id', flat=True).distinct()
     )
 
 

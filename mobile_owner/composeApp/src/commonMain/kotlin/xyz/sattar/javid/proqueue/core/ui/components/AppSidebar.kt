@@ -7,6 +7,7 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.PhotoLibrary
+import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.RateReview
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ShoppingBag
@@ -221,6 +222,12 @@ fun AppSidebar(
             label = Str.showcase_title,
             selected = isOnScreen(AppScreens.Showcase::class),
             onClick = { onNavigate(AppScreens.Showcase) }
+        )
+        SidebarItem(
+            icon = Icons.Rounded.AutoStories,
+            label = Str.stories_title,
+            selected = isOnScreen(AppScreens.Stories::class),
+            onClick = { onNavigate(AppScreens.Stories) }
         )
         SidebarItem(
             icon = Icons.Rounded.ShoppingBag,

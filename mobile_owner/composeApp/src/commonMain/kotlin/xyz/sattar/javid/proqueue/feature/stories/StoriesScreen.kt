@@ -216,7 +216,7 @@ private fun StoryTile(story: StoryDto, onDelete: () -> Unit) {
         val type = story.discountType
         val value = story.discountValue
         if (story.button == "discount" && value != null) {
-            DiscountBadge(discountLabel(type, value), Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
+            DiscountBadge(discountLabel(type, value), Modifier.align(Alignment.TopCenter).padding(top = 8.dp), compact = true)
         }
         IconButton(
             onClick = onDelete,
@@ -229,15 +229,21 @@ private fun StoryTile(story: StoryDto, onDelete: () -> Unit) {
 }
 
 @Composable
-private fun DiscountBadge(text: String, modifier: Modifier = Modifier) {
+private fun DiscountBadge(text: String, modifier: Modifier = Modifier, compact: Boolean = false) {
     Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primary, modifier = modifier) {
         Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.padding(horizontal = if (compact) 8.dp else 12.dp, vertical = if (compact) 4.dp else 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
         ) {
-            Icon(Icons.Rounded.LocalOffer, contentDescription = null, modifier = Modifier.size(16.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            if (!compact) Icon(Icons.Rounded.LocalOffer, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(
+                text,
+                style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false
+            )
         }
     }
 }

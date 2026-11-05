@@ -94,6 +94,7 @@ class StoryTests(TestCase):
 
     def test_customer_sees_stories_ring_and_follow_state(self):
         self.post(caption='تازه')
+        self.post(caption='دوم')  # two stories, one id
         self.assertEqual(self.client.get(reverse('client-stories-active')).json()['data']['business_ids'], [self.biz.id])
         r = self.client.get(reverse('client-business-stories', args=[self.biz.id]))
         self.assertNotIn('is_following', r.json()['data'])
