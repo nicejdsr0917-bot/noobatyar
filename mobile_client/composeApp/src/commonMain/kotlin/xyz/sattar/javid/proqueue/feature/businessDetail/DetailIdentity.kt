@@ -4,12 +4,6 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Navigation
 import com.composables.icons.lucide.Phone
 import com.composables.icons.lucide.Share2
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxWidth
 import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 import androidx.compose.foundation.background
@@ -164,38 +158,8 @@ internal fun Tags(items: List<String>) {
     }
 }
 
-/**
- * Followers and the follow button, under the stats card. The count is public;
- * who follows is never shown to anyone.
- */
+/** The follow button, full width under the stats card (the count is in the card). */
 @Composable
-internal fun FollowRow(count: Int, following: Boolean, busy: Boolean, onToggle: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = Space.page),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            // The count rolls up or down when the visitor follows or leaves.
-            AnimatedContent(
-                count,
-                transitionSpec = {
-                    val dir = if (targetState > initialState) 1 else -1
-                    (slideInVertically { it * dir } + fadeIn()).togetherWith(slideOutVertically { -it * dir } + fadeOut())
-                },
-                label = "followers",
-            ) { n ->
-                Text(
-                    n.toPersianDigits(),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            Text(
-                "دنبال‌کننده",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        FollowButton(following, busy, onToggle)
-    }
+internal fun FollowRow(following: Boolean, busy: Boolean, onToggle: () -> Unit) {
+    FollowButton(following, busy, onToggle, Modifier.fillMaxWidth().padding(horizontal = Space.page))
 }

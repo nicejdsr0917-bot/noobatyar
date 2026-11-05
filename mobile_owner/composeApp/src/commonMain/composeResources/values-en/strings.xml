@@ -1096,4 +1096,9 @@
     <string name="first_visit_body">New clients see this discount on your page in the app and on the web, and you apply it when they pay at the counter. Noobatyar also credits your wallet for every new client.</string>
     <string name="first_visit_off">Off</string>
     <string name="first_visit_badge">New client · %1$d percent off</string>
+    <string name="followers_list_title">Followers</string>
+    <string name="followers_list_privacy">Only first names and photos are shown; phone numbers of followers stay private.</string>
+    <string name="followers_list_empty">Nobody follows your page yet.</string>
+    <string name="followers_settings_subtitle">People who follow your page</string>
+    <string name="first_visit_settings_subtitle">A discount for new clients</string>
 </resources>

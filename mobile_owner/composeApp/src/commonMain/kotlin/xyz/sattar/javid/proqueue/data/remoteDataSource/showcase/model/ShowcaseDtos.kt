@@ -98,6 +98,7 @@ data class StoryDraft(
 @Serializable
 data class FollowersPageDto(
     val count: Int = 0,
+    @SerialName("total_pages") val totalPages: Int = 1,
     val results: List<FollowerDto> = emptyList()
 )
 

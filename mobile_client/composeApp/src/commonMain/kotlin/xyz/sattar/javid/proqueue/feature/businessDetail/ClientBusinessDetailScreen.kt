@@ -74,7 +74,6 @@ import xyz.sattar.javid.proqueue.core.utils.shareText
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.feature.discovery.ChevronIcon
 import xyz.sattar.javid.proqueue.feature.discovery.Hairline
-import xyz.sattar.javid.proqueue.feature.discovery.FirstVisitTag
 import xyz.sattar.javid.proqueue.core.config.OWNER_LANDING_URL
 import xyz.sattar.javid.proqueue.feature.discovery.SaveButton
 import xyz.sattar.javid.proqueue.feature.discovery.Space
@@ -284,15 +283,11 @@ internal fun DetailContent(
                     // Collapses over its own height, less the pinned bar it tucks under.
                     modifier = Modifier.onSizeChanged { collapse.range = it.height - barPx },
                 )
-                StatsRow(business, social.summary)
+                StatsRow(business, social.summary, state.followersCount)
                 Column(Modifier.offset(y = (-16).dp), verticalArrangement = Arrangement.spacedBy(Space.md)) {
                     var card = 0
 
-                    FollowRow(state.followersCount, state.isFollowing, state.followBusy, onToggleFollow)
-
-                    if (business.firstVisitDiscount > 0) {
-                        FirstVisitTag(business.firstVisitDiscount, Modifier.padding(horizontal = Space.page))
-                    }
+                    FollowRow(state.isFollowing, state.followBusy, onToggleFollow)
 
                     if (state.days.isNotEmpty()) {
                         QuickPickSection(state, card++, onSelectDay, onSelectSlot)

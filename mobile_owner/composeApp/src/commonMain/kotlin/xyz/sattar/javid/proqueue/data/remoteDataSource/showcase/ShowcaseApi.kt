@@ -25,6 +25,10 @@ interface ShowcaseApi {
     /** Newest followers of the owner's business, first name and photo only. */
     suspend fun getFollowers(businessId: Long, pageSize: Int): ApiResponse<FollowersPageDto>
 
+    /** One page of the full followers list (first name and photo only); fakes need not override it. */
+    suspend fun getFollowersPage(businessId: Long, page: Int, pageSize: Int): ApiResponse<FollowersPageDto> =
+        if (page == 1) getFollowers(businessId, pageSize) else ApiResponse.Success(FollowersPageDto())
+
     /** The business's first-visit discount percent (0 = off); fakes need not override these. */
     suspend fun getFirstVisitDiscount(businessId: Long): ApiResponse<FirstVisitDiscountDto> =
         ApiResponse.Success(FirstVisitDiscountDto(0))

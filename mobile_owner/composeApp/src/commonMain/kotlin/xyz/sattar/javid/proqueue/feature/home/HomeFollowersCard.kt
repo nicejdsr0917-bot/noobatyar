@@ -28,10 +28,10 @@ import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowerDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
 
-/** «دنبال‌کننده‌های تازه»: the newest followers' photos and first names, and the total. */
+/** «دنبال‌کننده‌های تازه»: the newest followers' photos and first names, and the total; opens the full list. */
 @Composable
-fun NewFollowersCard(followers: FollowersPageDto) {
-    HomeCard {
+fun NewFollowersCard(followers: FollowersPageDto, onClick: () -> Unit) {
+    HomeCard(onClick = onClick) {
         HomeCardHeader(icon = Icons.Rounded.PersonAdd, title = Str.home_new_followers_title)
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

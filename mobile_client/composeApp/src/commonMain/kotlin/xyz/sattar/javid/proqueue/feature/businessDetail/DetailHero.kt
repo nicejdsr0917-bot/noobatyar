@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.Bookmark
 import com.composables.icons.lucide.Clock
 import com.composables.icons.lucide.Lucide
@@ -516,14 +517,15 @@ private fun formatRating(avg: Double): String {
  * rating, working hours, and distance (or insurers, or services).
  */
 @Composable
-internal fun StatsRow(business: Business, rating: ReviewSummaryDto?) {
-    val stats = remember(business, rating) {
+internal fun StatsRow(business: Business, rating: ReviewSummaryDto?, followers: Int) {
+    val stats = remember(business, rating, followers) {
         buildList {
             if (rating != null && rating.count > 0) {
                 add(Stat(Lucide.Star, formatRating(rating.avg), "${rating.count.toPersianDigits()} نظر"))
             } else {
                 add(Stat(Lucide.MessageSquare, "تازه", "بدون نظر"))
             }
+            add(Stat(Lucide.Users, followers.toPersianDigits(), "دنبال‌کننده"))
             if (business.isClaimed) {
                 add(Stat(Lucide.Clock, hoursLabel(business), "ساعت کاری"))
             }
@@ -544,8 +546,10 @@ internal fun StatsRow(business: Business, rating: ReviewSummaryDto?) {
             .offset(y = (-28).dp)
             .padding(horizontal = Space.page),
     ) {
-        Row(Modifier.padding(vertical = Space.lg, horizontal = Space.sm)) {
-            stats.forEach { StatItem(it, Modifier.weight(1f)) }
+        // Four don't fit side by side with their icons, so they stack instead.
+        val stacked = stats.size > 3
+        Row(Modifier.padding(vertical = if (stacked) Space.md else Space.lg, horizontal = Space.sm)) {
+            stats.forEach { StatItem(it, stacked, Modifier.weight(1f)) }
         }
     }
 }
@@ -558,8 +562,19 @@ private fun hoursLabel(business: Business): String {
 }
 
 @Composable
-private fun StatItem(stat: Stat, modifier: Modifier) {
+private fun StatItem(stat: Stat, stacked: Boolean, modifier: Modifier) {
     val soft = if (LocalIsDarkTheme.current) AccentSoftDark else AccentSoft
+    if (stacked) {
+        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(32.dp).background(soft, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(stat.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(stat.value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+            Text(stat.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+        return
+    }
     Row(modifier.padding(horizontal = Space.xs), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(36.dp).background(soft, CircleShape), contentAlignment = Alignment.Center) {
             Icon(stat.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))

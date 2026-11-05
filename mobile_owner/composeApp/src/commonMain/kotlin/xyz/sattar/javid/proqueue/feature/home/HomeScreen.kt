@@ -358,11 +358,10 @@ fun HomeScreenContent(
                 }
                 uiState.followers?.takeIf { it.count > 0 }?.let { followers ->
                     Spacer(Modifier.height(HomeDimens.SectionGap))
-                    NewFollowersCard(followers)
-                }
-                uiState.business?.id?.let { businessId ->
-                    Spacer(Modifier.height(HomeDimens.SectionGap))
-                    FirstVisitDiscountCard(businessId)
+                    var showAll by remember { mutableStateOf(false) }
+                    NewFollowersCard(followers, onClick = { showAll = true })
+                    val businessId = uiState.business?.id
+                    if (showAll && businessId != null) FollowersListDialog(businessId) { showAll = false }
                 }
             } }
             val usageBlock: @Composable () -> Unit = {

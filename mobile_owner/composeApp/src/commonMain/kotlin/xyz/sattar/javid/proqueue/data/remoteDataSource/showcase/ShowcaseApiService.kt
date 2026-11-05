@@ -52,6 +52,12 @@ class ShowcaseApiService(private val httpClient: HttpClient) : ShowcaseApi {
             parameter("page_size", pageSize)
         }.toApiResponse()
 
+    override suspend fun getFollowersPage(businessId: Long, page: Int, pageSize: Int): ApiResponse<FollowersPageDto> =
+        httpClient.get("business/$businessId/followers/") {
+            parameter("page", page)
+            parameter("page_size", pageSize)
+        }.toApiResponse()
+
     override suspend fun getFirstVisitDiscount(businessId: Long): ApiResponse<FirstVisitDiscountDto> =
         httpClient.get("business/$businessId/first-visit-discount/").toApiResponse()
 

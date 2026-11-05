@@ -1,5 +1,9 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.feature.home.FirstVisitDiscountSheet
+import xyz.sattar.javid.proqueue.feature.home.FollowersListDialog
+import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.Groups
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.core.i18n.AppLanguage
@@ -217,6 +221,13 @@ fun SettingsContent(
     onStories: () -> Unit = {},
     onWallet: () -> Unit = {}
 ) {
+    // The followers list and the first-visit discount open over this screen.
+    var showFollowers by remember { mutableStateOf(false) }
+    var showFirstVisit by remember { mutableStateOf(false) }
+    uiState.currentBusiness?.id?.let { businessId ->
+        if (showFollowers) FollowersListDialog(businessId) { showFollowers = false }
+        if (showFirstVisit) FirstVisitDiscountSheet(businessId) { showFirstVisit = false }
+    }
     // No top app bar here: the profile hero below is this screen's header, so a
     // separate toolbar showing the business title would just overlap it. We only
     // reserve the status-bar inset so the hero sits below the status bar.
@@ -299,6 +310,18 @@ fun SettingsContent(
                                     onClick = onStories
                                 ),
                                 SettingsTile(
+                                    icon = Icons.Rounded.Groups,
+                                    title = Str.followers_list_title,
+                                    subtitle = Str.followers_settings_subtitle,
+                                    onClick = { showFollowers = true }
+                                ),
+                                SettingsTile(
+                                    icon = Icons.Rounded.LocalOffer,
+                                    title = Str.first_visit_title,
+                                    subtitle = Str.first_visit_settings_subtitle,
+                                    onClick = { showFirstVisit = true }
+                                ),
+                                SettingsTile(
                                     icon = Icons.Rounded.Delete,
                                     title = Str.delete_business,
                                     subtitle = Str.remove_this_business_from_your,
@@ -365,7 +388,9 @@ fun SettingsContent(
                 onIntent = onIntent,
                 onShowDeleteDialog = onShowDeleteDialog,
                 onShowcase = onShowcase,
-                onStories = onStories
+                onStories = onStories,
+                onFollowers = { showFollowers = true },
+                onFirstVisit = { showFirstVisit = true }
             )
                 },
                 end = {
@@ -596,7 +621,9 @@ private fun BusinessActionsCard(
     onIntent: (SettingsIntent) -> Unit,
     onShowDeleteDialog: () -> Unit,
     onShowcase: () -> Unit = {},
-    onStories: () -> Unit = {}
+    onStories: () -> Unit = {},
+    onFollowers: () -> Unit = {},
+    onFirstVisit: () -> Unit = {}
 ) {
     SettingsCard {
         Column {
@@ -637,6 +664,26 @@ private fun BusinessActionsCard(
                 title = Str.stories_title,
                 subtitle = null,
                 onClick = onStories,
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+
+            HorizontalDivider()
+
+            SettingsItem(
+                icon = Icons.Rounded.Groups,
+                title = Str.followers_list_title,
+                subtitle = null,
+                onClick = onFollowers,
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+
+            HorizontalDivider()
+
+            SettingsItem(
+                icon = Icons.Rounded.LocalOffer,
+                title = Str.first_visit_title,
+                subtitle = null,
+                onClick = onFirstVisit,
                 tint = MaterialTheme.colorScheme.onSurface
             )
 

@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -33,6 +36,15 @@ import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.ShowcaseApi
 
 private val Choices = listOf(0, 10, 15, 20, 25, 30)
+
+/** The setting from the profile tab: the same card in a bottom sheet. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FirstVisitDiscountSheet(businessId: Long, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 32.dp)) { FirstVisitDiscountCard(businessId) }
+    }
+}
 
 /**
  * «تخفیف اولین مراجعه»: the owner picks a percent for clients' first visit

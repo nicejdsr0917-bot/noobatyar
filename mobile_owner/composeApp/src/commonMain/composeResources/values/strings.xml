@@ -1145,4 +1145,9 @@
     <string name="first_visit_body">مشتری تازه این تخفیف را روی صفحه شما در اپ و سایت می‌بیند و موقع حساب حضوری اعمالش می‌کنید. نوبت‌یار هم بابت هر مشتری تازه به کیف‌پول شما اعتبار می‌دهد.</string>
     <string name="first_visit_off">خاموش</string>
     <string name="first_visit_badge">مشتری تازه · ٪%1$d تخفیف</string>
+    <string name="followers_list_title">دنبال‌کننده‌ها</string>
+    <string name="followers_list_privacy">فقط نام کوچک و عکس نمایش داده می‌شود؛ شماره تماس دنبال‌کننده‌ها محفوظ است.</string>
+    <string name="followers_list_empty">هنوز کسی صفحه شما را دنبال نکرده است.</string>
+    <string name="followers_settings_subtitle">لیست کسانی که صفحه شما را دنبال می‌کنند</string>
+    <string name="first_visit_settings_subtitle">درصد تخفیف برای مشتری تازه</string>
 </resources>
