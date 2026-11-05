@@ -45,7 +45,8 @@ enum class BusinessFormStep(private val titleRef: () -> String) {
     IDENTITY(Str::profile),
     SCHEDULE(Str::schedule),
     SERVICES(Str::services),
-    CONTACT(Str::contact);
+    CONTACT(Str::contact),
+    PAYMENT(Str::payment);
     val title: String get() = titleRef()
 
 

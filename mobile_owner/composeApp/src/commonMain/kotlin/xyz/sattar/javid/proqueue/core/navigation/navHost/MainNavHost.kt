@@ -389,8 +389,8 @@ private fun MainNavGraph(
                     onNavigateToEditBusiness = { businessId ->
                         navController.navigate(AppScreens.CreateBusiness(businessId = businessId))
                     },
-                    onNavigateToAdvancedSettings = { businessId ->
-                        navController.navigate(AppScreens.AdvancedSettings(businessId = businessId))
+                    onNavigateToAdvancedSettings = { businessId, section ->
+                        navController.navigate(AppScreens.AdvancedSettings(businessId = businessId, section = section))
                     },
                     onNavigateToNotifications = {
                         navController.navigate(AppScreens.Notifications)
@@ -451,6 +451,7 @@ private fun MainNavGraph(
                 val args = backStackEntry.toRoute<AppScreens.AdvancedSettings>()
                 AdvancedSettingsRoute(
                     businessId = args.businessId,
+                    section = args.section,
                     onNavigateBack = { navController.popBackStack() },
                     onOpenPromoCampaign = { navController.navigate(AppScreens.PromoCampaign) },
                     onOpenReminders = { navController.navigate(AppScreens.Messages) }

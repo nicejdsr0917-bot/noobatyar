@@ -1101,4 +1101,17 @@
     <string name="followers_list_empty">Nobody follows your page yet.</string>
     <string name="followers_settings_subtitle">People who follow your page</string>
     <string name="first_visit_settings_subtitle">A discount for new clients</string>
+    <string name="profile_group_business">My business</string>
+    <string name="profile_group_booking">Booking and capacity</string>
+    <string name="profile_group_payment">Payment and deposit</string>
+    <string name="profile_group_messages">Messages and reminders</string>
+    <string name="profile_group_social">Clients and social</string>
+    <string name="profile_group_account">Account and plan</string>
+    <string name="profile_group_danger">Danger zone</string>
+    <string name="payment_methods_title">Payment methods</string>
+    <string name="payment_methods_subtitle">Cash, card transfer and online gateway</string>
+    <string name="capacity_row_subtitle">Maximum bookings per hour</string>
+    <string name="deposit_row_subtitle">Deposit mode and amount</string>
+    <string name="deposit_amount_required">Enter the deposit amount</string>
+    <string name="card_number_required">Enter the card number</string>
 </resources>

@@ -411,6 +411,7 @@ fun CreateBusinessScreen(
     var showCategorySheet by remember { mutableStateOf(false) }
     var showDurationSheet by remember { mutableStateOf(false) }
     var currentStep by remember { mutableStateOf(0) }
+    var paymentError by remember { mutableStateOf<String?>(null) }
     // How far the owner has legitimately reached. Steps behind this are
     // tappable in the header; steps ahead are not, since each one validates
     // before it advances and jumping forward would skip that.
@@ -482,6 +483,25 @@ fun CreateBusinessScreen(
             )
             onCityErrorUpdate(if (city == null) Str.city_is_required else null)
             !phoneInvalid && !addressInvalid && city != null
+        }
+
+        // Same rules as the advanced-settings screen and the server
+        // (BusinessSerializer.validate), so the owner hears about them here
+        // and not after «تایید».
+        BusinessFormStep.PAYMENT -> {
+            val amount = depositAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L
+            val error = when {
+                depositMode == DepositMode.NONE.value -> null
+                amount <= 0L -> Str.deposit_amount_required
+                amount > MAX_DEPOSIT_AMOUNT -> Str.deposit_amount_max
+                depositMode == DepositMode.MANDATORY.value &&
+                    "CARD" !in acceptedPaymentMethods && "ONLINE" !in acceptedPaymentMethods ->
+                    Str.mandatory_deposit_needs_online_method
+                else -> null
+            }
+            val cardMissing = "CARD" in acceptedPaymentMethods && cardNumber.trim().isEmpty()
+            paymentError = error ?: if (cardMissing) Str.card_number_required else null
+            paymentError == null
         }
     }
     var showServicesSheet by remember { mutableStateOf(false) }
@@ -650,7 +670,9 @@ fun CreateBusinessScreen(
                                 currentStep = 0
                             }
 
-                            if (!logoMissing && !titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid && city != null) {
+                            val paymentOk = validateStep(BusinessFormStep.PAYMENT.ordinal)
+
+                            if (!logoMissing && !titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid && city != null && paymentOk) {
                                 val intent =
                                     CreateBusinessIntent.CreateBusiness(
                                         title = t,
@@ -1182,6 +1204,39 @@ fun CreateBusinessScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            }
+
+            if (currentStep == BusinessFormStep.PAYMENT.ordinal) {
+                AdvancedSettingsTabs(
+                    entitlements = uiState.entitlements,
+                    plans = uiState.plans,
+                    onUpgrade = onUpgrade,
+                    isLoading = uiState.isLoading,
+                    acceptedPaymentMethods = acceptedPaymentMethods,
+                    onAcceptedPaymentMethods = onAcceptedPaymentMethods,
+                    cardNumber = cardNumber,
+                    onCardNumber = onCardNumber,
+                    cardOwnerName = cardOwnerName,
+                    onCardOwnerName = onCardOwnerName,
+                    maxAppointmentsPerHour = maxAppointmentsPerHour,
+                    onMaxAppointmentsPerHour = onMaxAppointmentsPerHour,
+                    depositMode = depositMode,
+                    onDepositMode = onDepositMode,
+                    depositAmount = depositAmount,
+                    onDepositAmount = onDepositAmount,
+                    merchantId = merchantId,
+                    onMerchantId = onMerchantId,
+                    paymentLink = paymentLink,
+                    onPaymentLink = onPaymentLink,
+                    onOpenPromoCampaign = {},
+                    onOpenReminders = {},
+                    section = AdvancedSection.SETUP
+                )
+                paymentError?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Emergency notice is configured on its own screen, reachable from

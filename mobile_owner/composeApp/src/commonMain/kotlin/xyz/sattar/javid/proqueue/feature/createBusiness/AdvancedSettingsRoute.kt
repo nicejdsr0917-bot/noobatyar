@@ -52,7 +52,8 @@ fun AdvancedSettingsRoute(
     viewModel: CreateBusinessViewModel = koinViewModel(),
     onNavigateBack: () -> Unit,
     onOpenPromoCampaign: () -> Unit = {},
-    onOpenReminders: () -> Unit = {}
+    onOpenReminders: () -> Unit = {},
+    section: Int = AdvancedSection.ALL
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -122,7 +123,14 @@ fun AdvancedSettingsRoute(
             TopAppBar(
                 title = {
                     Text(
-                        text = Str.advanced_settings_title,
+                        text = when (section) {
+                            AdvancedSection.PAYMENT -> Str.payment_methods_title
+                            AdvancedSection.CAPACITY -> Str.hourly_capacity_control
+                            AdvancedSection.DEPOSIT -> Str.take_deposit
+                            AdvancedSection.PROMO -> Str.promotional_sms_campaign
+                            AdvancedSection.REMINDERS -> Str.automatic_appointment_reminders
+                            else -> Str.advanced_settings_title
+                        },
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -244,7 +252,7 @@ fun AdvancedSettingsRoute(
                     startWeight = 0.75f,
                     endWeight = 1.6f,
                     start = {
-                PlanSummaryCard(entitlements = uiState.entitlements)
+                if (section == AdvancedSection.ALL) PlanSummaryCard(entitlements = uiState.entitlements)
                     },
                     end = {
                 AdvancedSettingsTabs(
@@ -269,7 +277,8 @@ fun AdvancedSettingsRoute(
                     paymentLink = paymentLink,
                     onPaymentLink = { paymentLink = it },
                     onOpenPromoCampaign = onOpenPromoCampaign,
-                    onOpenReminders = onOpenReminders
+                    onOpenReminders = onOpenReminders,
+                    section = section
                 )
                     }
                 )

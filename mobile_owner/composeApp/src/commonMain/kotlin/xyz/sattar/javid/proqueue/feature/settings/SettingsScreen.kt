@@ -1,6 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.feature.createBusiness.AdvancedSection
 import xyz.sattar.javid.proqueue.feature.home.FirstVisitDiscountSheet
+import xyz.sattar.javid.proqueue.feature.home.HomeCard
 import xyz.sattar.javid.proqueue.feature.home.FollowersListDialog
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Groups
@@ -82,7 +84,7 @@ fun SettingsScreen(
     onNavigateToAbout: () -> Unit = {},
     onChangeBusiness: () -> Unit = {},
     onNavigateToEditBusiness: (Long) -> Unit = {},
-    onNavigateToAdvancedSettings: (Long) -> Unit = {},
+    onNavigateToAdvancedSettings: (Long, Int) -> Unit = { _, _ -> },
     onNavigateToNotifications: () -> Unit = {},
     onNavigateToMessages: () -> Unit = {},
     onNavigateToSmsReport: () -> Unit = {},
@@ -185,9 +187,9 @@ fun SettingsScreen(
         onNavigateToLogin = onNavigateToLogin,
         onLogout = { userViewModel.sendIntent(xyz.sattar.javid.proqueue.feature.profile.UserIntent.Logout) },
         onChangeBusiness = onChangeBusiness,
-        onAdvancedSettings = {
+        onAdvancedSection = { section ->
             uiState.currentBusiness?.let {
-                onNavigateToAdvancedSettings(it.id)
+                onNavigateToAdvancedSettings(it.id, section)
             }
         },
         onPromoCampaign = onNavigateToPromoCampaign,
@@ -214,7 +216,7 @@ fun SettingsContent(
     onNavigateToLogin: () -> Unit,
     onLogout: () -> Unit = {},
     onChangeBusiness: () -> Unit = {},
-    onAdvancedSettings: () -> Unit,
+    onAdvancedSection: (Int) -> Unit,
     onPromoCampaign: () -> Unit = {},
     onReviews: () -> Unit = {},
     onShowcase: () -> Unit = {},
@@ -363,10 +365,6 @@ fun SettingsContent(
                 subscription = subscription
             )
 
-            // Add-on credit sits with the plan badge above: both are about what
-            // the owner has paid for, not about the current business.
-            WalletCard(onClick = onWallet)
-
             // Moderation state of the active business. Only renders for
             // pending/rejected/suspended — an approved business just keeps its
             // badge in the hero above. Separate from the plan/subscription
@@ -378,119 +376,70 @@ fun SettingsContent(
                 )
             }
 
-            // Advanced settings — a separate, eye-catching card with a looping
-            // shine animation to draw the owner in (upsell to premium features).
-            AdvancedSettingsPromoCard(onClick = onAdvancedSettings)
+            // Business, booking and payment settings, grouped. Every setting
+            // that used to hide behind «تنظیمات پیشرفته» is a row here that
+            // opens its own focused screen.
+            ProfileSection(Str.profile_group_business, Icons.Rounded.Storefront, Color(0xFF8B5CF6)) {
+                ProfileRow(Icons.Rounded.Factory, Str.change_business, Str.switch_to_another_business_from, Color(0xFF8B5CF6),
+                    onClick = { onIntent(SettingsIntent.OnChangeBusinessClick) })
+                ProfileRow(Icons.Rounded.Edit, Str.edit_business_title, Str.name_logo_opening_hours_and, Color(0xFF8B5CF6),
+                    onClick = { uiState.currentBusiness?.let { onIntent(SettingsIntent.OnEditBusinessClick(it.id)) } })
+                ProfileRow(Icons.Rounded.PhotoLibrary, Str.showcase_title, Str.showcase_subtitle, Color(0xFF8B5CF6),
+                    onClick = onShowcase, last = true)
+            }
 
-            // Business actions: change + delete, grouped together.
-            BusinessActionsCard(
-                business = uiState.currentBusiness,
-                onIntent = onIntent,
-                onShowDeleteDialog = onShowDeleteDialog,
-                onShowcase = onShowcase,
-                onStories = onStories,
-                onFollowers = { showFollowers = true },
-                onFirstVisit = { showFirstVisit = true }
-            )
+            ProfileSection(Str.profile_group_booking, Icons.Rounded.EventSeat, Color(0xFF3B82F6)) {
+                ProfileRow(Icons.Rounded.Groups, Str.hourly_capacity_control, Str.capacity_row_subtitle, Color(0xFF3B82F6),
+                    onClick = { onAdvancedSection(AdvancedSection.CAPACITY) }, last = true)
+            }
+
+            ProfileSection(Str.profile_group_payment, Icons.Rounded.Payments, Color(0xFF10B981)) {
+                ProfileRow(Icons.Rounded.CreditCard, Str.payment_methods_title, Str.payment_methods_subtitle, Color(0xFF10B981),
+                    onClick = { onAdvancedSection(AdvancedSection.PAYMENT) })
+                ProfileRow(Icons.Rounded.AccountBalanceWallet, Str.take_deposit, Str.deposit_row_subtitle, Color(0xFF10B981),
+                    onClick = { onAdvancedSection(AdvancedSection.DEPOSIT) }, last = true)
+            }
                 },
                 end = {
-            SettingsGroupLabel(Str.customer_contact)
-            SettingsCard {
-                Column {
-                    // Its own row rather than an inline switch+textfield card —
-                    // this is a nav list, and a form sitting between two other
-                    // rows broke the rhythm of it. The actual editor lives on
-                    // EmergencyNoticeScreen.
-                    SettingsItem(
-                        icon = Icons.Rounded.Campaign,
-                        title = Str.notice_section_title,
-                        subtitle = Str.notice_settings_subtitle,
-                        onClick = { onIntent(SettingsIntent.OnEmergencyNoticeClick) }
-                    )
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.AutoMirrored.Rounded.Message,
-                        title = Str.messages_auto_item,
-                        subtitle = Str.messages_auto_subtitle,
-                        onClick = { onIntent(SettingsIntent.OnMessagesClick) }
-                    )
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.Rounded.LocalOffer,
-                        title = Str.promotional_sms,
-                        subtitle = Str.send_discounts_and_news_to,
-                        onClick = onPromoCampaign
-                    )
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.Rounded.RateReview,
-                        title = Str.reviews_title,
-                        subtitle = Str.reviews_subtitle,
-                        onClick = onReviews
-                    )
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.Rounded.Sms,
-                        title = Str.sms_report_title,
-                        subtitle = Str.sms_report_settings_subtitle,
-                        onClick = { onIntent(SettingsIntent.OnSmsReportClick) }
-                    )
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.Rounded.Notifications,
-                        title = Str.reminders_notifications_item,
-                        subtitle = Str.reminders_notifications_subtitle,
-                        onClick = { onIntent(SettingsIntent.OnNotificationsClick) }
-                    )
-                }
+            ProfileSection(Str.profile_group_messages, Icons.AutoMirrored.Rounded.Message, Color(0xFFF59E0B)) {
+                ProfileRow(Icons.Rounded.Campaign, Str.notice_section_title, Str.notice_settings_subtitle, Color(0xFFF59E0B),
+                    onClick = { onIntent(SettingsIntent.OnEmergencyNoticeClick) })
+                ProfileRow(Icons.AutoMirrored.Rounded.Message, Str.messages_auto_item, Str.messages_auto_subtitle, Color(0xFFF59E0B),
+                    onClick = { onIntent(SettingsIntent.OnMessagesClick) })
+                ProfileRow(Icons.Rounded.Sms, Str.sms_report_title, Str.sms_report_settings_subtitle, Color(0xFFF59E0B),
+                    onClick = { onIntent(SettingsIntent.OnSmsReportClick) })
+                ProfileRow(Icons.Rounded.Notifications, Str.reminders_notifications_item, Str.reminders_notifications_subtitle, Color(0xFFF59E0B),
+                    onClick = { onIntent(SettingsIntent.OnNotificationsClick) }, last = true)
             }
 
-            SettingsGroupLabel(Str.appearance_info)
-            SettingsCard {
-                Column {
-                    SettingsItem(
-                        icon = Icons.Rounded.Palette,
-                        title = Str.theme_appearance,
-                        subtitle = Str.theme_settings,
-                        onClick = onShowThemeSheet
-                    )
-
-                    HorizontalDivider()
-
-                    LanguageSettingsItem()
-
-                    HorizontalDivider()
-
-                    SettingsItem(
-                        icon = Icons.Rounded.Info,
-                        title = Str.about_us_label,
-                        subtitle = Str.about_us_subtitle,
-                        onClick = { onIntent(SettingsIntent.OnAboutClick) }
-                    )
-                }
+            ProfileSection(Str.profile_group_social, Icons.Rounded.Groups, Color(0xFFEC4899)) {
+                ProfileRow(Icons.Rounded.Groups, Str.followers_list_title, Str.followers_settings_subtitle, Color(0xFFEC4899),
+                    onClick = { showFollowers = true })
+                ProfileRow(Icons.Rounded.AutoStories, Str.stories_title, Str.stories_subtitle, Color(0xFFEC4899),
+                    onClick = onStories)
+                ProfileRow(Icons.Rounded.LocalOffer, Str.first_visit_title, Str.first_visit_settings_subtitle, Color(0xFFEC4899),
+                    onClick = { showFirstVisit = true })
+                ProfileRow(Icons.Rounded.RateReview, Str.reviews_title, Str.reviews_subtitle, Color(0xFFEC4899),
+                    onClick = onReviews)
+                ProfileRow(Icons.Rounded.Campaign, Str.promotional_sms, Str.send_discounts_and_news_to, Color(0xFFEC4899),
+                    onClick = onPromoCampaign, last = true)
             }
 
-            // Logout (previously reached via the top-bar avatar, which this
-            // screen no longer shows).
-            SettingsCard {
-                SettingsItem(
-                    icon = Icons.AutoMirrored.Rounded.Logout,
-                    title = Str.logout_label,
-                    subtitle = null,
-                    onClick = onLogout,
-                    tint = MaterialTheme.colorScheme.error,
-                    centerVertically = true
-                )
+            ProfileSection(Str.profile_group_account, Icons.Rounded.AccountCircle, Color(0xFF64748B)) {
+                ProfileRow(Icons.Rounded.AccountBalanceWallet, Str.wallet_title, Str.wallet_settings_subtitle, Color(0xFF64748B),
+                    onClick = onWallet)
+                ProfileRow(Icons.Rounded.Palette, Str.theme_appearance, Str.theme_settings, Color(0xFF64748B),
+                    onClick = onShowThemeSheet)
+                LanguageSettingsItem(profileStyle = true)
+                ProfileRow(Icons.Rounded.Info, Str.about_us_label, Str.about_us_subtitle, Color(0xFF64748B),
+                    onClick = { onIntent(SettingsIntent.OnAboutClick) })
+                ProfileRow(Icons.AutoMirrored.Rounded.Logout, Str.logout_label, null, MaterialTheme.colorScheme.error,
+                    onClick = onLogout, last = true)
+            }
+
+            ProfileSection(Str.profile_group_danger, Icons.Rounded.Warning, MaterialTheme.colorScheme.error) {
+                ProfileRow(Icons.Rounded.Delete, Str.delete_business, Str.remove_this_business_from_your, MaterialTheme.colorScheme.error,
+                    onClick = onShowDeleteDialog, danger = true, last = true)
             }
                 }
             )
@@ -714,119 +663,88 @@ private fun SettingsGroupLabel(text: String) {
     )
 }
 
+/** A group of profile rows under one titled card: icon chip + name on top. */
 @Composable
-private fun AdvancedSettingsPromoCard(onClick: () -> Unit) {
-    val transition = rememberInfiniteTransition(label = "adv-promo")
-    val shine by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing), RepeatMode.Restart),
-        label = "shine"
-    )
-    // Gentle breathing scale so the card subtly "pulls" the eye.
-    val pulse by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.015f,
-        animationSpec = infiniteRepeatable(tween(1300, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "pulse"
-    )
+private fun ProfileSection(
+    title: String,
+    icon: ImageVector,
+    accent: Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    HomeCard(contentPadding = 0.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = accent
+            )
+        }
+        content()
+    }
+}
 
-    Card(
+/** One tappable row: tinted icon chip, title, subtitle, chevron. */
+@Composable
+private fun ProfileRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String?,
+    accent: Color,
+    onClick: () -> Unit,
+    danger: Boolean = false,
+    last: Boolean = false
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer { scaleX = pulse; scaleY = pulse }
-            .clip(RoundedCornerShape(24.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.secondary
-                        )
-                    )
-                )
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(accent.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
         ) {
-            val density = LocalDensity.current
-            val widthPx = with(density) { maxWidth.toPx() }
-            val bandWidthPx = widthPx * 0.35f
-            val x = -bandWidthPx + shine * (widthPx + bandWidthPx)
-
-            // The moving diagonal shine band.
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(with(density) { bandWidthPx.toDp() })
-                    .offset { IntOffset(x.roundToInt(), 0) }
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.28f),
-                                Color.Transparent
-                            )
-                        )
-                    )
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
             )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.22f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Tune,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = Str.advanced_settings_title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = Str.advanced_settings_promo,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.85f)
-                    )
-                }
-                Icon(
-                    imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
+        Icon(
+            imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        )
     }
+    if (!last) HorizontalDivider(
+        modifier = Modifier.padding(start = 70.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+    )
 }
 
 @Composable
@@ -1061,15 +979,20 @@ private fun SettingsCard(content: @Composable () -> Unit) {
 
 /** Switches the UI language in place; see core/i18n/AppLocale. */
 @Composable
-private fun LanguageSettingsItem() {
+private fun LanguageSettingsItem(profileStyle: Boolean = false) {
     var showPicker by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    SettingsItem(
-        icon = Icons.Rounded.Language,
-        title = Str.language,
-        subtitle = if (AppLocale.isEnglish) Str.language_name_en else Str.language_name_fa,
-        onClick = { showPicker = true }
-    )
+    val languageName = if (AppLocale.isEnglish) Str.language_name_en else Str.language_name_fa
+    if (profileStyle) {
+        ProfileRow(Icons.Rounded.Language, Str.language, languageName, Color(0xFF64748B), onClick = { showPicker = true })
+    } else {
+        SettingsItem(
+            icon = Icons.Rounded.Language,
+            title = Str.language,
+            subtitle = languageName,
+            onClick = { showPicker = true }
+        )
+    }
     if (showPicker) {
         AlertDialog(
             onDismissRequest = { showPicker = false },

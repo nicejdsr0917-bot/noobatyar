@@ -48,6 +48,22 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsRe
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
 
 /**
+ * Which slice of the advanced settings one screen shows. The profile tab
+ * opens each setting as its own focused screen (one of these); [ALL] is the
+ * original three-tab view, still used by the desktop sidebar; [SETUP] stacks
+ * deposit, capacity and payment methods for the create-business form.
+ */
+object AdvancedSection {
+    const val ALL = -1
+    const val PAYMENT = 0
+    const val CAPACITY = 1
+    const val DEPOSIT = 2
+    const val PROMO = 3
+    const val REMINDERS = 4
+    const val SETUP = 5
+}
+
+/**
  * The business "advanced settings" area, organized by *topic* rather than by
  * pricing tier: پرداخت (payments) → ظرفیت (capacity & deposit) → یادآوری
  * (reminders & SMS). Within each topic, a capability that the user's plan does
@@ -83,6 +99,7 @@ fun AdvancedSettingsTabs(
     onPaymentLink: (String) -> Unit,
     onOpenPromoCampaign: () -> Unit,
     onOpenReminders: () -> Unit,
+    section: Int = AdvancedSection.ALL,
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     // "روزهای تعطیل" moved to the business create/edit form, next to work
@@ -94,49 +111,75 @@ fun AdvancedSettingsTabs(
         Icons.Rounded.Campaign to Str.sms_promotion,
     )
 
+    @Composable
+    fun payment() = PaymentTab(
+        entitlements = entitlements,
+        plans = plans,
+        onUpgrade = onUpgrade,
+        isLoading = isLoading,
+        acceptedPaymentMethods = acceptedPaymentMethods,
+        onAcceptedPaymentMethods = onAcceptedPaymentMethods,
+        cardNumber = cardNumber,
+        onCardNumber = onCardNumber,
+        cardOwnerName = cardOwnerName,
+        onCardOwnerName = onCardOwnerName,
+        merchantId = merchantId,
+        onMerchantId = onMerchantId,
+        paymentLink = paymentLink,
+        onPaymentLink = onPaymentLink
+    )
+
+    @Composable
+    fun capacity(showCapacity: Boolean, showDeposit: Boolean, goToPayment: (() -> Unit)?) = CapacityTab(
+        entitlements = entitlements,
+        plans = plans,
+        onUpgrade = onUpgrade,
+        isLoading = isLoading,
+        maxAppointmentsPerHour = maxAppointmentsPerHour,
+        onMaxAppointmentsPerHour = onMaxAppointmentsPerHour,
+        depositMode = depositMode,
+        onDepositMode = onDepositMode,
+        depositAmount = depositAmount,
+        onDepositAmount = onDepositAmount,
+        acceptedPaymentMethods = acceptedPaymentMethods,
+        onGoToPayment = goToPayment,
+        showCapacity = showCapacity,
+        showDeposit = showDeposit
+    )
+
+    @Composable
+    fun messaging(showPromo: Boolean, showReminders: Boolean) = MessagingTab(
+        entitlements = entitlements,
+        plans = plans,
+        onUpgrade = onUpgrade,
+        onOpenPromoCampaign = onOpenPromoCampaign,
+        onOpenReminders = onOpenReminders,
+        showPromo = showPromo,
+        showReminders = showReminders
+    )
+
     Column(modifier = Modifier.fillMaxWidth()) {
-        SegmentedTabs(tabs = tabs, selected = selectedTab, onSelect = { selectedTab = it })
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        when (selectedTab) {
-            0 -> PaymentTab(
-                entitlements = entitlements,
-                plans = plans,
-                onUpgrade = onUpgrade,
-                isLoading = isLoading,
-                acceptedPaymentMethods = acceptedPaymentMethods,
-                onAcceptedPaymentMethods = onAcceptedPaymentMethods,
-                cardNumber = cardNumber,
-                onCardNumber = onCardNumber,
-                cardOwnerName = cardOwnerName,
-                onCardOwnerName = onCardOwnerName,
-                merchantId = merchantId,
-                onMerchantId = onMerchantId,
-                paymentLink = paymentLink,
-                onPaymentLink = onPaymentLink
-            )
-            1 -> CapacityTab(
-                entitlements = entitlements,
-                plans = plans,
-                onUpgrade = onUpgrade,
-                isLoading = isLoading,
-                maxAppointmentsPerHour = maxAppointmentsPerHour,
-                onMaxAppointmentsPerHour = onMaxAppointmentsPerHour,
-                depositMode = depositMode,
-                onDepositMode = onDepositMode,
-                depositAmount = depositAmount,
-                onDepositAmount = onDepositAmount,
-                acceptedPaymentMethods = acceptedPaymentMethods,
-                onGoToPayment = { selectedTab = 0 }
-            )
-            2 -> MessagingTab(
-                entitlements = entitlements,
-                plans = plans,
-                onUpgrade = onUpgrade,
-                onOpenPromoCampaign = onOpenPromoCampaign,
-                onOpenReminders = onOpenReminders
-            )
+        when (section) {
+            AdvancedSection.ALL -> {
+                SegmentedTabs(tabs = tabs, selected = selectedTab, onSelect = { selectedTab = it })
+                Spacer(modifier = Modifier.height(16.dp))
+                when (selectedTab) {
+                    0 -> payment()
+                    1 -> capacity(true, true) { selectedTab = 0 }
+                    2 -> messaging(true, true)
+                }
+            }
+            AdvancedSection.PAYMENT -> payment()
+            AdvancedSection.CAPACITY -> capacity(true, false, null)
+            AdvancedSection.DEPOSIT -> capacity(false, true) { /* the methods are on the screen above */ }
+            AdvancedSection.PROMO -> messaging(true, false)
+            AdvancedSection.REMINDERS -> messaging(false, true)
+            // Create-business form: deposit and capacity first, then how the
+            // money arrives, all on one step.
+            AdvancedSection.SETUP -> Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                capacity(true, true, null)
+                payment()
+            }
         }
     }
 }
@@ -443,10 +486,12 @@ private fun CapacityTab(
     depositAmount: String,
     onDepositAmount: (String) -> Unit,
     acceptedPaymentMethods: Set<String>,
-    onGoToPayment: () -> Unit,
+    onGoToPayment: (() -> Unit)?,
+    showCapacity: Boolean = true,
+    showDeposit: Boolean = true,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        FeatureGate(
+        if (showCapacity) FeatureGate(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.CAPACITY_CONTROL,
@@ -470,7 +515,7 @@ private fun CapacityTab(
           }
         }
 
-        FeatureGate(
+        if (showDeposit) FeatureGate(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.DEPOSIT,
@@ -552,8 +597,10 @@ private fun CapacityTab(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
-                        TextButton(onClick = onGoToPayment, enabled = !isLoading) {
-                            Text(Str.open_payment_tab, style = MaterialTheme.typography.labelLarge)
+                        if (onGoToPayment != null) {
+                            TextButton(onClick = onGoToPayment, enabled = !isLoading) {
+                                Text(Str.open_payment_tab, style = MaterialTheme.typography.labelLarge)
+                            }
                         }
                     }
                 }
@@ -579,9 +626,11 @@ private fun MessagingTab(
     onUpgrade: (Int) -> Unit,
     onOpenPromoCampaign: () -> Unit,
     onOpenReminders: () -> Unit,
+    showPromo: Boolean = true,
+    showReminders: Boolean = true,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        FeatureGate(
+        if (showPromo) FeatureGate(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.PROMOTIONAL_SMS,
@@ -611,7 +660,7 @@ private fun MessagingTab(
             }
         }
 
-        FeatureGate(
+        if (showReminders) FeatureGate(
             entitlements = entitlements,
             plans = plans,
             featureKey = EntitlementKeys.AUTO_REMINDER_SMS,

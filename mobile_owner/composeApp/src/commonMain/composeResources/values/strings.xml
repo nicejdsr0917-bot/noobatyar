@@ -1150,4 +1150,17 @@
     <string name="followers_list_empty">هنوز کسی صفحه شما را دنبال نکرده است.</string>
     <string name="followers_settings_subtitle">لیست کسانی که صفحه شما را دنبال می‌کنند</string>
     <string name="first_visit_settings_subtitle">درصد تخفیف برای مشتری تازه</string>
+    <string name="profile_group_business">کسب‌وکار من</string>
+    <string name="profile_group_booking">نوبت‌دهی و ظرفیت</string>
+    <string name="profile_group_payment">پرداخت و بیعانه</string>
+    <string name="profile_group_messages">پیام و یادآوری</string>
+    <string name="profile_group_social">مشتریان و شبکه اجتماعی</string>
+    <string name="profile_group_account">حساب و اشتراک</string>
+    <string name="profile_group_danger">منطقه خطر</string>
+    <string name="payment_methods_title">روش‌های پرداخت</string>
+    <string name="payment_methods_subtitle">نقدی، کارت به کارت و درگاه آنلاین</string>
+    <string name="capacity_row_subtitle">سقف نوبت در هر ساعت</string>
+    <string name="deposit_row_subtitle">حالت و مبلغ بیعانه</string>
+    <string name="deposit_amount_required">مبلغ بیعانه را وارد کنید</string>
+    <string name="card_number_required">شماره کارت را وارد کنید</string>
 </resources>

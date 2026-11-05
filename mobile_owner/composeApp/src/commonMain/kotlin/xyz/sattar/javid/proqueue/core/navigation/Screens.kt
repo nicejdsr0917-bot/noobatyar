@@ -54,7 +54,7 @@ sealed class AppScreens {
     @Serializable
     data class CreateBusiness(val businessId: Long? = null) : AppScreens()
     @Serializable
-    data class AdvancedSettings(val businessId: Long) : AppScreens()
+    data class AdvancedSettings(val businessId: Long, val section: Int = -1) : AppScreens()
     @Serializable
     object BusinessList : AppScreens()
     /** Take over an imported directory listing instead of creating a duplicate. */
