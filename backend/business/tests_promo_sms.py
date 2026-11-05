@@ -240,3 +240,6 @@ class FollowersAudienceTests(TestCase):
             self.assertNotIn('09350000012', body)
             self.assertNotIn('رضایی', body)
         self.assertIn('09350000011', detail)
+        # The report names who got the message, never the full number.
+        self.assertNotIn('09350000011', logs)
+        self.assertIn('0935***0011', logs)

@@ -58,12 +58,17 @@ class SmsLogSerializer(serializers.ModelSerializer):
     # default=None: an owner-directed message (e.g. "new booking") has no
     # visitor, and without a default DRF raises walking the null relation.
     visitor_name = serializers.CharField(source='visitor.full_name', read_only=True, default=None)
-    visitor_phone = serializers.CharField(source='visitor.phone_number', read_only=True, default=None)
+    # Masked like the business-side report (business.serializers.SmsLogVisitorSerializer).
+    visitor_phone = serializers.SerializerMethodField()
 
     class Meta:
         model = SmsLog
         fields = ['id', 'visitor', 'visitor_name', 'visitor_phone', 'business', 'message_text', 'status', 'sent_at']
         read_only_fields = ['id', 'sent_at']
+
+    def get_visitor_phone(self, log):
+        from business.claims import mask_phone
+        return mask_phone(log.visitor.phone_number) if log.visitor_id else None
 
 
 class VisitorActivitySerializer(serializers.ModelSerializer):
