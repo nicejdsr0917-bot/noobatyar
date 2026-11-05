@@ -34,7 +34,8 @@ import kotlin.math.roundToInt
 
 /**
  * Fixed-aspect rectangular counterpart of [ImageCropperDialog], for portfolio
- * photos (1:1) and certificates (4:5).
+ * photos and certificates. [controls] sits above the hint, e.g. a frame-shape
+ * picker that changes [aspectRatio]; the zoom and pan start over when it does.
  *
  * Same gesture model — the photo covers a window that is panned and pinched —
  * but the window is `aspectRatio` (width / height) wide instead of a square,
@@ -53,12 +54,13 @@ fun RectImageCropperDialog(
     outputWidth: Int,
     outputHeight: Int,
     onDismiss: () -> Unit,
-    onCropped: (ByteArray) -> Unit
+    onCropped: (ByteArray) -> Unit,
+    controls: @Composable () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     var isWorking by remember { mutableStateOf(false) }
-    var zoom by remember { mutableStateOf(1f) }
-    var pan by remember { mutableStateOf(Offset.Zero) }
+    var zoom by remember(aspectRatio) { mutableStateOf(1f) }
+    var pan by remember(aspectRatio) { mutableStateOf(Offset.Zero) }
 
     Dialog(
         onDismissRequest = { if (!isWorking) onDismiss() },
@@ -71,7 +73,7 @@ fun RectImageCropperDialog(
         ) {
             // Respect both dimensions (see ImageCropperDialog) and keep the
             // header and footer chrome clear of the window.
-            val chromeReserved = 200.dp
+            val chromeReserved = 260.dp
             val windowHeight = minOf(maxHeight - chromeReserved, (maxWidth - 48.dp) / aspectRatio)
                 .coerceIn(120.dp, 640.dp)
             val windowWidth = windowHeight * aspectRatio
@@ -149,6 +151,7 @@ fun RectImageCropperDialog(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                controls()
                 Text(
                     text = Str.drag_to_move_pinch_to,
                     style = MaterialTheme.typography.bodySmall,

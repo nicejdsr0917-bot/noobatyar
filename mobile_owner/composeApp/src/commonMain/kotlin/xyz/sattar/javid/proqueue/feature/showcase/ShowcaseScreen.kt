@@ -80,6 +80,9 @@ import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ShowcaseItemDto
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseFields
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseKind
+import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseStatus
 import xyz.sattar.javid.proqueue.domain.model.showcase.statusEnum
 
@@ -117,18 +120,20 @@ fun ShowcaseScreen(
 
     rawPicked?.let { raw ->
         val bitmap = remember(raw) { try { raw.toImageBitmapOrNull() } catch (e: Exception) { null } }
+        var shape by remember(raw) { mutableStateOf(kind.defaultShape) }
         if (bitmap != null) {
             RectImageCropperDialog(
                 source = raw,
                 bitmap = bitmap,
-                aspectRatio = kind.aspectRatio,
-                outputWidth = kind.outputWidth,
-                outputHeight = kind.outputHeight,
+                aspectRatio = shape.aspectRatio,
+                outputWidth = shape.outputWidth,
+                outputHeight = shape.outputHeight,
                 onDismiss = { rawPicked = null },
                 onCropped = { cropped ->
                     rawPicked = null
                     dialog = ItemDialog.Add(kind, cropped)
-                }
+                },
+                controls = { ShapePicker(shape) { shape = it } }
             )
         } else {
             // Undecodable file: nothing to crop, so drop it rather than leave a dialog that can't open.
@@ -305,7 +310,8 @@ private fun ShowcaseItemCard(
             AsyncImage(
                 model = mediaUrl(item.thumbnail?.takeIf { it.isNotBlank() } ?: item.image),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                // Fit: items may be square, portrait or landscape; show all of each.
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(kind.aspectRatio)
@@ -465,4 +471,26 @@ private fun ItemFormDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(Str.cancel) } }
     )
+}
+
+/** Square, portrait or landscape: the frame the photo is cropped to. */
+@Composable
+private fun ShapePicker(selected: ShowcaseShape, onSelect: (ShowcaseShape) -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(bottom = 12.dp)
+    ) {
+        ShowcaseShape.entries.forEach { shape ->
+            FilterChip(
+                selected = shape == selected,
+                onClick = { onSelect(shape) },
+                label = { Text(shape.label) },
+                colors = FilterChipDefaults.filterChipColors(
+                    labelColor = Color.White,
+                    selectedContainerColor = Color.White,
+                    selectedLabelColor = Color.Black,
+                ),
+            )
+        }
+    }
 }

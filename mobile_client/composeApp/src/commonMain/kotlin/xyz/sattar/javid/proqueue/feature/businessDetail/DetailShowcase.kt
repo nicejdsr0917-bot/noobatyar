@@ -102,6 +102,8 @@ internal fun WatermarkedImage(
     modifier: Modifier = Modifier,
     markSize: Dp = 20.dp,
     fit: Boolean = false,
+    /** Show the whole picture inside the given box (a landscape certificate in a portrait tile). */
+    letterbox: Boolean = false,
 ) {
     var ratio by remember(url) { mutableStateOf<Float?>(null) }
     val boxModifier = if (fit) {
@@ -112,7 +114,7 @@ internal fun WatermarkedImage(
         AsyncImage(
             model = url,
             contentDescription = contentDescription,
-            contentScale = if (fit) ContentScale.Fit else ContentScale.Crop,
+            contentScale = if (fit || letterbox) ContentScale.Fit else ContentScale.Crop,
             onSuccess = { s ->
                 val size = s.painter.intrinsicSize
                 if (size.width > 0f && size.height > 0f) ratio = size.width / size.height
@@ -273,7 +275,8 @@ private fun CertificateTile(cert: CertificateDto, modifier: Modifier, onClick: (
                 .aspectRatio(4f / 5f)
                 .clip(Radius.md)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
-            markSize = 16.dp
+            markSize = 16.dp,
+            letterbox = true,
         )
         Spacer(Modifier.height(Space.sm))
         Text(cert.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)

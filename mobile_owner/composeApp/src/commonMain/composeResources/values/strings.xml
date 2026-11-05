@@ -1113,6 +1113,9 @@
     <string name="showcase_delete_confirm_title">حذف این مورد؟</string>
     <string name="showcase_delete_confirm_message">این مورد برای همیشه حذف می‌شود.</string>
     <string name="showcase_crop_title">برش تصویر</string>
+    <string name="showcase_shape_square">مربع</string>
+    <string name="showcase_shape_portrait">عمودی</string>
+    <string name="showcase_shape_landscape">افقی</string>
     <string name="showcase_added">اضافه شد و در انتظار تأیید است</string>
     <string name="showcase_updated">ذخیره شد</string>
     <string name="showcase_deleted">حذف شد</string>

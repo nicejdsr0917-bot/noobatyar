@@ -1064,6 +1064,9 @@
     <string name="showcase_delete_confirm_title">Delete this item?</string>
     <string name="showcase_delete_confirm_message">This item will be removed for good.</string>
     <string name="showcase_crop_title">Crop image</string>
+    <string name="showcase_shape_square">Square</string>
+    <string name="showcase_shape_portrait">Portrait</string>
+    <string name="showcase_shape_landscape">Landscape</string>
     <string name="showcase_added">Added, waiting for approval</string>
     <string name="showcase_updated">Saved</string>
     <string name="showcase_deleted">Deleted</string>

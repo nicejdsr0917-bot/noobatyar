@@ -11,6 +11,27 @@ enum class ShowcaseKind(val path: String, val aspectWidth: Int, val aspectHeight
     CERTIFICATES("certificates", 4, 5, 1080, 1350);
 
     val aspectRatio: Float get() = aspectWidth.toFloat() / aspectHeight
+
+    /** The frame the cropper opens with; the owner can switch to another [ShowcaseShape]. */
+    val defaultShape: ShowcaseShape get() = if (this == PORTFOLIO) ShowcaseShape.SQUARE else ShowcaseShape.PORTRAIT
+}
+
+/**
+ * Frames the owner can crop to (the server accepts all three, ±10%):
+ * forcing one shape made landscape things, most certificates, unusable.
+ */
+enum class ShowcaseShape(val aspectWidth: Int, val aspectHeight: Int, val outputWidth: Int, val outputHeight: Int) {
+    SQUARE(1, 1, 1080, 1080),
+    PORTRAIT(4, 5, 1080, 1350),
+    LANDSCAPE(4, 3, 1080, 810);
+
+    val aspectRatio: Float get() = aspectWidth.toFloat() / aspectHeight
+
+    val label: String get() = when (this) {
+        SQUARE -> Str.showcase_shape_square
+        PORTRAIT -> Str.showcase_shape_portrait
+        LANDSCAPE -> Str.showcase_shape_landscape
+    }
 }
 
 /** Review state of a showcase item; anything unrecognised reads as pending. */

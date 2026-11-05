@@ -71,7 +71,7 @@ class ShowcaseApiTests(TestCase):
 
     def test_rejects_small_and_wrong_shape_and_garbage(self):
         self.assertEqual(self.post_portfolio(500, 500).status_code, 400)
-        self.assertEqual(self.post_portfolio(1080, 600).status_code, 400)
+        self.assertEqual(self.post_portfolio(1080, 540).status_code, 400)  # 2:1 is none of the shapes
         r = self.c.post('/api/owner/showcase/portfolio/', {
             'business_id': self.biz_a.id,
             'image': SimpleUploadedFile('x.png', b'not an image')}, format='multipart')
@@ -127,10 +127,19 @@ class ShowcaseApiTests(TestCase):
                           {'business_id': self.biz_a.id, 'ids': ids[:2]}, format='json')
         self.assertEqual(bad.status_code, 400)
 
+    def test_square_portrait_and_landscape_are_all_accepted(self):
+        # The owner picks the frame; a landscape one is downscaled, not cropped.
+        for w, h in [(1080, 1080), (1080, 1350), (2000, 1500)]:
+            self.assertEqual(self.post_portfolio(w, h).status_code, 201, (w, h))
+        with Image.open(PortfolioItem.objects.order_by('-id').first().image.path) as im:
+            self.assertEqual(im.size, (1080, 810))
+
     def test_certificate_flow_and_ratio(self):
         url = '/api/owner/showcase/certificates/'
-        bad = self.c.post(url, {'business_id': self.biz_a.id, 'title': 'T', 'image': png(1080, 1080)}, format='multipart')
+        bad = self.c.post(url, {'business_id': self.biz_a.id, 'title': 'T', 'image': png(1080, 540)}, format='multipart')
         self.assertEqual(bad.status_code, 400)
+        landscape = self.c.post(url, {'business_id': self.biz_a.id, 'title': 'L', 'image': png(1080, 810)}, format='multipart')
+        self.assertEqual(landscape.status_code, 201, landscape.content)
         ok = self.c.post(url, {'business_id': self.biz_a.id, 'title': 'T', 'issuer': 'I', 'year': 1402,
                                'image': png(1080, 1350)}, format='multipart')
         self.assertEqual(ok.status_code, 201, ok.content)

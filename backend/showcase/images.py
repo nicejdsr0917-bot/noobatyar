@@ -5,12 +5,13 @@ server never trusts that: every image is re-opened with Pillow, checked against
 the shape rule, downscaled to the target size and re-encoded as JPEG, and a
 small thumbnail is produced for list screens.
 
-Rules (``ImageSpec``):
-    portfolio    1080x1080 target, ratio 1:1 (+-10%), shortest side >= 600
-    certificate  1080x1350 target, ratio 4:5 (+-10%), width >= 600
-Images larger than the target are scaled down (aspect ratio preserved, no
-crop); smaller than the minimum are rejected; an image that is not
-approximately the right shape is rejected rather than silently cropped.
+Rules (``ImageSpec``), the same for portfolio and certificates: the owner picks
+the frame, so the picture may be square 1:1 (1080x1080), portrait 4:5
+(1080x1350) or landscape 4:3 (1080x810), each +-10%. Forcing one shape made
+landscape things (most certificates) unusable. Width >= 600, height >= 450.
+Images larger than 1080x1350 are scaled down (aspect ratio preserved, no
+crop); smaller than the minimum are rejected; an image that is none of the
+shapes is rejected rather than silently cropped.
 """
 import io
 from dataclasses import dataclass
@@ -34,15 +35,16 @@ class ImageSpec:
     height: int
     min_width: int
     min_height: int
+    # Allowed width/height ratios: square, portrait 4:5, landscape 4:3.
+    ratios: tuple = (1.0, 4 / 5, 4 / 3)
     tolerance: float = 0.10
 
-    @property
-    def ratio(self):
-        return self.width / self.height
+    def fits(self, ratio):
+        return any(abs(ratio / r - 1) <= self.tolerance for r in self.ratios)
 
 
-PORTFOLIO_SPEC = ImageSpec(1080, 1080, 600, 600)
-CERTIFICATE_SPEC = ImageSpec(1080, 1350, 600, 750)
+SHOWCASE_SPEC = ImageSpec(1080, 1350, 600, 450)
+PORTFOLIO_SPEC = CERTIFICATE_SPEC = SHOWCASE_SPEC
 
 
 def process_image(uploaded, spec: ImageSpec, stem: str):
@@ -53,9 +55,8 @@ def process_image(uploaded, spec: ImageSpec, stem: str):
     if w < spec.min_width or h < spec.min_height:
         raise ImageRejected(
             f'عکس خیلی کوچک است؛ حداقل {spec.min_width}×{spec.min_height} پیکسل لازم است.')
-    if abs((w / h) / spec.ratio - 1) > spec.tolerance:
-        raise ImageRejected(
-            f'نسبت عکس درست نیست؛ عکس باید {spec.width}×{spec.height} پیکسل (یا هم‌نسبت آن) باشد.')
+    if not spec.fits(w / h):
+        raise ImageRejected('نسبت عکس درست نیست؛ عکس باید مربع، عمودی ۴:۵ یا افقی ۴:۳ باشد.')
 
     img = flatten_rgb(img)
 
