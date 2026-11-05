@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Android 12+ always shows a system splash. Keep it to the dark
+    <!-- Android 12+ always shows a system splash. Keep it to the violet
          background alone, no icon, so LaunchSplash's mark is the only one. -->
     <style name="Theme.Noobatyar" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/splash_background</item>
