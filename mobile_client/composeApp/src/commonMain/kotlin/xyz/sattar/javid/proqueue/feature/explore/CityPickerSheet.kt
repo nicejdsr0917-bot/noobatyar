@@ -100,7 +100,7 @@ fun CityPickerSheet(
                     fontWeight = FontWeight.Bold,
                 )
             }
-            CitySearchField(
+            SheetSearchField(
                 query = query,
                 onQueryChange = { query = it },
                 modifier = Modifier.padding(horizontal = Space.page, vertical = Space.sm),
@@ -207,7 +207,12 @@ private fun CityRow(
 }
 
 @Composable
-private fun CitySearchField(query: String, onQueryChange: (String) -> Unit, modifier: Modifier = Modifier) {
+internal fun SheetSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "جستجو در شهرهای ایران",
+) {
     Row(
         modifier
             .fillMaxWidth()
@@ -221,7 +226,7 @@ private fun CitySearchField(query: String, onQueryChange: (String) -> Unit, modi
         Box(Modifier.weight(1f)) {
             if (query.isEmpty()) {
                 Text(
-                    "جستجو در شهرهای ایران",
+                    placeholder,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyLarge,
                 )

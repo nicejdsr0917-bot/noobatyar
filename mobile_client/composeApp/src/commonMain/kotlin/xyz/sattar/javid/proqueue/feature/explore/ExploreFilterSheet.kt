@@ -25,6 +25,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -165,24 +169,43 @@ internal fun InsuranceSheet(
     subtitle: String = "مراکزی که این بیمه را اعلام کرده‌اند؛ قبل از مراجعه هماهنگ کنید.",
     noneLabel: String = "همه بیمه‌ها",
 ) {
+    var query by remember { mutableStateOf("") }
+    // Arabic ي/ك typed on some keyboards should still match the Persian names.
+    val q = query.trim().replace('ي', 'ی').replace('ك', 'ک')
+    val shown = if (q.isEmpty()) insurances else insurances.filter { it.name.contains(q) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface
     ) {
+        Column(Modifier.padding(horizontal = Space.page, vertical = Space.sm)) {
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        SheetSearchField(
+            query = query,
+            onQueryChange = { query = it },
+            placeholder = "جستجوی بیمه",
+            modifier = Modifier.padding(horizontal = Space.page, vertical = Space.sm),
+        )
         LazyColumn(contentPadding = PaddingValues(bottom = Space.xl), modifier = Modifier.navigationBarsPadding()) {
-            item {
-                Column(Modifier.padding(horizontal = Space.page, vertical = Space.sm)) {
-                    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            if (q.isEmpty()) {
+                item { OptionRow(noneLabel, selectedSlug == null, leading = { InsuranceLogo(null) }) { onSelect(null) } }
+            } else if (shown.isEmpty()) {
+                item {
                     Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "بیمه‌ای با این نام پیدا نشد",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = Space.page, vertical = Space.lg)
                     )
                 }
-                OptionRow(noneLabel, selectedSlug == null, leading = { InsuranceLogo(null) }) { onSelect(null) }
             }
-            val groups = insurances.groupBy { it.insuranceType }
+            val groups = shown.groupBy { it.insuranceType }
             listOf("BASIC" to "بیمه‌های پایه", "SUPPLEMENTARY" to "بیمه‌های تکمیلی").forEach { (type, title) ->
                 val list = groups[type].orEmpty()
                 if (list.isNotEmpty()) {
