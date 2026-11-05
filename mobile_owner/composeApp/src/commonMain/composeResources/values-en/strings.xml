@@ -1038,8 +1038,8 @@
     <string name="story_discount_amount">%1$s toman off</string>
     <string name="home_new_followers_title">New followers</string>
     <string name="home_followers_total">%1$d people follow your page</string>
-    <string name="source_summary_title">Clients Noobatyar brought you</string>
-    <string name="source_summary_body">This month: %1$d bookings from the Noobatyar app and %2$d from the website</string>
+    <string name="source_summary_title">Online bookings this month</string>
+    <string name="source_summary_body">%1$d from the app · %2$d from the website</string>
     <string name="showcase_title">Portfolio and certificates</string>
     <string name="showcase_subtitle">Show your work and credentials on your public page</string>
     <string name="showcase_tab_portfolio">Portfolio</string>

@@ -24,7 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import xyz.sattar.javid.proqueue.core.i18n.Str
 
-/** «این ماه X نوبت از اپ نوبت‌یار و Y نوبت از سایت» under the month card. */
+/** «نوبت‌های آنلاین این ماه: X از اپ · Y از سایت» under the month card. A plain
+ *  count of where online bookings came from, not a claim that we brought them. */
 @Composable
 fun SourceSummaryCard(summary: SourceSummary) {
     HomeCard {
@@ -34,7 +35,7 @@ fun SourceSummaryCard(summary: SourceSummary) {
             Str.source_summary_body(summary.app, summary.web).toPersianDigits(),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = HomeDimens.HeaderIcon + 10.dp)
+            modifier = Modifier.fillMaxWidth().padding(start = HomeDimens.HeaderIcon + 10.dp)
         )
     }
 }

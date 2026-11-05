@@ -1087,8 +1087,8 @@
     <string name="story_discount_amount">%1$s تومان تخفیف</string>
     <string name="home_new_followers_title">دنبال‌کننده‌های تازه</string>
     <string name="home_followers_total">%1$d نفر صفحه شما را دنبال می‌کنند</string>
-    <string name="source_summary_title">مشتری‌هایی که نوبت‌یار آورد</string>
-    <string name="source_summary_body">این ماه %1$d نوبت از اپ نوبت‌یار و %2$d نوبت از سایت گرفته شد</string>
+    <string name="source_summary_title">نوبت‌های آنلاین این ماه</string>
+    <string name="source_summary_body">%1$d از اپ · %2$d از سایت</string>
     <string name="showcase_title">نمونه‌کار و مدارک</string>
     <string name="showcase_subtitle">عکس کارها و مدارک خود را در صفحه‌ی عمومی نمایش دهید</string>
     <string name="showcase_tab_portfolio">نمونه‌کار</string>
