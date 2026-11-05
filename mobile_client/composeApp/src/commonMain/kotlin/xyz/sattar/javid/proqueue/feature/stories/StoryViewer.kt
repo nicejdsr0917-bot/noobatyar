@@ -51,7 +51,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -113,8 +112,11 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
     }
 
     val stories = data?.stories.orEmpty()
+    // Reads [data] itself, not the `stories` above: a tap handler can hold a copy of
+    // this function from before the stories loaded, and with that empty list the
+    // first tap "finished" the viewer instead of moving on.
     fun next() {
-        if (index < stories.lastIndex) { index++; progress = 0f }
+        if (index < data?.stories.orEmpty().lastIndex) { index++; progress = 0f }
         else center.finished(businessId)
     }
     fun previous() {
@@ -157,10 +159,7 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
             // Pressing anywhere pauses until the finger lifts; a quick tap still navigates.
             // Keyed on the zone, not on `::next`: a function reference is a new object
             // on every recomposition (progress ticks every 50 ms), which restarted the
-            // detector mid-tap so no tap ever landed. The latest index is read through
-            // rememberUpdatedState instead.
-            val goBack by rememberUpdatedState(::previous)
-            val goForward by rememberUpdatedState(::next)
+            // detector mid-tap so no tap ever landed. next/previous read state only.
             Row(Modifier.fillMaxSize()) {
                 listOf(false, true).forEach { forward ->
                     Box(
@@ -171,7 +170,7 @@ private fun StoryViewer(businessId: Long, center: StoryCenter) {
                                     tryAwaitRelease()
                                     paused = false
                                 },
-                                onTap = { if (forward) goForward() else goBack() },
+                                onTap = { if (forward) next() else previous() },
                             )
                         }
                     )
