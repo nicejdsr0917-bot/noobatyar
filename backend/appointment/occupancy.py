@@ -139,22 +139,17 @@ def overlapping_appointments(business_id, start, duration_minutes, now=None):
 
 def refund_quota(appointment, owner_id):
     """
-    Return the appointment credit a cancelled booking consumed.
+    Close out the credit of a booking that is cancelled, deleted or whose
+    payment hold ran out. The credit is NOT given back: the booking already
+    cost Noobatyar its messages (confirmation, reminders), and handing the
+    credit back made every cancellation free for the owner and a loss for
+    Noobatyar. Product decision, 2026-11-05.
 
-    Clears ``quota_source`` on the way out so the same booking can never be
-    refunded twice (the status guards around cancellation already prevent it,
-    but a stray double-call must not mint credit). The caller persists the
-    cleared field, or drops the row entirely.
-
-    Runs cache operations, so call it from sync context.
+    Still clears ``quota_source`` so the row reads as settled. Returns True
+    when there was a source to clear, so callers keep persisting the field.
     """
-    from accounting import usage
-
-    source = appointment.quota_source
-    if not source or owner_id is None:
+    if not appointment.quota_source or owner_id is None:
         return False
-
-    usage.release_appointment(owner_id, source, appointment.created_at)
     appointment.quota_source = ''
     return True
 

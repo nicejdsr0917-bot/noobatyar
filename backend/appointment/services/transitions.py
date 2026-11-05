@@ -62,11 +62,11 @@ OWNER_STATUS_TRANSITIONS = {
 def appointment_expire_lock_if_due(appointment):
     """
     Lazy lock expiry (sync). If ``appointment`` is a LOCKED hold whose payment
-    window has passed, close it out as CANCELLED and give the quota back.
+    window has passed, close it out as CANCELLED (its credit stays spent).
 
     Returns True when the hold is (now) expired. The transition is a
     conditional update, so a concurrent callback/cancel that already moved the
-    row wins and only one caller ever refunds the credit.
+    row wins and only one caller ever closes it.
     """
     if not (appointment.expires_at and appointment.expires_at <= timezone.now()):
         return False
@@ -76,7 +76,6 @@ def appointment_expire_lock_if_due(appointment):
             pk=appointment.pk, status='LOCKED', expires_at__lte=timezone.now(),
         ).update(status='CANCELLED', quota_source='', updated_at=timezone.now())
         if changed:
-            # The client never paid, so the owner keeps the credit.
             refund_quota(appointment, appointment.business.user_id)
     if changed:
         appointment.status = 'CANCELLED'
@@ -85,7 +84,7 @@ def appointment_expire_lock_if_due(appointment):
 
 
 def appointment_cancel_by_client(appointment, previous_status):
-    """Sync: CANCELLED only if still in ``previous_status``; refund once."""
+    """Sync: CANCELLED only if still in ``previous_status``."""
     with transaction.atomic():
         changed = Appointment.objects.filter(
             pk=appointment.pk, status=previous_status
@@ -95,7 +94,6 @@ def appointment_cancel_by_client(appointment, previous_status):
         )
         if not changed:
             return False
-        # A slot the owner never served should not keep costing them a credit.
         refund_quota(appointment, appointment.business.user_id)
     appointment.status = 'CANCELLED'
     appointment.locked_at = None

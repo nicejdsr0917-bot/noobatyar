@@ -59,21 +59,21 @@ class Base:
 
 
 class OwnerStatusStaleTests(Base, TestCase):
-    def test_owner_cancel_after_client_cancel_refunds_once(self):
+    def test_owner_cancel_after_client_cancel_never_refunds(self):
         a = self.make()
         stale = self.stale(a)
         with patch(RELEASE) as rel, patch(NOTIFY):
             self.assertTrue(appointment_cancel_by_client(self.stale(a), 'WAITING'))
             appointment_change_status_by_owner(appointment=stale, new_status='CANCELLED')
-        self.assertEqual(rel.call_count, 1)
+        rel.assert_not_called()  # cancelled credit stays spent (refund_quota)
 
-    def test_owner_cancel_twice_refunds_once(self):
+    def test_owner_cancel_twice_never_refunds(self):
         a = self.make()
         s1, s2 = self.stale(a), self.stale(a)
         with patch(RELEASE) as rel, patch(NOTIFY):
             appointment_change_status_by_owner(appointment=s1, new_status='CANCELLED')
             appointment_change_status_by_owner(appointment=s2, new_status='CANCELLED')
-        self.assertEqual(rel.call_count, 1)
+        rel.assert_not_called()  # cancelled credit stays spent (refund_quota)
 
     def test_owner_waiting_after_client_cancel_does_not_resurrect(self):
         a = self.make()
@@ -89,22 +89,22 @@ class OwnerStatusStaleTests(Base, TestCase):
 
 
 class OwnerDeleteStaleTests(Base, TestCase):
-    def test_delete_twice_refunds_once_and_second_is_noop(self):
+    def test_delete_twice_never_refunds_and_second_is_noop(self):
         a = self.make()
         s1, s2 = self.stale(a), self.stale(a)
         with patch(RELEASE) as rel:
             appointment_delete_for_owner(appointment=s1)
             appointment_delete_for_owner(appointment=s2)
-        self.assertEqual(rel.call_count, 1)
+        rel.assert_not_called()  # cancelled credit stays spent (refund_quota)
         self.assertFalse(Appointment.objects.filter(pk=a.pk).exists())
 
-    def test_delete_after_client_cancel_does_not_refund_again(self):
+    def test_delete_after_client_cancel_never_refunds(self):
         a = self.make()
         stale = self.stale(a)
         with patch(RELEASE) as rel:
             appointment_cancel_by_client(self.stale(a), 'WAITING')
             appointment_delete_for_owner(appointment=stale)
-        self.assertEqual(rel.call_count, 1)
+        rel.assert_not_called()  # cancelled credit stays spent (refund_quota)
 
 
 class PatchStatusWithDetailsTests(Base, TestCase):
@@ -117,13 +117,13 @@ class PatchStatusWithDetailsTests(Base, TestCase):
         return self.api.patch(reverse('appointments:appointment-update', args=[a.id]),
                               data=data, format='json')
 
-    def test_status_plus_details_cancels_refunds_and_notifies(self):
+    def test_status_plus_details_cancels_without_refund_and_notifies(self):
         a = self.make()
         with patch(RELEASE) as rel, patch(NOTIFY) as notify:
             r = self.patch_it(a, status='CANCELLED', description='x')
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()['data']['status'], 'CANCELLED')
-        self.assertEqual(rel.call_count, 1)
+        rel.assert_not_called()  # cancelled credit stays spent (refund_quota)
         notify.assert_called_once()
         a.refresh_from_db()
         self.assertEqual((a.status, a.description), ('CANCELLED', 'x'))
@@ -219,4 +219,4 @@ class OwnerStatusRaceTests(Base, TransactionTestCase):
             ts = [threading.Thread(target=owner), threading.Thread(target=client)]
             [t.start() for t in ts]
             [t.join() for t in ts]
-        self.assertEqual(rel.call_count, 1)
+        rel.assert_not_called()  # cancelled credit stays spent (refund_quota)
