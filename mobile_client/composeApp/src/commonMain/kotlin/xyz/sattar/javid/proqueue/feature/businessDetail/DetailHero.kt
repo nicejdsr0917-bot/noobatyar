@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import xyz.sattar.javid.proqueue.feature.discovery.FirstSlotButton
 import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.Bookmark
 import com.composables.icons.lucide.Clock
@@ -598,6 +599,8 @@ internal fun QuickPickSection(
     index: Int,
     onSelectDay: (Int) -> Unit,
     onSelectSlot: (TimeSlotDto) -> Unit,
+    /** The first free time as a one-tap button under the times; null hides it. */
+    firstSlot: Pair<String, () -> Unit>? = null,
 ) {
     GroupCard(title = "انتخاب روز و ساعت", index = index, bleed = {
         DayStrip(state.days, state.selectedDay, onSelectDay)
@@ -619,6 +622,10 @@ internal fun QuickPickSection(
                     TimePill(slot, slot == state.selectedSlot) { onSelectSlot(slot) }
                 }
             }
+        }
+        firstSlot?.let { (label, onClick) ->
+            Spacer(Modifier.height(Space.md))
+            FirstSlotButton(label, Modifier.padding(horizontal = Space.page), onClick)
         }
     })
 }

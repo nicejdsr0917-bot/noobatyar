@@ -2,7 +2,6 @@ package xyz.sattar.javid.proqueue.feature.businessDetail
 
 import xyz.sattar.javid.proqueue.feature.discovery.formatFirstFreeSlot
 import xyz.sattar.javid.proqueue.feature.discovery.slotDate
-import xyz.sattar.javid.proqueue.feature.discovery.FirstSlotButton
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.CloudOff
 import com.composables.icons.lucide.Flag
@@ -295,17 +294,14 @@ internal fun DetailContent(
 
                     FollowRow(state.isFollowing, state.followBusy, onToggleFollow)
 
-                    // The first free time, one tap from booking it.
-                    val firstSlot = business.firstFreeSlot
-                    val firstSlotLabel = remember(firstSlot) { formatFirstFreeSlot(firstSlot) }
-                    if (firstSlot != null && firstSlotLabel != null && business.canBookOnline) {
-                        FirstSlotButton(firstSlotLabel, Modifier.padding(horizontal = Space.page)) {
-                            onBookFirstSlot(slotDate(firstSlot), firstSlot)
-                        }
-                    }
-
                     if (state.days.isNotEmpty()) {
-                        QuickPickSection(state, card++, onSelectDay, onSelectSlot)
+                        // The first free time, one tap from booking it, under the day's times.
+                        val firstSlot = business.firstFreeSlot
+                        val firstSlotLabel = remember(firstSlot) { formatFirstFreeSlot(firstSlot) }
+                        val firstSlotButton = if (firstSlot != null && firstSlotLabel != null && business.canBookOnline) {
+                            firstSlotLabel to { onBookFirstSlot(slotDate(firstSlot), firstSlot) }
+                        } else null
+                        QuickPickSection(state, card++, onSelectDay, onSelectSlot, firstSlotButton)
                     }
 
                     when {
