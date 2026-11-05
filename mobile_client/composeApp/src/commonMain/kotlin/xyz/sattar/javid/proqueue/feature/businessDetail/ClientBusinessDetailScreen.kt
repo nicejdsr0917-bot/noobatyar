@@ -1,5 +1,8 @@
 package xyz.sattar.javid.proqueue.feature.businessDetail
 
+import xyz.sattar.javid.proqueue.feature.discovery.formatFirstFreeSlot
+import xyz.sattar.javid.proqueue.feature.discovery.slotDate
+import xyz.sattar.javid.proqueue.feature.discovery.FirstSlotButton
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.CloudOff
 import com.composables.icons.lucide.Flag
@@ -179,6 +182,7 @@ fun ClientBusinessDetailScreen(
                 },
                 onSelectDay = viewModel::selectDay,
                 onSelectSlot = viewModel::selectSlot,
+                onBookFirstSlot = { date, slotAt -> onBookSlot(business.id, date, slotAt) },
                 onRefresh = {
                     viewModel.refresh()
                     social.load(businessId)
@@ -248,6 +252,8 @@ internal fun DetailContent(
     onSelectDay: (Int) -> Unit = {},
     onSelectSlot: (xyz.sattar.javid.proqueue.data.remoteDataSource.booking.model.TimeSlotDto) -> Unit = {},
     onRefresh: () -> Unit = {},
+    /** The first-free-slot button: (ISO date, slot timestamp). */
+    onBookFirstSlot: (date: String, slotAt: Long) -> Unit = { _, _ -> },
 ) {
     val directions = rememberDirections()
     // Only for sharing: booking itself happens in the app, never on the site.
@@ -288,6 +294,15 @@ internal fun DetailContent(
                     var card = 0
 
                     FollowRow(state.isFollowing, state.followBusy, onToggleFollow)
+
+                    // The first free time, one tap from booking it.
+                    val firstSlot = business.firstFreeSlot
+                    val firstSlotLabel = remember(firstSlot) { formatFirstFreeSlot(firstSlot) }
+                    if (firstSlot != null && firstSlotLabel != null && business.canBookOnline) {
+                        FirstSlotButton(firstSlotLabel, Modifier.padding(horizontal = Space.page)) {
+                            onBookFirstSlot(slotDate(firstSlot), firstSlot)
+                        }
+                    }
 
                     if (state.days.isNotEmpty()) {
                         QuickPickSection(state, card++, onSelectDay, onSelectSlot)

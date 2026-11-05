@@ -38,7 +38,6 @@ import xyz.sattar.javid.proqueue.feature.discovery.toPersianDigits
 fun SavedScreen(
     onNavigateToDetail: (Long) -> Unit,
     bottomPadding: Dp,
-    onBookSlot: (Long, String, Long) -> Unit = { id, _, _ -> onNavigateToDetail(id) },
     viewModel: SavedViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -84,7 +83,6 @@ fun SavedScreen(
                     saved = true,
                     onToggleSave = { viewModel.unsave(b.id) },
                     onClick = { onNavigateToDetail(b.id) },
-                    onBookFirstSlot = { date, slotAt -> onBookSlot(b.id, date, slotAt) },
                 )
                 if (index != state.businesses.lastIndex) Hairline(Modifier.padding(start = 84.dp))
             }

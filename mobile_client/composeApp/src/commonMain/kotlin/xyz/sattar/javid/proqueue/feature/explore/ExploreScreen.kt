@@ -101,8 +101,6 @@ internal const val MAP_ENABLED = true
 fun ExploreScreen(
     onNavigateToDetail: (Long) -> Unit,
     bottomPadding: Dp,
-    /** A row's first-free-slot button: (business, ISO date, slot timestamp). */
-    onBookSlot: (Long, String, Long) -> Unit = { id, _, _ -> onNavigateToDetail(id) },
     viewModel: ExploreViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -216,7 +214,6 @@ fun ExploreScreen(
                     onLocate = locate,
                     onOpenSettings = locator::openSettings,
                     onOpenDetail = openDetail,
-                    onBookSlot = onBookSlot,
                     onClearFilters = viewModel::clearFilters,
                     onRetry = viewModel::refresh,
                     onWiden = {},
@@ -298,8 +295,7 @@ fun ExploreScreen(
                         onLocate = locate,
                         onOpenSettings = locator::openSettings,
                         onOpenDetail = openDetail,
-                        onBookSlot = onBookSlot,
-                        onClearFilters = viewModel::clearFilters,
+                            onClearFilters = viewModel::clearFilters,
                         onRetry = viewModel::refresh,
                         onWiden = { viewModel.selectRadius(radiusOptionsKm.last()) },
                         onToggleSaved = viewModel::toggleSaved,
@@ -425,7 +421,6 @@ internal fun ResultsList(
     onLocate: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenDetail: (Long) -> Unit,
-    onBookSlot: (Long, String, Long) -> Unit,
     onClearFilters: () -> Unit,
     onRetry: () -> Unit,
     onWiden: () -> Unit,
@@ -512,7 +507,6 @@ internal fun ResultsList(
                             highlighted = business.id == selectedId,
                             onToggleSave = { onToggleSaved(business.id) },
                             onClick = { onOpenDetail(business.id) },
-                            onBookFirstSlot = { date, slotAt -> onBookSlot(business.id, date, slotAt) },
                         )
                         if (index != state.results.lastIndex) Hairline(Modifier.padding(start = ROW_DIVIDER_INSET))
                         if (index == OWNER_ROW_INDEX ||

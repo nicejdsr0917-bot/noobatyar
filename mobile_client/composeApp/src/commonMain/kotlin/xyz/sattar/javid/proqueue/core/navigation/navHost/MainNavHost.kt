@@ -123,7 +123,7 @@ fun MainNavHost() {
         if (PreferencesManager.getVisitorToken() != null) navController.navigate(AppScreens.Booking(id))
         else navController.navigate(AppScreens.Login(bookBusinessId = id))
     }
-    // A day and slot already picked (business page, a row's first free slot).
+    // A day and slot already picked on the business page (quick pick or first free slot).
     // A guest signs in first; the picked time is not carried through sign-in.
     val bookSlot: (Long, String, Long) -> Unit = { id, date, slotAt ->
         if (PreferencesManager.getVisitorToken() != null) navController.navigate(AppScreens.Booking(id, date = date, slotAt = slotAt))
@@ -142,10 +142,10 @@ fun MainNavHost() {
                 modifier = Modifier.weight(1f)
             ) {
                 composable<AppScreens.Explore> {
-                    ExploreScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp, onBookSlot = bookSlot)
+                    ExploreScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp)
                 }
                 composable<AppScreens.Saved> {
-                    SavedScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp, onBookSlot = bookSlot)
+                    SavedScreen(onNavigateToDetail = openDetail, bottomPadding = 0.dp)
                 }
                 composable<AppScreens.More> {
                     ProfileScreen(
