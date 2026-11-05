@@ -356,6 +356,10 @@ fun HomeScreenContent(
                     Spacer(Modifier.height(HomeDimens.SectionGap))
                     SourceSummaryCard(summary)
                 }
+                uiState.followers?.takeIf { it.count > 0 }?.let { followers ->
+                    Spacer(Modifier.height(HomeDimens.SectionGap))
+                    NewFollowersCard(followers)
+                }
             } }
             val usageBlock: @Composable () -> Unit = {
                 if (!uiState.entitlementsLoaded) {

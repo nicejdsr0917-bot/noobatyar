@@ -1017,6 +1017,8 @@
     <string name="source_app">Noobatyar app</string>
     <string name="source_web">Website</string>
     <string name="source_owner">Added by you</string>
+    <string name="home_new_followers_title">New followers</string>
+    <string name="home_followers_total">%1$d people follow your page</string>
     <string name="source_summary_title">Clients Noobatyar brought you</string>
     <string name="source_summary_body">This month: %1$d bookings from the Noobatyar app and %2$d from the website</string>
     <string name="showcase_title">Portfolio and certificates</string>

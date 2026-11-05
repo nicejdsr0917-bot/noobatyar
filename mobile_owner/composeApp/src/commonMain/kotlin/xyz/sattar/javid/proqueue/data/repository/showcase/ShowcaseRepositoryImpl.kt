@@ -4,6 +4,7 @@ import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.ShowcaseApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ShowcaseItemDto
 import xyz.sattar.javid.proqueue.domain.ShowcaseRepository
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseFields
@@ -29,6 +30,9 @@ class ShowcaseRepositoryImpl(private val api: ShowcaseApi) : ShowcaseRepository 
 
     override suspend fun getOwnerReviews(businessId: Long, page: Int, pageSize: Int): ApiResponse<OwnerReviewsPageDto> =
         guarded { api.getOwnerReviews(businessId, page, pageSize) }
+
+    override suspend fun getFollowers(businessId: Long, pageSize: Int): ApiResponse<FollowersPageDto> =
+        guarded { api.getFollowers(businessId, pageSize) }
 
     override suspend fun listItems(kind: ShowcaseKind, businessId: Long): ApiResponse<List<ShowcaseItemDto>> =
         guarded { api.listItems(kind, businessId) }.let { response ->

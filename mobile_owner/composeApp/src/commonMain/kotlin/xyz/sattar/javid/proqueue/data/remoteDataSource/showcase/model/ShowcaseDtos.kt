@@ -66,6 +66,20 @@ data class ReviewSummaryDto(
     fun countFor(stars: Int): Int = histogram[stars.toString()] ?: 0
 }
 
+/** One row of `GET /api/business/<id>/followers/`: first name and photo only. */
+@Serializable
+data class FollowerDto(
+    val name: String = "",
+    val avatar: String? = null,
+    @SerialName("created_at") val createdAt: String = ""
+)
+
+@Serializable
+data class FollowersPageDto(
+    val count: Int = 0,
+    val results: List<FollowerDto> = emptyList()
+)
+
 @Serializable
 data class OwnerReviewsPageDto(
     val count: Int = 0,

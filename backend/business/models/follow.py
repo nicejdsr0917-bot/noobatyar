@@ -8,8 +8,8 @@ class BusinessFollow(models.Model):
     follows. ``Business.followers_count`` mirrors the number of rows; only
     business/follows.py adds or removes them.
 
-    Who follows a business is never shown to anyone, the owner included: the
-    owner sees the count only.
+    Only the owner sees who follows their business, and then only the first
+    name and profile photo (business/follow_views.py), never the phone.
     """
 
     business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='follows', verbose_name='کسب‌وکار')

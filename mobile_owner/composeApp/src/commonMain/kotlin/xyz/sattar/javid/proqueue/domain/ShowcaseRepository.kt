@@ -3,6 +3,7 @@ package xyz.sattar.javid.proqueue.domain
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ShowcaseItemDto
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseFields
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseKind
@@ -16,6 +17,8 @@ interface ShowcaseRepository {
     suspend fun getBanners(businessId: Long): ApiResponse<BannersDto>
 
     suspend fun getOwnerReviews(businessId: Long, page: Int, pageSize: Int): ApiResponse<OwnerReviewsPageDto>
+
+    suspend fun getFollowers(businessId: Long, pageSize: Int): ApiResponse<FollowersPageDto>
 
     suspend fun listItems(kind: ShowcaseKind, businessId: Long): ApiResponse<List<ShowcaseItemDto>>
 

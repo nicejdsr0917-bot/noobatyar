@@ -215,6 +215,7 @@ val appModule: Module = module {
             get(),
             get(),
             get(),
+            get(),
             get()
         )
     }

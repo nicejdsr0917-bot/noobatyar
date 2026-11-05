@@ -28,6 +28,7 @@ import xyz.sattar.javid.proqueue.domain.usecase.user.CreatePaymentUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMySubscriptionUseCase
 import xyz.sattar.javid.proqueue.domain.usecase.user.GetMyEntitlementsUseCase
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
+import xyz.sattar.javid.proqueue.domain.ShowcaseRepository
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.sortedForBanner
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.collectLatest
@@ -50,7 +51,8 @@ class HomeViewModel(
     private val getMyEntitlementsUseCase: GetMyEntitlementsUseCase,
     private val getDailyCountsUseCase: GetDailyCountsUseCase,
     private val getSourceSummaryUseCase: GetSourceSummaryUseCase,
-    private val businessStore: SelectedBusinessStore
+    private val businessStore: SelectedBusinessStore,
+    private val showcaseRepository: ShowcaseRepository? = null
 ) : BaseViewModel<HomeState, HomeState.PartialState, HomeEvent, HomeIntent>(
     initialState = HomeState()
 ) {
@@ -134,6 +136,8 @@ class HomeViewModel(
                 currentState.copy(monthOverview = partialState.overview)
             is HomeState.PartialState.LoadSourceSummary ->
                 currentState.copy(sourceSummary = partialState.summary)
+            is HomeState.PartialState.LoadFollowers ->
+                currentState.copy(followers = partialState.followers)
             HomeState.PartialState.ClearMessage ->
                 currentState.copy(message = null)
         }
@@ -197,6 +201,15 @@ class HomeViewModel(
             }
         } catch (e: Exception) {
             emit(HomeState.PartialState.LoadEntitlements(null))
+        }
+
+        // Newest followers. Optional: a failure only hides the card.
+        emit(HomeState.PartialState.LoadFollowers(null))
+        if (business != null && showcaseRepository != null) {
+            val followers = runCatching { showcaseRepository.getFollowers(business.id, FOLLOWERS_SHOWN) }.getOrNull()
+            if (followers is ApiResponse.Success && businessStore.selectedBusiness.value?.id == business.id) {
+                emit(HomeState.PartialState.LoadFollowers(followers.data))
+            }
         }
 
         // Queue + Stats + Chart
@@ -323,6 +336,7 @@ class HomeViewModel(
 
     private companion object {
         const val DAY_MILLIS = 24L * 60 * 60 * 1000
+        const val FOLLOWERS_SHOWN = 5
     }
 
     private fun purchasePlan(planId: Int): Flow<HomeState.PartialState> = flow {

@@ -19,6 +19,7 @@ import xyz.sattar.javid.proqueue.core.network.extractErrorMessage
 import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ReorderRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ShowcaseItemDto
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseFields
@@ -39,6 +40,11 @@ class ShowcaseApiService(private val httpClient: HttpClient) : ShowcaseApi {
         httpClient.get("reviews/owner/") {
             parameter("business_id", businessId)
             parameter("page", page)
+            parameter("page_size", pageSize)
+        }.toApiResponse()
+
+    override suspend fun getFollowers(businessId: Long, pageSize: Int): ApiResponse<FollowersPageDto> =
+        httpClient.get("business/$businessId/followers/") {
             parameter("page_size", pageSize)
         }.toApiResponse()
 

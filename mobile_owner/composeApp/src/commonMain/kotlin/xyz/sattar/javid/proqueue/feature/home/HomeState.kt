@@ -8,6 +8,7 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.PlanDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.SubscriptionDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.user.model.EntitlementsResponseDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.business.model.DailyCountDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
 import xyz.sattar.javid.proqueue.domain.model.appointment.Appointment
 import xyz.sattar.javid.proqueue.domain.model.business.Business
 import xyz.sattar.javid.proqueue.domain.model.message.Message
@@ -28,7 +29,8 @@ data class HomeState(
     val dailyCounts: List<DailyCountDto> = emptyList(),
     val chartLoaded: Boolean = false,
     val monthOverview: MonthOverview? = null,
-    val sourceSummary: SourceSummary? = null
+    val sourceSummary: SourceSummary? = null,
+    val followers: FollowersPageDto? = null
 ) {
     sealed class PartialState {
         data class IsLoading(val isLoading: Boolean) : PartialState()
@@ -45,6 +47,7 @@ data class HomeState(
         data class LoadDailyCounts(val counts: List<DailyCountDto>) : PartialState()
         data class LoadMonthOverview(val overview: MonthOverview?) : PartialState()
         data class LoadSourceSummary(val summary: SourceSummary?) : PartialState()
+        data class LoadFollowers(val followers: FollowersPageDto?) : PartialState()
     }
 }
 

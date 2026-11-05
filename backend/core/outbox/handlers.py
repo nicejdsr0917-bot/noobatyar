@@ -63,6 +63,12 @@ def new_review_push(payload):
     send_new_review_push(payload['review_id'])
 
 
+@register('business.new_follower_push')
+def new_follower_push(payload):
+    from business.follows import send_new_follower_push
+    send_new_follower_push(payload['business_id'], payload['visitor_id'])
+
+
 @register('bale.showcase_card')
 def bale_showcase_card(payload):
     from bale.notify import send_showcase_card

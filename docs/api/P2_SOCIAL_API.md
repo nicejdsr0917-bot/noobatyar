@@ -86,7 +86,10 @@ cache per business, dropped whenever one of its appointments changes. Old client
 
 ## 7. Following business pages
 
-Any signed-in customer may follow any number of businesses. Who follows a business is never returned to anyone, the owner included; only the count is public.
+Any signed-in customer may follow any number of businesses. The count is public. Only the owner sees who follows, and only first name and photo (never the phone):
+
+- **GET /api/business/<id>/followers/?page=&page_size=** (owner JWT, 404 for others') — newest first, `{count, total_pages, current_page, next, previous, results: [{name, avatar, created_at}]}`.
+- Push: on a new follow the owner receives `دنبال‌کننده جدید` (data `type=NEW_FOLLOWER`, `business_id`). One push per customer and business ever (outbox dedupe `follow_push:<business>:<visitor>`), so unfollow/follow again does not repeat it.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|

@@ -95,7 +95,7 @@ class FollowTests(TestCase):
         self.assertTrue(rows[0]['is_following'])
         self.assertIn(self.client.get(reverse('client-business-following')).status_code, (401, 403))
 
-    def test_owner_sees_the_count_but_never_who(self):
+    def test_business_detail_never_names_followers(self):
         self.follow(self.a1)
         api = APIClient()
         api.force_authenticate(self.owner)
@@ -104,3 +104,41 @@ class FollowTests(TestCase):
         self.assertEqual(r.json()['data']['followers_count'], 1)
         self.assertNotIn('09350000901', r.content.decode())
         self.assertNotIn('علی', r.content.decode())
+
+    def test_owner_follower_list_is_first_name_only_newest_first(self):
+        self.v1.full_name = 'علی رضایی'
+        self.v1.save()
+        self.follow(self.a1)
+        self.follow(self.a2)
+        api = APIClient()
+        api.force_authenticate(self.owner)
+        r = api.get(reverse('business-followers', args=[self.biz.id]))
+        self.assertEqual(r.status_code, 200, r.content)
+        data = r.json()['data']
+        self.assertEqual(data['count'], 2)
+        self.assertEqual([f['name'] for f in data['results']], ['سارا', 'علی'])
+        self.assertNotIn('0935', r.content.decode())
+        self.assertNotIn('رضایی', r.content.decode())
+
+    def test_owner_follower_list_is_only_for_the_owner(self):
+        other = User.objects.create_user(phone='09120000999', password='x', name='x')
+        api = APIClient()
+        api.force_authenticate(other)
+        self.assertEqual(api.get(reverse('business-followers', args=[self.biz.id])).status_code, 404)
+
+    def test_follow_tells_the_owner_once(self):
+        from unittest import mock
+
+        from core.outbox.models import OutboxMessage
+        from core.outbox.service import get_handler
+        self.follow(self.a1)
+        self.follow(self.a1, method='delete')
+        self.follow(self.a1)
+        msgs = OutboxMessage.objects.filter(kind='business.new_follower_push')
+        self.assertEqual(msgs.count(), 1)
+        with mock.patch('api.services.push.send_to_user') as send:
+            get_handler('business.new_follower_push')(msgs.get().payload)
+        user_id, title, body, data = send.call_args.args
+        self.assertEqual(user_id, self.owner.id)
+        self.assertIn('علی', body)
+        self.assertEqual(data['type'], 'NEW_FOLLOWER')
