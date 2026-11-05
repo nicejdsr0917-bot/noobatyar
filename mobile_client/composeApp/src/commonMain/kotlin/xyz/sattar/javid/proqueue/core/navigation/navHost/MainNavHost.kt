@@ -108,7 +108,15 @@ fun MainNavHost() {
     val signIn: () -> Unit = { navController.navigate(AppScreens.Login()) }
     // A Noobatyar story's "business:<id>" button opens that business's page.
     val stories = koinInject<StoryCenter>()
-    LaunchedEffect(Unit) { stories.openBusiness.collect(openDetail) }
+    LaunchedEffect(Unit) {
+        stories.openBusiness.collect { id ->
+            // Opened from that business's own page: just close the viewer, don't stack a copy.
+            val here = navController.currentBackStackEntry
+                ?.takeIf { it.destination.hasRoute<AppScreens.ClientBusinessDetail>() }
+                ?.toRoute<AppScreens.ClientBusinessDetail>()?.businessId
+            if (here != id) openDetail(id)
+        }
+    }
     // Browsing is open to everyone; booking needs an account, so a guest signs
     // in first and lands in the booking afterwards, as on the web.
     val book: (Long) -> Unit = { id ->
