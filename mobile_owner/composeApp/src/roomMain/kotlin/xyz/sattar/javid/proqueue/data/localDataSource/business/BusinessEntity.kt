@@ -21,6 +21,7 @@ data class BusinessEntity(
     val address: String,
     val latitude: Double? = null,
     val longitude: Double? = null,
+    val locationPrivacy: String = "EXACT",
     val logoPath: String = "",
     val defaultServiceDuration: Int,
     val workStartHour: Int, // 0-23

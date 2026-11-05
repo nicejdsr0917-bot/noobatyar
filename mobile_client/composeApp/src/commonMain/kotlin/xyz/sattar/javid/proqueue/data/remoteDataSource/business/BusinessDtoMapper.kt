@@ -70,6 +70,8 @@ fun BusinessDto.toDomain(): Business {
         allowClientAddService = allowClientAddService,
         latitude = latitude,
         longitude = longitude,
+        locationApproximate = locationApproximate,
+        locationRadiusM = locationRadiusM,
         province = province ?: "",
         city = city ?: "",
         neighborhood = neighborhood ?: "",

@@ -99,6 +99,13 @@ data class Business(
     // Client discovery fields
     val latitude: Double? = null,
     val longitude: Double? = null,
+    /**
+     * The owner shows only the area (a business run from home): [latitude] /
+     * [longitude] are then a centre the server moved off the real point, to
+     * draw as a circle of [locationRadiusM] metres — never a pin, never a route.
+     */
+    val locationApproximate: Boolean = false,
+    val locationRadiusM: Int? = null,
     val province: String = "",
     val city: String = "",
     val neighborhood: String = "",
@@ -117,4 +124,8 @@ data class Business(
     /** True only when both the content review and the plan/billing state allow it. */
     val isPubliclyVisible: Boolean
         get() = moderationStatus?.isPubliclyVisible == true && !isLocked
+
+    /** Where "مسیریابی" may take the customer: nowhere for an area-only business. */
+    val routeLatitude: Double? get() = latitude.takeUnless { locationApproximate }
+    val routeLongitude: Double? get() = longitude.takeUnless { locationApproximate }
 }

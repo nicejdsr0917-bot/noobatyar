@@ -103,8 +103,8 @@ internal fun Identity(business: Business) {
 @Composable
 internal fun ActionRow(business: Business, onShare: () -> Unit) {
     val directions = rememberDirections()
-    val lat = business.latitude
-    val lng = business.longitude
+    val lat = business.routeLatitude
+    val lng = business.routeLongitude
     Row(
         Modifier.padding(start = Space.page, end = Space.page, bottom = Space.lg),
         horizontalArrangement = Arrangement.spacedBy(Space.sm)

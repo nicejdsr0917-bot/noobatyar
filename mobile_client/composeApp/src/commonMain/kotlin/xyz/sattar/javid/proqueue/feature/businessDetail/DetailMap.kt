@@ -40,7 +40,10 @@ import ovh.plrapps.mapcompose.ui.MapUI
 import xyz.sattar.javid.proqueue.core.ui.components.map.DisposeMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
 import xyz.sattar.javid.proqueue.core.ui.components.map.MapAttribution
+import xyz.sattar.javid.proqueue.core.ui.components.map.AreaCircle
 import xyz.sattar.javid.proqueue.core.ui.components.map.applyTileTint
+import xyz.sattar.javid.proqueue.core.ui.components.map.areaDiameterDp
+import xyz.sattar.javid.proqueue.core.ui.components.map.scaleForZoom
 import xyz.sattar.javid.proqueue.core.ui.components.map.newTileMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.toNormalized
 import xyz.sattar.javid.proqueue.domain.model.business.Business
@@ -52,6 +55,8 @@ import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 
 /** Street level: a few blocks around the business, readable street names. */
 private const val PREVIEW_ZOOM = 16.0
+/** An area-only business: zoomed out so its whole circle fits. */
+private const val AREA_PREVIEW_ZOOM = 14.0
 
 /**
  * A still map of where the business is, with the same pin as the explore
@@ -69,6 +74,14 @@ internal fun MapPreview(business: Business, latitude: Double, longitude: Double,
     LaunchedEffect(dark) { state.applyTileTint(dark) }
     LaunchedEffect(state) {
         val (x, y) = GeoPoint(latitude, longitude).toNormalized()
+        val radius = business.locationRadiusM
+        if (business.locationApproximate && radius != null) {
+            state.addMarker("place", x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false) {
+                AreaCircle(state.areaDiameterDp(radius, latitude, density))
+            }
+            state.scrollTo(x, y, destScale = scaleForZoom(AREA_PREVIEW_ZOOM, density), animationSpec = snap())
+            return@LaunchedEffect
+        }
         state.addMarker("place", x, y, relativeOffset = Offset(-0.5f, -1f), clickable = false) {
             BusinessPin(business, selected = true)
         }
@@ -93,7 +106,7 @@ internal fun MapPreview(business: Business, latitude: Double, longitude: Double,
                 .fillMaxSize()
                 .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = open)
         )
-        Row(
+        if (business.routeLatitude != null) Row(
             Modifier
                 .align(Alignment.TopEnd)
                 .padding(Space.sm)

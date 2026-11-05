@@ -353,7 +353,11 @@ export default function BusinessProfileClient({ business, slug, children }: Prop
       {location ? (
         <div className="section" style={{ paddingTop: 8, paddingBottom: 8 }}>
           <div className="biz-location">
-            <BusinessMap location={location} title={business.title} />
+            <BusinessMap
+              location={location}
+              title={business.title}
+              areaRadiusM={business.location_approximate ? business.location_radius_m : null}
+            />
             {business.address && (
               <div className="biz-address">
                 <div className="pin"><Icon name="locationOn" size={19} /></div>
@@ -363,7 +367,8 @@ export default function BusinessProfileClient({ business, slug, children }: Prop
                 </div>
               </div>
             )}
-            <div className="biz-route">
+            {/* No route to an area-only business: its point isn't the real one. */}
+            {!business.location_approximate && <div className="biz-route">
               <a
                 className="biz-route-btn"
                 href={neshanUrl(location)}
@@ -380,7 +385,7 @@ export default function BusinessProfileClient({ business, slug, children }: Prop
               >
                 <Icon name="directions" size={17} />
                 {t('directionsWithBalad')}</a>
-            </div>
+            </div>}
           </div>
         </div>
       ) : business.address && (

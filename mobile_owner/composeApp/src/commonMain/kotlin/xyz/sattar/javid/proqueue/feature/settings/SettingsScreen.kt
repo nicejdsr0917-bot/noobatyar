@@ -6,6 +6,7 @@ import xyz.sattar.javid.proqueue.feature.home.HomeCard
 import xyz.sattar.javid.proqueue.feature.home.FollowersListDialog
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Timer
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.core.i18n.AppLanguage
@@ -390,7 +391,9 @@ fun SettingsContent(
 
             ProfileSection(Str.profile_group_booking, Icons.Rounded.EventSeat, Color(0xFF3B82F6)) {
                 ProfileRow(Icons.Rounded.Groups, Str.slot_capacity_title, Str.capacity_row_subtitle, Color(0xFF3B82F6),
-                    onClick = { onAdvancedSection(AdvancedSection.CAPACITY) }, last = true)
+                    onClick = { onAdvancedSection(AdvancedSection.CAPACITY) })
+                ProfileRow(Icons.Rounded.Timer, Str.hold_minutes_title, Str.hold_minutes_row_subtitle, Color(0xFF3B82F6),
+                    onClick = { onAdvancedSection(AdvancedSection.HOLD) }, last = true)
             }
 
             ProfileSection(Str.profile_group_payment, Icons.Rounded.Payments, Color(0xFF10B981)) {

@@ -85,7 +85,9 @@ import xyz.sattar.javid.proqueue.core.location.rememberLocationRequester
 import xyz.sattar.javid.proqueue.core.ui.components.map.DisposeMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.GeoPoint
 import xyz.sattar.javid.proqueue.core.ui.components.map.MapAttribution
+import xyz.sattar.javid.proqueue.core.ui.components.map.AreaCircle
 import xyz.sattar.javid.proqueue.core.ui.components.map.applyTileTint
+import xyz.sattar.javid.proqueue.core.ui.components.map.areaDiameterDp
 import xyz.sattar.javid.proqueue.core.ui.components.map.mapBackground
 import xyz.sattar.javid.proqueue.core.ui.components.map.newTileMapState
 import xyz.sattar.javid.proqueue.core.ui.components.map.scaleForZoom
@@ -208,7 +210,8 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?, locating
         MaterialTheme.colorScheme.onSurface,
         accent,
     )
-    val state = remember(place) { newTileMapState(place, 16.0, density) }
+    // An area-only business opens zoomed out, so its whole circle shows.
+    val state = remember(place) { newTileMapState(place, if (business.locationApproximate) 14.5 else 16.0, density) }
     DisposeMapState(state)
     val scope = rememberCoroutineScope()
     var flight by remember { mutableStateOf<Job?>(null) }
@@ -245,6 +248,15 @@ private fun FullMap(business: Business, place: GeoPoint, me: GeoPoint?, locating
 
     LaunchedEffect(state) {
         val (x, y) = place.toNormalized()
+        val radius = business.locationRadiusM
+        if (business.locationApproximate && radius != null) {
+            // Area only: a circle that follows the zoom, no pin on a point
+            // that isn't the real one.
+            state.addMarker(DESTINATION_MARKER, x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false, zIndex = 2f) {
+                AreaCircle(state.areaDiameterDp(radius, place.latitude, density))
+            }
+            return@LaunchedEffect
+        }
         // On the map itself, so the pin's tip is exactly on its point. The
         // arrival card rides above it.
         state.addMarker(BUSINESS_MARKER, x, y, relativeOffset = Offset(-0.5f, -1f), clickable = false, zIndex = 3f) {
@@ -600,10 +612,11 @@ private fun BottomCard(
                 }
                 DistanceBlock(state, onLocate, onSettings)
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.sm), verticalAlignment = Alignment.CenterVertically) {
-                    val lat = business.latitude
-                    val lng = business.longitude
-                    Button(
-                        onClick = { if (lat != null && lng != null) directions(lat, lng, business.title) },
+                    val lat = business.routeLatitude
+                    val lng = business.routeLongitude
+                    // No route to an area-only business: its point isn't the real one.
+                    if (lat != null && lng != null) Button(
+                        onClick = { directions(lat, lng, business.title) },
                         shape = Radius.md,
                         modifier = Modifier.weight(1f).height(48.dp),
                     ) {

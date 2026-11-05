@@ -27,6 +27,8 @@ data class Business(
      *  "route there" links. Both or neither — the server rejects half a pair. */
     val latitude: Double? = null,
     val longitude: Double? = null,
+    /** What customers see of the pin: "EXACT" or "AREA" (a circle around it). */
+    val locationPrivacy: String = LocationPrivacy.EXACT,
     /** Divar's city id (core/ui/components/city); [city]/[province] are its names. */
     val cityCode: Int? = null,
     val city: String = "",
@@ -108,4 +110,11 @@ data class Business(
     /** True only when both the content review and the plan/billing state allow it. */
     val isPubliclyVisible: Boolean
         get() = moderationStatus?.isPubliclyVisible == true && !isLocked
+}
+
+/** Business.location_privacy on the server. */
+object LocationPrivacy {
+    const val EXACT = "EXACT"
+    /** Customers see a circle around the area, never the point itself. */
+    const val AREA = "AREA"
 }

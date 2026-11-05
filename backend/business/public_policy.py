@@ -7,6 +7,12 @@ policy), notice gating and the subscription-driven booking block. Kept apart
 from the serializers so the rules read - and are tested - as one unit.
 """
 
+import hashlib
+import hmac
+import math
+
+from django.conf import settings
+
 # Shown to clients when the owner still has booking_enabled=True but their plan
 # quota / subscription can no longer pay for a new appointment.
 BOOKING_BLOCKED_NOTICE = "پذیرش نوبت جدید برای این کسب‌وکار موقتاً غیرفعال است."
@@ -25,6 +31,65 @@ def _mask_address(data):
     data['address'] = None
     data['latitude'] = None
     data['longitude'] = None
+
+
+# A business that shows only its area (Business.LOCATION_AREA): the map draws a
+# circle of this radius around a centre moved AREA_SHIFT_* metres off the real
+# point, so the point is somewhere inside the circle but not at its middle.
+AREA_RADIUS_M = 500
+AREA_SHIFT_MIN_M = 150
+AREA_SHIFT_MAX_M = 350
+_M_PER_DEG_LAT = 111_320.0
+
+
+def is_area_only(instance):
+    return getattr(instance, 'location_privacy', 'EXACT') == 'AREA'
+
+
+def public_pin(instance):
+    """The point a customer may see, or (None, None) without a pin.
+
+    For an area-only business, the real point moved by a fixed distance and
+    bearing. Both come from an HMAC of the business id under SECRET_KEY: the
+    same every time (asking again and averaging doesn't narrow it down) and
+    not computable from the id alone (the shift can't be undone).
+    """
+    lat, lng = instance.latitude, instance.longitude
+    if lat is None or lng is None:
+        return None, None
+    if not is_area_only(instance):
+        return lat, lng
+    digest = hmac.new(
+        settings.SECRET_KEY.encode(), f'area-pin:{instance.pk}'.encode(), hashlib.sha256,
+    ).digest()
+    bearing = int.from_bytes(digest[:4], 'big') / 2 ** 32 * 2 * math.pi
+    frac = int.from_bytes(digest[4:8], 'big') / 2 ** 32
+    shift = AREA_SHIFT_MIN_M + frac * (AREA_SHIFT_MAX_M - AREA_SHIFT_MIN_M)
+    d_lat = shift * math.cos(bearing) / _M_PER_DEG_LAT
+    d_lng = shift * math.sin(bearing) / (_M_PER_DEG_LAT * max(math.cos(math.radians(lat)), 0.01))
+    return round(lat + d_lat, 6), round(lng + d_lng, 6)
+
+
+def public_distance_km(instance, km):
+    """The viewer's distance as shown: to half a kilometre for an area-only
+    business, so distances asked from a few places can't triangulate it."""
+    if km is None:
+        return None
+    if is_area_only(instance):
+        return max(0.5, round(km * 2) / 2)
+    return round(km, 2)
+
+
+def apply_location_privacy(data, instance):
+    """Swap an area-only business's pin for its shifted centre. Always sets
+    ``location_approximate`` and ``location_radius_m`` (null for an exact pin),
+    so a client knows to draw a circle instead of a pin and no route buttons."""
+    approximate = is_area_only(instance)
+    data['location_approximate'] = approximate
+    data['location_radius_m'] = AREA_RADIUS_M if approximate else None
+    if approximate and data.get('latitude') is not None:
+        data['latitude'], data['longitude'] = public_pin(instance)
+    return data
 
 
 def apply_contact_rules(data, instance, context):
@@ -143,12 +208,12 @@ class PublicPayloadMixin:
     """
 
     def get_distance_km(self, obj):
-        val = getattr(obj, 'distance_km', None)
-        return round(val, 2) if val is not None else None
+        return public_distance_km(obj, getattr(obj, 'distance_km', None))
 
     def _build_public_representation(self, instance):
         data = super().to_representation(instance)
         data = apply_contact_rules(data, instance, self.context)
+        data = apply_location_privacy(data, instance)
         # Emergency-notice gating + the subscription-driven booking block.
         return apply_notice_rules(data, instance)
 

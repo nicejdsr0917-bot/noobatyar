@@ -21,6 +21,7 @@ from .selectors import (
     PublicSearchParams, _float_or_none, public_business_detail, public_business_search,
 )
 from .first_free import attach_first_free_slots
+from .public_policy import is_area_only, public_pin
 from .serializers import PublicBusinessSerializer, InsuranceSerializer
 from api.responses import APIResponse
 
@@ -210,13 +211,17 @@ class ClientBusinessDetailView(APIView):
                 business = public_business_detail(business_id)
                 entry = {
                     'data': dict(PublicBusinessSerializer(business, context={'request': request}).data),
-                    'pin': (business.latitude, business.longitude),
+                    # The customer-visible point: an area-only business's
+                    # distance is measured to its shifted centre.
+                    'pin': public_pin(business),
+                    'area_only': is_area_only(business),
                 }
                 public_cache.put(key, entry, public_cache.DETAIL_TTL)
             data = dict(entry['data'])
             pin_lat, pin_lng = entry['pin']
             if lat is not None and lng is not None and pin_lat is not None and pin_lng is not None:
-                data['distance_km'] = round(haversine_km(lat, lng, pin_lat, pin_lng), 2)
+                km = haversine_km(lat, lng, pin_lat, pin_lng)
+                data['distance_km'] = max(0.5, round(km * 2) / 2) if entry.get('area_only') else round(km, 2)
             return data
 
         def _load_with_first_free():

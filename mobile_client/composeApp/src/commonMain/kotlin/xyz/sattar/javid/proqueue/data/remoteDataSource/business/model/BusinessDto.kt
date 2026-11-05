@@ -82,6 +82,8 @@ data class BusinessDto(
     // Client discovery fields
     @SerialName("latitude") val latitude: Double? = null,
     @SerialName("longitude") val longitude: Double? = null,
+    @SerialName("location_approximate") val locationApproximate: Boolean = false,
+    @SerialName("location_radius_m") val locationRadiusM: Int? = null,
     @SerialName("province") val province: String? = "",
     @SerialName("city") val city: String? = "",
     @SerialName("neighborhood") val neighborhood: String? = "",

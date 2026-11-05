@@ -50,7 +50,8 @@ internal const val dbFileName = "proQueue.db"
     // 21: BusinessEntity.socialLinks (Instagram, Telegram, … handles).
     // 22: BusinessEntity.followersCount (customers following the page).
     // 23: AppointmentEntity.firstVisitDiscount (new client's first-visit discount).
-    version = 23
+    // 24: BusinessEntity.locationPrivacy (exact pin or area only).
+    version = 24
 )
 @ConstructedBy(DbFactory::class)
 abstract class AppDatabase : RoomDatabase() {

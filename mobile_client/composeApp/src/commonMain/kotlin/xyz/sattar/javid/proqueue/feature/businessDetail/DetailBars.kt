@@ -101,8 +101,8 @@ internal fun androidx.compose.foundation.layout.BoxScope.StickyActionBar(
     val canBook = business.canBookOnline
     val canCall = business.phone.isNotBlank()
     if (!canBook && !canCall) return
-    val lat = business.latitude
-    val lng = business.longitude
+    val lat = business.routeLatitude
+    val lng = business.routeLongitude
     Column(
         Modifier
             .align(Alignment.BottomCenter)

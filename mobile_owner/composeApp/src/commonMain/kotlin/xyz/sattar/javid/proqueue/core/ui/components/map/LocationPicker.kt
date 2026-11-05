@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.EditLocationAlt
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Map
@@ -34,6 +33,9 @@ import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -83,22 +86,28 @@ import ovh.plrapps.mapcompose.ui.state.MapState
 import xyz.sattar.javid.proqueue.core.location.GeoPoint
 import xyz.sattar.javid.proqueue.core.location.rememberCurrentLocationRequester
 import xyz.sattar.javid.proqueue.core.ui.components.AppButton
+import xyz.sattar.javid.proqueue.domain.model.business.LocationPrivacy
+import xyz.sattar.javid.proqueue.ui.theme.LocalIsDarkTheme
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.round
 
 /**
  * The business's pin on the map, in the business form: a small map preview
- * once set, an invitation to set one otherwise. Optional — the written
- * address stays the required field — but with a pin the customer's booking
- * page gets a map and "route with Neshan / Balad" buttons.
+ * once set, an invitation to set one otherwise. Required, like the written
+ * address. [privacy] is what customers get of it: the point with "route with
+ * Neshan / Balad" buttons, or only a circle around the area
+ * ([LocationPrivacy.AREA], for a business run from home).
  */
 @Composable
 fun BusinessLocationField(
     location: GeoPoint?,
     onLocation: (GeoPoint?) -> Unit,
+    privacy: String,
+    onPrivacy: (String) -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
+    error: String? = null,
 ) {
     var showPicker by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(16.dp)
@@ -109,21 +118,22 @@ fun BusinessLocationField(
             style = MaterialTheme.typography.titleSmall,
         )
         Text(
-            text = Str.optional_customers_see_your_business,
+            text = Str.location_on_map_hint,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         if (location == null) {
+            val accent = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(shape)
                     .border(
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                        BorderStroke(1.dp, accent.copy(alpha = if (error != null) 0.8f else 0.35f)),
                         shape
                     )
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f))
+                    .background(accent.copy(alpha = 0.06f))
                     .clickable(enabled = enabled) { showPicker = true }
                     .padding(horizontal = 16.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -132,20 +142,20 @@ fun BusinessLocationField(
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+                        .background(accent.copy(alpha = 0.12f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Map,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = accent,
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = Str.pick_location_on_map,
                         style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = accent,
                     )
                     Text(
                         text = Str.put_pin_on_your_businesss,
@@ -154,39 +164,46 @@ fun BusinessLocationField(
                     )
                 }
             }
+            if (error != null) {
+                Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
         } else {
+            val areaOnly = privacy == LocationPrivacy.AREA
             LocationPreviewMap(
                 point = location,
+                areaRadiusMeters = if (areaOnly) AREA_RADIUS_METERS else null,
                 onClick = if (enabled) ({ showPicker = true }) else null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(170.dp)
                     .clip(shape),
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                TextButton(enabled = enabled, onClick = { showPicker = true }) {
-                    Icon(Icons.Rounded.EditLocationAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(Str.change_location, style = MaterialTheme.typography.labelLarge)
-                }
-                TextButton(enabled = enabled, onClick = { onLocation(null) }) {
-                    Icon(
-                        Icons.Rounded.Delete,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        Str.remove_from_map,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+            // No "remove" any more: the pin is required, it can only move.
+            TextButton(enabled = enabled, onClick = { showPicker = true }) {
+                Icon(Icons.Rounded.EditLocationAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(Str.change_location, style = MaterialTheme.typography.labelLarge)
+            }
+
+            Text(Str.location_privacy_title, style = MaterialTheme.typography.titleSmall)
+            val options = listOf(LocationPrivacy.EXACT to Str.location_privacy_exact, LocationPrivacy.AREA to Str.location_privacy_area)
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                options.forEachIndexed { index, (value, label) ->
+                    SegmentedButton(
+                        selected = privacy == value,
+                        onClick = { onPrivacy(value) },
+                        enabled = enabled,
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
+            Text(
+                text = if (areaOnly) Str.location_privacy_area_desc else Str.location_privacy_exact_desc,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 
@@ -202,27 +219,43 @@ fun BusinessLocationField(
     }
 }
 
+/** Mirrors public_policy.AREA_RADIUS_M on the server. */
+const val AREA_RADIUS_METERS = 500
+
 /** A still map with the pin on [point], gestures off; [onClick] for the
- *  whole map (the form opens the picker with it). */
+ *  whole map (the form opens the picker with it). With [areaRadiusMeters],
+ *  a circle of that radius instead of the pin — what an area-only business
+ *  shows its customers. */
 @Composable
 fun LocationPreviewMap(
     point: GeoPoint,
     modifier: Modifier = Modifier,
+    areaRadiusMeters: Int? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val density = LocalDensity.current.density
-    val state = remember(point, density) {
+    val dark = LocalIsDarkTheme.current
+    val state = remember(point, density, areaRadiusMeters) {
         val (x, y) = point.toNormalized()
-        newTileMapState(point, MapTiles.PIN_ZOOM - 1, density).apply {
+        // Zoomed out for a circle, so the whole of it fits the preview.
+        val zoom = if (areaRadiusMeters != null) AREA_ZOOM else MapTiles.PIN_ZOOM - 1
+        newTileMapState(point, zoom, density).apply {
             disableGestures()
-            addMarker("pin", x, y, absoluteOffset = DpOffset(0.dp, PinTipInset), clickable = false) {
-                MapPin()
+            if (areaRadiusMeters != null) {
+                addMarker("area", x, y, relativeOffset = Offset(-0.5f, -0.5f), clickable = false) {
+                    AreaCircle(areaDiameterDp(areaRadiusMeters, point.latitude, density))
+                }
+            } else {
+                addMarker("pin", x, y, absoluteOffset = DpOffset(0.dp, PinTipInset), clickable = false) {
+                    MapPin()
+                }
             }
         }
     }
     DisposeMapState(state)
+    LaunchedEffect(state, dark) { state.applyTileTint(dark) }
 
-    Box(modifier = modifier.background(MapBackground)) {
+    Box(modifier = modifier.background(mapBackground(dark))) {
         TileMapView(state, Modifier.fillMaxSize())
         MapAttribution(Modifier.align(Alignment.BottomStart).padding(6.dp))
         // On top of MapUI rather than on this Box: MapUI consumes taps even
@@ -253,6 +286,8 @@ fun LocationPickerDialog(
         )
     }
     DisposeMapState(state)
+    val dark = LocalIsDarkTheme.current
+    LaunchedEffect(state, dark) { state.applyTileTint(dark) }
 
     val scope = rememberCoroutineScope()
     val requester = rememberCurrentLocationRequester()
@@ -331,7 +366,7 @@ fun LocationPickerDialog(
                             .weight(1f)
                             .fillMaxWidth()
                             .clipToBounds()
-                            .background(MapBackground)
+                            .background(mapBackground(dark))
                             .pointerInput(Unit) {
                                 awaitPointerEventScope {
                                     while (true) {

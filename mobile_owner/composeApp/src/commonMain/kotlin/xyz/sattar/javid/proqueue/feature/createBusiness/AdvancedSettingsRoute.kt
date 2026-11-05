@@ -127,6 +127,7 @@ fun AdvancedSettingsRoute(
                             AdvancedSection.PAYMENT -> Str.payment_methods_title
                             AdvancedSection.CAPACITY -> Str.hourly_capacity_control
                             AdvancedSection.DEPOSIT -> Str.take_deposit
+                            AdvancedSection.HOLD -> Str.hold_minutes_title
                             AdvancedSection.PROMO -> Str.promotional_sms_campaign
                             AdvancedSection.REMINDERS -> Str.automatic_appointment_reminders
                             else -> Str.advanced_settings_title
@@ -172,6 +173,7 @@ fun AdvancedSettingsRoute(
                                     address = business.address,
                                     latitude = business.latitude,
                                     longitude = business.longitude,
+                                    locationPrivacy = business.locationPrivacy,
                                     cityCode = business.cityCode,
                                     defaultProgress = business.defaultServiceDuration.toString(),
                                     workStartHour = business.workStartHour,

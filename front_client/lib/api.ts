@@ -53,6 +53,11 @@ export interface Business {
    *  client tell a withheld pin (null coordinates, is_expired) from one that
    *  was never set. Absent on an older server. */
   has_location?: boolean;
+  /** The owner shows only the area: latitude/longitude are a centre the
+   *  server moved off the real point, drawn as a circle of
+   *  `location_radius_m` metres — no pin, no route. Absent on an older server. */
+  location_approximate?: boolean;
+  location_radius_m?: number | null;
   /** Rating summary; absent on an older server. */
   rating?: { avg: number; count: number; histogram: Record<string, number> };
   logo: string | null;

@@ -43,6 +43,7 @@ fun BusinessDto.toDomain(): Business {
         address = address,
         latitude = latitude,
         longitude = longitude,
+        locationPrivacy = locationPrivacy,
         cityCode = cityCode,
         city = city.orEmpty(),
         province = province.orEmpty(),

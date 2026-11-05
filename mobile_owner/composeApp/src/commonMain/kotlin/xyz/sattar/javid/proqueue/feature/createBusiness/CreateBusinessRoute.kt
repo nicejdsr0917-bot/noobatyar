@@ -2,6 +2,7 @@ package xyz.sattar.javid.proqueue.feature.createBusiness
 
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.location.GeoPoint
+import xyz.sattar.javid.proqueue.domain.model.business.LocationPrivacy
 import xyz.sattar.javid.proqueue.core.ui.components.city.BusinessCityField
 import xyz.sattar.javid.proqueue.core.ui.components.city.PickedCity
 import xyz.sattar.javid.proqueue.core.ui.components.map.BusinessLocationField
@@ -126,8 +127,10 @@ fun CreateBusinessRoute(
     var extraPhones by remember { mutableStateOf(listOf<String>()) }
     var socialLinks by remember { mutableStateOf(mapOf<String, String>()) }
     var address by remember { mutableStateOf("") }
-    // The map pin; optional, unlike the written address.
+    // The map pin, required like the written address; customers see either
+    // the point or only the area around it (LocationPrivacy).
     var location by remember { mutableStateOf<GeoPoint?>(null) }
+    var locationPrivacy by remember { mutableStateOf(LocationPrivacy.EXACT) }
     // Required: the client app's city filter matches on it.
     var city by remember { mutableStateOf<PickedCity?>(null) }
     var defaultProgress by remember { mutableStateOf("") }
@@ -190,6 +193,7 @@ fun CreateBusinessRoute(
             socialLinks = it.socialLinks
             address = it.address
             location = it.latitude?.let { lat -> it.longitude?.let { lng -> GeoPoint(lat, lng) } }
+            locationPrivacy = it.locationPrivacy
             city = it.cityCode?.let { code -> PickedCity(code, it.city, it.province) }
             defaultProgress = it.defaultServiceDuration.toString()
             workStartHour = it.workStartHour.toString()
@@ -235,6 +239,8 @@ fun CreateBusinessRoute(
         address = address,
         location = location,
         onLocation = { location = it },
+        locationPrivacy = locationPrivacy,
+        onLocationPrivacy = { locationPrivacy = it },
         city = city,
         onCity = {
             city = it
@@ -346,6 +352,8 @@ fun CreateBusinessScreen(
     address: String,
     location: GeoPoint?,
     onLocation: (GeoPoint?) -> Unit,
+    locationPrivacy: String,
+    onLocationPrivacy: (String) -> Unit,
     city: PickedCity?,
     onCity: (PickedCity) -> Unit,
     cityError: String?,
@@ -419,6 +427,8 @@ fun CreateBusinessScreen(
     val formScrollState = rememberScrollState()
     val logoMissing = isLogoMissing(uiState.businessId, logoBytes, uiState.business?.logoPath)
     var logoError by remember { mutableStateOf(false) }
+    var locationError by remember { mutableStateOf(false) }
+    LaunchedEffect(location) { if (location != null) locationError = false }
     LaunchedEffect(logoBytes) { if (logoBytes != null) logoError = false }
 
     // A new step starts at its own top. Without this the next step opens
@@ -482,7 +492,8 @@ fun CreateBusinessScreen(
                 }
             )
             onCityErrorUpdate(if (city == null) Str.city_is_required else null)
-            !phoneInvalid && !addressInvalid && city != null
+            locationError = location == null
+            !phoneInvalid && !addressInvalid && city != null && location != null
         }
 
         // Same rules as the advanced-settings screen and the server
@@ -664,15 +675,19 @@ fun CreateBusinessScreen(
                             onDefaultProgressErrorUpdate(if (defaultInvalid) Str.choose_service_duration else null)
                             onWorkHoursErrorUpdate(if (hoursInvalid) Str.opening_hours_arent_valid else null)
                             onCityErrorUpdate(if (city == null) Str.city_is_required else null)
+                            locationError = location == null
 
                             if (logoMissing) {
                                 logoError = true
                                 currentStep = 0
+                            } else if (location == null) {
+                                // A business saved before the pin was required.
+                                currentStep = BusinessFormStep.CONTACT.ordinal
                             }
 
                             val paymentOk = validateStep(BusinessFormStep.PAYMENT.ordinal)
 
-                            if (!logoMissing && !titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid && city != null && paymentOk) {
+                            if (!logoMissing && !titleInvalid && !phoneInvalid && !defaultInvalid && !hoursInvalid && !addressInvalid && city != null && location != null && paymentOk) {
                                 val intent =
                                     CreateBusinessIntent.CreateBusiness(
                                         title = t,
@@ -683,6 +698,7 @@ fun CreateBusinessScreen(
                                         address = a,
                                         latitude = location?.latitude,
                                         longitude = location?.longitude,
+                                        locationPrivacy = locationPrivacy,
                                         cityCode = city?.code,
                                         defaultProgress = d,
                                         workStartHour = wsInt!!,
@@ -1157,7 +1173,10 @@ fun CreateBusinessScreen(
             BusinessLocationField(
                 location = location,
                 onLocation = onLocation,
+                privacy = locationPrivacy,
+                onPrivacy = onLocationPrivacy,
                 enabled = !uiState.isLoading,
+                error = if (locationError) Str.location_is_required else null,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1461,6 +1480,8 @@ fun PreviewDashboardScreen() {
             address = "",
             location = null,
             onLocation = {},
+            locationPrivacy = LocationPrivacy.EXACT,
+            onLocationPrivacy = {},
             city = null,
             onCity = {},
             cityError = null,

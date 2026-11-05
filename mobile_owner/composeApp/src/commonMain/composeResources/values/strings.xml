@@ -1159,7 +1159,7 @@
     <string name="profile_group_danger">منطقه خطر</string>
     <string name="payment_methods_title">روش‌های پرداخت</string>
     <string name="payment_methods_subtitle">نقدی، کارت به کارت و درگاه آنلاین</string>
-    <string name="capacity_row_subtitle">مشتری هم‌زمان در هر ساعت و زمان نگه‌داشتن نوبت</string>
+    <string name="capacity_row_subtitle">مشتری هم‌زمان در هر ساعت</string>
     <string name="deposit_row_subtitle">حالت و مبلغ بیعانه</string>
     <string name="deposit_amount_required">مبلغ بیعانه را وارد کنید</string>
     <string name="card_number_required">شماره کارت را وارد کنید</string>
@@ -1174,4 +1174,12 @@
     <string name="capacity_saved">ذخیره شد</string>
     <string name="capacity_save_failed">ذخیره نشد؛ دوباره تلاش کنید</string>
     <string name="capacity_after_create">بعد از ساخت کسب‌وکار قابل تنظیم است.</string>
+    <string name="location_on_map_hint">لازم است؛ مشتری کسب‌وکار شما را روی نقشه پیدا می‌کند.</string>
+    <string name="location_is_required">موقعیت را روی نقشه انتخاب کنید</string>
+    <string name="location_privacy_title">به مشتری چه نشان داده شود؟</string>
+    <string name="location_privacy_exact">نقطه دقیق</string>
+    <string name="location_privacy_area">فقط محدوده</string>
+    <string name="location_privacy_exact_desc">مشتری جای دقیق را می‌بیند و با نشان یا بلد مسیریابی می‌کند.</string>
+    <string name="location_privacy_area_desc">مشتری فقط یک دایره حدود ۵۰۰ متری می‌بیند، نه جای دقیق. برای کار در خانه خوب است. آدرس متنی را هم کلی بنویسید.</string>
+    <string name="hold_minutes_row_subtitle">چند دقیقه نوبت تا پرداخت بیعانه نگه داشته شود</string>
 </resources>

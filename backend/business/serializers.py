@@ -112,7 +112,7 @@ class BusinessSerializer(serializers.ModelSerializer):
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
             'social_links', 'address', 'logo', 'theme_color',
             # Location & Discovery
-            'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
+            'latitude', 'longitude', 'location_privacy', 'province', 'city', 'neighborhood', 'city_code',
             'is_claimed', 'online_booking_requests_count', 'followers_count', 'insurances', 'insurance_ids',
             # Schedule
             'default_service_duration', 'work_start_hour', 'work_end_hour',

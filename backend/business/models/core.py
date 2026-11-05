@@ -128,7 +128,21 @@ class Business(models.Model):
         validators=[MinValueValidator(-180), MaxValueValidator(180)],
         verbose_name='طول جغرافیایی',
     )
-    province = models.CharField(max_length=100, blank=True, default='', db_index=True, help_text="استان")
+    # What customers see of the pin: the point itself, or only the area around
+    # it (a business run from home). With AREA the exact point never leaves the
+    # server — public_policy.apply_location_privacy sends a shifted centre and
+    # a radius instead.
+    LOCATION_EXACT = 'EXACT'
+    LOCATION_AREA = 'AREA'
+    LOCATION_PRIVACY_CHOICES = [
+        (LOCATION_EXACT, 'نقطهٔ دقیق'),
+        (LOCATION_AREA, 'فقط محدوده'),
+    ]
+    location_privacy = models.CharField(
+        max_length=8, choices=LOCATION_PRIVACY_CHOICES, default=LOCATION_EXACT,
+        verbose_name='نمایش موقعیت به مشتری',
+    )
+    province =models.CharField(max_length=100, blank=True, default='', db_index=True, help_text="استان")
     city = models.CharField(max_length=100, blank=True, default='', db_index=True, help_text="شهر")
     neighborhood = models.CharField(max_length=100, blank=True, default='', help_text="محله / منطقه")
     # Divar's city id (business/iran_cities.py). Setting it fills `city` and

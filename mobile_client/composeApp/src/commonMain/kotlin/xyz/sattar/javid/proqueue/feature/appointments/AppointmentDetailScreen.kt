@@ -272,8 +272,8 @@ private fun Slip(
 
             Section("اطلاعات تماس", 3) {
                 val address = apt.business.address?.takeIf { it.isNotBlank() }
-                val lat = business.latitude
-                val lng = business.longitude
+                val lat = business.routeLatitude
+                val lng = business.routeLongitude
                 Field(
                     "آدرس",
                     address ?: "ثبت نشده",

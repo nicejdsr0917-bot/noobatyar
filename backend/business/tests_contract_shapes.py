@@ -90,6 +90,9 @@ PUBLIC_BUSINESS_SHAPE = {
     'allow_client_add_service': 'bool',
     'has_location': 'bool',
     'is_expired': 'bool',
+    # Area-only businesses (public_policy.apply_location_privacy).
+    'location_approximate': 'bool',
+    'location_radius_m': 'null',
     # Added by the view on top of the (cached) serializer payload; epoch ms,
     # or null when not bookable / nothing free. Fixtures here are bookable.
     'first_free_slot': 'int',
@@ -138,6 +141,9 @@ CLIENT_BUSINESS_SHAPE = {
     'allow_client_add_service': 'bool',
     'has_location': 'bool',
     'is_expired': 'bool',
+    # Area-only businesses (public_policy.apply_location_privacy).
+    'location_approximate': 'bool',
+    'location_radius_m': 'null',
 }
 
 APPOINTMENT_SHAPE = {

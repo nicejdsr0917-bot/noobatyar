@@ -62,6 +62,8 @@ object AdvancedSection {
     const val PROMO = 3
     const val REMINDERS = 4
     const val SETUP = 5
+    /** «زمان نگه‌داشتن نوبت», its own row in the profile's booking group. */
+    const val HOLD = 6
 }
 
 /**
@@ -133,7 +135,7 @@ fun AdvancedSettingsTabs(
     )
 
     @Composable
-    fun capacity(showCapacity: Boolean, showDeposit: Boolean, goToPayment: (() -> Unit)?) = CapacityTab(
+    fun capacity(showCapacity: Boolean, showDeposit: Boolean, goToPayment: (() -> Unit)?, showHold: Boolean = showDeposit) = CapacityTab(
         entitlements = entitlements,
         plans = plans,
         onUpgrade = onUpgrade,
@@ -148,6 +150,7 @@ fun AdvancedSettingsTabs(
         onGoToPayment = goToPayment,
         showCapacity = showCapacity,
         showDeposit = showDeposit,
+        showHold = showHold,
         businessId = businessId
     )
 
@@ -169,13 +172,14 @@ fun AdvancedSettingsTabs(
                 Spacer(modifier = Modifier.height(16.dp))
                 when (selectedTab) {
                     0 -> payment()
-                    1 -> capacity(true, true) { selectedTab = 0 }
+                    1 -> capacity(true, true, { selectedTab = 0 })
                     2 -> messaging(true, true)
                 }
             }
             AdvancedSection.PAYMENT -> payment()
             AdvancedSection.CAPACITY -> capacity(true, false, null)
-            AdvancedSection.DEPOSIT -> capacity(false, true) { /* the methods are on the screen above */ }
+            AdvancedSection.DEPOSIT -> capacity(false, true, { /* the methods are on the screen above */ }, showHold = false)
+            AdvancedSection.HOLD -> capacity(false, false, null, showHold = true)
             AdvancedSection.PROMO -> messaging(true, false)
             AdvancedSection.REMINDERS -> messaging(false, true)
             // Create-business form: deposit and capacity first, then how the
@@ -493,6 +497,7 @@ private fun CapacityTab(
     onGoToPayment: (() -> Unit)?,
     showCapacity: Boolean = true,
     showDeposit: Boolean = true,
+    showHold: Boolean = showDeposit,
     businessId: Long? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -610,7 +615,7 @@ private fun CapacityTab(
           }
         }
 
-        if (showDeposit) SettingCard(
+        if (showHold) SettingCard(
             icon = Icons.Rounded.Timer,
             title = Str.hold_minutes_title,
             description = Str.hold_minutes_desc

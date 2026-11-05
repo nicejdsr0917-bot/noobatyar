@@ -13,6 +13,7 @@ data class CreateBusinessRequestDto(
     @SerialName("address") val address: String,
     @SerialName("latitude") val latitude: Double? = null,
     @SerialName("longitude") val longitude: Double? = null,
+    @SerialName("location_privacy") val locationPrivacy: String = "EXACT",
     @SerialName("default_service_duration") val defaultServiceDuration: Int,
     @SerialName("work_start_hour") val workStartHour: Int,
     @SerialName("work_end_hour") val workEndHour: Int,

@@ -1,7 +1,11 @@
 package xyz.sattar.javid.proqueue.core.ui.components.map
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -15,6 +19,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.UserAgent
@@ -31,6 +36,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import ovh.plrapps.mapcompose.api.addLayer
+import ovh.plrapps.mapcompose.api.scale
 import ovh.plrapps.mapcompose.api.setColorFilterProvider
 import ovh.plrapps.mapcompose.api.setMapBackground
 import ovh.plrapps.mapcompose.core.TileStreamProvider
@@ -239,6 +245,28 @@ fun newTileMapState(center: GeoPoint, zoom: Double, density: Float): MapState {
 @Composable
 fun DisposeMapState(state: MapState) {
     DisposableEffect(state) { onDispose { state.shutdown() } }
+}
+
+/**
+ * How many dp [radiusMeters] around [latitude] span across, at the map's
+ * current scale. Read in a marker, so the circle follows the zoom.
+ */
+fun MapState.areaDiameterDp(radiusMeters: Int, latitude: Double, density: Float): Dp {
+    val worldPx = MapTiles.TILE_SIZE * 2.0.pow(MapTiles.MAX_ZOOM) * scale
+    val metresPerPx = 40_075_016.686 * cos(latitude * PI / 180.0) / worldPx
+    return (2 * radiusMeters / metresPerPx / density).dp
+}
+
+/** An area-only business on the map: a soft disc instead of a pin. */
+@Composable
+fun AreaCircle(diameter: Dp, modifier: Modifier = Modifier) {
+    val accent = MaterialTheme.colorScheme.primary
+    Box(
+        modifier
+            .size(diameter)
+            .background(accent.copy(alpha = 0.18f), CircleShape)
+            .border(2.dp, accent.copy(alpha = 0.7f), CircleShape)
+    )
 }
 
 /** Our address, signed in the map's corner next to the tile credit. */

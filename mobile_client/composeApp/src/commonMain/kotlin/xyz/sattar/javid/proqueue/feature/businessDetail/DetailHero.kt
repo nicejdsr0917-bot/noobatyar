@@ -275,8 +275,8 @@ private fun HeroInfo(business: Business, rating: ReviewSummaryDto?, collapse: He
     val directions = rememberDirections()
     val reduced = LocalReducedMotion.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val lat = business.latitude
-    val lng = business.longitude
+    val lat = business.routeLatitude
+    val lng = business.routeLongitude
     val lift = with(LocalDensity.current) { 20.dp.toPx() }
     val heroStyle = MaterialTheme.typography.headlineSmall
     // The bar's title is titleMedium: the name shrinks to exactly that size on the way.

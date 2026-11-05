@@ -2057,7 +2057,9 @@ p  { font-size: 13px; color: var(--color-muted); line-height: 1.7; }
 .star-input button { font-size: 28px; background: none; border: 0; cursor: pointer; color: var(--color-faint, #bbb); padding: 0 2px; }
 .star-input button.on { color: #f5a623; }
 .review-actions { display: flex; gap: 8px; }
-.review-cta { display: inline-block; text-align: center; margin: 4px 0; }
+/* Stays a .btn-secondary (flex, centred text): only the width, height and the
+   link's underline change here. */
+.review-cta { display: flex; width: 100%; height: 48px; margin: 8px 0 4px; text-decoration: none; }
 .review-msg.ok { color: var(--color-success, #16a34a); font-size: 13px; }
 .review-msg.err { color: var(--color-error, #dc2626); font-size: 13px; }
 

@@ -19,6 +19,8 @@ interface Props {
   location: LatLng;
   /** Business name, for the map's accessible label and the pin's tooltip. */
   title: string;
+  /** Area-only business: a circle of this many metres instead of the pin. */
+  areaRadiusM?: number | null;
 }
 
 /**
@@ -30,7 +32,7 @@ interface Props {
  * otherwise swallow every swipe that starts on it) and two fingers zoom;
  * the mouse wheel likewise scrolls the page, with +/- for zoom.
  */
-export default function BusinessMap({ location, title }: Props) {
+export default function BusinessMap({ location, title, areaRadiusM }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { lat, lng } = location;
 
@@ -44,7 +46,7 @@ export default function BusinessMap({ location, title }: Props) {
 
       map = L.map(containerRef.current, {
         center: [lat, lng],
-        zoom: 16,
+        zoom: areaRadiusM ? 14 : 16,
         maxZoom: MAP_MAX_ZOOM,
         scrollWheelZoom: false,
         dragging: !L.Browser.mobile,
@@ -54,6 +56,18 @@ export default function BusinessMap({ location, title }: Props) {
       // prefix: false drops Leaflet's own "Leaflet" credit; the OSM one is
       // the credit the tile licence requires.
       L.control.attribution({ prefix: false }).addAttribution(MAP_ATTRIBUTION).addTo(map);
+      if (areaRadiusM) {
+        // Leaflet writes these as SVG attributes, where var() doesn't resolve.
+        const primary = getComputedStyle(containerRef.current).getPropertyValue('--color-primary').trim() || '#7c3aed';
+        L.circle([lat, lng], {
+          radius: areaRadiusM,
+          color: primary,
+          fillColor: primary,
+          fillOpacity: 0.18,
+          weight: 2,
+        }).addTo(map);
+        return;
+      }
       L.marker([lat, lng], {
         title,
         keyboard: false,
@@ -70,7 +84,7 @@ export default function BusinessMap({ location, title }: Props) {
       cancelled = true;
       map?.remove();
     };
-  }, [lat, lng, title]);
+  }, [lat, lng, title, areaRadiusM]);
 
   // dir="ltr": the map is laid out the same way in every language — Leaflet
   // positions its panes and controls assuming a left-to-right container.

@@ -1110,7 +1110,7 @@
     <string name="profile_group_danger">Danger zone</string>
     <string name="payment_methods_title">Payment methods</string>
     <string name="payment_methods_subtitle">Cash, card transfer and online gateway</string>
-    <string name="capacity_row_subtitle">Clients per slot and how long a booking is held</string>
+    <string name="capacity_row_subtitle">Clients per time slot</string>
     <string name="deposit_row_subtitle">Deposit mode and amount</string>
     <string name="deposit_amount_required">Enter the deposit amount</string>
     <string name="card_number_required">Enter the card number</string>
@@ -1125,4 +1125,12 @@
     <string name="capacity_saved">Saved</string>
     <string name="capacity_save_failed">Not saved, try again</string>
     <string name="capacity_after_create">Can be set once the business is created.</string>
+    <string name="location_on_map_hint">Required; customers find your business on the map.</string>
+    <string name="location_is_required">Pick your location on the map</string>
+    <string name="location_privacy_title">What should customers see?</string>
+    <string name="location_privacy_exact">Exact spot</string>
+    <string name="location_privacy_area">Area only</string>
+    <string name="location_privacy_exact_desc">Customers see the exact spot and get directions with Neshan or Balad.</string>
+    <string name="location_privacy_area_desc">Customers only see a circle of about 500 m, not the exact spot. Good for working from home. Keep the written address general too.</string>
+    <string name="hold_minutes_row_subtitle">How long a booking is held while the client pays</string>
 </resources>
