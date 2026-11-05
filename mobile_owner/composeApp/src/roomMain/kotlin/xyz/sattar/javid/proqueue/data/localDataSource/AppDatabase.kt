@@ -49,7 +49,8 @@ internal const val dbFileName = "proQueue.db"
     // 20: AppointmentEntity.source (where the booking came from).
     // 21: BusinessEntity.socialLinks (Instagram, Telegram, … handles).
     // 22: BusinessEntity.followersCount (customers following the page).
-    version = 22
+    // 23: AppointmentEntity.firstVisitDiscount (new client's first-visit discount).
+    version = 23
 )
 @ConstructedBy(DbFactory::class)
 abstract class AppDatabase : RoomDatabase() {

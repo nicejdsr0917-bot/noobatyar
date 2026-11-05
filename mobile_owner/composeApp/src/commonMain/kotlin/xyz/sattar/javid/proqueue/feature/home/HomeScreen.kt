@@ -360,6 +360,10 @@ fun HomeScreenContent(
                     Spacer(Modifier.height(HomeDimens.SectionGap))
                     NewFollowersCard(followers)
                 }
+                uiState.business?.id?.let { businessId ->
+                    Spacer(Modifier.height(HomeDimens.SectionGap))
+                    FirstVisitDiscountCard(businessId)
+                }
             } }
             val usageBlock: @Composable () -> Unit = {
                 if (!uiState.entitlementsLoaded) {

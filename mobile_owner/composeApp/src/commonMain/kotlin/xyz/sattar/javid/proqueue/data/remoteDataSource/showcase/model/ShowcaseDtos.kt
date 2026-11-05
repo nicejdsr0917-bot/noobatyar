@@ -111,3 +111,7 @@ data class OwnerReviewsPageDto(
     val results: List<OwnerReviewDto> = emptyList(),
     val summary: ReviewSummaryDto? = null
 )
+
+/** `GET/PUT /api/business/<id>/first-visit-discount/`. */
+@Serializable
+data class FirstVisitDiscountDto(val percent: Int = 0)

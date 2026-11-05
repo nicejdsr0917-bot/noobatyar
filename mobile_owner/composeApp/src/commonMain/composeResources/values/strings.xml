@@ -1141,4 +1141,8 @@
     <string name="home_in_queue">%1$s نفر در صف</string>
     <string name="home_trend_empty">هنوز نوبتی در این بازه نیست</string>
     <string name="home_buy_pack">خرید بسته</string>
+    <string name="first_visit_title">تخفیف اولین مراجعه</string>
+    <string name="first_visit_body">مشتری تازه این تخفیف را روی صفحه شما در اپ و سایت می‌بیند و موقع حساب حضوری اعمالش می‌کنید. نوبت‌یار هم بابت هر مشتری تازه به کیف‌پول شما اعتبار می‌دهد.</string>
+    <string name="first_visit_off">خاموش</string>
+    <string name="first_visit_badge">مشتری تازه · ٪%1$d تخفیف</string>
 </resources>

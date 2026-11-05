@@ -341,6 +341,18 @@ class Business(models.Model):
         verbose_name='مبلغ بیعانه',
     )
 
+    # A discount the business gives a client on their first visit, paid at
+    # the counter (Noobatyar only shows and reminds it). 0 = off. Turning it
+    # on is also what makes the business earn the new-client reward
+    # (accounting.toman_wallet.reward_new_client).
+    MAX_FIRST_VISIT_DISCOUNT = 50
+    first_visit_discount = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MaxValueValidator(MAX_FIRST_VISIT_DISCOUNT)],
+        help_text='درصد تخفیف اولین مراجعهٔ هر مشتری (حضوری). صفر یعنی خاموش.',
+        verbose_name='تخفیف اولین مراجعه (درصد)',
+    )
+
     merchant_id = models.CharField(
         max_length=100,
         blank=True,

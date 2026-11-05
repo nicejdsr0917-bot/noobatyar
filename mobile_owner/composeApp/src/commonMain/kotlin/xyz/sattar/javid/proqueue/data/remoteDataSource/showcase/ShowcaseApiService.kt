@@ -9,6 +9,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
@@ -19,6 +20,7 @@ import xyz.sattar.javid.proqueue.core.network.extractErrorMessage
 import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FirstVisitDiscountDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDraft
@@ -48,6 +50,15 @@ class ShowcaseApiService(private val httpClient: HttpClient) : ShowcaseApi {
     override suspend fun getFollowers(businessId: Long, pageSize: Int): ApiResponse<FollowersPageDto> =
         httpClient.get("business/$businessId/followers/") {
             parameter("page_size", pageSize)
+        }.toApiResponse()
+
+    override suspend fun getFirstVisitDiscount(businessId: Long): ApiResponse<FirstVisitDiscountDto> =
+        httpClient.get("business/$businessId/first-visit-discount/").toApiResponse()
+
+    override suspend fun setFirstVisitDiscount(businessId: Long, percent: Int): ApiResponse<FirstVisitDiscountDto> =
+        httpClient.put("business/$businessId/first-visit-discount/") {
+            contentType(ContentType.Application.Json)
+            setBody(FirstVisitDiscountDto(percent))
         }.toApiResponse()
 
     override suspend fun listItems(kind: ShowcaseKind, businessId: Long): ApiResponse<List<ShowcaseItemDto>> =

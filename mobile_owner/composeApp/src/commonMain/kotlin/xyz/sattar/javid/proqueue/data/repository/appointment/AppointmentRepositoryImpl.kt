@@ -126,6 +126,7 @@ class AppointmentRepositoryImpl(
                     paymentReference = dto.paymentReference,
                     depositPaymentMethod = dto.depositPaymentMethod,
                     source = dto.source,
+                    firstVisitDiscount = dto.firstVisitDiscount,
                     createdAt = DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
                     updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                 )
@@ -370,6 +371,7 @@ class AppointmentRepositoryImpl(
                     paymentReference = dto.paymentReference,
                     depositPaymentMethod = dto.depositPaymentMethod,
                     source = dto.source,
+                    firstVisitDiscount = dto.firstVisitDiscount,
                         createdAt = DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
                         updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                     )

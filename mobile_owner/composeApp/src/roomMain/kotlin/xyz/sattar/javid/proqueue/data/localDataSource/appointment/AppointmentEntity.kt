@@ -47,5 +47,7 @@ data class AppointmentEntity(
     val trackingCode: String? = null,
     val paymentReference: String? = null,
     val depositPaymentMethod: String? = null,
-    val source: String? = null
+    val source: String? = null,
+    /** Percent off for a new client's first visit; 0 for none. */
+    val firstVisitDiscount: Int = 0
 )

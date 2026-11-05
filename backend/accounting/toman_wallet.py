@@ -273,7 +273,9 @@ def is_blocked(flags):
 
 def reward_new_client(appointment):
     """Credit the owner ``TomanWalletSettings.new_client_reward`` toman for a
-    client's first completed booking at the business. Returns the amount given.
+    client's first completed booking at the business, if the business gives a
+    first-visit discount (``Business.first_visit_discount``). Returns the
+    amount given.
 
     Call it inside the transaction that marks ``appointment`` COMPLETED, with
     the business row locked. Only bookings the client made on the website or
@@ -296,6 +298,10 @@ def reward_new_client(appointment):
     if amount <= 0:
         return 0
     business = appointment.business
+    # Paid only to businesses that give new clients a first-visit discount:
+    # the reward is Noobatyar's share of that discount.
+    if not business.first_visit_discount:
+        return 0
     owner_id = business.user_id
     visitor = appointment.visitor
     if _phone_tail(visitor.phone_number) == _phone_tail(business.user.phone):

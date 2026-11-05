@@ -3,6 +3,7 @@ package xyz.sattar.javid.proqueue.data.remoteDataSource.showcase
 import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FirstVisitDiscountDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDraft
@@ -23,6 +24,12 @@ interface ShowcaseApi {
 
     /** Newest followers of the owner's business, first name and photo only. */
     suspend fun getFollowers(businessId: Long, pageSize: Int): ApiResponse<FollowersPageDto>
+
+    /** The business's first-visit discount percent (0 = off); fakes need not override these. */
+    suspend fun getFirstVisitDiscount(businessId: Long): ApiResponse<FirstVisitDiscountDto> =
+        ApiResponse.Success(FirstVisitDiscountDto(0))
+    suspend fun setFirstVisitDiscount(businessId: Long, percent: Int): ApiResponse<FirstVisitDiscountDto> =
+        ApiResponse.Success(FirstVisitDiscountDto(percent))
 
     suspend fun listStories(businessId: Long): ApiResponse<List<StoryDto>>
 

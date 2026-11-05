@@ -1092,4 +1092,8 @@
     <string name="home_in_queue">%1$s in queue</string>
     <string name="home_trend_empty">No bookings in this range yet</string>
     <string name="home_buy_pack">Buy pack</string>
+    <string name="first_visit_title">First-visit discount</string>
+    <string name="first_visit_body">New clients see this discount on your page in the app and on the web, and you apply it when they pay at the counter. Noobatyar also credits your wallet for every new client.</string>
+    <string name="first_visit_off">Off</string>
+    <string name="first_visit_badge">New client · %1$d percent off</string>
 </resources>

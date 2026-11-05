@@ -17,5 +17,7 @@ data class Appointment(
     val paymentReference: String? = null,
     val depositPaymentMethod: String? = null,
     /** WEB / APP / OWNER / UNKNOWN; null when the server predates the field. */
-    val source: String? = null
+    val source: String? = null,
+    /** Percent off for a new client's first visit (paid at the counter); 0 for none. */
+    val firstVisitDiscount: Int = 0,
 )

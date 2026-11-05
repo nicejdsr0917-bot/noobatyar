@@ -94,5 +94,7 @@ data class BusinessDto(
     @SerialName("insurances") val insurances: List<InsuranceDto> = emptyList(),
     // Start (epoch ms) of the earliest bookable slot in the next 7 days; null
     // when none or not bookable. Older servers omit it.
-    @SerialName("first_free_slot") val firstFreeSlot: Long? = null
+    @SerialName("first_free_slot") val firstFreeSlot: Long? = null,
+    // Percent off a client's first visit, paid at the counter; 0 = none.
+    @SerialName("first_visit_discount") val firstVisitDiscount: Int = 0,
 )

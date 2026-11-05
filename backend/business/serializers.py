@@ -139,7 +139,7 @@ class BusinessSerializer(serializers.ModelSerializer):
             # were missing here — so the owner app's advanced settings passed
             # validation, returned 200, and were then silently dropped by the
             # serializer instead of being saved.
-            'max_appointments_per_hour', 'deposit_mode', 'deposit_amount',
+            'max_appointments_per_hour', 'deposit_mode', 'deposit_amount', 'first_visit_discount',
             # Editorial review state — owner-visible, never owner-writable.
             # `moderation_note` carries the reviewer's reason verbatim; it is
             # written for the owner to read, so it is exposed as-is.
@@ -497,6 +497,7 @@ class PublicBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
             'followers_count',
             'insurances',
             'distance_km',
+            'first_visit_discount',
             'phone',
             'extra_phones',
             # Masked together with the phone (public_policy._mask_phone).
@@ -568,7 +569,7 @@ class ClientBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
             'allow_anonymous_view',
             'notice_message', 'notice_enabled', 'booking_enabled',
             'payment_method', 'accepted_payment_methods',
-            'deposit_mode', 'deposit_amount',
+            'deposit_mode', 'deposit_amount', 'first_visit_discount',
             'payment_link',
             'online_gateway_enabled',
             'services', 'allow_client_add_service',

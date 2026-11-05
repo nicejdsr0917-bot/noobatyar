@@ -37,6 +37,7 @@ class NewClientRewardTests(TestCase):
             user=owner, title='کسب‌وکار', phone='02100000000', address='تهران', default_service_duration=30,
             work_start_hour=9, work_end_hour=17,
             moderation_status=Business.MODERATION_APPROVED,
+            first_visit_discount=20,  # the reward goes only to businesses that give one
         )
 
     def _visitor(self, name, phone, age=timedelta(days=30)):
@@ -251,3 +252,49 @@ class OwnerIpSightingTests(TestCase):
         api.get('/api/accounting/my-subscription/')
         api.get('/api/accounting/my-subscription/')
         self.assertEqual(list(UserIpSighting.objects.values_list('user_id', 'ip')), [(owner.pk, '7.7.7.7')])
+
+
+class FirstVisitDiscountTests(TestCase):
+    """The first-visit discount: owner setting, the flag on appointments, and
+    the new-client reward going only to businesses that give it."""
+
+    # Same fixture as NewClientRewardTests (borrowed, not inherited, so its
+    # tests don't run twice).
+    setUp = NewClientRewardTests.setUp
+    _business = NewClientRewardTests._business
+    _visitor = NewClientRewardTests._visitor
+    _book = NewClientRewardTests._book
+    _complete = NewClientRewardTests._complete
+
+    def test_no_discount_no_reward(self):
+        Business.objects.filter(pk=self.business.pk).update(first_visit_discount=0)
+        self.business.refresh_from_db()
+        appointment = self._book()
+        self._complete(appointment)
+        from accounting.models import NewClientReward
+        self.assertFalse(NewClientReward.objects.exists())
+
+    def test_owner_sets_percent(self):
+        from rest_framework.test import APIClient
+        api = APIClient()
+        api.force_authenticate(self.owner)
+        url = f'/api/business/{self.business.pk}/first-visit-discount/'
+        self.assertEqual(api.put(url, {'percent': 25}, format='json').status_code, 200)
+        self.business.refresh_from_db()
+        self.assertEqual(self.business.first_visit_discount, 25)
+        self.assertEqual(api.put(url, {'percent': 80}, format='json').status_code, 400)
+        self.assertEqual(api.get(url).json()['data']['percent'], 25)
+        other = User.objects.create_user(phone='09120000599', password='x', name='o')
+        api.force_authenticate(other)
+        self.assertEqual(api.put(url, {'percent': 10}, format='json').status_code, 404)
+
+    def test_appointment_carries_discount_on_first_visit_only(self):
+        from appointment.serializers import AppointmentQuerySerializer
+        first = self._book()
+        self.assertEqual(AppointmentQuerySerializer(first).data['first_visit_discount'], 20)
+        self._complete(first)
+        second = self._book(hours=3)
+        self.assertEqual(AppointmentQuerySerializer(second).data['first_visit_discount'], 0)
+        # the finished first visit itself still shows what it was given
+        first.refresh_from_db()
+        self.assertEqual(AppointmentQuerySerializer(first).data['first_visit_discount'], 20)

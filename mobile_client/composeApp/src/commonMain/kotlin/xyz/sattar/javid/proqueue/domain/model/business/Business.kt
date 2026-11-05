@@ -110,7 +110,9 @@ data class Business(
     val isFollowing: Boolean? = null,
     val insurances: List<Insurance> = emptyList(),
     /** Start (epoch ms) of the earliest bookable slot within 7 days, or null. */
-    val firstFreeSlot: Long? = null
+    val firstFreeSlot: Long? = null,
+    /** Percent off a client's first visit there, paid at the counter; 0 = none. */
+    val firstVisitDiscount: Int = 0,
 ) {
     /** True only when both the content review and the plan/billing state allow it. */
     val isPubliclyVisible: Boolean

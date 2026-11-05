@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.discovery
 
+import com.composables.icons.lucide.BadgePercent
 import com.composables.icons.lucide.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -465,6 +466,10 @@ fun BusinessRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (business.firstVisitDiscount > 0) {
+                    Spacer(Modifier.height(6.dp))
+                    FirstVisitTag(business.firstVisitDiscount)
+                }
                 Spacer(Modifier.height(6.dp))
                 MetaLine(business, status)
                 val freeSlot = remember(business.firstFreeSlot) { formatFirstFreeSlot(business.firstFreeSlot) }
@@ -486,6 +491,26 @@ fun BusinessRow(
         }
     }
 }
+
+/** «٪۲۰ تخفیف اولین مراجعه», amber like the brand's one accent; on rows and the business page. */
+@Composable
+fun FirstVisitTag(percent: Int, modifier: Modifier = Modifier) {
+    Surface(shape = RoundedCornerShape(8.dp), color = FirstVisitAmber.copy(alpha = 0.14f), modifier = modifier) {
+        Row(Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Lucide.BadgePercent, contentDescription = null, tint = FirstVisitAmberDark, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(
+                "٪${percent.toPersianDigits()} تخفیف اولین مراجعه",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = FirstVisitAmberDark,
+            )
+        }
+    }
+}
+
+private val FirstVisitAmber = Color(0xFFF59E0B)
+private val FirstVisitAmberDark = Color(0xFFB45309)
 
 /** The first free slot as a tappable pill: one tap to its booking, time already picked. */
 @Composable

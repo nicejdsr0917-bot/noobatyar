@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .first_visit import OwnerFirstVisitDiscountView
 from .follow_views import OwnerFollowerListView
 from .claim_views import ClaimableBusinessSearchView, ClaimStartView, ClaimVerifyView
 from .promo_views import PromoSmsDetailView, PromoSmsPreviewView, PromoSmsView
@@ -18,6 +19,7 @@ urlpatterns = [
     path('<int:business_id>/push-logs/', PushLogListView.as_view(), name='business-push-logs'),
     path('<int:business_id>/push-logs/summary/', PushLogSummaryView.as_view(), name='business-push-logs-summary'),
     path('<int:business_id>/followers/', OwnerFollowerListView.as_view(), name='business-followers'),
+    path('<int:business_id>/first-visit-discount/', OwnerFirstVisitDiscountView.as_view(), name='business-first-visit-discount'),
     path('<int:business_id>/promo-sms/', PromoSmsView.as_view(), name='business-promo-sms'),
     path('<int:business_id>/promo-sms/preview/', PromoSmsPreviewView.as_view(), name='business-promo-sms-preview'),
     path('<int:business_id>/promo-sms/<int:campaign_id>/', PromoSmsDetailView.as_view(), name='business-promo-sms-detail'),

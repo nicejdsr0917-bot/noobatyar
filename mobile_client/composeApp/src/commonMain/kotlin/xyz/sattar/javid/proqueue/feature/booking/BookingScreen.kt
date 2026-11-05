@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.booking
 
+import xyz.sattar.javid.proqueue.feature.discovery.FirstVisitTag
 import xyz.sattar.javid.proqueue.core.ui.components.OtpCodeField
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Check
@@ -619,6 +620,18 @@ private fun SummaryCard(state: BookingState, modifier: Modifier = Modifier, show
                     SummaryRow("بیعانه", formatToman(deposit))
                     Text(
                         "با پرداخت بیعانه قطعی می‌شود",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (business.firstVisitDiscount > 0) {
+                Hairline(Modifier.enterStagger(5))
+                Column(Modifier.enterStagger(5)) {
+                    FirstVisitTag(business.firstVisitDiscount)
+                    Spacer(Modifier.height(Space.xs))
+                    Text(
+                        "اگر اولین بار است به این مرکز می‌روید، موقع پرداخت حضوری اعمال می‌شود.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

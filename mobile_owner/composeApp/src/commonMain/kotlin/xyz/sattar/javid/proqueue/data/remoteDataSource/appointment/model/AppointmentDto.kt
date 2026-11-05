@@ -19,5 +19,7 @@ data class AppointmentDto(
     @SerialName("tracking_code") val trackingCode: String? = null,
     @SerialName("payment_reference") val paymentReference: String? = null,
     @SerialName("deposit_payment_method") val depositPaymentMethod: String? = null,
-    @SerialName("source") val source: String? = null
+    @SerialName("source") val source: String? = null,
+    /** The business's first-visit discount on a client's first visit, else 0. */
+    @SerialName("first_visit_discount") val firstVisitDiscount: Int = 0,
 )

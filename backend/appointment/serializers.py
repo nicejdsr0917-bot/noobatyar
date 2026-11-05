@@ -113,6 +113,8 @@ class AppointmentQuerySerializer(serializers.ModelSerializer):
     """Appointment serializer with nested visitor and flattened fields"""
     visitor = VisitorNestedSerializer(read_only=True)
     appointment_date = serializers.SerializerMethodField()
+    # The business's first-visit discount when this is the client's first visit there, else 0.
+    first_visit_discount = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -129,9 +131,20 @@ class AppointmentQuerySerializer(serializers.ModelSerializer):
             'deposit_payment_method',
             'payment_receipt',
             'source',
+            'first_visit_discount',
             'created_at',
             'updated_at'
         ]
+
+    def get_first_visit_discount(self, obj):
+        from business.first_visit import discount_for
+        # One lookup per business, not per row: a list is one business's day.
+        cache = self.context.setdefault('_first_visit_pct', {}) if isinstance(self.context, dict) else {}
+        if obj.business_id not in cache:
+            cache[obj.business_id] = (
+                Business.objects.filter(pk=obj.business_id).values_list('first_visit_discount', flat=True).first() or 0
+            )
+        return discount_for(obj, cache[obj.business_id])
 
     def get_appointment_date(self, obj):
         """Convert appointment_date to Unix timestamp in milliseconds"""

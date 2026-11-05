@@ -130,6 +130,7 @@ fun QueueItemCard(
                     modifier = Modifier.weight(1f, fill = false)
                 )
                 SourceBadge(item.appointment.source, modifier = Modifier.padding(horizontal = 8.dp))
+                FirstVisitBadge(item.appointment.firstVisitDiscount)
                 Spacer(modifier = Modifier.weight(1f))
 
                 var showMenu by remember { mutableStateOf(false) }
