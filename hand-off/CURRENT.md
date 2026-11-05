@@ -1,59 +1,66 @@
 ---
-updated: 2026-11-03 17:55
+updated: 2026-11-05 09:35
 tags: [gf, current]
 ---
 # وضعیت فعلی
 
 ## هدف
-اپ مشتری اندروید (`mobile_client/`، برنچ `mobile-client`) را حرفه‌ای و روان کنیم (UI سطح بین‌المللی، بدون گرادیان و انیمیشن ارزان) و قابلیت‌ها را در هر سه کلاینت هم‌سطح نگه داریم. کار تازه: **کیف پول اونر** (انجام شد). **فقط اندروید**؛ iOS بیلد یا بررسی نشود.
+شبکهٔ اجتماعی سبک بین مشتری و کسب‌وکار. فالو ساخته شد. قدم بعد اعلان فالو برای اونر، دستهٔ فالوورها در کمپین پیامک، استوری کسب‌وکار (۲۴ ساعته، با دکمهٔ تخفیف) و اعلان «نظر بدهید» بعد از نوبت است.
 
-قاعدهٔ همیشگی: فقط تغییر افزایشی، چون کاربر واقعی داریم. با کاربر فارسی حرف بزن.
+قاعدهٔ همیشگی: کاربر واقعی داریم، پس فقط تغییر افزایشی. با کاربر فارسی حرف بزن.
 
 ## وضعیت
-- **صفحهٔ کاوش بازطراحی شد و روی امولاتور دیده شد:** ۷ دسته در یک ردیف، شیت سه‌حالته (پایین‌ترین فقط تا خط عنوان)، عنوان با دسته («مراکز دندان‌پزشکی در تهران»)، حالت خالی/خطای ساده. دارک مود دیده نشده.
-- **کیف پول اونر روی `mobile-client` آماده است** (commitهای `6d4d5d3`، `6b62913`، `017e0d0`): اعتبار نوبت/پیامک + کیف‌پول تومانی (برگشت تخفیف‌های نوبت‌یار، نقدنشدنی؛ خرج در خرید پلن/بسته کامل یا بخشی، تبدیل به پیامک/نوبت). ۱۰۸۷ تست بک‌اند و ۹۹ تست اپ OK، روی امولاتور دیده شد. جزئیات: [[sessions/2026-11-02-2118]].
-- **شارژ کیف‌پول هنوز به جایی وصل نیست:** سشن تخفیف بیعانه باید `toman_wallet.credit(...)` را صدا بزند.
-- DB محلی تازه seed شد: ۱۰۰ کسب‌وکار نمایشی، «سالن زیبایی ستاره» id 52 با لوگو و ۸ نمونه‌کار. DB قبلی: `backend/db.sqlite3.bak-20261102`.
-- **دیپلوی سرور از سشن قبل نیمه‌کاره است** (checkout سرور روی `45a9b96`، migrate انجام نشده).
-
-- **اپ کلاینت دو flavor دارد:** `site` و `store` (یک APK برای مایکت و بازار)؛ workflow ریلیز کلاینت هر دو را می‌سازد، هنوز با تگ واقعی اجرا نشده. اونر دست نخورده. جزئیات: [[sessions/2026-11-03-1755]].
+- **همه‌چیز روی prod است** (`194.146.69.137`، checkout روی `3ce5e67`). همهٔ migrationها اجرا شده‌اند و سایت و پنل وب به‌روزند.
+- **ریلیز:** آخرین ریلیز اونر `v1.12.0` و آخرین ریلیز کلاینت `client-v1.2.0` است. فیچرهای فالو، بیو، کراپ و پروفایل تازهٔ کلاینت هنوز ریلیز اپ نشده‌اند. changelog `client-v1.3.0` آماده است؛ کاربر گفت «فعلاً نه».
+- **پاداش مشتری تازه** ساخته شده، ولی روی prod خاموش است (`new_client_reward = 0`). برای روشن کردن: ادمین ← «کیف‌پول تومانی».
+- **نسخه‌ها:** کلاینت و اونر حالا جدا چک می‌شوند. در هر ریلیز کلاینت، نسخه را در ادمین Versions با اپ CLIENT ثبت کن.
+- جزئیات این سشن: [[sessions/2026-11-05-0935]].
 
 ## قدم‌های بعدی
-1. وصل کردن شارژ کیف‌پول در سشن تخفیف بیعانه: فقط وقتی نوبت تخفیف‌دار واقعاً پرداخت/تأیید شد `toman_wallet.credit(user, amount, reason="discount_reimbursement", ref_type=..., ref_id=...)`.
-2. تنظیم قیمت واحد تبدیل در ادمین («تنظیمات کیف‌پول تومانی»؛ پیش‌فرض ۲۰۰/۵۰۰ تومان).
-3. دیدن دارک مود کاوش جدید.
-4. تمام کردن دیپلوی: `docs/DEPLOY_SCALE_HARDENING.md`. **پیش از آن بپرس CDN جلوی nginx هست یا نه.** بعدش `seed_insurances` روی سرور. migration تازه: `accounting/0016_toman_wallet`.
-5. ریلیز اپ اونر بعد از دیپلوی.
+1. **اعلان فالو برای اونر** («فلانی شما را دنبال کرد») و بخشی برایش در صفحهٔ خانهٔ اپ اونر. **اول بپرس:** اسم دنبال‌کننده نشان داده شود؟ قاعدهٔ فعلی این است که اونر فقط تعداد را ببیند.
+2. **دستهٔ «دنبال‌کننده‌ها» در کمپین‌های پیامکی اونر** (`core/segments.py`).
+3. **استوری کسب‌وکار:**
+   - فقط عکس و ۲۴ ساعته.
+   - دکمهٔ شناور انتخابی، یکی از گزینه‌ها تخفیف با درصدی که اونر تعیین می‌کند.
+   - حلقهٔ بنفش دور آواتار در اپ کلاینت.
+   - دکمهٔ فالو داخل استوری برای کسی که دنبال نکرده.
+   - درصد تخفیف و نحوهٔ اعمالش را از کاربر بپرس.
+4. **اعلان «نظر بدهید»** بعد از «انجام‌شده»، در اپ یا سایت مشتری.
+5. چک کن `UserIpSighting` روی prod بعد از استفادهٔ واقعی اونرها پر می‌شود. موقع ذخیره صفر بود چون اونری فعال نبود.
 
 ## مسائل باز
 - 🔒 رمز root سرور در تاریخچهٔ git است و باید عوض شود.
-- ⚠️ migrationهای در انتظار سرور: `accounting/0016`، `business/0035`، `business/0036`، `visitor/0014`، `appointment/0017`، `banners/0002`. `seed_demo_businesses` فقط محلی است.
-- `PushMessagingService` اپ کلاینت ثبت نشده است؛ منتظر فایل Firebase.
+- `PushMessagingService` اپ کلاینت ثبت نشده است و منتظر فایل Firebase است. **اعلان‌های قدم ۱ و ۴ برای کلاینت به این وابسته‌اند.**
 - **قاعدهٔ متن اپ:** کوتاه و بدون ئ ء ٔ أ. ثابت `BOOKING_BLOCKED_NOTICE` را عوض نکن.
-- این فایل‌ها commit نشوند: `API_DOCUMENTATION.md`، `implementation_plan.md`، `backend/err.log`، `backend/out.log`، lockهای `mobile_client/.gradle/`.
-- **محیط Windows (این سشن):**
-  - امولاتور شبیه LDPlayer با صفحهٔ 900x1600.
-  - adb در `C:/Users/j_sattar/AppData/Local/Android/Sdk/platform-tools/adb.exe`.
-  - بعد از هر بوت `adb reverse tcp:8000 tcp:8000`.
-  - بک‌اند: preview `backend` (پورت 8000)، venv در `backend/.venv` (پایتون 3.14). دستورهای Django با `DEBUG=True PYTHONUTF8=1`.
-  - بیلد: `cd mobile_client && ./gradlew :composeApp:assembleLocalSiteDebug -q`.
-- تست بک‌اند در worktree کیف‌پول با venv پایتون 3.12 (پایتون 3.14 تست‌های ادمین Django 4.2 را می‌شکند). JAVA_HOME سالم: `C:/Users/j_sattar/.jdks/jbr-17.0.14`.
-- **محیط macOS:** امولاتور `Pixel_6a`، preview `backend_mobile_client_mac`. جزئیات در سشن [[sessions/2026-11-02-0005]].
-- کاربر هم‌زمان با امولاتور کار می‌کند.
+- این‌ها commit نشوند:
+  - `API_DOCUMENTATION.md`، `implementation_plan.md`، `backend/*.log`
+  - lockهای `mobile_client/.gradle/`
+  - `.claude/launch.json` و `mobile_owner/composeApp/build.gradle.kts` (تغییرات خود کاربر)
+  - فایل untracked `InMemoryUserLocalSource.kt`
+- فایل‌ها را تک‌تک add کن؛ `git add <پوشه>` فایل‌های untracked کاربر را هم برمی‌دارد.
+- **دو CI ریلیز را هم‌زمان نزن.** هر دو در پایان xcconfig را روی develop push می‌کنند و retry ندارند.
+- **محیط macOS:**
+  - امولاتور `Pixel_6a`.
+  - preview `backend_mac` (پورت 8000) و `front_client` (پورت 3000).
+  - کلاینت: `sh ./gradlew :composeApp:assembleLocalSiteDebug` با `ANDROID_HOME`، سپس `adb install` نسخهٔ arm64.
+  - برای کار با UI امولاتور از uiautomator dump استفاده کن (اسکریپت `tap.py` در scratchpad سشن).
+- **محیط Windows** (سشن‌های قبل): adb در `C:/Users/j_sattar/AppData/Local/Android/Sdk/platform-tools/adb.exe`. پایتون 3.14 تست‌های ادمین را می‌شکند و 3.12 لازم است.
 
 ## فایل‌های کلیدی
-- `mobile_client/.../feature/explore/ExploreSheet.kt`: شیت سه‌حالته
-- `mobile_client/.../feature/explore/ExploreScreen.kt`: کاوش و `resultsTitle`
-- `mobile_client/.../feature/explore/ExploreHeader.kt`: `CategoryBar`
-- `mobile_client/.../feature/discovery/DiscoveryUi.kt`: `CategoryGroup` و `StateMessage`
-- `backend/accounting/toman_wallet.py`: کیف‌پول تومانی (`credit`، `spend`، `hold`، `give_back`، `convert`، `release_stale_holds`)
-- `mobile_owner/.../feature/wallet/` و `core/billing/CheckoutConfirmation.kt`: صفحهٔ کیف‌پول و پرداخت با کیف‌پول
+- `backend/business/follows.py`، `business/models/follow.py`: فالو
+- `backend/accounting/toman_wallet.py`: کیف‌پول تومانی و پاداش مشتری تازه با ضدتقلب
+- `backend/reviews/serializers.py`: نظر عمومی فقط اسم کوچک و عکس
+- `backend/versions/views.py`: تشخیص اپ کلاینت
+- `mobile_client/.../feature/profile/ProfileScreen.kt`، `feature/following/`، `businessDetail/DetailIdentity.kt`
+- `mobile_owner/.../feature/home/`: خانهٔ اونر، جای بخش «دنبال‌کننده‌های تازه»
+- `front_client/app/components/FollowButton.tsx`
+- `docs/api/P2_SOCIAL_API.md`: مرجع API فالو، بیو و نظرها
 
 ## سشن‌های اخیر
+- [[sessions/2026-11-05-0935]]: پاداش مشتری تازه و ضدتقلب، سقف بیعانه، اسپلش، ریلیزها، رفع آپدیت کلاینت، فالو/بیو/کراپ، پروفایل تازه
 - [[sessions/2026-11-03-1755]]: اپ کلاینت: دو نسخهٔ سایت و استور (مایکت و بازار)
-- [[sessions/2026-11-02-2118]]: کیف‌پول اونر — اعتبار نوبت/پیامک و کیف‌پول تومانی، تست سخت‌گیرانه
-- [[sessions/2026-11-02-1455]]: کاوش با دسته‌ها در یک ردیف، شیت سه‌حالته، حالت خالی ساده؛ ایدهٔ کیف پول اونر
-- [[sessions/2026-11-02-0005]]: شبکه‌های اجتماعی در سه اپ، کد تایید متحرک، رفع بن‌بست بیعانه، دیپلوی نیمه‌کاره
-- [[sessions/2026-11-01-1741]]: صفحهٔ مرکز با هدر جمع‌شونده، تب پروفایل، کش نقشه
+- [[sessions/2026-11-02-2118]]: کیف‌پول اونر: اعتبار نوبت/پیامک و کیف‌پول تومانی
+- [[sessions/2026-11-02-1455]]: کاوش با دسته‌ها در یک ردیف، شیت سه‌حالته
+- [[sessions/2026-11-02-0005]]: شبکه‌های اجتماعی در سه اپ، کد تایید متحرک، رفع بن‌بست بیعانه
 
 ببین: [نقشهٔ پروژه](../knowledge/INDEX.md)

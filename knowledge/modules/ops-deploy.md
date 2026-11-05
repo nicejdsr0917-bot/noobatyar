@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-03
+updated: 2026-11-05
 tags: [gf]
 ---
 # Ops: سرور، دیپلوی، CI، محیط محلی
@@ -43,3 +43,11 @@ tags: [gf]
 - محلی:
   - وب اونر با preview `mobile_owner_web_mobile_client_mac` روی :8081 (پورت 8080 دست Docker است).
   - اپ اونر اندروید: `sh ./gradlew :composeApp:assembleLocalSiteDebug -PlocalBaseUrl=http://127.0.0.1:8000`، سپس `adb install` نسخهٔ arm64. اول preview وب را stop کنید.
+
+## دیپلوی‌ها و ریلیزهای 2026-11-04/05
+- prod روی `3ce5e67` است. هر دیپلوی با bundle (`git bundle create f <server-sha>..develop`، بازهٔ SHA..SHA کار نمی‌کند) و dump قبلش انجام شد.
+- web، worker و worker_bulk را با `--no-deps --build` بساز. frontend هم وقتی سایت تغییر کرده.
+- قبل از بیلد آدرس به‌روزرسانی Shecan را curl کن.
+- ریلیزها `v1.12.0` و `client-v1.2.0`. دو CI را پشت سر هم بزن، چون هر دو بدون retry xcconfig را روی develop push می‌کنند.
+- بیلد release محلی اونر با کش قدیمی خطای MD5 داد؛ `./gradlew :composeApp:clean` حلش کرد.
+- لاگ nginx به stdout لینک است و `tail` روی access.log گیر می‌کند.

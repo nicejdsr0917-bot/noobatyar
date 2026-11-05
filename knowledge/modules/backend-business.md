@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-05
 tags: [gf]
 ---
 # backend: business
@@ -74,3 +74,13 @@ tags: [gf]
 ## بیعانهٔ اجباری بدون روش آنلاین (2026-11-02)
 - `BusinessSerializer.validate`: `deposit_mode=MANDATORY` بدون `CARD` یا `ONLINE` رد می‌شود، **فقط وقتی** بیعانه یا روش‌ها در همین ذخیره عوض شوند (اپ‌های اونر کل کسب‌وکار را می‌فرستند؛ اونرِ قدیمی با این تنظیم باید بتواند اسمش را عوض کند).
 - `seed_demo_businesses`: بیعانهٔ اجباری حالا با کارت (`6037997599999999`) ساخته می‌شود.
+
+## فالو و سقف بیعانه (2026-11-04/05)
+- `BusinessFollow` (`models/follow.py`): unique روی business و visitor. `Business.followers_count` را فقط `follows.set_following` با `F()` به‌روز می‌کند و `public_cache.bump_business` را صدا می‌زند. migration `0037`.
+- API:
+  - `POST/DELETE client/businesses/<id>/follow/` (Visitor)
+  - `GET client/businesses/following/`
+  - `is_following` فقط روی detail برای Visitor برمی‌گردد، بیرون از cache.
+- `followers_count` در همهٔ serializerها هست و در `tests_contract_shapes` pin شده است.
+- **حریم خصوصی:** فهرست دنبال‌کننده‌ها به هیچ‌کس، حتی اونر، داده نمی‌شود؛ فقط تعداد.
+- `Business.MAX_DEPOSIT_AMOUNT = 1_000_000`: `BusinessSerializer.validate` فقط وقتی مبلغ عوض شود رد می‌کند.

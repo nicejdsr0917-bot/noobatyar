@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-01
+updated: 2026-11-05
 tags: [gf]
 ---
 # backend: visitor (مشتری)
@@ -33,3 +33,7 @@ tags: [gf]
   - POST چندبخشی با فیلد `avatar`: با `showcase/images.py` باز و بررسی می‌شود، `ImageOps.fit` مربع ۵۱۲ پیکسل، JPEG. فایل قبلی پاک می‌شود.
   - DELETE عکس را برمی‌دارد.
 - `avatar` در `VisitorSerializer` (که اونرها می‌خوانند) **نیست**، پس صف بررسی ادمین لازم ندارد.
+
+## بیو و عکس در نظرها (2026-11-05)
+- `Visitor.bio` (حداکثر ۱۵۰) فقط برای خود مشتری است. `ClientMeUpdateSerializer`: `full_name` و `bio` هر دو اختیاری‌اند، حداقل یکی لازم است. bio تمیز می‌شود (فاصله‌ها و حداکثر یک خط خالی). migration `0015`.
+- `reviews.PublicReviewSerializer`: `visitor_avatar` اضافه شد و `visitor_phone` همیشه `""` است (قبلاً شمارهٔ پوشیده نشت می‌کرد). `OwnerReviewSerializer` شمارهٔ پوشیده را نگه می‌دارد. viewها `context={'request'}` می‌دهند تا URL عکس کامل باشد.

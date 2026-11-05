@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-03
+updated: 2026-11-05
 tags: [gf]
 ---
 # اپ موبایل مشتری (mobile_client — برنچ `mobile-client`)
@@ -141,3 +141,19 @@ tags: [gf]
 - **`ExploreScreen.kt`**: `BottomSheetScaffold` حذف شد و `ExploreSheetLayout` جایش آمد. `resultsTitle` اسم دسته را می‌گذارد («مراکز دندان‌پزشکی در تهران»)؛ برای «همه» فقط «مراکز». انتخاب پین روی نقشه شیت را به Half می‌برد.
 - **`ExploreMap.kt`**: پارامتر `bottomInset: () -> Dp` دکمه‌های نقشه را بالای شیت نگه می‌دارد.
 - دارک مود بخش‌های جدید دیده نشده.
+
+## جلسهٔ 2026-11-05: پروفایل تازه، فالو، کراپ، اسپلش
+- **تب پروفایل** (`feature/profile/ProfileScreen.kt`) بازطراحی شد:
+  - سطح خنثی، خط `outlineVariant`، آیکون تک‌رنگ، بدون حلقهٔ رنگین‌کمانی.
+  - بالای صفحه نام و بیو؛ زیرش `StatsStrip` (نوبت، دنبال می‌کنید، نشان‌شده).
+  - `EditProfileSheet`: کراپ (`ImageCropperDialog` + `core/utils/ImageCropper` با actual اندروید و iOS)، بیو با شمارنده (`BIO_MAX_LENGTH`). `ProfileApi.update(name, bio)`.
+- **فالو:**
+  - `FollowRow` در `DetailIdentity.kt` زیر `StatsRow`.
+  - `ClientBusinessDetailViewModel.toggleFollow`: خوش‌بینانه است و با خطا برمی‌گردد. مهمان به ورود می‌رود.
+  - `feature/following/` (`AppScreens.Following`).
+  - `BusinessRepository.setFollowing` و `getFollowing`.
+- نظرها عکس نویسنده را نشان می‌دهند (`ReviewDto.visitorAvatar`، coil).
+- `LaunchSplash` و `NoobatyarMark.kt` (از اپ اونر). تم `Theme.Noobatyar` در `res/values*/themes.xml`.
+- `CheckVersionRequestDto` حالا `app = "CLIENT"` می‌فرستد.
+- flavorهای `site` و `store` از برنچ `mobile-client` در develop ادغام شدند و برنچ `mobile-client` دیگر جدا لازم نیست.
+- تست‌ها: `FollowViewModelTest` (۱۴۳ تست کلاینت).

@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-05
 tags: [gf]
 ---
 # اپ صاحب کسب‌وکار (mobile_owner)
@@ -57,3 +57,13 @@ tags: [gf]
 - `core/billing/CreditsChanged`: بعد از خرید/تبدیل/hold بالا می‌رود و `HomeViewModel` کارت مصرف را تازه می‌کند.
 - علامت +/− در RTL با isolate `⁦…⁩` داخل عدد (نه دور «تومان»).
 - تست‌ها ۹۹ تا؛ `Str` در تست JVM کرش می‌کند، helperهای بدون Str را تست کنید. JAVA_HOME: `~/.jdks/jbr-17.0.14`.
+
+## جلسهٔ 2026-11-04/05
+- خانه:
+  - `HomeHero` با `NestedScrollConnection` در `HomeScreenContent` جمع می‌شود (`HomeHeroCollapseRange` برابر 64dp)، نه از offset لیست. همین پرش را رفع کرد.
+  - `NeonLineCanvas` در RTL آینه می‌شود و ترتیب برچسب‌ها اول قدیمی‌ترین است.
+  - `PeriodToggle` به‌جای `Surface(onClick)` از `clickable` استفاده می‌کند، که حاشیهٔ ۴۸dp اضافه نمی‌کند.
+- باتم‌شیت پروفایل موجودی کیف‌پول را نشان می‌دهد (`UserViewModel` با `GetMyEntitlementsUseCase`) و به صفحهٔ کیف‌پول می‌برد (از `MainTopAppBar` با `onNavigateToWallet`).
+- `LaunchSplash` فقط روی اندروید و iOS است، نه wasm. تم `Theme.Noobatyar`.
+- هشدار سقف بیعانه (`MAX_DEPOSIT_AMOUNT` در `AdvancedSettingsTabs`).
+- `Business.followersCount` در کارت تنظیمات نمایش داده می‌شود. Room v22 (destructive).

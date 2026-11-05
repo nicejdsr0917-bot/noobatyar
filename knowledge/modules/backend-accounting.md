@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-05
 tags: [gf]
 ---
 # backend: accounting (اشتراک و پرداخت)
@@ -39,3 +39,14 @@ tags: [gf]
 - `TomanWalletSettings` (singleton، ادمین) قیمت تبدیل. `manage.py toman_wallet_credit`.
 - order_id پلن و add-on دنبالهٔ uuid دارد (برخورد در یک ثانیه). گزارش درآمد فقط `amount` نقدی.
 - تست: `tests_toman_wallet.py`، `tests_wallet_history.py`.
+
+## پاداش مشتری تازه (2026-11-04/05)
+- `toman_wallet.reward_new_client(appointment)` از `appointment_change_status_by_owner` در تراکنش «انجام‌شده» صدا زده می‌شود. اگر خطا بدهد، نوبت باز هم تکمیل می‌شود.
+- شرط‌ها: منبع نوبت سایت یا اپ باشد، شمارهٔ مشتری شمارهٔ خود اونر نباشد، و این اولین نوبت COMPLETED آن مشتری در این کسب‌وکار باشد. هر مشتری در هر کسب‌وکار یک بار حساب می‌شود (`NewClientReward` unique روی business و visitor).
+- `TomanWalletSettings`: `new_client_reward` (پیش‌فرض ۰ یعنی خاموش)، `new_client_reward_business_cap` (۵۰۰٬۰۰۰، کل عمر کسب‌وکار)، `new_client_reward_monthly_cap` (۰ یعنی بدون سقف). migrationها `0017` تا `0019`.
+- `risk_flags`:
+  - `same_ip` قوی است: IP نوبت در `UserIpSighting` اونر در ۳۰ روز اخیر.
+  - `new_account`، `quick_complete` (زیر ۳۰ دقیقه) و `burst` (۵ یا بیشتر در روز) ضعیف‌اند.
+  - `is_blocked`: یک نشانهٔ قوی یا دو ضعیف.
+- `grant_blocked_reward` پشت اکشن ادمین «پرداخت پاداش» است. ردیف‌ها در منوی مالی ← «پاداش مشتری» هستند.
+- ledger: `reason=new_client_reward`، `ref_type=business:<id>`، `ref_id=visitor_id`.
