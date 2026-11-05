@@ -173,8 +173,17 @@ class StoryCenter(
         }
     }
 
-    /** Seen or gone: drop the ring until the next refresh says otherwise. */
+    /**
+     * Watched: the ring turns grey but stays, so the avatar (e.g. in a
+     * business page's toolbar) still reopens the stories. Dropping it from
+     * [activeIds] here used to make that avatar dead after one viewing.
+     */
     fun markSeen(businessId: Long) {
+        _seen.value = _seen.value + businessId
+    }
+
+    /** No stories any more (expired or removed): drop the ring until the next refresh. */
+    fun markGone(businessId: Long) {
         _activeIds.value = _activeIds.value - businessId
         _seen.value = _seen.value + businessId
     }

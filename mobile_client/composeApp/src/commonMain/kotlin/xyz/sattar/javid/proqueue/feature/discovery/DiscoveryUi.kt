@@ -8,6 +8,7 @@ import org.koin.compose.koinInject
 import xyz.sattar.javid.proqueue.feature.stories.StoryCenter
 import kotlin.time.Clock
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.collectAsState
@@ -217,8 +218,11 @@ private val StoryRing = Brush.sweepGradient(listOf(Color(0xFFA78BFA), Color(0xFF
 fun BusinessAvatar(business: Business, size: Dp, corner: Dp = 12.dp) {
     val stories = koinInject<StoryCenter>()
     val active by stories.activeIds.collectAsState()
+    val seen by stories.seen.collectAsState()
     LaunchedEffect(Unit) { stories.refresh(Clock.System.now().toEpochMilliseconds()) }
     if (business.id in active) {
+        // Watched ones keep a grey ring and stay tappable, as on Instagram.
+        val ringBrush = if (business.id in seen) SolidColor(MaterialTheme.colorScheme.outline) else StoryRing
         val ring = if (size >= 48.dp) 3.dp else 2.dp
         val inset = ring + 2.dp
         val outer = RoundedCornerShape(corner)
@@ -226,7 +230,7 @@ fun BusinessAvatar(business: Business, size: Dp, corner: Dp = 12.dp) {
             Modifier
                 .size(size)
                 .clip(outer)
-                .border(ring, StoryRing, outer)
+                .border(ring, ringBrush, outer)
                 .clickable { stories.open(business.id) }
                 .padding(inset),
             contentAlignment = Alignment.Center
