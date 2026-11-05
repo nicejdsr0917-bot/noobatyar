@@ -52,6 +52,8 @@ val appModule: Module = module {
     single<BusinessSocialApi> { KtorBusinessSocialApi(get()) }
     single<PromoApi> { KtorPromoApi(get()) }
     single<ProfileApi> { KtorProfileApi(get()) }
+    single { xyz.sattar.javid.proqueue.feature.stories.StoryApi(get()) }
+    single { xyz.sattar.javid.proqueue.feature.stories.StoryCenter(get(), get()) }
 
     // --- Platform seams ---
     single<ClientPreferences> { PlatformClientPreferences() }

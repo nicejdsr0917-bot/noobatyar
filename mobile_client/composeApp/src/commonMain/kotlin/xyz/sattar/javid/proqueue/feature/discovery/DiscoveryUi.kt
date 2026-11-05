@@ -1,5 +1,13 @@
 package xyz.sattar.javid.proqueue.feature.discovery
 
+import org.koin.compose.koinInject
+import xyz.sattar.javid.proqueue.feature.stories.StoryCenter
+import kotlin.time.Clock
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.collectAsState
+
 import xyz.sattar.javid.proqueue.ui.theme.AccentSoftDark
 import xyz.sattar.javid.proqueue.ui.theme.AccentSoft
 import xyz.sattar.javid.proqueue.feature.booking.pressScale
@@ -193,8 +201,32 @@ fun Business.monogram(): String {
 
 // ── Atoms ────────────────────────────────────────────────────────────────────
 
+/** Instagram-style ring around a business with a story up; tapping it opens the story. */
+private val StoryRing = Brush.sweepGradient(listOf(Color(0xFFA78BFA), Color(0xFF7C3AED), Color(0xFFC026D3), Color(0xFFA78BFA)))
+
 @Composable
 fun BusinessAvatar(business: Business, size: Dp) {
+    val stories = koinInject<StoryCenter>()
+    val active by stories.activeIds.collectAsState()
+    LaunchedEffect(Unit) { stories.refresh(Clock.System.now().toEpochMilliseconds()) }
+    if (business.id in active) {
+        val ring = if (size >= 48.dp) 3.dp else 2.dp
+        Box(
+            Modifier
+                .size(size)
+                .clip(Radius.md)
+                .border(ring, StoryRing, Radius.md)
+                .clickable { stories.open(business.id) }
+                .padding(ring + 2.dp),
+            contentAlignment = Alignment.Center
+        ) { PlainBusinessAvatar(business, size - (ring + 2.dp) * 2) }
+    } else {
+        PlainBusinessAvatar(business, size)
+    }
+}
+
+@Composable
+private fun PlainBusinessAvatar(business: Business, size: Dp) {
     val url = logoUrl(business)
     val shape = Radius.md
     val claimed = business.isClaimed

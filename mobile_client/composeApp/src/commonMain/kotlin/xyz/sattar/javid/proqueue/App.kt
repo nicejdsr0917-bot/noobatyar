@@ -65,6 +65,7 @@ fun App() {
             } else {
                 MainNavHost()
             }
+            xyz.sattar.javid.proqueue.feature.stories.StoryViewerHost()
             ToastyHost(hostState = globalSnackbarHostState)
             xyz.sattar.javid.proqueue.core.ui.components.LaunchSplash()
         }
