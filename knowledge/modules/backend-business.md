@@ -84,3 +84,26 @@ tags: [gf]
 - `followers_count` در همهٔ serializerها هست و در `tests_contract_shapes` pin شده است.
 - **حریم خصوصی:** فهرست دنبال‌کننده‌ها به هیچ‌کس، حتی اونر، داده نمی‌شود؛ فقط تعداد.
 - `Business.MAX_DEPOSIT_AMOUNT = 1_000_000`: `BusinessSerializer.validate` فقط وقتی مبلغ عوض شود رد می‌کند.
+
+## اعلان فالو، فالوورها در کمپین، استوری (2026-11-05)
+- **پوش فالو:** `follows.set_following` در فالو تازه `safe_enqueue('business.new_follower_push')` صدا می‌زند، با dedupe `follow_push:<biz>:<visitor>`، یعنی یک بار برای همیشه. هندلر `send_new_follower_push` اسم کوچک را می‌فرستد.
+- **لیست فالوورها:** `GET /api/business/<id>/followers/` (`follow_views.OwnerFollowerListView`) فقط برای اونر است و اسم کوچک، avatar و `created_at` برمی‌گرداند، بدون شماره.
+- **کمپین پیامکی** (`promo_sms.FOLLOWERS`):
+  - این دسته فالوورهایی را برمی‌دارد که `marketing_opt_out=False` باشند و اونر بایگانی‌شان نکرده باشد.
+  - برای فالووری که در `owner_customer_ids` نیست:
+    - `{name}` = اسم کوچک.
+    - `phone` در جزئیات کمپین خالی است.
+    - SmsLog بدون visitor ثبت می‌شود.
+  - migration `0038`.
+- **استوری:** اپ جدا `backend/stories/`.
+  - **مدل `Story`:**
+    - `button` (`''`/`discount`)
+    - `discount_type` (`percent`/`amount`)
+    - `discount_value`
+    - `expires_at` = ساخت + ۲۴ ساعت
+    - حداکثر ۱۰ فعال
+  - **`services`:**
+    - `create_story` استوری‌های منقضی را پاک می‌کند (cron ندارد) و `stories.notify_followers` را با dedupe روزانه enqueue می‌کند.
+    - `active_business_ids` حتماً با `.order_by()` قبل از `distinct()`.
+  - **API:** `owner/stories/`، `client/stories/active/`، `client/businesses/<id>/stories/` (`is_following` با توکن مشتری). مستند در `docs/api/P2_SOCIAL_API.md` §10.
+  - **عکس:** helperهای `showcase/images.py`. هر نسبتی قبول می‌شود و تا 1080×1920 کوچک می‌شود.

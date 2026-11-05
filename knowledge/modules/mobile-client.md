@@ -157,3 +157,15 @@ tags: [gf]
 - `CheckVersionRequestDto` حالا `app = "CLIENT"` می‌فرستد.
 - flavorهای `site` و `store` از برنچ `mobile-client` در develop ادغام شدند و برنچ `mobile-client` دیگر جدا لازم نیست.
 - تست‌ها: `FollowViewModelTest` (۱۴۳ تست کلاینت).
+
+## استوری (2026-11-05)
+- **`feature/stories/Stories.kt`:** `StoryApi` و `StoryCenter` (Koin single).
+  - `activeIds`: `refresh` حداکثر هر دقیقه یک بار.
+  - `open`/`close`/`markSeen`.
+  - `follow` از `BusinessRepository.setFollowing`.
+- **`StoryViewer.kt`:**
+  - `StoryViewerHost()` در `App.kt` است.
+  - هر استوری ۵ ثانیه، با دو نیمهٔ لمسی.
+  - برچسب تخفیف.
+  - دکمهٔ «دنبال کردن» فقط وقتی `is_following=false` است (مهمان آن را نمی‌بیند).
+- **حلقهٔ بنفش** در خود `BusinessAvatar` (`feature/discovery/DiscoveryUi.kt`) است، پس همه‌جا یکسان دیده می‌شود. `BusinessAvatar` حالا `koinInject<StoryCenter>()` دارد، پس بدون Koin رندر نمی‌شود (preview یا تست UI).

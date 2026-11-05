@@ -33,7 +33,7 @@ Env (`backend/.env.local`، از `.env.example`): `DEBUG`، `ALLOWED_HOSTS`، `Z
 
 ## ماژول‌ها
 - [[modules/backend-api-auth]] — کاربر، OTP، JWT، توکن دستگاه و FCM
-- [[modules/backend-business]] — کسب‌وکار، خدمات، moderation، پیامک تبلیغاتی، API عمومی کسب‌وکار
+- [[modules/backend-business]] — کسب‌وکار، خدمات، moderation، پیامک تبلیغاتی، API عمومی کسب‌وکار، فالو و استوری (`backend/stories`)
 - [[modules/backend-appointment]] — نوبت، اسلات خالی، آمار، رزرو و بیعانهٔ مشتری
 - [[modules/backend-visitor]] — مشتری‌ها، auth مشتری، لاگ پیامک/پوش
 - [[modules/backend-accounting]] — پلن، اشتراک، add-on، پرداخت زیبال/مایکت، entitlements، VAT

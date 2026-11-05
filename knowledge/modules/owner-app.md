@@ -67,3 +67,14 @@ tags: [gf]
 - `LaunchSplash` فقط روی اندروید و iOS است، نه wasm. تم `Theme.Noobatyar`.
 - هشدار سقف بیعانه (`MAX_DEPOSIT_AMOUNT` در `AdvancedSettingsTabs`).
 - `Business.followersCount` در کارت تنظیمات نمایش داده می‌شود. Room v22 (destructive).
+
+## فالوورها و استوری (2026-11-05)
+- **خانه:** `HomeFollowersCard.kt` (`NewFollowersCard`) با ۵ فالوور آخر. `HomeViewModel` پارامتر اختیاری `showcaseRepository` دارد، تا `HomeViewModelTest` نشکند.
+- **`ShowcaseApi/Repository`:** `getFollowers`، `listStories`، `postStory` (multipart) و `deleteStory`. DTOها `StoryDto` و `StoryDraft`. `FakeShowcaseApi` هم به‌روز است.
+- **`feature/stories/`:**
+  - `StoriesScreen` (گرید 9:16) و `StoriesViewModel`.
+  - composer تمام‌صفحه.
+  - «افزودن» یک `ModalBottomSheet` است با ردیف «تخفیف»، که `DiscountDialog` درصدی یا مبلغی را باز می‌کند.
+  - عکس با `cropImageToRect(raw, 0,0,1,1, w, h)` فقط کوچک می‌شود.
+- **ورود:** `AppScreens.Stories` از تنظیمات (کاشی و کارت) و `AppSidebar`.
+- **کمپین:** `audienceHint("followers")`.
