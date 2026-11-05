@@ -493,15 +493,16 @@ private class SettingsTile(
 )
 
 /**
- * The desktop page's business actions as one even row of tiles instead of a
- * list stretched across the page — stacked instead when the content column
- * is too narrow for a row (a small browser window). Two subtitle lines are
- * reserved on every tile so they all come out the same height.
+ * The desktop page's business actions as an even grid of tiles instead of a
+ * list stretched across the page. As many columns as fit at [MinTileWidth]
+ * each — one row held all seven tiles once the list grew, and every title was
+ * cut to «تغییر کس…» — down to a single stacked column in a small window. Two
+ * subtitle lines are reserved on every tile so they all come out the same height.
  */
 @Composable
 private fun SettingsTiles(tiles: List<SettingsTile>) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val columns = if (maxWidth >= 480.dp) tiles.size else 1
+        val columns = (maxWidth / MinTileWidth).toInt().coerceIn(1, tiles.size)
         AdaptiveGrid(
             count = tiles.size,
             compactColumns = columns,
@@ -512,6 +513,9 @@ private fun SettingsTiles(tiles: List<SettingsTile>) {
         }
     }
 }
+
+/** Wide enough for the longest title («تغییر کسب‌وکار») on one line. */
+private val MinTileWidth = 190.dp
 
 @Composable
 private fun SettingsTileCard(tile: SettingsTile) {
