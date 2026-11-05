@@ -78,3 +78,12 @@ tags: [gf]
   - عکس با `cropImageToRect(raw, 0,0,1,1, w, h)` فقط کوچک می‌شود.
 - **ورود:** `AppScreens.Stories` از تنظیمات (کاشی و کارت) و `AppSidebar`.
 - **کمپین:** `audienceHint("followers")`.
+
+## 2026-11-05: فالوورها، تخفیف، ظرفیت، تب پروفایل
+- تب پروفایل (`feature/settings/SettingsScreen.kt`) گروه‌بندی شده است (کار سشن Sonnet، `94f8d9c`). «تنظیمات پیشرفته» حذف شد و هر آیتم ردیف خودش را دارد.
+- مرحلهٔ «پرداخت» به فرم ساخت و ویرایش کسب‌وکار اضافه شد.
+- `feature/home/FollowersListDialog.kt`: لیست کامل فالوورها (صفحه‌بندی، فقط نام و عکس).
+- `HomeFirstVisitCard.kt`: `FirstVisitDiscountCard` و `FirstVisitDiscountSheet`.
+- `feature/createBusiness/BookingCapacityControls.kt`: `SlotCapacityControl` (−/+، ۱ تا ۵۰۰) و `HoldMinutesControl` (اسلایدر ۲ تا ۱۵). endpoint خودشان را صدا می‌زنند و جای فیلد «حداکثر در ساعت» را گرفته‌اند.
+- این endpointها در `ShowcaseApi` با پیاده‌سازی پیش‌فرض هستند (fakeها لازم نیست override کنند). فراخوانی‌ها در `runCatching` هستند؛ بدون آن قطعی شبکه اپ را کرش می‌دهد.
+- صف (`QueueItemCard`): `FirstVisitBadge`. Room v23 = `AppointmentEntity.firstVisitDiscount`.

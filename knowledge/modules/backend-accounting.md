@@ -50,3 +50,7 @@ tags: [gf]
   - `is_blocked`: یک نشانهٔ قوی یا دو ضعیف.
 - `grant_blocked_reward` پشت اکشن ادمین «پرداخت پاداش» است. ردیف‌ها در منوی مالی ← «پاداش مشتری» هستند.
 - ledger: `reason=new_client_reward`، `ref_type=business:<id>`، `ref_id=visitor_id`.
+
+## پاداش مشتری تازه (2026-11-05)
+- `toman_wallet.reward_new_client` فقط وقتی پرداخت می‌شود که `business.first_visit_discount > 0` باشد. معنایش: سهم نوبت‌یار از تخفیف اولین مراجعه.
+- ضدتقلب (`same_ip`، `quick_complete`، …) پاداش را `blocked` می‌کند. ادمین آن را با `grant_blocked_reward` پرداخت می‌کند.

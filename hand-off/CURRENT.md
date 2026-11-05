@@ -1,86 +1,100 @@
 ---
-updated: 2026-11-05 11:35
+updated: 2026-11-05 16:26
 tags: [gf, current]
 ---
 # وضعیت فعلی
 
 ## هدف
-شبکهٔ اجتماعی سبک بین مشتری و کسب‌وکار.
-- **انجام شده:** فالو، اعلان فالو برای اونر، دستهٔ فالوورها در کمپین پیامکی، استوری ۲۴ ساعته با دکمهٔ تخفیف، اعلان «نظر بدهید» بعد از نوبت، ردیف استوری در صفحهٔ کاوش، و استوری خود نوبت‌یار از پنل ادمین.
-- **باقی‌مانده:** دیپلوی روی prod و ریلیز اپ‌ها.
+اجتماعی‌تر کردن و جذاب‌تر کردن نوبت‌یار برای مشتری و اونر:
+- استوری و فالو
+- تخفیف اولین مراجعه همراه با پاداش اونر
+- ظرفیت هم‌زمان هر نوبت
+- اینترو و ظاهر بهتر اپ‌ها
 
-قاعدهٔ همیشگی: کاربر واقعی داریم، پس فقط تغییر افزایشی. با کاربر فارسی حرف بزن. کاربر نزدیک لیمیت است و می‌خواهد کار تکه‌تکه پیش برود.
+همه روی develop ساخته شده‌اند. **دیپلوی و ریلیز مانده.**
+
+قاعدهٔ همیشگی: کاربر واقعی داریم، پس فقط تغییر افزایشی. با کاربر فارسی حرف بزن. کار را تکه‌تکه پیش ببر.
 
 ## وضعیت
-- **prod** (`194.146.69.137`) روی `c3be330` است (دیپلوی 2026-11-05 10:22، با پنل وب).
-  - اعلان فالو، دستهٔ فالوورها و استوری روی سرور فعال‌اند.
-  - **`a3777dd`، `1958e05` و `aced3f8` هنوز دیپلوی نشده‌اند.**
-    - `a3777dd`: `distinct` در `stories.services.active_business_ids`، استوری در منوی کناری پنل، و برچسب تخفیف یک‌خطی.
-    - `1958e05`: درخواست نظر (پوش و `GET api/client/reviews/pending/`)، `?review=1` در وب، نوار پایین متحرک و توپُر، حلقهٔ استوری درست، و دکمهٔ فالو متحرک. migration ندارد.
-    - `aced3f8`: ردیف استوری کنار انتخاب شهر (`client/stories/feed/`)، و استوری نوبت‌یار بدون کسب‌وکار با دکمهٔ لینک (ادمین ← «رشد» ← «استوری‌ها»). **migration دارد: `stories/0002`.**
-- **تست محلی:** امولاتور و ۱۱۷۱ تست بک‌اند، همه سبز. جزئیات: [[sessions/2026-11-05-1118]].
-- **ریلیز اپ‌ها:**
-  - آخرین ریلیزها: اونر `v1.12.0` و کلاینت `client-v1.2.0`.
-  - هیچ‌کدام از کارهای 11-04 و 11-05 هنوز در اپ موبایل نیست: فالو، بیو، کراپ، پروفایل تازه، استوری و کارت فالوورها.
-  - changelog `client-v1.3.0` آماده است، ولی استوری، درخواست نظر، نوار پایین متحرک و دکمهٔ فالو تازه را ندارد.
-- **پاداش مشتری تازه** روی prod خاموش است (`new_client_reward = 0`). برای روشن کردن: ادمین ← «کیف‌پول تومانی».
-- **نسخه‌ها:** کلاینت و اونر جدا چک می‌شوند. در هر ریلیز کلاینت، نسخه را در ادمین Versions با اپ CLIENT ثبت کن.
+- **prod** (`194.146.69.137`) روی `c3be330` است. هیچ‌کدام از کارهای بعد از آن دیپلوی نشده‌اند.
+  - **سه migration لازم است:** `stories/0002`، `business/0039` (تخفیف اولین مراجعه) و `business/0040` (`slot_capacity` و `hold_minutes`).
+  - worker باید ری‌استارت شود، چون handlerهای تازهٔ outbox دارد (`reviews.review_request_push`).
+  - ⚠️ با `0040`، زمان نگه‌داشتن نوبت تا پرداخت برای **همهٔ** کسب‌وکارها از ۱۵ به ۵ دقیقه می‌رسد (خواست کاربر). به کاربر گفته شد. اگر بخواهد کسب‌وکارهای فعلی روی ۱۵ بمانند، migration را عوض کن.
+- **develop:** تا `bab1a4a` push شده. `94f8d9c` (تب پروفایل گروه‌بندی‌شده، سشن Sonnet) و `d10d336` (ظرفیت و زمان نگه‌داشتن) push **نشده‌اند**.
+- **تست:** ۱۱۹۶ تست بک‌اند سبز. همه‌چیز روی امولاتور دیده شد، **به‌جز** ذخیرهٔ روش‌های پرداخت و دکمهٔ «ثبت» در مرحلهٔ «پرداخت» فرم کسب‌وکار (کار سشن Sonnet).
+- **ریلیز اپ‌ها:** آخرین‌ها اونر `v1.12.0` و کلاینت `client-v1.2.0`. هیچ‌کدام از کارهای 11-04 و 11-05 در اپ‌های موبایل نیست. changelogهای `client-v1.3.0` و `v1.13.0` باید با فهرست پایین کامل شوند.
+- **کارهای 11-05 که باید در changelog بیایند:**
+  - **کلاینت:**
+    - استوری: ردیف استوری، سربرگ، مکث با نگه داشتن، استوری نوبت‌یار
+    - درخواست نظر بعد از نوبت
+    - نوار پایین متحرک
+    - دکمهٔ فالو
+    - اسپلش بنفش و اینترو ۵ صفحه‌ای با انتخاب شهر
+    - تخفیف اولین مراجعه
+    - دکمهٔ «اولین نوبت» در صفحهٔ کسب‌وکار
+  - **اونر:**
+    - لیست فالوورها
+    - تخفیف اولین مراجعه
+    - برچسب مشتری تازه در صف
+    - تب پروفایل گروه‌بندی‌شده
+    - مرحلهٔ پرداخت در فرم کسب‌وکار
+    - ظرفیت هم‌زمان و زمان نگه‌داشتن نوبت
+- **پاداش مشتری تازه** روی prod خاموش است (`new_client_reward = 0`). حالا فقط به کسب‌وکارهایی داده می‌شود که `first_visit_discount > 0` دارند. برای روشن کردن: ادمین ← «کیف‌پول تومانی».
 
 ## قدم‌های بعدی
-1. دیپلوی `a3777dd`، `1958e05` و `aced3f8` روی prod (اول از کاربر بپرس). **`migrate` لازم است.**
-   - روش: `docs`، و حافظهٔ deploy-ops.
-   - bundle از `c3be330`.
-   - `up -d --no-deps --build web worker worker_bulk`، با Shecan updater در همان ssh.
-   - `scripts/deploy-panel.sh`.
-   - worker باید ری‌استارت شود، چون handler تازهٔ `reviews.review_request_push` اضافه شده.
-2. **ریلیزها:** `v1.13.0` اونر و `client-v1.3.0`.
-   - استوری، ردیف استوری، درخواست نظر و نوار متحرک را به changelog کلاینت اضافه کن.
-   - دو CI را هم‌زمان نزن.
-3. **سؤال‌های بی‌جواب از کاربر:**
-   - تخفیف استوری فعلاً فقط نمایشی است. روی بیعانه یا رزرو هم اعمال شود؟
-   - نمایشگر با نگه داشتن انگشت مکث کند؟
-   - استوری در وب مشتری هم باشد؟
-4. چک کن `UserIpSighting` روی prod بعد از استفادهٔ واقعی اونرها پر می‌شود.
+1. از کاربر برای push `94f8d9c` و `d10d336` بپرس.
+2. تست ذخیرهٔ روش‌های پرداخت و دکمهٔ «ثبت» فرم کسب‌وکار روی امولاتور.
+3. دیپلوی روی prod (اول بپرس):
+   - روش: حافظهٔ deploy-ops
+   - `migrate`
+   - `up -d --no-deps --build web worker worker_bulk`، با Shecan updater در همان ssh
+   - `scripts/deploy-panel.sh`
+4. ریلیز `v1.13.0` اونر و `client-v1.3.0`. دو CI را هم‌زمان نزن.
+5. **ایده‌هایی که کاربر خواست و هنوز تصمیم نگرفته** (تشویق مشتری به رزرو از اپ):
+   - امتیاز یا اعتبار مشتری
+   - دعوت دوست
+   - تخفیف فقط برای رزرو از اپ
 
 ## مسائل باز
 - 🔒 رمز root سرور در تاریخچهٔ git است و باید عوض شود.
-- `PushMessagingService` اپ کلاینت ثبت نشده است و منتظر فایل Firebase است. پوش استوری و پوش «نظر بدهید» فعلاً فقط به توکن‌های وب می‌رسند. در اپ، sheet داخلی `ReviewPrompt` جایش را پر می‌کند.
-- اینکه کدام استوری دیده شده فقط تا بسته شدن اپ یادش می‌ماند. کسب‌وکار بدون لوگو در ردیف استوری آیکن فروشگاه می‌گیرد، نه آیکن دسته‌اش.
-- نمایشگر استوری برای هر استوری ۵ ثانیه است و بعد خودش بسته می‌شود. دکمهٔ فالو کم‌فرصت است.
-- کسب‌وکار دمو `id=7` در DB محلی مختصات ندارد و در لیست کلاینت نمی‌آید. برای تست کلاینت از `id=14` (سیمرغ) استفاده کن.
+- **یک گوشی سامسونگ با USB وصل است.** همیشه `ANDROID_SERIAL=emulator-5554` بگذار (adb و gradle install)، وگرنه روی گوشی کاربر نصب می‌شود.
+- `PushMessagingService` اپ کلاینت منتظر فایل Firebase است. پوش استوری و «نظر بدهید» فقط به وب می‌رسد. در اپ، `ReviewPrompt` جایش را پر می‌کند.
+- برچسب «مشتری تازه» در کارت صف اونر نام مشتری را کوتاه می‌کند («مریم ...»). شاید به ردیف دوم کارت برود.
+- اینکه کدام استوری دیده شده فقط تا بسته شدن اپ یادش می‌ماند.
+- سؤال‌های قدیمی بی‌جواب: تخفیف استوری روی رزرو هم اعمال شود؟ استوری در وب مشتری هم باشد؟
+- **دادهٔ تست محلی:**
+  - سالن رزمریم (`id=7`): `first_visit_discount = 20`، `slot_capacity = 3`، `hold_minutes = 9`، دو استوری
+  - `new_client_reward = 20000`
+  - مشتری تست: `09390007001` با OTP `123456`
+  - اونر دمو: `09120000010` / `demo123456`
 - **قاعدهٔ متن اپ:** کوتاه و بدون ئ ء ٔ أ. ثابت `BOOKING_BLOCKED_NOTICE` را عوض نکن.
 - **این‌ها commit نشوند:**
-  - `API_DOCUMENTATION.md`، `implementation_plan.md`، `backend/*.log`
-  - lockهای `mobile_client/.gradle/`
   - `.claude/launch.json`، `mobile_owner/composeApp/build.gradle.kts`
-  - فایل‌های untracked کاربر: `InMemoryUserLocalSource.kt`، `.claude/*` تازه، `SALES_PLAYBOOK.md`، `demo-assets/`، `.mcp.json`
-  - فایل‌ها را تک‌تک add کن، هیچ‌وقت `git add -A`.
-- **دو CI ریلیز را هم‌زمان نزن.** هر دو xcconfig را روی develop push می‌کنند.
+  - lockهای `mobile_client/.gradle/`
+  - فایل‌های untracked کاربر (`InMemoryUserLocalSource.kt`، `.claude/*`، `SALES_PLAYBOOK.md`، `demo-assets/`، `.mcp.json`، `docs/SERVER_DISK_CLEANUP.md`)
+  - فایل‌ها را تک‌تک add کن.
 - **محیط macOS:**
-  - امولاتور `Pixel_6a`.
-  - backend روی 8000.
-  - پنل وب: preview `mobile_owner_web_mac` (8080). بعد از هر تغییر Kotlin باید stop و start شود.
-  - کلاینت: `sh ./gradlew :composeApp:assembleLocalSiteDebug` با `ANDROID_HOME`، سپس `adb install` نسخهٔ `composeApp-local-site-arm64-v8a-debug.apk` و `adb reverse tcp:8000 tcp:8000`.
-  - کار با UI امولاتور: uiautomator dump.
-  - اجرای اپ: `am start -S -n xyz.sattar.javid.proqueue.client.local/xyz.sattar.javid.proqueue.MainActivity`.
-  - crop اسکرین‌شات با PIL (نه `sips`).
-  - انتخاب عکس در پنل wasm: override `HTMLInputElement.prototype.click` (سشن 1042).
+  - امولاتور `Pixel_6a`، backend روی 8000، `adb reverse tcp:8000 tcp:8000` (با وصل شدن دستگاه می‌پرد).
+  - اپ اونر: `installLocalSiteDebug -PlocalBaseUrl=http://127.0.0.1:8000`؛ حدود ۱۰ ثانیه تا بالا آمدن طول می‌کشد.
+  - اپ کلاینت: `assembleLocalSiteDebug` سپس `adb install`؛ اسپلش حدود ۵ ثانیه است.
+  - UI را با `uiautomator dump` بخوان و مختصات را تازه بگیر (لیست‌ها بعد از swipe هنوز حرکت می‌کنند).
+  - crop اسکرین‌شات با PIL.
+  - لیست‌های اونر از Room می‌آیند؛ ستون تازه یعنی bump کردن version.
 
 ## فایل‌های کلیدی
-- `backend/stories/`: مدل، سرویس‌ها (ساخت، پاک‌سازی منقضی‌ها، نوتیف فالوورها) و API استوری
-- `backend/business/follows.py`، `follow_views.py`: فالو، پوش فالو و لیست فالوورهای اونر
-- `backend/business/promo_sms.py`: دستهٔ `followers` و پنهان ماندن شماره
-- `mobile_owner/.../feature/stories/`، `feature/home/HomeFollowersCard.kt`
-- `mobile_client/.../feature/stories/`، `feature/discovery/DiscoveryUi.kt` (`BusinessAvatar` با حلقه)
-- `docs/api/P2_SOCIAL_API.md`: §7 فالو، §10 استوری
-- `backend/reviews/services.py`: `queue_review_request`، `send_review_request_push`، `pending_review_prompts`
-- `mobile_client/.../feature/reviews/ReviewPrompt.kt`، `feature/businessDetail/FollowButton.kt`، `core/navigation/navHost/SolidTabIcon.kt`
+- `backend/appointment/occupancy.py`: `peak_concurrency`، `full_intervals`، `find_conflict(capacity)`، `GATEWAY_HOLD_MINUTES`
+- `backend/business/capacity_views.py`، `first_visit.py`: endpointهای تنظیمات تازهٔ اونر
+- `backend/accounting/toman_wallet.py`: `reward_new_client` (فقط با تخفیف روشن)
+- `backend/stories/`: فید، استوری نوبت‌یار، `logo` و `subtitle`
+- `mobile_owner/.../feature/settings/SettingsScreen.kt`: تب پروفایل گروه‌بندی‌شده
+- `mobile_owner/.../feature/createBusiness/BookingCapacityControls.kt`، `AdvancedSettingsTabs.kt`
+- `mobile_client/.../feature/welcome/WelcomeScreen.kt`، `feature/stories/`، `feature/businessDetail/`
 
 ## سشن‌های اخیر
+- [[sessions/2026-11-05-1626]]: استوری بهتر، اینترو و اسپلش، تخفیف اولین مراجعه، فالوورها، ظرفیت هم‌زمان و زمان نگه‌داشتن نوبت
 - [[sessions/2026-11-05-1135]]: ردیف استوری در صفحهٔ کاوش و استوری نوبت‌یار از پنل ادمین
 - [[sessions/2026-11-05-1118]]: اعلان «نظر بدهید»، نوار پایین متحرک، حلقهٔ استوری و دکمهٔ فالو
 - [[sessions/2026-11-05-1042]]: جمع‌بندی شبکهٔ اجتماعی، دیپلوی prod، تست محلی و ۳ اصلاح
 - [[sessions/2026-11-05-1020]]: استوری در اپ کلاینت
-- [[sessions/2026-11-05-1011]]: بک‌اند استوری
 
 ببین: [نقشهٔ پروژه](../knowledge/INDEX.md)

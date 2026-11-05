@@ -121,3 +121,9 @@ tags: [gf]
 - `button = 'link'` با `link_label` و `link_url` فقط برای نوبت‌یار است (اعتبارسنجی در `validate_platform_link`).
 - `services.feed`: نوبت‌یار، بعد کسب‌وکارهای فالوشده، بعد کسب‌وکارهای همان شهر.
 - endpointها: `client/stories/feed/` و `client/stories/platform/`. `active_business_ids` فقط کسب‌وکارها را برمی‌گرداند.
+
+## تنظیمات تازهٔ اونر (2026-11-05)
+- `first_visit.py`: `GET/PUT /api/business/<id>/first-visit-discount/`. `Business.first_visit_discount` (۰ تا ۵۰، migration `0039`) در payload عمومی و کلاینت هم هست.
+- `capacity_views.py`: `GET/PUT /api/business/<id>/booking-capacity/` برای `slot_capacity` و `hold_minutes` (migration `0040`).
+  - ظرفیت بیش از ۱ با `validate_business_settings` قابلیت `FEATURE_CAPACITY_CONTROL` را چک می‌کند.
+- `stories/views.py`: پاسخ استوری `logo` و `subtitle` (`get_category_display`) دارد.

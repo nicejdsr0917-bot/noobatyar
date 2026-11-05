@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-02
+updated: 2026-11-05
 tags: [gf]
 ---
 # backend: appointment
@@ -55,3 +55,13 @@ tags: [gf]
 - `business_requires_payment`: بیعانهٔ `OPTIONAL` همیشه مرحلهٔ پرداخت دارد؛ `MANDATORY` فقط اگر قابل دریافت باشد. اگر نه، رزرو مستقیم `PENDING_APPROVAL` می‌شود و قفل نمی‌شود.
 - `client_submit_payment`: نقد برای `MANDATORY` فقط وقتی رد می‌شود که بیعانه قابل دریافت باشد (نوبت‌های قفل‌شدهٔ قدیمی گیر نمی‌کنند).
 - تست: `tests_uncollectable_deposit.py`.
+
+## ظرفیت هم‌زمان و زمان نگه‌داشتن نوبت (2026-11-05)
+- `Business.slot_capacity` (۱ تا ۵۰۰، پیش‌فرض ۱): چند مشتری هم‌زمان یک ساعت.
+  - پر بودن = `occupancy.peak_concurrency(busy, start, end) >= capacity`. نوبت‌های پشت‌سرهم هم‌زمان نیستند.
+  - روی این‌ها اعمال می‌شود: `find_conflict(..., capacity)` در رزرو مشتری و پرداخت دیرهنگام، `slots.build_day_slots` (grid و اولین نوبت خالی)، و `public_slots_view` (با ظرفیت بیش از ۱ فقط بازه‌های پر را از `full_intervals` و با `status = FULL` می‌فرستد).
+  - نوبت ثبت‌شده توسط اونر عمداً چک هم‌پوشانی ندارد و فقط `max_appointments_per_hour` قدیمی را چک می‌کند.
+- `Business.hold_minutes` (۲ تا ۱۵، پیش‌فرض ۵؛ قبلاً ثابت ۱۵) در `lock_expiry(now, minutes)` استفاده می‌شود.
+  - `appointment_store_gateway_track_id` زمان را به دست‌کم `GATEWAY_HOLD_MINUTES = 10` می‌رساند و هیچ‌وقت کوتاهش نمی‌کند.
+- تست‌ها در `appointment/tests_capacity_hold.py`.
+- `AppointmentQuerySerializer.first_visit_discount`: درصد تخفیف کسب‌وکار، اگر این اولین مراجعهٔ مشتری باشد.

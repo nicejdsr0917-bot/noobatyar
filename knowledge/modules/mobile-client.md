@@ -189,3 +189,13 @@ tags: [gf]
   - `seen` فقط در حافظهٔ همان اجرای اپ است.
 - `open(id, then)` و `finished()` استوری را پشت‌سرهم به حلقه‌های بعدی می‌برند.
 - دکمهٔ لینک `business:<id>` با `StoryCenter.openBusiness` باز می‌شود و `MainNavHost` آن را collect می‌کند.
+
+## 2026-11-05 بعدازظهر
+- `feature/welcome/WelcomeScreen.kt`: اینترو ۵ صفحه‌ای متحرک. صفحهٔ آخر انتخاب شهر دارد و قبل از `onDone` در `PreferencesManager.selectCity` ذخیره می‌کند.
+- `LaunchSplash.kt`: پس‌زمینهٔ بنفش، `NAME_HOLD_MS = 1800` و خروج با zoom و fade.
+- `StoryViewer`: `StoryHeader` (عکس، نام، تخصص؛ زدن روی آن `openBusinessPage`)، و مکث با `detectTapGestures(onPress)`.
+- صفحهٔ کسب‌وکار:
+  - `StatsRow(business, rating, followers)` با ۴ آیتم عمودی.
+  - `FollowRow` تمام‌عرض.
+  - دکمهٔ اولین نوبت (`FirstSlotButton`) داخل `QuickPickSection`.
+- `FirstVisitTag` روی ردیف لیست و در تأیید رزرو هست، روی صفحهٔ کسب‌وکار نیست.
