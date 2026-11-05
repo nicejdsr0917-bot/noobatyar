@@ -244,6 +244,7 @@ val appModule: Module = module {
     viewModel { xyz.sattar.javid.proqueue.feature.banner.BannerViewModel(get()) }
     viewModel { xyz.sattar.javid.proqueue.feature.reviews.ReviewsViewModel(get(), get()) }
     viewModel { xyz.sattar.javid.proqueue.feature.showcase.ShowcaseViewModel(get(), get()) }
+    viewModel { xyz.sattar.javid.proqueue.feature.stories.StoriesViewModel(get(), get()) }
     viewModel { RegisterViewModel(get()) }
     viewModel { SendOTPViewModel(get(), get()) }
     viewModel { ResetPasswordViewModel(get()) }

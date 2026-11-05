@@ -87,6 +87,7 @@ fun SettingsScreen(
     onNavigateToPromoCampaign: () -> Unit = {},
     onNavigateToReviews: () -> Unit = {},
     onNavigateToShowcase: () -> Unit = {},
+    onNavigateToStories: () -> Unit = {},
     onNavigateToWallet: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {}
 ) {
@@ -188,6 +189,7 @@ fun SettingsScreen(
         onPromoCampaign = onNavigateToPromoCampaign,
         onReviews = onNavigateToReviews,
         onShowcase = onNavigateToShowcase,
+        onStories = onNavigateToStories,
         onWallet = onNavigateToWallet
     )
 }
@@ -212,6 +214,7 @@ fun SettingsContent(
     onPromoCampaign: () -> Unit = {},
     onReviews: () -> Unit = {},
     onShowcase: () -> Unit = {},
+    onStories: () -> Unit = {},
     onWallet: () -> Unit = {}
 ) {
     // No top app bar here: the profile hero below is this screen's header, so a
@@ -290,6 +293,12 @@ fun SettingsContent(
                                     onClick = onShowcase
                                 ),
                                 SettingsTile(
+                                    icon = Icons.Rounded.AutoStories,
+                                    title = Str.stories_title,
+                                    subtitle = Str.stories_subtitle,
+                                    onClick = onStories
+                                ),
+                                SettingsTile(
                                     icon = Icons.Rounded.Delete,
                                     title = Str.delete_business,
                                     subtitle = Str.remove_this_business_from_your,
@@ -355,7 +364,8 @@ fun SettingsContent(
                 business = uiState.currentBusiness,
                 onIntent = onIntent,
                 onShowDeleteDialog = onShowDeleteDialog,
-                onShowcase = onShowcase
+                onShowcase = onShowcase,
+                onStories = onStories
             )
                 },
                 end = {
@@ -585,7 +595,8 @@ private fun BusinessActionsCard(
     business: Business?,
     onIntent: (SettingsIntent) -> Unit,
     onShowDeleteDialog: () -> Unit,
-    onShowcase: () -> Unit = {}
+    onShowcase: () -> Unit = {},
+    onStories: () -> Unit = {}
 ) {
     SettingsCard {
         Column {
@@ -616,6 +627,16 @@ private fun BusinessActionsCard(
                 title = Str.showcase_title,
                 subtitle = null,
                 onClick = onShowcase,
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+
+            HorizontalDivider()
+
+            SettingsItem(
+                icon = Icons.Rounded.AutoStories,
+                title = Str.stories_title,
+                subtitle = null,
+                onClick = onStories,
                 tint = MaterialTheme.colorScheme.onSurface
             )
 

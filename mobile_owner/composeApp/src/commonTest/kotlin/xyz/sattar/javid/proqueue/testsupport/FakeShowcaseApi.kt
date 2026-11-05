@@ -5,6 +5,8 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.ShowcaseApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDraft
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ShowcaseItemDto
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseFields
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseKind
@@ -35,6 +37,14 @@ class FakeShowcaseApi : ShowcaseApi {
 
     override suspend fun getFollowers(businessId: Long, pageSize: Int): ApiResponse<FollowersPageDto> =
         failure() ?: ApiResponse.Success(FollowersPageDto())
+
+    override suspend fun listStories(businessId: Long): ApiResponse<List<StoryDto>> =
+        failure() ?: ApiResponse.Success(emptyList())
+
+    override suspend fun postStory(businessId: Long, draft: StoryDraft): ApiResponse<StoryDto> =
+        failure() ?: ApiResponse.Success(StoryDto(id = 1, caption = draft.caption))
+
+    override suspend fun deleteStory(id: Long): ApiResponse<Unit> = failure() ?: ApiResponse.Success(Unit)
 
     override suspend fun listItems(kind: ShowcaseKind, businessId: Long): ApiResponse<List<ShowcaseItemDto>> =
         failure() ?: ApiResponse.Success(items.getValue(kind).toList())

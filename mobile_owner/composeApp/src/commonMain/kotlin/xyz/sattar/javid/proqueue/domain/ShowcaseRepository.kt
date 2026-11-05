@@ -4,6 +4,8 @@ import xyz.sattar.javid.proqueue.core.network.ApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDraft
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ShowcaseItemDto
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseFields
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseKind
@@ -19,6 +21,12 @@ interface ShowcaseRepository {
     suspend fun getOwnerReviews(businessId: Long, page: Int, pageSize: Int): ApiResponse<OwnerReviewsPageDto>
 
     suspend fun getFollowers(businessId: Long, pageSize: Int): ApiResponse<FollowersPageDto>
+
+    suspend fun listStories(businessId: Long): ApiResponse<List<StoryDto>>
+
+    suspend fun postStory(businessId: Long, draft: StoryDraft): ApiResponse<StoryDto>
+
+    suspend fun deleteStory(id: Long): ApiResponse<Unit>
 
     suspend fun listItems(kind: ShowcaseKind, businessId: Long): ApiResponse<List<ShowcaseItemDto>>
 

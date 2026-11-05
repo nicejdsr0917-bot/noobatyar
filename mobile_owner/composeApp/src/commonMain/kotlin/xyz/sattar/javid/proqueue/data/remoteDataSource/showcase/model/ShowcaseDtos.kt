@@ -74,6 +74,27 @@ data class FollowerDto(
     @SerialName("created_at") val createdAt: String = ""
 )
 
+/** One active story of `GET /api/owner/stories/` (docs/api/P2_SOCIAL_API.md §10). */
+@Serializable
+data class StoryDto(
+    val id: Long,
+    val image: String = "",
+    val caption: String = "",
+    val button: String = "",
+    @SerialName("discount_type") val discountType: String = "",
+    @SerialName("discount_value") val discountValue: Long? = null,
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("expires_at") val expiresAt: String = ""
+)
+
+/** What the owner composes before posting. [discountType] is "percent" or "amount" (toman). */
+data class StoryDraft(
+    val image: ByteArray,
+    val caption: String = "",
+    val discountType: String? = null,
+    val discountValue: Long? = null
+)
+
 @Serializable
 data class FollowersPageDto(
     val count: Int = 0,

@@ -412,6 +412,7 @@ private fun MainNavGraph(
                     },
                     onNavigateToReviews = { navController.navigate(AppScreens.Reviews) },
                     onNavigateToShowcase = { navController.navigate(AppScreens.Showcase) },
+                    onNavigateToStories = { navController.navigate(AppScreens.Stories) },
                     onNavigateToWallet = {
                         navController.navigate(AppScreens.Wallet)
                     },
@@ -484,6 +485,10 @@ private fun MainNavGraph(
 
             composable<AppScreens.Reviews> {
                 ReviewsScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            composable<AppScreens.Stories> {
+                xyz.sattar.javid.proqueue.feature.stories.StoriesScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable<AppScreens.Showcase> {

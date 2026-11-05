@@ -20,6 +20,8 @@ import xyz.sattar.javid.proqueue.core.network.toApiResponse
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDraft
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ReorderRequestDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ShowcaseItemDto
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseFields
@@ -85,9 +87,40 @@ class ShowcaseApiService(private val httpClient: HttpClient) : ShowcaseApi {
 
     // Not toApiResponse(): a delete may come back with no usable `data`, which
     // that helper reports as an error even though the item is gone.
-    override suspend fun deleteItem(kind: ShowcaseKind, id: Long): ApiResponse<Unit> {
+    override suspend fun listStories(businessId: Long): ApiResponse<List<StoryDto>> =
+        httpClient.get("owner/stories/") {
+            parameter("business_id", businessId)
+        }.toApiResponse()
+
+    override suspend fun postStory(businessId: Long, draft: StoryDraft): ApiResponse<StoryDto> =
+        httpClient.post("owner/stories/") {
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append("business_id", businessId.toString())
+                        append("caption", draft.caption)
+                        if (draft.discountType != null && draft.discountValue != null) {
+                            append("button", "discount")
+                            append("discount_type", draft.discountType)
+                            append("discount_value", draft.discountValue.toString())
+                        }
+                        append("image", draft.image, Headers.build {
+                            append(HttpHeaders.ContentType, "image/jpeg")
+                            append(HttpHeaders.ContentDisposition, "filename=\"story.jpg\"")
+                        })
+                    }
+                )
+            )
+        }.toApiResponse()
+
+    override suspend fun deleteStory(id: Long): ApiResponse<Unit> = deletePath("owner/stories/$id/")
+
+    override suspend fun deleteItem(kind: ShowcaseKind, id: Long): ApiResponse<Unit> =
+        deletePath("owner/showcase/${kind.path}/$id/")
+
+    private suspend fun deletePath(path: String): ApiResponse<Unit> {
         return try {
-            val response = httpClient.delete("owner/showcase/${kind.path}/$id/")
+            val response = httpClient.delete(path)
             if (response.status.value in 200..299) {
                 ApiResponse.Success(Unit)
             } else {

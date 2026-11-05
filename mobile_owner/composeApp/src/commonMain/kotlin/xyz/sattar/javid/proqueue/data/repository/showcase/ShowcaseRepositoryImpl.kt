@@ -5,6 +5,8 @@ import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.ShowcaseApi
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.BannersDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.OwnerReviewsPageDto
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.FollowersPageDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDto
+import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.StoryDraft
 import xyz.sattar.javid.proqueue.data.remoteDataSource.showcase.model.ShowcaseItemDto
 import xyz.sattar.javid.proqueue.domain.ShowcaseRepository
 import xyz.sattar.javid.proqueue.domain.model.showcase.ShowcaseFields
@@ -33,6 +35,15 @@ class ShowcaseRepositoryImpl(private val api: ShowcaseApi) : ShowcaseRepository 
 
     override suspend fun getFollowers(businessId: Long, pageSize: Int): ApiResponse<FollowersPageDto> =
         guarded { api.getFollowers(businessId, pageSize) }
+
+    override suspend fun listStories(businessId: Long): ApiResponse<List<StoryDto>> =
+        guarded { api.listStories(businessId) }
+
+    override suspend fun postStory(businessId: Long, draft: StoryDraft): ApiResponse<StoryDto> =
+        guarded { api.postStory(businessId, draft) }
+
+    override suspend fun deleteStory(id: Long): ApiResponse<Unit> =
+        guarded { api.deleteStory(id) }
 
     override suspend fun listItems(kind: ShowcaseKind, businessId: Long): ApiResponse<List<ShowcaseItemDto>> =
         guarded { api.listItems(kind, businessId) }.let { response ->

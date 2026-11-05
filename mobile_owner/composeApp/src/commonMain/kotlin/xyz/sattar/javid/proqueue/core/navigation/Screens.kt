@@ -118,6 +118,9 @@ sealed class AppScreens {
     /** Portfolio photos and certificates shown on the public page. */
     @Serializable
     object Showcase : AppScreens()
+    /** The selected business's 24-hour stories. */
+    @Serializable
+    object Stories : AppScreens()
     /** Add-on credit balances and their history (accounting/wallet/history/). */
     @Serializable
     object Wallet : AppScreens()
