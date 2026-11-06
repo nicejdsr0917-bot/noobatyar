@@ -6,7 +6,7 @@ from business.models import Business
 
 class ModerationStatus(models.TextChoices):
     PENDING = 'PENDING', 'در انتظار بررسی'
-    APPROVED = 'APPROVED', 'تأییدشده'
+    APPROVED = 'APPROVED', 'تاییدشده'
     REJECTED = 'REJECTED', 'ردشده'
 
 

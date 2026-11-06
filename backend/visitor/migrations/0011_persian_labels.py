@@ -30,7 +30,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='smslog',
             name='error_detail',
-            field=models.TextField(blank=True, null=True, verbose_name='جزئیات خطا'),
+            field=models.TextField(blank=True, null=True, verbose_name='جزییات خطا'),
         ),
         migrations.AlterField(
             model_name='smslog',

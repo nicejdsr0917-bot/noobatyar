@@ -63,7 +63,7 @@ def myket_verify(sku, token):
     except myket_api.MyketUnreachable:
         raise StoreError("ارتباط با مایکت برقرار نشد؛ چند لحظه بعد دوباره تلاش کنید.", status=502)
     except myket_api.MyketRejected:
-        raise StoreError("مایکت این خرید را تأیید نکرد.", status=400)
+        raise StoreError("مایکت این خرید را تایید نکرد.", status=400)
 
 
 def myket_consume(sku, token):

@@ -453,7 +453,7 @@ fun PlanBannerSection(
         // باشد. قبلاً این کار با SubcomposeLayout انجام می‌شد، اما آن رویکرد
         // HorizontalPager را داخل یک subcomposition جدا قرار می‌داد و
         // gesture drag اصلاً به Pager نمی‌رسید — یعنی swipe کاملاً از کار
-        // می‌افتاد (تأیید شده روی امولاتور واقعی). به‌جایش با
+        // می‌افتاد (تایید شده روی امولاتور واقعی). به‌جایش با
         // onSizeChanged روی هر صفحه، بلندترین ارتفاع دیده‌شده را ردیابی
         // می‌کنیم و به‌عنوان ارتفاع ثابت Pager می‌دهیم — Pager همچنان یک
         // composable معمولی می‌ماند و drag درست کار می‌کند.
@@ -654,7 +654,7 @@ fun PlanBannerItem(
                 .fillMaxSize()
                 .background(planColor)
         ) {
-            // آیکون تزئینی پس‌زمینه
+            // آیکون تزیینی پس‌زمینه
             Icon(
                 imageVector = if (plan.isVip) Icons.Rounded.WorkspacePremium else Icons.Rounded.Stars,
                 contentDescription = null,

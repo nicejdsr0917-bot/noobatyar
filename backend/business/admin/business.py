@@ -493,7 +493,7 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
             business, to_status, actor=request.user, note=note,
         )
 
-        verb = 'تأیید' if to_status == Business.MODERATION_APPROVED else 'رد'
+        verb = 'تایید' if to_status == Business.MODERATION_APPROVED else 'رد'
         # The decision is already committed at this point; a failed SMS is
         # reported, never treated as a failure of the decision itself.
         if notified:
@@ -546,10 +546,10 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
             )
         return None
 
-    @admin.action(description='تأیید کسب‌وکارهای انتخاب‌شده')
+    @admin.action(description='تایید کسب‌وکارهای انتخاب‌شده')
     def action_approve(self, request, queryset):
         return self._bulk_decide(
-            request, queryset, Business.MODERATION_APPROVED, 'تأیید', note_required=False,
+            request, queryset, Business.MODERATION_APPROVED, 'تایید', note_required=False,
         )
 
     @admin.action(description='رد کردن کسب‌وکارهای انتخاب‌شده')

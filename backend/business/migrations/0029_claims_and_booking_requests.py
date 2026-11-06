@@ -17,8 +17,8 @@ class Migration(migrations.Migration):
             name='BusinessClaimRequest',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('method', models.CharField(choices=[('OTP', 'تأیید پیامکی'), ('MANUAL', 'بررسی دستی')], max_length=10)),
-                ('status', models.CharField(choices=[('PENDING', 'در انتظار'), ('APPROVED', 'تأیید شد'), ('REJECTED', 'رد شد')], db_index=True, default='PENDING', max_length=10)),
+                ('method', models.CharField(choices=[('OTP', 'تایید پیامکی'), ('MANUAL', 'بررسی دستی')], max_length=10)),
+                ('status', models.CharField(choices=[('PENDING', 'در انتظار'), ('APPROVED', 'تایید شد'), ('REJECTED', 'رد شد')], db_index=True, default='PENDING', max_length=10)),
                 ('note', models.TextField(blank=True, default='', help_text='توضیح مالک (مثلاً شماره نظام پزشکی)')),
                 ('resolution_note', models.TextField(blank=True, default='')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),

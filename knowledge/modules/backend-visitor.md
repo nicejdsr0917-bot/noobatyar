@@ -17,7 +17,7 @@ tags: [gf]
 [[modules/backend-business]]، [[modules/backend-appointment]]؛ مصرف‌کننده: [[modules/front-client]]، [[modules/mobile-client]].
 
 ## روی برنچ mobile-client (۲۰۲۶-۱۰-۲۹، هنوز در develop نیست)
-- `Visitor.readable_by` با `Exists` (بدون JOIN/DISTINCT)؛ لیست مشتری‌ها در DB صفحه‌بندی (۲ کوئری).
+- `Visitor.readable_by` با `Exists` (بدون JOIN/DISTINCT)؛ لیست مشتری‌ها در DB صفحه‌بندی (۲ کویری).
 - `VisitorMessageHistoryView`: فقط کسب‌وکارهای خود اونر؛ `business_id` نامعتبر/`0` → صفحه خالی (نه 404، به‌خاطر اپ‌های قدیمی).
 
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)

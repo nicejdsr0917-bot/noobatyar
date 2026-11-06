@@ -79,7 +79,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='business',
             name='moderation_status',
-            field=models.CharField(choices=[('PENDING', 'در انتظار بررسی'), ('APPROVED', 'تأیید شده'), ('REJECTED', 'رد شده'), ('SUSPENDED', 'معلق شده')], db_index=True, default='PENDING', help_text='Editorial review state. Only APPROVED is publicly visible.', max_length=20),
+            field=models.CharField(choices=[('PENDING', 'در انتظار بررسی'), ('APPROVED', 'تایید شده'), ('REJECTED', 'رد شده'), ('SUSPENDED', 'معلق شده')], db_index=True, default='PENDING', help_text='Editorial review state. Only APPROVED is publicly visible.', max_length=20),
         ),
         migrations.AddField(
             model_name='business',

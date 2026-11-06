@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
                 ('title', models.CharField(blank=True, max_length=255, verbose_name='عنوان')),
                 ('body', models.TextField(verbose_name='متن')),
                 ('status', models.CharField(choices=[('SENT', 'ارسال\u200cشده'), ('FAILED', 'ناموفق')], max_length=10, verbose_name='وضعیت')),
-                ('error_detail', models.TextField(blank=True, verbose_name='جزئیات خطا')),
+                ('error_detail', models.TextField(blank=True, verbose_name='جزییات خطا')),
                 ('sent_at', models.DateTimeField(auto_now_add=True, verbose_name='زمان ارسال')),
                 ('business', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='admin_message_logs', to='business.business', verbose_name='کسب\u200cوکار')),
                 ('sent_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='sent_admin_messages', to=settings.AUTH_USER_MODEL, verbose_name='ارسال\u200cشده توسط')),

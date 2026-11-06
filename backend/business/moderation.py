@@ -44,8 +44,8 @@ _CHAR_FOLDING = str.maketrans({
     'ي': 'ی',  # Arabic yeh      → Farsi yeh
     'ى': 'ی',  # alef maksura    → Farsi yeh
     'ك': 'ک',  # Arabic kaf      → keheh
-    'أ': 'ا',  # alef w/ hamza above → alef
-    'إ': 'ا',  # alef w/ hamza below → alef
+    'ا': 'ا',  # alef w/ hamza above → alef
+    'ا': 'ا',  # alef w/ hamza below → alef
     'آ': 'ا',  # alef madda      → alef
     'ة': 'ه',  # teh marbuta     → heh
     '‌': ' ',       # ZWNJ → space, so «آرایش‌گاه» and «آرایش گاه» both match

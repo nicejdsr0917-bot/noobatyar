@@ -97,7 +97,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='appointment',
             name='status',
-            field=models.CharField(choices=[('LOCKED', 'قفل شده (در حال پرداخت)'), ('PENDING_VERIFICATION', 'در انتظار تأیید فیش'), ('PENDING_APPROVAL', 'در انتظار تأیید مالک'), ('CONFIRMED', 'تأیید شده'), ('WAITING', 'در صف انتظار'), ('IN_PROGRESS', 'در حال سرویس'), ('COMPLETED', 'تکمیل شده'), ('NO_SHOW', 'غیبت'), ('CANCELLED', 'لغو شده')], db_index=True, default='WAITING', max_length=25, verbose_name='وضعیت'),
+            field=models.CharField(choices=[('LOCKED', 'قفل شده (در حال پرداخت)'), ('PENDING_VERIFICATION', 'در انتظار تایید فیش'), ('PENDING_APPROVAL', 'در انتظار تایید مالک'), ('CONFIRMED', 'تایید شده'), ('WAITING', 'در صف انتظار'), ('IN_PROGRESS', 'در حال سرویس'), ('COMPLETED', 'تکمیل شده'), ('NO_SHOW', 'غیبت'), ('CANCELLED', 'لغو شده')], db_index=True, default='WAITING', max_length=25, verbose_name='وضعیت'),
         ),
         migrations.AlterField(
             model_name='appointment',

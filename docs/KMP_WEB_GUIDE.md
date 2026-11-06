@@ -312,7 +312,7 @@ repository-backed state, so they stay in sync without needing to be the
 same object.
 ```
 
-**قاعده‌ی عملی:** اگر دو نمونه‌ی ViewModel داری، مطمئن شو هر دو از یک
+**قاعده‌ی عملی:** اگر دو نمونه‌ی ViewModel داری، مطمین شو هر دو از یک
 منبع مشترک (repository / StateHolder) می‌خوانند. اگر `init` آن‌ها درخواست
 شبکه می‌زند، دو برابر ترافیک می‌گیری — قبل از اضافه کردن یک ViewModel
 دوم، `init` را چک کن.
@@ -464,7 +464,7 @@ LocalLayoutDirection provides LayoutDirection.Rtl
 
 ## ۶. تله‌های چیدمانی که واقعاً در این پروژه به آن‌ها خوردیم
 
-این‌ها را از تجربه‌ی واقعی همین ریپو می‌نویسم، نه از تئوری.
+این‌ها را از تجربه‌ی واقعی همین ریپو می‌نویسم، نه از تیوری.
 
 ### ۶.۱ `weight()` داخل ستونِ wrap-content ارتفاع صفر می‌دهد
 

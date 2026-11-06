@@ -41,7 +41,7 @@ class ModerationLogCascadeDeleteTests(TestCase):
             from_status=Business.MODERATION_PENDING,
             to_status=Business.MODERATION_APPROVED,
             actor=self.superuser,
-            note='تأیید اولیه',
+            note='تایید اولیه',
         )
         self.client.force_login(self.superuser)
 

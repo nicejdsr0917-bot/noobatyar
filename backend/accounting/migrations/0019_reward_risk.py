@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
                 ('amount', models.PositiveIntegerField(default=0, help_text='مبلغ پاداش (برای ردیف مشکوک: مبلغی که پرداخت می\u200cشد)', verbose_name='مبلغ')),
                 ('status', models.CharField(choices=[('granted', 'پرداخت شد'), ('blocked', 'مشکوک، پرداخت نشد'), ('capped', 'سقف پر بود')], max_length=10, verbose_name='وضعیت')),
                 ('flags', models.JSONField(blank=True, default=list, verbose_name='پرچم\u200cهای خطر')),
-                ('decided_by', models.CharField(blank=True, default='', max_length=150, verbose_name='تأیید دستی توسط')),
+                ('decided_by', models.CharField(blank=True, default='', max_length=150, verbose_name='تایید دستی توسط')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='تاریخ')),
                 ('appointment', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='appointment.appointment', verbose_name='نوبت')),
                 ('business', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='new_client_rewards', to='business.business', verbose_name='کسب\u200cوکار')),

@@ -66,7 +66,7 @@
     <string name="to_label">تا</string>
 
     <!-- Visitor Details Screen -->
-    <string name="visitor_details_title">جزئیات مراجع</string>
+    <string name="visitor_details_title">جزییات مراجع</string>
     <string name="history_title">سوابق</string>
     <string name="messages_tab">پیام‌ها</string>
     <string name="appointments_tab">نوبت‌ها</string>
@@ -147,7 +147,7 @@
     <string name="service_duration_error">مدت زمان سرویس باید عدد باشد</string>
     <string name="conflict_dialog_title">تداخل نوبت</string>
     <string name="conflict_dialog_message_prefix">شما قبلا برای کاربر با نام </string>
-    <string name="conflict_dialog_message_suffix"> نوبت ثبت کردید. آیا مطمئن هستید که می‌خواهید در همین بازه نوبت جدید ثبت کنید؟</string>
+    <string name="conflict_dialog_message_suffix"> نوبت ثبت کردید. آیا مطمین هستید که می‌خواهید در همین بازه نوبت جدید ثبت کنید؟</string>
     <string name="yes_force_create">بله، ثبت شود</string>
     <string name="no">خیر</string>
     <string name="select_business_error">لطفاً ابتدا یک کسب‌وکار انتخاب کنید</string>
@@ -218,7 +218,7 @@
     <string name="tracking_number_label">شماره پیگیری</string>
     <string name="click_to_view_full">برای مشاهده کامل، روی تصویر بزنید</string>
     <string name="reject_action">رد کردن</string>
-    <string name="verify_receipt">تأیید فیش</string>
+    <string name="verify_receipt">تایید فیش</string>
     <string name="approve_action">تایید</string>
 
     <!-- No Internet -->
@@ -290,7 +290,7 @@
     <!-- Emergency notice (public) -->
     <string name="notice_section_title">پیام اضطراری</string>
     <string name="notice_switch_label">نمایش پیام اضطراری</string>
-    <string name="notice_switch_description">اگر مشکلی پیش آمده (تعطیلی ناگهانی، قطعی برق، تأخیر)، پیام را روشن کنید تا مشتری‌ها بی‌دلیل نوبت نگیرند. با خاموش بودن این کلید، هیچ پیامی نمایش داده نمی‌شود.</string>
+    <string name="notice_switch_description">اگر مشکلی پیش آمده (تعطیلی ناگهانی، قطعی برق، تاخیر)، پیام را روشن کنید تا مشتری‌ها بی‌دلیل نوبت نگیرند. با خاموش بودن این کلید، هیچ پیامی نمایش داده نمی‌شود.</string>
     <string name="notice_message_label">متن پیام اضطراری</string>
     <string name="notice_message_public_warning">این متن برای همه‌ی مراجعین در صفحه‌ی عمومی نوبت‌گیری نمایش داده می‌شود.</string>
     <string name="notice_settings_subtitle">اطلاع‌رسانی تعطیلی یا مشکل موقت به مراجعین</string>
@@ -353,15 +353,15 @@
     <string name="hide_password">پنهان کردن رمز عبور</string>
     <string name="show_password">نمایش رمز عبور</string>
     <string name="smart_booking_for_your_business">نوبت‌دهی هوشمند برای کسب‌وکارت.</string>
-    <string name="pending_approval">در انتظار تأیید</string>
-    <string name="approved">تأیید شده</string>
-    <string name="not_approved">تأیید نشده</string>
+    <string name="pending_approval">در انتظار تایید</string>
+    <string name="approved">تایید شده</string>
+    <string name="not_approved">تایید نشده</string>
     <string name="suspended">تعلیق شده</string>
-    <string name="waiting_for_admin_approval">در انتظار تأیید ادمین</string>
-    <string name="your_business_was_not_approved">کسب‌وکار شما تأیید نشد</string>
+    <string name="waiting_for_admin_approval">در انتظار تایید ادمین</string>
+    <string name="your_business_was_not_approved">کسب‌وکار شما تایید نشد</string>
     <string name="your_business_has_been_suspended">کسب‌وکار شما تعلیق شده است</string>
-    <string name="your_business_is_in_review">کسب‌وکار شما در صف بررسی است و تا زمان تأیید، برای مراجعین نمایش داده نمی‌شود.</string>
-    <string name="your_business_wont_be_shown">تا زمان اصلاح و تأیید مجدد، کسب‌وکار شما برای مراجعین نمایش داده نمی‌شود.</string>
+    <string name="your_business_is_in_review">کسب‌وکار شما در صف بررسی است و تا زمان تایید، برای مراجعین نمایش داده نمی‌شود.</string>
+    <string name="your_business_wont_be_shown">تا زمان اصلاح و تایید مجدد، کسب‌وکار شما برای مراجعین نمایش داده نمی‌شود.</string>
     <string name="your_business_is_no_longer">نمایش کسب‌وکار شما برای مراجعین متوقف شده است.</string>
     <string name="reviewers_reason">دلیل بررسی‌کننده:</string>
     <string name="submitted_for_review">ارسال برای بررسی: %1$s</string>
@@ -373,7 +373,7 @@
     <string name="close">بستن</string>
     <string name="crop_logo">برش لوگو</string>
     <string name="drag_to_move_pinch_to">برای جابه‌جایی بکشید، با دو انگشت بزرگ‌نمایی کنید</string>
-    <string name="confirm_and_crop">تأیید و برش</string>
+    <string name="confirm_and_crop">تایید و برش</string>
     <string name="previous">قبلی</string>
     <string name="next">بعدی</string>
     <string name="updated">بروز شد</string>
@@ -442,7 +442,7 @@
     <string name="export_development_bank">بانک توسعه صادرات</string>
     <string name="not_specified">مشخص نشده</string>
     <string name="payment_gateway_fee">کارمزد درگاه پرداخت</string>
-    <string name="payment_details">جزئیات پرداخت</string>
+    <string name="payment_details">جزییات پرداخت</string>
     <string name="price">قیمت</string>
     <string name="vat_10">مالیات بر ارزش افزوده (۱۰٪)</string>
     <string name="amount_due">مبلغ قابل پرداخت</string>
@@ -566,7 +566,7 @@
     <string name="at_reminder_time_you_get">سر زمان یادآوری اعلانی برایتان می‌آید و پیامک با همین متن از سیم‌کارت خودتان </string>
     <string name="to_customer">برای مشتری ارسال می‌شود.</string>
     <string name="choose_sms_text">انتخاب متن پیامک</string>
-    <string name="with_automatic_sending_text_is">در ارسال خودکار، متن از میان الگوهای تأییدشده انتخاب می‌شود و قابل ویرایش نیست </string>
+    <string name="with_automatic_sending_text_is">در ارسال خودکار، متن از میان الگوهای تاییدشده انتخاب می‌شود و قابل ویرایش نیست </string>
     <string name="so_it_always_complies_with">تا همیشه با قوانین خط پیامکی (بدون لینک و با «لغو۱۱») سازگار بماند.</string>
     <string name="tap_variable_to_add_it">با لمس هر متغیر، آن را به متن اضافه کنید؛ هنگام ارسال با اطلاعات واقعی مشتری جایگزین می‌شود.</string>
     <string name="template">الگوی %1$s</string>
@@ -651,7 +651,7 @@
     <string name="payment_successful">پرداخت موفقیت‌آمیز</string>
     <string name="payment_failed">خطا در پرداخت</string>
     <string name="your_subscription_is_now_active">اشتراک شما با موفقیت فعال شد. اکنون می‌توانید از تمامی امکانات نوبت یار استفاده کنید.</string>
-    <string name="unfortunately_payment_failed_if_any">متأسفانه فرآیند پرداخت با خطا مواجه شد. اگر مبلغی از حساب شما کسر شده، طی ۷۲ ساعت آینده بازگشت داده می‌شود.</string>
+    <string name="unfortunately_payment_failed_if_any">متاسفانه فرآیند پرداخت با خطا مواجه شد. اگر مبلغی از حساب شما کسر شده، طی ۷۲ ساعت آینده بازگشت داده می‌شود.</string>
     <string name="tracking_code">کد پیگیری:</string>
     <string name="amount_paid">مبلغ پرداختی:</string>
     <string name="new_features_before_anyone_else">امکانات تازه، زودتر از همه</string>
@@ -741,7 +741,7 @@
     <string name="about_business_bio">معرفی کسب‌وکار (Bio)</string>
     <string name="services_selected">%1$s خدمت انتخاب شده</string>
     <string name="service_list">لیست خدمات</string>
-    <string name="choose_services_you_offer">خدماتی که ارائه می‌دهید را انتخاب کنید</string>
+    <string name="choose_services_you_offer">خدماتی که ارایه می‌دهید را انتخاب کنید</string>
     <string name="let_customers_add_service_thats">مشتری بتواند خدمت خارج از لیست اضافه کند</string>
     <string name="when_off_customers_can_only">اگر خاموش باشد، مشتری هنگام رزرو فقط از همین لیست </string>
     <string name="and_cant_write_in_new">انتخاب می‌کند و نمی‌تواند خدمت جدیدی بنویسد.</string>
@@ -752,11 +752,11 @@
     <string name="per_appointment">نوبت را یک پیامک کمتر می‌کند.</string>
     <string name="resubmit_for_review">ارسال دوباره برای بررسی</string>
     <string name="changing_name_bio_address_or">با تغییر نام، معرفی، آدرس یا لوگو، کسب‌وکار شما دوباره به صف </string>
-    <string name="admin_review_queue_and_it">بررسی ادمین می‌رود و تا زمان تأیید، برای مراجعین نمایش داده </string>
+    <string name="admin_review_queue_and_it">بررسی ادمین می‌رود و تا زمان تایید، برای مراجعین نمایش داده </string>
     <string name="its_approved_existing_appointments_are">نمی‌شود. نوبت‌های ثبت‌شده‌ی فعلی تغییری نمی‌کنند.</string>
     <string name="save_and_submit_for_review">ذخیره و ارسال برای بررسی</string>
     <string name="your_business_has_been_created">کسب‌وکار شما ثبت شد</string>
-    <string name="your_business_will_be_published">کسب‌وکار شما پس از تأیید ادمین منتشر می‌شود. تا آن زمان می‌توانید </string>
+    <string name="your_business_will_be_published">کسب‌وکار شما پس از تایید ادمین منتشر می‌شود. تا آن زمان می‌توانید </string>
     <string name="finish_setting_it_up_but">تنظیمات را کامل کنید، اما مراجعین آن را نمی‌بینند.</string>
     <string name="choose_category">انتخاب دسته‌بندی</string>
     <string name="search">جستجو...</string>
@@ -776,7 +776,7 @@
     <string name="sort">مرتب‌سازی</string>
     <string name="apply_filter">اعمال فیلتر</string>
     <string name="paying">در حال پرداخت</string>
-    <string name="receipt_awaiting_approval">💳 در انتظار تأیید فیش</string>
+    <string name="receipt_awaiting_approval">💳 در انتظار تایید فیش</string>
     <string name="awaiting_approval">در انتظار تایید</string>
     <string name="in_service">در حال سرویس</string>
     <string name="message_sent">پیام ارسال شد</string>
@@ -788,7 +788,7 @@
     <string name="no_show_recorded">عدم حضور ثبت شد</string>
     <string name="couldnt_record_no_show">خطا در ثبت عدم مراجعه</string>
     <string name="request_rejected">درخواست رد شد</string>
-    <string name="request_approved">درخواست تأیید شد</string>
+    <string name="request_approved">درخواست تایید شد</string>
     <string name="couldnt_change_appointment_status">خطا در تغییر وضعیت نوبت</string>
     <string name="couldnt_load_customer_list">لیست مشتری‌ها بارگذاری نشد</string>
     <string name="check_your_connection_and_try">اتصال خود را بررسی کنید و دوباره تلاش کنید</string>
@@ -900,10 +900,10 @@
     <string name="your_current_credit">اعتبار فعلی شما</string>
     <string name="you_dont_have_enough_credit">اعتبار شما برای این کمپین کافی نیست؛ ابتدا بسته‌ی پیامک تهیه کنید.</string>
     <string name="its_outside_allowed_sending_hours">الان خارج از ساعت مجاز ارسال است؛ در بازه‌ی مجاز دوباره تلاش کنید.</string>
-    <string name="once_confirmed_sending_starts_immediately">پس از تأیید، ارسال بلافاصله شروع می‌شود و قابل لغو نیست.</string>
+    <string name="once_confirmed_sending_starts_immediately">پس از تایید، ارسال بلافاصله شروع می‌شود و قابل لغو نیست.</string>
     <string name="buy_sms_credit">خرید اعتبار پیامک</string>
-    <string name="confirm_and_send">تأیید و ارسال</string>
-    <string name="campaign_details">جزئیات کمپین</string>
+    <string name="confirm_and_send">تایید و ارسال</string>
+    <string name="campaign_details">جزییات کمپین</string>
     <string name="sent">%1$s ارسال‌شده</string>
     <string name="failed">%1$s ناموفق</string>
     <string name="out_of_credit">%1$s بدون اعتبار</string>
@@ -939,9 +939,9 @@
     <string name="put_this_link_in_your">این لینک را در بیو، کانال یا پیام مستقیم بگذارید؛ مشتری با یک کلیک صفحه نوبت‌دهی شما را می‌بیند.</string>
     <string name="how_do_i_book">چطور نوبت بگیرم؟</string>
     <string name="tap_link_in_bio_to">روی لینک داخل بایو بزنید تا صفحه‌ی نوبت‌دهی باز شود.</string>
-    <string name="sign_in_with_your_mobile">با شماره موبایل‌تان وارد شوید؛ کد تأیید برایتان پیامک می‌شود.</string>
+    <string name="sign_in_with_your_mobile">با شماره موبایل‌تان وارد شوید؛ کد تایید برایتان پیامک می‌شود.</string>
     <string name="pick_free_day_and_time">روز و ساعت خالی را انتخاب کنید.</string>
-    <string name="confirm_appointment_you_can_track">نوبت را تأیید کنید؛ وضعیتش را در «نوبت‌های من» می‌بینید.</string>
+    <string name="confirm_appointment_you_can_track">نوبت را تایید کنید؛ وضعیتش را در «نوبت‌های من» می‌بینید.</string>
     <string name="card_number_of_n">شماره کارت %1$s\n</string>
     <string name="nin_name_of">\nبه نام %1$s</string>
     <string name="card_number_for_transfer">شماره کارت برای واریز</string>
@@ -1050,13 +1050,13 @@
     <string name="language_name_en">English</string>
     <string name="web_panel_title">پنل نوبت‌یار</string>
     <string name="claim_title">ثبت مالکیت مرکز</string>
-    <string name="claim_confirm_hint">اگر شماره موبایل ثبت‌شده برای این مرکز در اختیار شماست، کد تأیید به همان شماره ارسال می‌شود. در غیر این صورت درخواست شما توسط پشتیبانی بررسی می‌شود.</string>
+    <string name="claim_confirm_hint">اگر شماره موبایل ثبت‌شده برای این مرکز در اختیار شماست، کد تایید به همان شماره ارسال می‌شود. در غیر این صورت درخواست شما توسط پشتیبانی بررسی می‌شود.</string>
     <string name="claim_note_label">توضیح برای پشتیبانی (مثلاً شماره نظام پزشکی یا پروانه)</string>
     <string name="claim_continue">ادامه</string>
-    <string name="claim_code_sent">کد تأیید به شماره %1$s ارسال شد.</string>
-    <string name="claim_verify_transfer">تأیید و انتقال مالکیت</string>
+    <string name="claim_code_sent">کد تایید به شماره %1$s ارسال شد.</string>
+    <string name="claim_verify_transfer">تایید و انتقال مالکیت</string>
     <string name="claim_pending_title">درخواست شما ثبت شد</string>
-    <string name="claim_pending_body">پشتیبانی نوبت‌یار مالکیت «%1$s» را بررسی می‌کند و پس از تأیید، مرکز به فهرست کسب‌وکارهای شما اضافه می‌شود.</string>
+    <string name="claim_pending_body">پشتیبانی نوبت‌یار مالکیت «%1$s» را بررسی می‌کند و پس از تایید، مرکز به فهرست کسب‌وکارهای شما اضافه می‌شود.</string>
     <string name="claim_done_title">مرکز به حساب شما منتقل شد</string>
     <string name="claim_done_body">«%1$s» حالا متعلق به شماست. اطلاعات را کامل کنید و نوبت‌دهی آنلاین را روشن کنید تا مشتریان مستقیم نوبت بگیرند.</string>
     <string name="claim_go_to_businesses">رفتن به کسب‌وکارها</string>
@@ -1093,13 +1093,13 @@
     <string name="showcase_subtitle">عکس کارها و مدارک خود را در صفحه‌ی عمومی نمایش دهید</string>
     <string name="showcase_tab_portfolio">نمونه‌کار</string>
     <string name="showcase_tab_certificates">مدارک</string>
-    <string name="showcase_status_pending">در انتظار تأیید</string>
-    <string name="showcase_status_approved">تأیید شده</string>
+    <string name="showcase_status_pending">در انتظار تایید</string>
+    <string name="showcase_status_approved">تایید شده</string>
     <string name="showcase_status_rejected">رد شده</string>
     <string name="showcase_reject_reason">دلیل رد: %1$s</string>
     <string name="showcase_add_portfolio">افزودن نمونه‌کار</string>
     <string name="showcase_add_certificate">افزودن مدرک</string>
-    <string name="showcase_approval_note">هر مورد پس از تأیید تیم نوبت‌یار در صفحه‌ی عمومی شما نمایش داده می‌شود.</string>
+    <string name="showcase_approval_note">هر مورد پس از تایید تیم نوبت‌یار در صفحه‌ی عمومی شما نمایش داده می‌شود.</string>
     <string name="showcase_empty_portfolio">هنوز نمونه‌کاری اضافه نکرده‌اید</string>
     <string name="showcase_empty_certificates">هنوز مدرکی اضافه نکرده‌اید</string>
     <string name="showcase_caption_label">توضیح (اختیاری)</string>
@@ -1116,7 +1116,7 @@
     <string name="showcase_shape_square">مربع</string>
     <string name="showcase_shape_portrait">عمودی</string>
     <string name="showcase_shape_landscape">افقی</string>
-    <string name="showcase_added">اضافه شد و در انتظار تأیید است</string>
+    <string name="showcase_added">اضافه شد و در انتظار تایید است</string>
     <string name="showcase_updated">ذخیره شد</string>
     <string name="showcase_deleted">حذف شد</string>
     <string name="showcase_limit_reached">حداکثر ۳۰ مورد مجاز است</string>

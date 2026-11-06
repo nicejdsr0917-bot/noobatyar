@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
             name='PortfolioItem',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.CharField(choices=[('PENDING', 'در انتظار بررسی'), ('APPROVED', 'تأییدشده'), ('REJECTED', 'ردشده')], db_index=True, default='PENDING', max_length=10, verbose_name='وضعیت')),
+                ('status', models.CharField(choices=[('PENDING', 'در انتظار بررسی'), ('APPROVED', 'تاییدشده'), ('REJECTED', 'ردشده')], db_index=True, default='PENDING', max_length=10, verbose_name='وضعیت')),
                 ('reject_reason', models.CharField(blank=True, default='', max_length=255, verbose_name='دلیل رد')),
                 ('reviewed_at', models.DateTimeField(blank=True, null=True, verbose_name='زمان بررسی')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')),
@@ -43,7 +43,7 @@ class Migration(migrations.Migration):
             name='Certificate',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.CharField(choices=[('PENDING', 'در انتظار بررسی'), ('APPROVED', 'تأییدشده'), ('REJECTED', 'ردشده')], db_index=True, default='PENDING', max_length=10, verbose_name='وضعیت')),
+                ('status', models.CharField(choices=[('PENDING', 'در انتظار بررسی'), ('APPROVED', 'تاییدشده'), ('REJECTED', 'ردشده')], db_index=True, default='PENDING', max_length=10, verbose_name='وضعیت')),
                 ('reject_reason', models.CharField(blank=True, default='', max_length=255, verbose_name='دلیل رد')),
                 ('reviewed_at', models.DateTimeField(blank=True, null=True, verbose_name='زمان بررسی')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')),

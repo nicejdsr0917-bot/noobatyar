@@ -165,7 +165,7 @@ class VisitorView(APIView):
             return APIResponse.error(
                 message="اطلاعات وارد شده معتبر نیست",
                 code=400,
-                data=serializer.errors  # ارسال جزئیات خطا برای دیباگ
+                data=serializer.errors  # ارسال جزییات خطا برای دیباگ
             )
 
         except ValidationError as e:

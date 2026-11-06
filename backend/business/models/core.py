@@ -286,7 +286,7 @@ class Business(models.Model):
     services = models.JSONField(
         default=list,
         blank=True,
-        help_text="خدماتی که این کسب‌وکار ارائه می‌دهد، مثلاً ['کوتاهی مو', 'رنگ مو']",
+        help_text="خدماتی که این کسب‌وکار ارایه می‌دهد، مثلاً ['کوتاهی مو', 'رنگ مو']",
         verbose_name='خدمات',
     )
     # Off by default: the owner's menu is what makes a client's answer usable,
@@ -482,7 +482,7 @@ class Business(models.Model):
     MODERATION_SUSPENDED = 'SUSPENDED'
     MODERATION_STATUS_CHOICES = [
         (MODERATION_PENDING, 'در انتظار بررسی'),
-        (MODERATION_APPROVED, 'تأیید شده'),
+        (MODERATION_APPROVED, 'تایید شده'),
         (MODERATION_REJECTED, 'رد شده'),
         (MODERATION_SUSPENDED, 'معلق شده'),
     ]
@@ -492,7 +492,7 @@ class Business(models.Model):
         choices=MODERATION_STATUS_CHOICES,
         default=MODERATION_PENDING,
         db_index=True,
-        help_text='وضعیت بررسی محتوا؛ فقط «تأیید شده» عمومی نمایش داده می‌شود.',
+        help_text='وضعیت بررسی محتوا؛ فقط «تایید شده» عمومی نمایش داده می‌شود.',
         verbose_name='وضعیت بررسی',
     )
     moderation_note = models.TextField(
@@ -523,7 +523,7 @@ class Business(models.Model):
     # (nothing publicly true yet — stay hidden) from "already live, an edit
     # just sent it back for re-review" (the old, approved copy is still true
     # and should keep showing — see pending_* below).
-    first_approved_at = models.DateTimeField(null=True, blank=True, verbose_name='اولین تأیید')
+    first_approved_at = models.DateTimeField(null=True, blank=True, verbose_name='اولین تایید')
 
     # ── Staged edits, pending re-review ─────────────────────────────────────
     # Once a business has been approved at least once, an edit to a

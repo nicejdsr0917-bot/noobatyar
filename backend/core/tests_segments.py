@@ -395,7 +395,7 @@ class SegmentBuilderViewTests(TestCase):
         who legitimately holds export_pii — only from someone who doesn't."""
         owner = make_user('09160000006')
         make_business(owner)
-        visitor = make_visitor('09161110098', name='مرئی برای این کاربر')
+        visitor = make_visitor('09161110098', name='مریی برای این کاربر')
 
         grant(self.staff, 'visitor.view_visitor', 'core.export_pii')
         response = self.client.get(

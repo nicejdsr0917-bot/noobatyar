@@ -105,7 +105,7 @@ def send_otp_view(request):
 
     return APIResponse.success(
         data={'expires_in': 180},
-        message='کد تأیید ارسال شد'
+        message='کد تایید ارسال شد'
     )
 
 
@@ -164,12 +164,12 @@ def register_view(request):
     register_token = serializer.validated_data.get('register_token') or ''
     name = serializer.validated_data['name']
 
-    # مسیر وب: ثبت‌نام فقط با توکنی که پس از تأیید OTP صادر شده. بدون این بررسی
-    # هر کسی می‌توانست بدون تأیید شماره، برای شماره دلخواه حساب بسازد.
+    # مسیر وب: ثبت‌نام فقط با توکنی که پس از تایید OTP صادر شده. بدون این بررسی
+    # هر کسی می‌توانست بدون تایید شماره، برای شماره دلخواه حساب بسازد.
     if register_token:
         expected = cache.get(f'register_token:{phone}')
         if not expected or not secrets.compare_digest(str(expected), register_token):
-            return APIResponse.error('توکن تأیید شماره نامعتبر یا منقضی شده است')
+            return APIResponse.error('توکن تایید شماره نامعتبر یا منقضی شده است')
         cache.delete(f'register_token:{phone}')
 
     # User + trial in one transaction. The serializer's exists() check can lose
@@ -285,7 +285,7 @@ def forgot_password_send_otp(request):
 
     return APIResponse.success(
         data={'expires_in': OTP_EXPIRY},
-        message='کد تأیید ارسال شد'
+        message='کد تایید ارسال شد'
     )
 
 
@@ -320,7 +320,7 @@ def forgot_password_verify_otp(request):
 
     return APIResponse.success(
         data={'reset_token': reset_token, 'expires_in': RESET_TOKEN_EXPIRY},
-        message='کد تأیید شد'
+        message='کد تایید شد'
     )
 
 

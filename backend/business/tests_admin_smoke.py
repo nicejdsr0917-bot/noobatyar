@@ -25,7 +25,7 @@ class BusinessAdminSmokeTests(TestCase):
         )
         cls.objs = [
             cls.business,
-            Insurance.objects.create(name='تأمین', slug='tamin'),
+            Insurance.objects.create(name='تامین', slug='tamin'),
             BannedKeyword.objects.create(term='ممنوع'),
             BusinessClaimRequest.objects.create(business=cls.business, user=owner),
             ContentReport.objects.create(business=cls.business),

@@ -110,13 +110,13 @@
               <td>{{ biz.title }}</td>
               <td>{{ biz.get_category_display }}</td>
               <td>
-                {% if biz.moderation_status == 'APPROVED' %}<span class="ud-badge ud-b-approved">تأیید شده</span>
+                {% if biz.moderation_status == 'APPROVED' %}<span class="ud-badge ud-b-approved">تایید شده</span>
                 {% elif biz.moderation_status == 'PENDING' %}<span class="ud-badge ud-b-pending">در انتظار</span>
                 {% elif biz.moderation_status == 'SUSPENDED' %}<span class="ud-badge ud-b-suspended">معلق</span>
                 {% else %}<span class="ud-badge ud-b-rejected">رد شده</span>{% endif %}
               </td>
               <td>{% if biz.is_locked %}<span class="ud-badge ud-b-locked">قفل</span>{% else %}—{% endif %}</td>
-              <td><a class="ud-link" href="{% url 'admin:core_business_detail' biz.id %}">جزئیات ←</a></td>
+              <td><a class="ud-link" href="{% url 'admin:core_business_detail' biz.id %}">جزییات ←</a></td>
             </tr>
           {% endfor %}
         </tbody>

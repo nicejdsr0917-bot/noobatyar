@@ -242,8 +242,8 @@ def payment_callback(request):
 @permission_classes([IsAuthenticated])
 def checkout_quote(request):
     """
-    مبلغ نهایی یک خرید با جزئیات (قیمت، مالیات، کارمزد درگاه/مایکت) تا اپ
-    پیش از رفتن به درگاه یا مایکت آن را به کاربر نشان دهد و تأیید بگیرد.
+    مبلغ نهایی یک خرید با جزییات (قیمت، مالیات، کارمزد درگاه/مایکت) تا اپ
+    پیش از رفتن به درگاه یا مایکت آن را به کاربر نشان دهد و تایید بگیرد.
     Query: kind=plan|addon, id, channel=zibal|myket
     """
     try:

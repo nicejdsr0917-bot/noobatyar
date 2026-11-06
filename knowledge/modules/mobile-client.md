@@ -44,8 +44,8 @@ tags: [gf]
 - تست: `bash ./gradlew :composeApp:testLocalSiteDebugUnitTest` (۲۴ تست). iOS: `:composeApp:compileKotlinIosSimulatorArm64`. `PushMessagingService` در manifest نیست.
 
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
-- رزرو نیتیو در `feature/booking/` (`BookingViewModel` و `BookingScreen`): خدمت ← روز و ساعت ← OTP (فقط بار اول؛ توکن در `ClientPreferences.visitorToken`) ← تأیید ← بیعانه (آنلاین، کارت با شماره پیگیری، یا حضوری). نوبت با `source=APP` ثبت می‌شود.
-- `feature/appointments/`: تب «نوبت‌های من» با لغو (دیالوگ تأیید)، پرداخت آنلاین، ثبت واریز و پرداخت حضوری. لیست روی resume تازه می‌شود.
+- رزرو نیتیو در `feature/booking/` (`BookingViewModel` و `BookingScreen`): خدمت ← روز و ساعت ← OTP (فقط بار اول؛ توکن در `ClientPreferences.visitorToken`) ← تایید ← بیعانه (آنلاین، کارت با شماره پیگیری، یا حضوری). نوبت با `source=APP` ثبت می‌شود.
+- `feature/appointments/`: تب «نوبت‌های من» با لغو (دیالوگ تایید)، پرداخت آنلاین، ثبت واریز و پرداخت حضوری. لیست روی resume تازه می‌شود.
 - API در `data/remoteDataSource/booking/BookingApi.kt` (هدر `Visitor <token>`) و `social/` (نمونه‌کار و نظرات).
 - صفحه کسب‌وکار: `BusinessSocialViewModel` گالری با واترمارک، مدارک و نظرات (ثبت، ویرایش، حذف، گزارش) را می‌آورد.
 - `first_free_slot` روی `BusinessRow` با «امروز / فردا / روز هفته» نمایش داده می‌شود.
@@ -89,7 +89,7 @@ tags: [gf]
 - `KtorClientBusinessApi` توکن Visitor را روی لیست و جزییات می‌فرستد؛ با ۴۰۱ توکن را پاک و دوباره مهمان می‌خواند.
 - `ui/theme/Typography.kt`: Yekan Bakh، بدون `letterSpacing`؛ `bodyMedium` پیش‌فرض متن و فیلدها (`Theme.kt`).
 - آیکن‌ها: Lucide (`com.composables:icons-lucide-cmp`)، پر با `ImageVector.filled()`. پیکان‌های RTL دستی برعکس‌اند.
-- متن اپ: کوتاه و بدون ئ ء ٔ أ. `PersianDigits` برای ارقام فیلدهای عددی.
+- متن اپ: کوتاه و بدون ی   ا. `PersianDigits` برای ارقام فیلدهای عددی.
 
 ## کاوش، ناحیه، مسیریابی (2026-10-31 شب)
 - `CategoryGroup.supportsInsurance`: فیلتر بیمه فقط برای ALL/MEDICAL/DENTAL/HEALTH؛ `selectCategory` بیمه انتخاب‌شده را برای صنف بی‌بیمه پاک می‌کند.
@@ -127,7 +127,7 @@ tags: [gf]
 - **تست آفلاین روی LDPlayer:** وای‌فای را خاموش نکن، چون adb قطع می‌شود. از `settings put global global_http_proxy_host/port/exclusion_list` استفاده کن.
 
 ## جلسه 2026-11-02
-- **`OtpCodeField`** (`core/ui/components/`): کد تایید خانه‌به‌خانه با حرکت (نشانگر چشمک‌زن، ورود فنری رقم، لرزش وقتی کد کامل خالی برگردد، موج تکمیل). در `LoginScreen` و `BookingScreen` (مرحله کد). یک `BasicTextField` نامرئی روی ردیف است تا paste و autofill کار کند. پس‌زمینه خانه باید مات باشد (`compositeOver`)، وگرنه سایه رنگی از زیرش پیداست.
+- **`OtpCodeField`** (`core/ui/components/`): کد تایید خانه‌به‌خانه با حرکت (نشانگر چشمک‌زن، ورود فنری رقم، لرزش وقتی کد کامل خالی برگردد، موج تکمیل). در `LoginScreen` و `BookingScreen` (مرحله کد). یک `BasicTextField` نامریی روی ردیف است تا paste و autofill کار کند. پس‌زمینه خانه باید مات باشد (`compositeOver`)، وگرنه سایه رنگی از زیرش پیداست.
 - **`ltrInput`** (`BookingScreen.kt`) حالا getter کامپوزبل روی `typography.bodyLarge` است؛ `TextStyle` خالی فونت اپ را با فونت پیش‌فرض عوض می‌کرد.
 - **`DetailSocial.kt` → `SocialLinksSection(links, businessTitle, index)`**: ردیف افقی کاشی ۶۰dp با لوگوهای اپ اونر (`ic_brand_*` در drawable؛ PNG برای بله/ایتا/روبیکا)، ورود فنری پلکانی، نوار نور مداوم مثل «درباره ما»ی اونر. عنوان: «{نام کسب‌وکار} در شبکه‌های اجتماعی». URL در اپ ساخته می‌شود.
 - **`CityPickerSheet`**: هر لیست state جدا دارد؛ شهرهای هر استان از بالا شروع می‌شوند و لیست استان‌ها جایش را نگه می‌دارد.
@@ -173,7 +173,7 @@ tags: [gf]
 ## حرکت و درخواست نظر (2026-11-05 11:18)
 - **نوار پایین** (`core/navigation/navHost/MainNavHost.kt`، `TabBar`):
   - crossfade بین آیکن خطی و توپُر، pop هنگام انتخاب، و فرورفتن کوتاه هنگام خروج از انتخاب. موقع باز شدن اپ هیچ آیکنی حرکت نمی‌کند.
-  - `SolidTabIcon.kt`: لایه پُر با شکل Lucide، و جزئیات داخل آیکن به رنگ زمینه. `filled()` به درد نمی‌خورد، چون همه‌چیز را یک‌رنگ پر می‌کند.
+  - `SolidTabIcon.kt`: لایه پُر با شکل Lucide، و جزییات داخل آیکن به رنگ زمینه. `filled()` به درد نمی‌خورد، چون همه‌چیز را یک‌رنگ پر می‌کند.
   - تب پروفایل: بدون عکس، آیکن توپُر `CircleUserRound`. با عکس، `ProfileTabIcon(url: String)` با حلقه‌ای که دور عکس کشیده می‌شود.
 - **`BusinessAvatar(business, size, corner = 12.dp)`:** هر جا قاب گردتری دارد شعاعش را پاس بدهد (hero 22dp و نوار جمع‌شده 10dp)، وگرنه گوشه‌های حلقه استوری بریده می‌شوند.
 - **`feature/businessDetail/FollowButton.kt`:** گرادیان، برق گذرا، burst و pop. `FollowRow` شمارنده را رول می‌کند.
@@ -198,7 +198,7 @@ tags: [gf]
   - `StatsRow(business, rating, followers)` با ۴ آیتم عمودی.
   - `FollowRow` تمام‌عرض.
   - دکمه اولین نوبت (`FirstSlotButton`) داخل `QuickPickSection`.
-- `FirstVisitTag` روی ردیف لیست و در تأیید رزرو هست، روی صفحه کسب‌وکار نیست.
+- `FirstVisitTag` روی ردیف لیست و در تایید رزرو هست، روی صفحه کسب‌وکار نیست.
 
 ## تم و بیمه (2026-11-05 شب)
 - **ریشه متن سیاه در دارک:** `LocalContentColor` بیرون از `Surface`/`Scaffold` پیش‌فرض سیاه است. حالا `AppTheme` آن را از `onBackground` می‌گیرد. متن بی‌رنگ روی `background()` خالی دیگر سیاه نمی‌شود.

@@ -519,7 +519,7 @@ class StorePurchase(models.Model):
     order_id = models.CharField(max_length=255, blank=True, default='', verbose_name='شماره سفارش')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', db_index=True, verbose_name='وضعیت')
     store_response = models.JSONField(null=True, blank=True, verbose_name='پاسخ فروشگاه')
-    error_detail = models.TextField(blank=True, default='', verbose_name='جزئیات خطا')
+    error_detail = models.TextField(blank=True, default='', verbose_name='جزییات خطا')
     consumed_at = models.DateTimeField(null=True, blank=True, verbose_name='زمان مصرف')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین تغییر')
@@ -606,7 +606,7 @@ class NewClientReward(models.Model):
     amount = models.PositiveIntegerField(default=0, help_text='مبلغ پاداش (برای ردیف مشکوک: مبلغی که پرداخت می‌شد)', verbose_name='مبلغ')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, verbose_name='وضعیت')
     flags = models.JSONField(default=list, blank=True, verbose_name='پرچم‌های خطر')
-    decided_by = models.CharField(max_length=150, blank=True, default='', verbose_name='تأیید دستی توسط')
+    decided_by = models.CharField(max_length=150, blank=True, default='', verbose_name='تایید دستی توسط')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ')
 
     class Meta:

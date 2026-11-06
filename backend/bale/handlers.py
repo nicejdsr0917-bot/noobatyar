@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 MAX_LISTED = 10
 
 _STATUS_LABEL = {
-    Business.MODERATION_APPROVED: '✅ تأیید شد',
+    Business.MODERATION_APPROVED: '✅ تایید شد',
     Business.MODERATION_REJECTED: '❌ رد شد',
     Business.MODERATION_SUSPENDED: '⛔ تعلیق شد',
 }
@@ -46,7 +46,7 @@ _PROMPT = {
 
 HELP_TEXT = (
     'ربات بررسی نوبت‌یار\n\n'
-    '/pending — لیست کسب‌وکارهای در انتظار تأیید\n'
+    '/pending — لیست کسب‌وکارهای در انتظار تایید\n'
     '/help — همین راهنما\n\n'
     'هر کسب‌وکار جدید یا ویرایش‌شده خودکار همین‌جا اعلام می‌شود'
 )

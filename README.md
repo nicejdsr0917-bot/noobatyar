@@ -14,7 +14,7 @@
 | [`brand/`](brand) | هویت بصری، آیکن‌ها، رنگ‌ها و اسکریپت‌های اعمال روی همه‌ی اپ‌ها | SVG + sharp | [brand/README.md](brand/README.md) |
 
 اپ موبایل مستقل برای مشتری وجود ندارد — رزرو نوبت فقط از طریق وب
-(`front_client`) انجام می‌شود؛ جزئیات در [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md#اپ-موبایل-مشتری).
+(`front_client`) انجام می‌شود؛ جزییات در [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md#اپ-موبایل-مشتری).
 
 ## راه‌اندازی لوکال
 
@@ -27,7 +27,7 @@
 واقعی روی LAN)، و تله‌های شناخته‌شده (Argon2، migration عقب‌افتاده، فلگ
 `buildkonfig.flavor`).
 
-خلاصه‌ی سریع (جزئیات کامل در همان فایل):
+خلاصه‌ی سریع (جزییات کامل در همان فایل):
 
 ```bash
 # بک‌اند

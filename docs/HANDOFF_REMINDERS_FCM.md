@@ -178,7 +178,7 @@ push yet». حالا می‌تواند.
 آن «۰ پیامک» درست است: کسب‌وکار روی `MANUAL` بود، پس هیچ سهمیه‌ای خرج نشد ولی
 اونر پوش گرفت.
 
-تأیید نهایی از `dumpsys`:
+تایید نهایی از `dumpsys`:
 
 ```
 tag=FCM-Notification:413526685   channel=appointment_reminders
@@ -247,7 +247,7 @@ cd /srv/nobatyar && git pull && pip install -r requirements_prod.txt && python m
 */5 * * * * cd /srv/nobatyar && /srv/nobatyar/.venv/bin/python manage.py send_appointment_reminders >> /var/log/nobatyar/reminders.log 2>&1
 ```
 
-**۵. تأیید**
+**۵. تایید**
 
 ```bash
 python manage.py shell -c "from api.services import push; print(push.is_configured())"

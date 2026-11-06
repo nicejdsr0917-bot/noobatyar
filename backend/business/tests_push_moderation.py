@@ -40,7 +40,7 @@ class ModerationDecisionPushTests(TestCase):
         args, kwargs = send.call_args
         self.assertEqual(args[0], self.user.id)
         self.assertIn('سالن آفتاب', kwargs['body'])
-        self.assertIn('تأیید', kwargs['title'])
+        self.assertIn('تایید', kwargs['title'])
 
     def test_rejected_push_includes_the_reviewer_note(self):
         self.business.moderation_note = 'تصویر نامناسب است'

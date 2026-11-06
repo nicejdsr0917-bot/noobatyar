@@ -56,14 +56,14 @@ def _owner_phone(business):
 
 def approved_text(business) -> str:
     return signed(
-        f'✅ کسب‌وکار «{business.title}» تأیید شد\n'
+        f'✅ کسب‌وکار «{business.title}» تایید شد\n'
         f'از این پس در نوبت‌یار قابل مشاهده است و مشتریان می‌توانند نوبت بگیرند'
     )
 
 
 def rejected_text(business) -> str:
     reason = _trim_note(business.moderation_note)
-    body = f'❌ کسب‌وکار «{business.title}» تأیید نشد'
+    body = f'❌ کسب‌وکار «{business.title}» تایید نشد'
     if reason:
         body += f'\nدلیل: {reason}'
     body += '\nمی‌توانید اطلاعات را در اپلیکیشن اصلاح کنید تا دوباره بررسی شود'

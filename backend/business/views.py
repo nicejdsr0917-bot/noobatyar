@@ -163,7 +163,7 @@ class BusinessView(APIView):
                     data=created_data,
                     message=(
                         "کسب و کار با موفقیت ایجاد شد و برای بررسی ارسال شد؛ "
-                        "پس از تأیید برای مشتریان نمایش داده می‌شود"
+                        "پس از تایید برای مشتریان نمایش داده می‌شود"
                     ),
                     status=201
                 )
@@ -229,13 +229,13 @@ class BusinessView(APIView):
                         # copy is untouched — customers keep seeing the last-
                         # approved version until this edit is cleared.
                         message = (
-                            "تغییرات برای بررسی ارسال شد؛ تا تأیید، نسخه‌ی قبلی "
+                            "تغییرات برای بررسی ارسال شد؛ تا تایید، نسخه‌ی قبلی "
                             "همچنان برای مشتریان نمایش داده می‌شود"
                         )
                     else:
                         message = (
                             "تغییرات ذخیره شد؛ چون اطلاعات نمایش‌داده‌شده تغییر کرده، "
-                            "کسب و کار دوباره برای بررسی ارسال شد و تا تأیید مجدد "
+                            "کسب و کار دوباره برای بررسی ارسال شد و تا تایید مجدد "
                             "برای مشتریان نمایش داده نمی‌شود"
                         )
                     return APIResponse.success(data=data, message=message)

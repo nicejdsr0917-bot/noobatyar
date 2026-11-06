@@ -115,7 +115,7 @@ class ContentReport(models.Model):
         verbose_name='کسب‌وکار',
     )
     reason = models.CharField(max_length=20, choices=REASON_CHOICES, verbose_name='دلیل')
-    detail = models.TextField(blank=True, default='', verbose_name='جزئیات')
+    detail = models.TextField(blank=True, default='', verbose_name='جزییات')
     reporter_user = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='filed_reports',

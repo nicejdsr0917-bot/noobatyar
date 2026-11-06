@@ -29,7 +29,7 @@ adb reverse tcp:8000 tcp:8000 && adb reverse tcp:3000 tcp:3000
 
 Env (`backend/.env.local`، از `.env.example`): `DEBUG`، `ALLOWED_HOSTS`، `ZIBAL_MERCHANT_ID`، `CLIENT_WEB_URL`، `SITE_URL`، `OTP_DEV_CODE`، `SMS_DEV_MODE`. بدون `DEBUG=True` محلی، settings به‌خاطر نبود `SECRET_KEY` خطا می‌دهد. Front: `front_client/.env.local` → `NEXT_PUBLIC_API_URL`، `NEXT_PUBLIC_SITE_URL`.
 
-**هشدار محیط:** چند پیکربندی `launch.json` مخصوص ویندوز‌اند (`cmd /c`، `.bat`)؛ روی مک از نسخه‌های `_mac` استفاده کن. در zsh این مک `head` به ابزار Perl alias شده → `/usr/bin/head`. جزئیات در [[modules/ops-deploy]].
+**هشدار محیط:** چند پیکربندی `launch.json` مخصوص ویندوز‌اند (`cmd /c`، `.bat`)؛ روی مک از نسخه‌های `_mac` استفاده کن. در zsh این مک `head` به ابزار Perl alias شده → `/usr/bin/head`. جزییات در [[modules/ops-deploy]].
 
 ## ماژول‌ها
 - [[modules/backend-api-auth]] — کاربر، OTP، JWT، توکن دستگاه و FCM

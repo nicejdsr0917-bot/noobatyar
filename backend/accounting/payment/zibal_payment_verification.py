@@ -49,12 +49,12 @@ class PaymentVerificationService:
                     self.track_id, (result.data or {}).get('amount'), self.transaction.amount,
                 )
                 return self._error_response(
-                    "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503
+                    "تایید پرداخت با تاخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503
                 )
 
             if result.outcome == zibal.Outcome.TRANSPORT_ERROR:
                 return self._error_response(
-                    "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503, result.data
+                    "تایید پرداخت با تاخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید", 503, result.data
                 )
 
             if result.outcome == zibal.Outcome.FAILED:

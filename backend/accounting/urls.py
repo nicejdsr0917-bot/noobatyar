@@ -16,7 +16,7 @@ urlpatterns = [
     path('addons/buy/', views.buy_addon),              # خرید بسته
     path('addons/payment-result', views.addon_payment_callback, name='addon-callback'),
 
-    path('checkout/quote/', views.checkout_quote),     # جزئیات مبلغ پیش از پرداخت
+    path('checkout/quote/', views.checkout_quote),     # جزییات مبلغ پیش از پرداخت
 
     # ── Myket in-app billing ─────────────────────────────────────
     path('store/myket/intent/', views.myket_intent),

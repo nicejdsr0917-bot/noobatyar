@@ -8,7 +8,7 @@ tags: [gf]
 
 ## فایل‌ها
 - `backend/api/models.py` — `User`، `DeviceToken`
-- `backend/api/otp.py` — ارسال/تأیید OTP (در DEBUG با `OTP_DEV_CODE` و `SMS_DEV_MODE` پیامک واقعی نمی‌رود)
+- `backend/api/otp.py` — ارسال/تایید OTP (در DEBUG با `OTP_DEV_CODE` و `SMS_DEV_MODE` پیامک واقعی نمی‌رود)
 - `backend/api/services/push.py` — `send_to_user` (FCM)
 - `backend/api/urls.py` — `api/auth/{register,login,logout,otp/send,otp/verify,token/refresh,forgot-password/...}`، `users/<pk>/`، `devices/{register,unregister}`
 - تست‌ها: `tests_security.py`، `tests_push.py`

@@ -239,7 +239,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='storepurchase',
             name='error_detail',
-            field=models.TextField(blank=True, default='', verbose_name='جزئیات خطا'),
+            field=models.TextField(blank=True, default='', verbose_name='جزییات خطا'),
         ),
         migrations.AlterField(
             model_name='storepurchase',

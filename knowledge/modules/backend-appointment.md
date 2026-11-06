@@ -24,7 +24,7 @@ tags: [gf]
 ## روی برنچ mobile-client (۲۰۲۶-۱۰-۲۹، هنوز در develop نیست)
 - منطق در `appointment/services/`: `booking.py` (`appointment_create_for_client/owner`، `business_lock`)، `transitions.py` (همه تغییر وضعیت‌ها UPDATE شرطی روی ردیف قفل‌شده)، `deposits.py` (`deposit_settle`)، `notifications.py` (handlerهای Outbox، `_send_metered_sms`)؛ خواندن‌ها در `selectors.py`. viewها فقط parse/پاسخ.
 - ترتیب قفل همه‌جا: business → appointment → اعتبار. اعتبار (`record_appointment`) داخل همان تراکنش ساخت نوبت؛ بدون اعتبار هیچ نوبتی ساخته نمی‌شود.
-- callback بیعانه: تأیید زیبال خارج از قفل؛ نوبت منقضی‌شده‌ای که اسلاتش رفته → `?payment=conflict` و `deposit_verified_at` → فیلتر ادمین «پرداخت‌شده بدون نوبت».
+- callback بیعانه: تایید زیبال خارج از قفل؛ نوبت منقضی‌شده‌ای که اسلاتش رفته → `?payment=conflict` و `deposit_verified_at` → فیلتر ادمین «پرداخت‌شده بدون نوبت».
 - رزرو هم‌پوشان اونر عمداً مجاز است. ظرفیت ساعتی و آمار «امروز» به ساعت تهران. یادآوری‌ها با claim شرطی (یک بار ارسال).
 
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
