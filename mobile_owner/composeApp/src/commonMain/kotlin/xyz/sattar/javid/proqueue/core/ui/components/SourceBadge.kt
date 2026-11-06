@@ -4,6 +4,7 @@ import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -43,16 +44,18 @@ fun SourceBadge(source: String?, modifier: Modifier = Modifier) {
 @Composable
 fun FirstVisitBadge(percent: Int, modifier: Modifier = Modifier) {
     if (percent <= 0) return
+    // Amber 700 text fails contrast on a dark card (about 2:1); amber 300 there.
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFFF59E0B).copy(alpha = 0.16f),
+        color = Color(0xFFF59E0B).copy(alpha = if (isDark) 0.22f else 0.16f),
         modifier = modifier
     ) {
         Text(
             text = Str.first_visit_badge(percent).toPersianDigits(),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFB45309),
+            color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309),
             maxLines = 1,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
         )
