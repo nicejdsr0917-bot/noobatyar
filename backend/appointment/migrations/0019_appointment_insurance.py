@@ -15,6 +15,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='appointment',
             name='insurance',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='business.insurance', verbose_name='بیمهٔ تکمیلی مراجع'),
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='business.insurance', verbose_name='بیمه تکمیلی مراجع'),
         ),
     ]

@@ -220,7 +220,7 @@ class Appointment(models.Model):
     # picked or an older client booked.
     insurance = models.ForeignKey(
         'business.Insurance', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='+', verbose_name='بیمهٔ تکمیلی مراجع',
+        related_name='+', verbose_name='بیمه تکمیلی مراجع',
     )
 
     # Where a client booking came from; compared with the owner's own IPs to

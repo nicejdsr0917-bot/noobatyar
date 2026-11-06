@@ -1187,6 +1187,6 @@
     <string name="location_privacy_exact_desc">مشتری جای دقیق را می‌بیند و با نشان یا بلد مسیریابی می‌کند.</string>
     <string name="location_privacy_area_desc">مشتری فقط یک دایره حدود ۵۰۰ متری می‌بیند، نه جای دقیق. برای کار در خانه خوب است. آدرس متنی را هم کلی بنویسید.</string>
     <string name="hold_minutes_row_subtitle">چند دقیقه نوبت تا پرداخت بیعانه نگه داشته شود</string>
-    <string name="supplementary_insurance_label">بیمهٔ تکمیلی</string>
+    <string name="supplementary_insurance_label">بیمه تکمیلی</string>
     <string name="payment_tracking_short">پیگیری</string>
 </resources>

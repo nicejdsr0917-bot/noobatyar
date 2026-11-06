@@ -130,7 +130,7 @@ export const fa = {
   booked: "رزرو شده",
   yourChoice: "انتخاب شما",
   whichServiceDoYouWant: "چه خدمتی می‌خواهید؟ (اختیاری)",
-  yourSupplementaryInsurance: "بیمهٔ تکمیلی شما (اختیاری)",
+  yourSupplementaryInsurance: "بیمه تکمیلی شما (اختیاری)",
   noSupplementaryInsurance: "ندارم",
   addService: "افزودن خدمت",
   wantAnotherServiceTypeIt: "خدمت دیگری می‌خواهید؟ بنویسید",
