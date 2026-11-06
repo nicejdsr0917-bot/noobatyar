@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.core.ui.components.city
 
+import xyz.sattar.javid.proqueue.core.ui.components.ForwardChevron
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -120,7 +121,7 @@ fun BusinessCityField(
                 )
             }
             Icon(
-                Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+                ForwardChevron,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -242,7 +243,7 @@ private fun CityRow(title: String, subtitle: String? = null, drillDown: Boolean 
             }
             if (drillDown) {
                 Icon(
-                    Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+                    ForwardChevron,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
