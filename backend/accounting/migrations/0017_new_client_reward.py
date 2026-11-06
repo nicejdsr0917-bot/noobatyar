@@ -13,11 +13,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='tomanwalletsettings',
             name='new_client_reward',
-            field=models.PositiveIntegerField(default=0, help_text='مبلغی که برای هر مشتری تازه (اولین نوبت انجام\u200cشدهٔ او در این کسب\u200cوکار، گرفته\u200cشده از سایت یا اپ) به کیف\u200cپول صاحب کسب\u200cوکار اضافه می\u200cشود (تومان). صفر یعنی خاموش.', verbose_name='پاداش مشتری تازه'),
+            field=models.PositiveIntegerField(default=0, help_text='مبلغی که برای هر مشتری تازه (اولین نوبت انجام\u200cشده او در این کسب\u200cوکار، گرفته\u200cشده از سایت یا اپ) به کیف\u200cپول صاحب کسب\u200cوکار اضافه می\u200cشود (تومان). صفر یعنی خاموش.', verbose_name='پاداش مشتری تازه'),
         ),
         migrations.AddField(
             model_name='tomanwalletsettings',
             name='new_client_reward_monthly_cap',
-            field=models.PositiveIntegerField(default=0, help_text='بیشترین پاداش مشتری تازه برای هر صاحب کسب\u200cوکار در یک ماه (تومان). صفر یعنی بدون سقف.', verbose_name='سقف ماهانهٔ پاداش'),
+            field=models.PositiveIntegerField(default=0, help_text='بیشترین پاداش مشتری تازه برای هر صاحب کسب\u200cوکار در یک ماه (تومان). صفر یعنی بدون سقف.', verbose_name='سقف ماهانه پاداش'),
         ),
     ]

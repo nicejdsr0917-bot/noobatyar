@@ -62,13 +62,13 @@ class BannerCategoryGroup(models.Model):
 class Banner(models.Model):
     group = models.ForeignKey(
         BannerCategoryGroup, null=True, blank=True, on_delete=models.CASCADE, related_name='banners',
-        verbose_name='گروه دسته‌بندی', help_text='برای همهٔ دسته‌های این گروه نمایش داده می‌شود')
+        verbose_name='گروه دسته‌بندی', help_text='برای همه دسته‌های این گروه نمایش داده می‌شود')
     category = models.CharField(
         max_length=50, blank=True, default='', choices=CATEGORY_CHOICES, verbose_name='دسته‌بندی',
-        help_text='فقط برای یک دستهٔ مشخص (به‌جای گروه)')
+        help_text='فقط برای یک دسته مشخص (به‌جای گروه)')
     image = models.ImageField(
         upload_to='banners/', validators=[validate_banner_size], verbose_name='عکس',
-        help_text=f'اندازهٔ دقیق عکس باید {BANNER_WIDTH}×{BANNER_HEIGHT} پیکسل باشد؛ اندازهٔ دیگر پذیرفته نمی‌شود.')
+        help_text=f'اندازه دقیق عکس باید {BANNER_WIDTH}×{BANNER_HEIGHT} پیکسل باشد؛ اندازه دیگر پذیرفته نمی‌شود.')
     order = models.PositiveIntegerField(default=0, verbose_name='ترتیب')
     is_active = models.BooleanField(default=True, db_index=True, verbose_name='فعال')
     starts_at = models.DateTimeField(null=True, blank=True, verbose_name='شروع نمایش')
@@ -113,7 +113,7 @@ class SiteSetting(models.Model):
 
     banner_link_url = models.URLField(
         max_length=500, blank=True, default='', verbose_name='لینک بنرها',
-        help_text='همهٔ بنرها با کلیک این لینک را باز می‌کنند (مثلاً صفحهٔ ارتقای پلن)')
+        help_text='همه بنرها با کلیک این لینک را باز می‌کنند (مثلاً صفحه ارتقای پلن)')
 
     class Meta:
         db_table = 'banners_site_setting'
@@ -144,8 +144,8 @@ class ClientPromo(models.Model):
     PLACEMENT_BUSINESS_MAP = 'BUSINESS_MAP'
     PLACEMENT_ALL = 'ALL'
     PLACEMENT_CHOICES = [
-        (PLACEMENT_EXPLORE, 'صفحهٔ کاوش (بالای لیست)'),
-        (PLACEMENT_BUSINESS_MAP, 'نقشهٔ مرکز'),
+        (PLACEMENT_EXPLORE, 'صفحه کاوش (بالای لیست)'),
+        (PLACEMENT_BUSINESS_MAP, 'نقشه مرکز'),
         (PLACEMENT_ALL, 'هر دو'),
     ]
 
@@ -155,7 +155,7 @@ class ClientPromo(models.Model):
         help_text='مثلاً «مشاهده»؛ خالی یعنی بدون دکمه')
     business = models.ForeignKey(
         'business.Business', null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
-        verbose_name='مرکز', help_text='با لمس، صفحهٔ این مرکز در اپ باز می‌شود')
+        verbose_name='مرکز', help_text='با لمس، صفحه این مرکز در اپ باز می‌شود')
     link_url = models.URLField(
         max_length=500, blank=True, default='', verbose_name='لینک',
         help_text='اگر مرکزی انتخاب نشده، این لینک باز می‌شود')

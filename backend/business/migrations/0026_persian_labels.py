@@ -285,7 +285,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='business',
             name='unique_code',
-            field=models.CharField(blank=True, db_index=True, help_text='کد یکتای عمومی کسب\u200cوکار؛ همان چیزی که در آدرس صفحهٔ رزرو می\u200cآید (\u200f/b/Noobatyar-<کد>). اگر خالی بماند یک کد ۸ کاراکتری خودکار ساخته می\u200cشود. برای کد دلخواه تا ۶۴ کاراکتر مجاز است. توجه: تغییر کد، لینک\u200cهای قبلیِ همین کسب\u200cوکار را از کار می\u200cاندازد.', max_length=64, unique=True, validators=[django.core.validators.RegexValidator(message='کد فقط می\u200cتواند شامل حروف انگلیسی، رقم، خط تیره (-) و زیرخط (_) باشد.', regex='^[A-Za-z0-9_-]+$')], verbose_name='کد یکتا'),
+            field=models.CharField(blank=True, db_index=True, help_text='کد یکتای عمومی کسب\u200cوکار؛ همان چیزی که در آدرس صفحه رزرو می\u200cآید (\u200f/b/Noobatyar-<کد>). اگر خالی بماند یک کد ۸ کاراکتری خودکار ساخته می\u200cشود. برای کد دلخواه تا ۶۴ کاراکتر مجاز است. توجه: تغییر کد، لینک\u200cهای قبلیِ همین کسب\u200cوکار را از کار می\u200cاندازد.', max_length=64, unique=True, validators=[django.core.validators.RegexValidator(message='کد فقط می\u200cتواند شامل حروف انگلیسی، رقم، خط تیره (-) و زیرخط (_) باشد.', regex='^[A-Za-z0-9_-]+$')], verbose_name='کد یکتا'),
         ),
         migrations.AlterField(
             model_name='business',

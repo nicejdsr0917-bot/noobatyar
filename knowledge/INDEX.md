@@ -2,16 +2,16 @@
 updated: 2026-11-05
 tags: [gf]
 ---
-# نوبت‌یار (Noobatyar) — نقشهٔ پروژه
+# نوبت‌یار (Noobatyar) — نقشه پروژه
 
-سامانهٔ نوبت‌دهی آنلاین برای کسب‌وکارهای ایرانی (سالن زیبایی، پزشک، دندان‌پزشک، مشاور…). **صاحب کسب‌وکار (owner)** با اپ KMP نوبت‌ها، مشتری‌ها، پیامک/پوش تبلیغاتی و اشتراکش را مدیریت می‌کند؛ **مشتری (client/visitor)** از وب Next.js (`app.noobatyar.ir`) نوبت می‌گیرد و در صورت نیاز بیعانه می‌دهد. یک **اپ مشتری موبایل** (کشف کسب‌وکار روی نقشه، رزرو، نظر، فالو صفحه‌ها) هم هست؛ از 2026-11-05 روی develop است (برنچ `mobile-client` ادغام شد). درآمد: اشتراک (`Plan`) و add-on از درگاه زیبال یا مایکت.
+سامانه نوبت‌دهی آنلاین برای کسب‌وکارهای ایرانی (سالن زیبایی، پزشک، دندان‌پزشک، مشاور…). **صاحب کسب‌وکار (owner)** با اپ KMP نوبت‌ها، مشتری‌ها، پیامک/پوش تبلیغاتی و اشتراکش را مدیریت می‌کند؛ **مشتری (client/visitor)** از وب Next.js (`app.noobatyar.ir`) نوبت می‌گیرد و در صورت نیاز بیعانه می‌دهد. یک **اپ مشتری موبایل** (کشف کسب‌وکار روی نقشه، رزرو، نظر، فالو صفحه‌ها) هم هست؛ از 2026-11-05 روی develop است (برنچ `mobile-client` ادغام شد). درآمد: اشتراک (`Plan`) و add-on از درگاه زیبال یا مایکت.
 
 مرجع کامل‌تر معماری/routeها: `.claude/PROJECT_GRAPH.md` و گراف کد در `.claude/graphify-out/`.
 
 ## Stack
 - Backend: Django 4.2 + DRF، JWT، ASGI (gunicorn/uvicorn)، Redis، Docker + nginx؛ SQLite محلی، Postgres در prod
 - Owner app: Kotlin Multiplatform + Compose (Android، iOS، wasmJs = پنل وب `panel.noobatyar.ir`)، Koin، Ktor، Room
-- Client web: Next.js 16 (app router، **نسخهٔ جدید با تغییرات شکننده** — `front_client/AGENTS.md`)، zustand، axios
+- Client web: Next.js 16 (app router، **نسخه جدید با تغییرات شکننده** — `front_client/AGENTS.md`)، zustand، axios
 - Client mobile: KMP + Compose (`mobile_client/`، روی develop)
 
 ## اجرا / build / تست
@@ -34,7 +34,7 @@ Env (`backend/.env.local`، از `.env.example`): `DEBUG`، `ALLOWED_HOSTS`، `Z
 ## ماژول‌ها
 - [[modules/backend-api-auth]] — کاربر، OTP، JWT، توکن دستگاه و FCM
 - [[modules/backend-business]] — کسب‌وکار، خدمات، moderation، پیامک تبلیغاتی، API عمومی کسب‌وکار، فالو و استوری (`backend/stories`)
-- [[modules/backend-appointment]] — نوبت، اسلات خالی، آمار، رزرو و بیعانهٔ مشتری
+- [[modules/backend-appointment]] — نوبت، اسلات خالی، آمار، رزرو و بیعانه مشتری
 - [[modules/backend-visitor]] — مشتری‌ها، auth مشتری، لاگ پیامک/پوش
 - [[modules/backend-accounting]] — پلن، اشتراک، add-on، پرداخت زیبال/مایکت، entitlements، VAT
 - [[modules/backend-core]] — settings/urls، ادمین سفارشی، کمپین‌ها، بله، versions، cron jobها

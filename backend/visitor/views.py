@@ -199,7 +199,7 @@ class VisitorView(APIView):
                 )
             except services.PhoneLocked:
                 return APIResponse.error(
-                    message="این مراجع از برنامهٔ مشتریان یا در کسب‌وکارهای دیگر استفاده می‌کند و شمارهٔ موبایل او قابل تغییر نیست؛ فقط نام قابل ویرایش است",
+                    message="این مراجع از برنامه مشتریان یا در کسب‌وکارهای دیگر استفاده می‌کند و شماره موبایل او قابل تغییر نیست؛ فقط نام قابل ویرایش است",
                     code=403
                 )
             except services.VisitorNotFound:

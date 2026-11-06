@@ -18,7 +18,7 @@ tags: [gf]
 
 ## روی برنچ mobile-client (۲۰۲۶-۱۰-۲۹، هنوز در develop نیست)
 - `Visitor.readable_by` با `Exists` (بدون JOIN/DISTINCT)؛ لیست مشتری‌ها در DB صفحه‌بندی (۲ کوئری).
-- `VisitorMessageHistoryView`: فقط کسب‌وکارهای خود اونر؛ `business_id` نامعتبر/`0` → صفحهٔ خالی (نه 404، به‌خاطر اپ‌های قدیمی).
+- `VisitorMessageHistoryView`: فقط کسب‌وکارهای خود اونر؛ `business_id` نامعتبر/`0` → صفحه خالی (نه 404، به‌خاطر اپ‌های قدیمی).
 
 ## تغییرات ۲۰۲۶-۱۰-۳۰ (برنچ mobile-client)
 - `visitor/services.py`: attach، update_by_owner، archive. attach هرگز مالکیت ردیف موجود را نمی‌دهد. شماره قفل است اگر `has_independent_identity` (ورود کلاینت، توکن پوش، اونر دیگر، نوبت جای دیگر).
@@ -36,4 +36,4 @@ tags: [gf]
 
 ## بیو و عکس در نظرها (2026-11-05)
 - `Visitor.bio` (حداکثر ۱۵۰) فقط برای خود مشتری است. `ClientMeUpdateSerializer`: `full_name` و `bio` هر دو اختیاری‌اند، حداقل یکی لازم است. bio تمیز می‌شود (فاصله‌ها و حداکثر یک خط خالی). migration `0015`.
-- `reviews.PublicReviewSerializer`: `visitor_avatar` اضافه شد و `visitor_phone` همیشه `""` است (قبلاً شمارهٔ پوشیده نشت می‌کرد). `OwnerReviewSerializer` شمارهٔ پوشیده را نگه می‌دارد. viewها `context={'request'}` می‌دهند تا URL عکس کامل باشد.
+- `reviews.PublicReviewSerializer`: `visitor_avatar` اضافه شد و `visitor_phone` همیشه `""` است (قبلاً شماره پوشیده نشت می‌کرد). `OwnerReviewSerializer` شماره پوشیده را نگه می‌دارد. viewها `context={'request'}` می‌دهند تا URL عکس کامل باشد.

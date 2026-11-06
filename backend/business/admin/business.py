@@ -45,7 +45,7 @@ class BusinessModerationLogInline(TabularInline):
     fields = ('created_jalali', 'transition', 'note', 'actor')
     readonly_fields = ('created_jalali', 'transition', 'note', 'actor')
     verbose_name = 'تصمیم بررسی'
-    verbose_name_plural = 'تاریخچهٔ بررسی'
+    verbose_name_plural = 'تاریخچه بررسی'
     ordering = ('-created_at',)
 
     # The log is an audit trail: it is written by moderation.apply_decision()
@@ -145,7 +145,7 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
     @admin.display(description='وضعیت پلن', ordering='is_locked')
     def lock_badge(self, obj):
         if obj.is_locked:
-            return _badge('🔒 قفل‌شده (سهمیهٔ پلن)', 'danger')
+            return _badge('🔒 قفل‌شده (سهمیه پلن)', 'danger')
         # Not a badge: "فعال" is the unremarkable state, and pilling it would
         # give the normal case the same visual weight as the one that needs
         # somebody to act.

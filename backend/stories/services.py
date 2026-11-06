@@ -109,11 +109,11 @@ def validate_platform_link(button, link_label, link_url):
     if button != Story.BUTTON_LINK:
         return '', ''
     if not link_label or not link_url:
-        raise StoryError('برای دکمهٔ لینک، متن و مقصد هر دو لازم است.')
+        raise StoryError('برای دکمه لینک، متن و مقصد هر دو لازم است.')
     if not link_url.startswith(LINK_SCHEMES):
         raise StoryError('مقصد لینک باید با https:// یا business: شروع شود.')
     if link_url.startswith('business:') and not link_url[len('business:'):].isdigit():
-        raise StoryError('بعد از business: شناسهٔ عددی کسب‌وکار بیاید.')
+        raise StoryError('بعد از business: شناسه عددی کسب‌وکار بیاید.')
     return link_label, link_url
 
 

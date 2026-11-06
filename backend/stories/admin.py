@@ -22,9 +22,9 @@ class StoryAdminForm(forms.ModelForm):
         button = data.get('button') or ''
         business = data.get('business')
         if button == Story.BUTTON_LINK and business is not None:
-            raise forms.ValidationError('دکمهٔ لینک فقط برای استوری خود نوبت‌یار است (کسب‌وکار را خالی بگذارید).')
+            raise forms.ValidationError('دکمه لینک فقط برای استوری خود نوبت‌یار است (کسب‌وکار را خالی بگذارید).')
         if button == Story.BUTTON_DISCOUNT and business is None:
-            raise forms.ValidationError('دکمهٔ تخفیف فقط برای استوری یک کسب‌وکار است.')
+            raise forms.ValidationError('دکمه تخفیف فقط برای استوری یک کسب‌وکار است.')
         try:
             data['link_label'], data['link_url'] = services.validate_platform_link(
                 button, data.get('link_label'), data.get('link_url'))

@@ -15,12 +15,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='story',
             name='link_label',
-            field=models.CharField(blank=True, default='', max_length=30, verbose_name='متن دکمهٔ لینک'),
+            field=models.CharField(blank=True, default='', max_length=30, verbose_name='متن دکمه لینک'),
         ),
         migrations.AddField(
             model_name='story',
             name='link_url',
-            field=models.CharField(blank=True, default='', help_text='آدرس https://… یا business:<شناسه> برای باز کردن صفحهٔ یک کسب\u200cوکار در اپ', max_length=500, verbose_name='مقصد لینک'),
+            field=models.CharField(blank=True, default='', help_text='آدرس https://… یا business:<شناسه> برای باز کردن صفحه یک کسب\u200cوکار در اپ', max_length=500, verbose_name='مقصد لینک'),
         ),
         migrations.AlterField(
             model_name='story',

@@ -21,8 +21,8 @@ class Migration(migrations.Migration):
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='ip_sightings', to=settings.AUTH_USER_MODEL, verbose_name='کاربر')),
             ],
             options={
-                'verbose_name': 'IP دیده\u200cشدهٔ کاربر',
-                'verbose_name_plural': 'IPهای دیده\u200cشدهٔ کاربران',
+                'verbose_name': 'IP دیده\u200cشده کاربر',
+                'verbose_name_plural': 'IPهای دیده\u200cشده کاربران',
             },
         ),
         migrations.AddConstraint(

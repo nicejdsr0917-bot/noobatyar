@@ -89,7 +89,7 @@ class Business(models.Model):
             message='کد فقط می‌تواند شامل حروف انگلیسی، رقم، خط تیره (-) و زیرخط (_) باشد.',
         )],
         help_text=(
-            'کد یکتای عمومی کسب‌وکار؛ همان چیزی که در آدرس صفحهٔ رزرو می‌آید '
+            'کد یکتای عمومی کسب‌وکار؛ همان چیزی که در آدرس صفحه رزرو می‌آید '
             '(‏/b/Noobatyar-<کد>). اگر خالی بماند یک کد ۸ کاراکتری خودکار ساخته '
             'می‌شود. برای کد دلخواه تا ۶۴ کاراکتر مجاز است. توجه: تغییر کد، '
             'لینک‌های قبلیِ همین کسب‌وکار را از کار می‌اندازد.'
@@ -138,7 +138,7 @@ class Business(models.Model):
     LOCATION_EXACT = 'EXACT'
     LOCATION_AREA = 'AREA'
     LOCATION_PRIVACY_CHOICES = [
-        (LOCATION_EXACT, 'نقطهٔ دقیق'),
+        (LOCATION_EXACT, 'نقطه دقیق'),
         (LOCATION_AREA, 'فقط محدوده'),
     ]
     location_privacy = models.CharField(
@@ -384,7 +384,7 @@ class Business(models.Model):
     first_visit_discount = models.PositiveSmallIntegerField(
         default=0,
         validators=[MaxValueValidator(MAX_FIRST_VISIT_DISCOUNT)],
-        help_text='درصد تخفیف اولین مراجعهٔ هر مشتری (حضوری). صفر یعنی خاموش.',
+        help_text='درصد تخفیف اولین مراجعه هر مشتری (حضوری). صفر یعنی خاموش.',
         verbose_name='تخفیف اولین مراجعه (درصد)',
     )
 

@@ -5,7 +5,7 @@ urlpatterns = [
     path('plans/', views.plan_list),               # لیست پلن‌ها
     path('my-subscription/', views.my_subscription),  # اشتراک من
     path('my-entitlements/', views.my_entitlements),  # قابلیت‌ها و مصرف
-    path('wallet/history/', views.wallet_history),     # موجودی و تاریخچهٔ اعتبار اضافه
+    path('wallet/history/', views.wallet_history),     # موجودی و تاریخچه اعتبار اضافه
     path('wallet/convert/', views.wallet_convert),     # تبدیل موجودی تومانی به پیامک/نوبت
 
     path('plans/payment/', views.pay_for_plan),

@@ -107,12 +107,12 @@
             <span>
               در صف از: {{ card.submitted_jalali }}
               {% if card.never_submitted %}
-                <span class="mq-warn">(بدون تاریخ ثبت — پیش از راه‌اندازی سامانهٔ بررسی)</span>
+                <span class="mq-warn">(بدون تاریخ ثبت — پیش از راه‌اندازی سامانه بررسی)</span>
               {% endif %}
             </span>
             {% if card.business.is_locked %}
               <span class="mq-sep">|</span>
-              <span class="mq-warn">🔒 قفل‌شده به‌دلیل سهمیهٔ پلن (مستقل از بررسی محتوا)</span>
+              <span class="mq-warn">🔒 قفل‌شده به‌دلیل سهمیه پلن (مستقل از بررسی محتوا)</span>
             {% endif %}
             {% if card.business.first_approved_at %}
               <span class="mq-sep">|</span>
@@ -166,7 +166,7 @@
         </form>
 
         <a href="{{ card.change_url }}" class="button" style="align-self:center">
-          مشاهدهٔ کامل
+          مشاهده کامل
         </a>
       </div>
     </div>
@@ -181,7 +181,7 @@
       {% if page_obj.has_previous %}
         <a href="?page={{ page_obj.previous_page_number }}">قبلی</a>
       {% endif %}
-      صفحهٔ {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}
+      صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}
       {% if page_obj.has_next %}
         <a href="?page={{ page_obj.next_page_number }}">بعدی</a>
       {% endif %}

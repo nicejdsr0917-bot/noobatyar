@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='business',
             name='first_visit_discount',
-            field=models.PositiveSmallIntegerField(default=0, help_text='درصد تخفیف اولین مراجعهٔ هر مشتری (حضوری). صفر یعنی خاموش.', validators=[django.core.validators.MaxValueValidator(50)], verbose_name='تخفیف اولین مراجعه (درصد)'),
+            field=models.PositiveSmallIntegerField(default=0, help_text='درصد تخفیف اولین مراجعه هر مشتری (حضوری). صفر یعنی خاموش.', validators=[django.core.validators.MaxValueValidator(50)], verbose_name='تخفیف اولین مراجعه (درصد)'),
         ),
     ]

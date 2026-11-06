@@ -48,10 +48,10 @@ class Story(models.Model):
     button = models.CharField(max_length=20, choices=BUTTON_CHOICES, blank=True, default=BUTTON_NONE, verbose_name='دکمه')
     discount_type = models.CharField(max_length=10, choices=DISCOUNT_CHOICES, blank=True, default='', verbose_name='نوع تخفیف')
     discount_value = models.PositiveIntegerField(null=True, blank=True, verbose_name='مقدار تخفیف')
-    link_label = models.CharField(max_length=LINK_LABEL_MAX, blank=True, default='', verbose_name='متن دکمهٔ لینک')
+    link_label = models.CharField(max_length=LINK_LABEL_MAX, blank=True, default='', verbose_name='متن دکمه لینک')
     link_url = models.CharField(
         max_length=500, blank=True, default='', verbose_name='مقصد لینک',
-        help_text='آدرس https://… یا business:<شناسه> برای باز کردن صفحهٔ یک کسب‌وکار در اپ',
+        help_text='آدرس https://… یا business:<شناسه> برای باز کردن صفحه یک کسب‌وکار در اپ',
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ')
     expires_at = models.DateTimeField(default=_expiry, db_index=True, verbose_name='انقضا')

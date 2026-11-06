@@ -25,7 +25,7 @@ tags: [gf]
 - `api/throttles.client_ip()` — IP مورد اعتماد بر اساس `NUM_PROXIES` (هرگز چپ‌ترین XFF).
 - انتقال HTTP پیامک/FCM در `backend/integrations/melipayamak.py`، `fcm.py`.
 
-## IP اونرها و نسخهٔ کلاینت (2026-11-04/05)
+## IP اونرها و نسخه کلاینت (2026-11-04/05)
 - `api/authentication.IpRecordingJWTAuthentication` (در `DEFAULT_AUTHENTICATION_CLASSES`) هر IP اونر را حداکثر ساعتی یک بار در `UserIpSighting` ثبت می‌کند. محدودیت با `cache.add` است؛ در تست `cache.clear()` لازم است. migration `0006`.
 - `Appointment.booking_ip` را `client_book(ip=...)` از `client_ip(request)` پر می‌کند.
 - `versions/views._requested_app`: درخواست بدون `app` با کد در `CLIENT_ONLY_CODES` (1789813665..1790244241) CLIENT حساب می‌شود. `versions/0004` نسخه‌های ۱.۱.۰ و ۱.۲.۰ کلاینت را seed می‌کند. بدون ردیف CLIENT جواب 404 است و اپ کلاینت آن را «خطای شبکه» نشان می‌دهد.

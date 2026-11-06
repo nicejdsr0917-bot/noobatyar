@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='business',
             name='location_privacy',
-            field=models.CharField(choices=[('EXACT', 'نقطهٔ دقیق'), ('AREA', 'فقط محدوده')], default='EXACT', max_length=8, verbose_name='نمایش موقعیت به مشتری'),
+            field=models.CharField(choices=[('EXACT', 'نقطه دقیق'), ('AREA', 'فقط محدوده')], default='EXACT', max_length=8, verbose_name='نمایش موقعیت به مشتری'),
         ),
     ]

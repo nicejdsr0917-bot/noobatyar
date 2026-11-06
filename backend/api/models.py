@@ -138,8 +138,8 @@ class UserIpSighting(models.Model):
     last_seen = models.DateTimeField(verbose_name='آخرین بار')
 
     class Meta:
-        verbose_name = 'IP دیده‌شدهٔ کاربر'
-        verbose_name_plural = 'IPهای دیده‌شدهٔ کاربران'
+        verbose_name = 'IP دیده‌شده کاربر'
+        verbose_name_plural = 'IPهای دیده‌شده کاربران'
         constraints = [models.UniqueConstraint(fields=['user', 'ip'], name='uniq_user_ip_sighting')]
 
     def __str__(self):

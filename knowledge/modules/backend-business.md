@@ -17,7 +17,7 @@ tags: [gf]
 `services` (لیست رشته، حداکثر ۶۰)، `closed_weekdays` (Mon=0..Sun=6)، `work_start/end_hour/minute`، `deposit_mode`/`deposit_amount`، `accepted_payment_methods`، `latitude/longitude`، `notice_enabled/notice_message`، `booking_enabled`، `theme_color`.
 
 ## شهر (روی برنچ `mobile-client`)
-- `Business.city_code` (شناسهٔ شهر در دیوار، migration `0030`)؛ `business/iran_cities.py` لیست را از `business/data/iran_cities.json` می‌خواند (`get_city`، `city_filter`).
+- `Business.city_code` (شناسه شهر در دیوار، migration `0030`)؛ `business/iran_cities.py` لیست را از `business/data/iran_cities.json` می‌خواند (`get_city`، `city_filter`).
 - serializer اونر `city_code` می‌گیرد و `city`/`province` را از لیست پر می‌کند (مقدار ارسالی اپ نادیده گرفته می‌شود)؛ کد ناشناخته ۴۰۰.
 - `api/client/businesses/?city_code=` → کسب‌وکارهای آن شهر + کسب‌وکارهای بدون `city_code` که پینشان داخل شعاع مرکز شهر است. تست‌ها: `business/tests_city_code.py`.
 
@@ -30,7 +30,7 @@ tags: [gf]
 
 ## روی برنچ mobile-client (۲۰۲۶-۱۰-۲۹، هنوز در develop نیست)
 - `business/models/` پکیج شد (core، moderation، catalog، booking، promo) با re-export کامل؛ schema بدون تغییر.
-- لیست/جزئیات عمومی: `business/selectors.py` (`public_businesses`، `attach_owner_state`) → تعداد کوئری ثابت (صفحهٔ ۱۰۰تایی ۱۰ کوئری). geo در SQL. migration `0031` (فقط Postgres، CONCURRENTLY): ایندکس trigram روی `UPPER(col)` چون Django `icontains` را `UPPER(col) LIKE` می‌سازد.
+- لیست/جزئیات عمومی: `business/selectors.py` (`public_businesses`، `attach_owner_state`) → تعداد کوئری ثابت (صفحه ۱۰۰تایی ۱۰ کوئری). geo در SQL. migration `0031` (فقط Postgres، CONCURRENTLY): ایندکس trigram روی `UPPER(col)` چون Django `icontains` را `UPPER(col) LIKE` می‌سازد.
 - `card_number`/`card_owner_name` از `PublicBusinessSerializer` و `ClientBusinessSerializer` حذف؛ فقط روی نوبت LOCKED خود مشتری (`ClientAppointmentSerializer`).
 - اکشن‌های گروهی ادمین از طریق `business/services.py`.
 
@@ -39,9 +39,9 @@ tags: [gf]
 - `public_policy.py`، `geo.py`، `selectors.public_business_search`، `categories.py` (`Business.CATEGORY_GROUPS` به‌صورت alias). `admin/` حالا یک بسته است.
 
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰
-- `business/first_free.py` → `attach_first_free_slots(rows)`: فیلد `first_free_slot` (epoch ms یا null) را بعد از کش payload به لیست و جزئیات عمومی (`client_views.py`) اضافه می‌کند. فقط برای کسب‌وکارهای claimed با رزرو فعال. هزینه‌اش دو کوئری در هر صفحه است: یکی کسب‌وکارها، یکی همهٔ نوبت‌های پنجره. کش ۳۰ ثانیه‌ای `first_free:{id}` دارد.
+- `business/first_free.py` → `attach_first_free_slots(rows)`: فیلد `first_free_slot` (epoch ms یا null) را بعد از کش payload به لیست و جزئیات عمومی (`client_views.py`) اضافه می‌کند. فقط برای کسب‌وکارهای claimed با رزرو فعال. هزینه‌اش دو کوئری در هر صفحه است: یکی کسب‌وکارها، یکی همه نوبت‌های پنجره. کش ۳۰ ثانیه‌ای `first_free:{id}` دارد.
 - تست‌های قرارداد (`tests_contract_shapes.py`) و تعداد کوئری (`MAX_LIST_QUERIES = 16`، و `tests_hot_endpoint_queries.py` با سقف ۱۴) برای این فیلد به‌روز شدند.
-- بنرها در `banners/` هستند و دقیقاً ۱۲۰۰×۴۰۰ پیکسل‌اند (validator). روی گروه دسته‌بندی (`BannerCategoryGroup`) یا یک دستهٔ مشخص تعریف می‌شوند. لینک مشترک‌شان `SiteSetting.banner_link_url` است.
+- بنرها در `banners/` هستند و دقیقاً ۱۲۰۰×۴۰۰ پیکسل‌اند (validator). روی گروه دسته‌بندی (`BannerCategoryGroup`) یا یک دسته مشخص تعریف می‌شوند. لینک مشترک‌شان `SiteSetting.banner_link_url` است.
 
 ## به‌روزرسانی ۲۰۲۶-۱۰-۳۰ (عصر)
 - `business/admin/business.py`: ستون `rank_column` («رتبه»، مرتب‌سازی `-rank_score`، «محاسبه نشده» تا اولین اجرای cron). `rating_avg`، `rating_count`، `rank_score`، `rank_updated_at` فقط‌خواندنی‌اند. تست در `tests_admin_smoke.py`.
@@ -55,11 +55,11 @@ tags: [gf]
 - `ClientBusinessListView` و `ClientBusinessDetailView` (`client_views.py`): `authentication_classes = [VisitorTokenAuthentication, JWTAuthentication]`. مشتری واردشده «نمایش به مهمان خاموش» مالک را دور می‌زند؛ توکن بد ۴۰۱ می‌دهد. درخواست دارای Authorization کش عمومی را رد می‌کند. تست: `tests_contact_policy`.
 
 ## فرمان‌های seed (2026-10-31 شب)
-- `seed_insurances` (از `business/insurance_catalog.py`): ۱۹ بیمهٔ تکمیلی و ۳ پایه؛ idempotent؛ روی سرور اجرا شود.
-- `seed_demo_businesses --count N`: کسب‌وکار `DEMO0001…` در همهٔ گروه‌ها با صاحب و اشتراک؛ فقط محلی/staging.
+- `seed_insurances` (از `business/insurance_catalog.py`): ۱۹ بیمه تکمیلی و ۳ پایه؛ idempotent؛ روی سرور اجرا شود.
+- `seed_demo_businesses --count N`: کسب‌وکار `DEMO0001…` در همه گروه‌ها با صاحب و اشتراک؛ فقط محلی/staging.
 
 ## ورود از فایل و فرم هر صنف (2026-11-01)
-- `directory_import.run_import(rows, source, dry_run, require_city, default_category)`: هستهٔ مشترک ادمین و `import_directory`. مراکز بی‌تیک (`is_claimed=False`، رزرو خاموش، کاربر سیستمی). گزارش: `ImportReport` (تکراری، نامعتبر با شمارهٔ ردیف، `warning_list`).
+- `directory_import.run_import(rows, source, dry_run, require_city, default_category)`: هسته مشترک ادمین و `import_directory`. مراکز بی‌تیک (`is_claimed=False`، رزرو خاموش، کاربر سیستمی). گزارش: `ImportReport` (تکراری، نامعتبر با شماره ردیف، `warning_list`).
 - ادمین: `/admin/business/business/import-file/?guild=KEY` (بارگذاری یا چسباندن از اکسل، پیش‌نمایش، توکن تأیید، فایل در `MEDIA_ROOT/tmp_imports` تا ۲۴ ساعت) و قالب نمونه (`?guild=` برای هر صنف).
 - `DirectoryFormMixin` (`admin/directory_form.py`): فرم افزودن بخش‌بندی‌شده، پیش‌فرض‌ها، `city_code` از نام شهر، تأیید خودکار مرکز بی‌تیک.
 - هشت proxy (`models/guilds.py`، `GUILDS`) با ادمین جدا (`admin/guilds.py`) و بخش «ثبت مرکز» در منو. `_GUILD_MENU` در `settings.py` دستی است (تست مقایسه می‌کند).
@@ -71,9 +71,9 @@ tags: [gf]
 - `public_policy._mask_phone` آن را هم `{}` می‌کند: هر جا تلفن پنهان است، شبکه‌ها هم پنهان‌اند.
 - تست: `tests_social_links.py`؛ `tests_contract_shapes` کلید `social_links: dict` دارد.
 
-## بیعانهٔ اجباری بدون روش آنلاین (2026-11-02)
+## بیعانه اجباری بدون روش آنلاین (2026-11-02)
 - `BusinessSerializer.validate`: `deposit_mode=MANDATORY` بدون `CARD` یا `ONLINE` رد می‌شود، **فقط وقتی** بیعانه یا روش‌ها در همین ذخیره عوض شوند (اپ‌های اونر کل کسب‌وکار را می‌فرستند؛ اونرِ قدیمی با این تنظیم باید بتواند اسمش را عوض کند).
-- `seed_demo_businesses`: بیعانهٔ اجباری حالا با کارت (`6037997599999999`) ساخته می‌شود.
+- `seed_demo_businesses`: بیعانه اجباری حالا با کارت (`6037997599999999`) ساخته می‌شود.
 
 ## فالو و سقف بیعانه (2026-11-04/05)
 - `BusinessFollow` (`models/follow.py`): unique روی business و visitor. `Business.followers_count` را فقط `follows.set_following` با `F()` به‌روز می‌کند و `public_cache.bump_business` را صدا می‌زند. migration `0037`.
@@ -81,7 +81,7 @@ tags: [gf]
   - `POST/DELETE client/businesses/<id>/follow/` (Visitor)
   - `GET client/businesses/following/`
   - `is_following` فقط روی detail برای Visitor برمی‌گردد، بیرون از cache.
-- `followers_count` در همهٔ serializerها هست و در `tests_contract_shapes` pin شده است.
+- `followers_count` در همه serializerها هست و در `tests_contract_shapes` pin شده است.
 - **حریم خصوصی:** فهرست دنبال‌کننده‌ها به هیچ‌کس، حتی اونر، داده نمی‌شود؛ فقط تعداد.
 - `Business.MAX_DEPOSIT_AMOUNT = 1_000_000`: `BusinessSerializer.validate` فقط وقتی مبلغ عوض شود رد می‌کند.
 
@@ -114,7 +114,7 @@ tags: [gf]
   - وقتی `appointment_change_status_by_owner` نوبت را `COMPLETED` می‌کند، `queue_review_request` صدا زده می‌شود.
   - job outbox `reviews.review_request_push` با dedupe روی `review_request:<id>`.
   - `send_review_request_push` پوش رایگان و بدون محدودیت پلن به `VisitorDeviceToken`ها می‌فرستد، با لینک `?review=1` وب.
-- `GET pending/` با `pending_review_prompts`: نوبت‌های انجام‌شدهٔ ۱۴ روز اخیر، بدون نظر، و فقط کسب‌وکارهای عمومی.
+- `GET pending/` با `pending_review_prompts`: نوبت‌های انجام‌شده ۱۴ روز اخیر، بدون نظر، و فقط کسب‌وکارهای عمومی.
 
 ## استوری نوبت‌یار و فید (`backend/stories/`، 2026-11-05)
 - `Story.business` اختیاری است. استوری بدون کسب‌وکار یعنی استوری نوبت‌یار، که از ادمین ساخته می‌شود (`StoryAdmin` در unfold، منوی «رشد»).
@@ -122,7 +122,7 @@ tags: [gf]
 - `services.feed`: نوبت‌یار، بعد کسب‌وکارهای فالوشده، بعد کسب‌وکارهای همان شهر.
 - endpointها: `client/stories/feed/` و `client/stories/platform/`. `active_business_ids` فقط کسب‌وکارها را برمی‌گرداند.
 
-## تنظیمات تازهٔ اونر (2026-11-05)
+## تنظیمات تازه اونر (2026-11-05)
 - `first_visit.py`: `GET/PUT /api/business/<id>/first-visit-discount/`. `Business.first_visit_discount` (۰ تا ۵۰، migration `0039`) در payload عمومی و کلاینت هم هست.
 - `capacity_views.py`: `GET/PUT /api/business/<id>/booking-capacity/` برای `slot_capacity` و `hold_minutes` (migration `0040`).
   - ظرفیت بیش از ۱ با `validate_business_settings` قابلیت `FEATURE_CAPACITY_CONTROL` را چک می‌کند.
@@ -132,4 +132,4 @@ tags: [gf]
 - `Insurance.logo` (migration `business/0042`) از ادمین آپلود می‌شود. `InsuranceSerializer.logo` آدرس نسبی (`/media/insurance_logos/...`) یا `null` برمی‌گرداند.
 - `manage.py seed_insurance_logos [--force]` لوگوهای `business/insurance_logos/<slug>.png` (۲۵۶ پیکسل) را وصل می‌کند. بدون `--force` لوگوی آپلودشده از ادمین را دست نمی‌زند. روی prod اجرا شد: ۲۰ از ۲۲. آتیه‌سازان حافظ و نیروهای مسلح لوگو ندارند.
 - منبع لوگوها: SVGهای `assets.bimeh.com/resources/images/logos/<NAME>.svg` (با Chrome headless رندر شدند)، تأمین اجتماعی از Wikimedia، سلامت از پیش‌نمایش زیپ کاربر.
-- `SmsLogVisitorSerializer.phone_number` و `visitor.SmsLogSerializer.visitor_phone` با `business.claims.mask_phone` ماسک می‌شوند. جستجوی شماره در سرور همچنان کار می‌کند. جزئیات کمپین پیامک تبلیغاتی (`promo-sms/<id>/`) هنوز شمارهٔ کامل می‌دهد (تست آن را عمداً چک می‌کند).
+- `SmsLogVisitorSerializer.phone_number` و `visitor.SmsLogSerializer.visitor_phone` با `business.claims.mask_phone` ماسک می‌شوند. جستجوی شماره در سرور همچنان کار می‌کند. جزئیات کمپین پیامک تبلیغاتی (`promo-sms/<id>/`) هنوز شماره کامل می‌دهد (تست آن را عمداً چک می‌کند).

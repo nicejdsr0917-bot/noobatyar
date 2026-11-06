@@ -88,7 +88,7 @@ WALLET_METRICS = (
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def wallet_history(request):
-    """موجودی و تاریخچهٔ کیف‌پول تومانی و اعتبار اضافه (بسته‌های افزودنی) — صفحه‌بندی‌شده.
+    """موجودی و تاریخچه کیف‌پول تومانی و اعتبار اضافه (بسته‌های افزودنی) — صفحه‌بندی‌شده.
 
     Only the persistent wallets are listed (toman, booking and SMS credit);
     monthly counters are not something the owner owns. Wallets belong to the
