@@ -10,6 +10,22 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.13.2 — 2026-11-06 (اپ اونر)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- برای پزشکان و دندان‌پزشکان: بیمه تکمیلی مراجع (با لوگوی بیمه) کنار هر نوبت دیده می‌شود.
+- کد پیگیری پرداخت بیعانه روی کارت صف نمایش داده می‌شود.
+- کارت‌های صف و نوبت کوتاه‌تر و مرتب‌تر شدند؛ وضعیت نوبت کنار نام مراجع است.
+- جهت فلش‌ها در همه صفحه‌ها درست شد.
+- متن‌ها یکدست و خواناتر شدند و نوشته‌های ریز کمی بزرگ‌تر.
+<!-- fa:end -->
+
+### mobile_owner
+- Supplementary insurance (`insurance_name`/`insurance_logo` from `appointment/query`) on the queue and appointment cards, medical guilds only; deposit tracking code on the queue card. Room v25.
+- `ForwardChevron` for every go-to chevron ("<" in RTL); 21 icon-only buttons labelled; `labelSmall` 12sp; first-visit badge readable in dark mode.
+- No hamza in any string.
+
 ## v1.13.1 — 2026-11-05 (اپ اونر)
 
 <!-- fa:start -->
