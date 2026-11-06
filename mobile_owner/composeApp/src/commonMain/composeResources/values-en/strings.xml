@@ -183,6 +183,8 @@
     <string name="no_appointments_recorded_today">No appointments on this day.</string>
     <string name="minutes_label">%d min</string>
     <string name="payment_receipt">Payment receipt</string>
+    <string name="deposit_via_gateway">Deposit via gateway</string>
+    <string name="deposit_via_card">Deposit by card</string>
     <string name="deposit_paid_label">Deposit paid</string>
     <string name="deposit_method_card">Card transfer</string>
     <string name="deposit_method_gateway">Online payment (gateway)</string>

@@ -212,6 +212,8 @@
 
     <!-- Queue Item -->
     <string name="payment_receipt">فیش پرداخت</string>
+    <string name="deposit_via_gateway">بیعانه با درگاه</string>
+    <string name="deposit_via_card">بیعانه کارت‌به‌کارت</string>
     <string name="deposit_paid_label">بیعانه پرداخت شده</string>
     <string name="deposit_method_card">کارت به کارت</string>
     <string name="deposit_method_gateway">پرداخت آنلاین (درگاه)</string>

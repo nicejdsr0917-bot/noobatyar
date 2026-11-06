@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.grid.items
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import xyz.sattar.javid.proqueue.core.ui.components.SourceBadge
 import xyz.sattar.javid.proqueue.core.ui.components.InsuranceLine
+import xyz.sattar.javid.proqueue.core.ui.components.PaymentTrackingLine
+import xyz.sattar.javid.proqueue.core.ui.components.paymentTrackingCode
 import xyz.sattar.javid.proqueue.core.ui.components.visibleInsuranceName
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -687,7 +689,7 @@ fun AppointmentCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -739,37 +741,29 @@ fun AppointmentCard(
 
                         InsuranceLine(insuranceName, appointment.insuranceLogo)
 
-                        // Deposit summary — a gateway payment has a tracking
-                        // reference but no receipt image, so this stands on its
-                        // own. An owner meeting the client in person to collect
-                        // the remainder needs to see that a deposit was already
-                        // taken, and through which channel.
+                        // Deposit: how it was paid, and its tracking code as an
+                        // item of its own, so each stays one short line and
+                        // they sit beside the note and insurance when they fit.
+                        // An owner meeting the client to collect the rest needs
+                        // to see a deposit was already taken, and how.
                         if (hasDeposit) {
+                            val isGateway = appointment.depositPaymentMethod == "GATEWAY"
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = if (appointment.depositPaymentMethod == "GATEWAY")
-                                        Icons.Rounded.CreditCard else Icons.Rounded.Payments,
+                                    imageVector = if (isGateway) Icons.Rounded.CreditCard else Icons.Rounded.Payments,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = Str.deposit_paid_label + " — " + (
-                                        if (appointment.depositPaymentMethod == "GATEWAY")
-                                            Str.deposit_method_gateway
-                                        else Str.deposit_method_card
-                                    ) + (appointment.paymentReference?.takeIf { it.isNotBlank() }
-                                        ?.let { " · ${Str.tracking_number_label}: $it" } ?: ""),
+                                    text = if (isGateway) Str.deposit_via_gateway else Str.deposit_via_card,
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.primary,
-                                    // Two lines, not an ellipsis: the tracking
-                                    // number is at the end, and a cut-off one is
-                                    // useless to an owner checking a payment.
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
+                                    maxLines = 1
                                 )
                             }
+                            PaymentTrackingLine(appointment.paymentTrackingCode())
                         }
                     }
 
