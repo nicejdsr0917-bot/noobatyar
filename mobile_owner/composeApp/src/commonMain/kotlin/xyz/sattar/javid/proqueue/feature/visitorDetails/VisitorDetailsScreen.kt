@@ -290,7 +290,7 @@ fun VisitorDetailsScreenContent(
                 title = { Text(Str.visitor_details_title) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = Str.back)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -955,7 +955,7 @@ fun MessageItemCard(
                     if (!message.remote) {
                         var showMenu by remember { mutableStateOf(false) }
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = null)
+                            Icon(Icons.Rounded.MoreVert, contentDescription = Str.more_options)
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             DropdownMenuItem(

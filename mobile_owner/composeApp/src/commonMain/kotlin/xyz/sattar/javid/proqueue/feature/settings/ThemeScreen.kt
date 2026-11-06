@@ -128,7 +128,7 @@ fun ThemeScreen(onNavigateBack: () -> Unit) {
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = Str.back)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

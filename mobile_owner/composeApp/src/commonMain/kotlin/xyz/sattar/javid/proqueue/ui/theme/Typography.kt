@@ -142,10 +142,12 @@ fun appTypography(fontFamily: FontFamily = appFontFamily()) = Typography(
         lineHeight = 16.sp,
         letterSpacing = 0.5.sp
     ),
+    // 12sp, not Material's 11: badges and chips use it, and 11sp Persian
+    // is below the readable minimum. Line height is unchanged, so nothing grows.
     labelSmall = TextStyle(
         fontFamily = fontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
+        fontSize = 12.sp,
         lineHeight = 16.sp,
         letterSpacing = 0.5.sp
     )

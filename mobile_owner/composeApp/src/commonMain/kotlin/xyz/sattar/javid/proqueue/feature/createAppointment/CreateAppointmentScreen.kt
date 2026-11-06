@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.createAppointment
 
+import xyz.sattar.javid.proqueue.core.ui.components.ForwardChevron
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.showToasty
 import androidx.compose.animation.AnimatedVisibility
@@ -783,7 +784,7 @@ private fun AppointmentHeroCard(
                             color = Color.White
                         )
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                            imageVector = ForwardChevron,
                             contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.size(18.dp)

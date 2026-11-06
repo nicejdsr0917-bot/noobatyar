@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.aboutUs
 
+import xyz.sattar.javid.proqueue.core.ui.components.ForwardChevron
 import xyz.sattar.javid.proqueue.core.AppLinks
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
@@ -95,7 +96,7 @@ fun AboutUsContent(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = Str.back)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -640,7 +641,7 @@ private fun SocialRow(
         }
 
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            imageVector = ForwardChevron,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(20.dp)

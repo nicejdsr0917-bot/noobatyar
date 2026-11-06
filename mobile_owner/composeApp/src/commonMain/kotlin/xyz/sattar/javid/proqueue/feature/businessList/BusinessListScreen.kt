@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.businessList
 
+import xyz.sattar.javid.proqueue.core.ui.components.ForwardChevron
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.animation.core.Animatable
@@ -433,7 +434,7 @@ fun BusinessItem(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    imageVector = ForwardChevron,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)

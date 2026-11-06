@@ -152,7 +152,7 @@ fun WalletContent(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = Str.back)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -511,12 +511,12 @@ private fun ConvertDialog(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()) {
                     IconButton(onClick = { count = (count - 1).coerceAtLeast(if (max > 0) 1 else 0) }, enabled = count > 1) {
-                        Icon(Icons.Rounded.Remove, contentDescription = null)
+                        Icon(Icons.Rounded.Remove, contentDescription = Str.decrease)
                     }
                     Text(count.fa(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 16.dp))
                     IconButton(onClick = { count = (count + 1).coerceAtMost(max) }, enabled = count < max) {
-                        Icon(Icons.Rounded.Add, contentDescription = null)
+                        Icon(Icons.Rounded.Add, contentDescription = Str.increase)
                     }
                     TextButton(onClick = { count = max }, enabled = max > 0 && count < max) { Text(Str.wallet_convert_max) }
                 }

@@ -565,7 +565,7 @@ fun VisitorItem(
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
                         imageVector = Icons.Rounded.MoreVert,
-                        contentDescription = null,
+                        contentDescription = Str.more_options,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

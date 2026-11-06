@@ -1189,4 +1189,7 @@
     <string name="hold_minutes_row_subtitle">چند دقیقه نوبت تا پرداخت بیعانه نگه داشته شود</string>
     <string name="supplementary_insurance_label">بیمه تکمیلی</string>
     <string name="payment_tracking_short">پیگیری</string>
+    <string name="increase">افزایش</string>
+    <string name="decrease">کاهش</string>
+    <string name="more_options">گزینه‌های بیشتر</string>
 </resources>

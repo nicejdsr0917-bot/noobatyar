@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.ui.components.ForwardChevron
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.i18n.AppLocale
 import androidx.compose.animation.AnimatedContent
@@ -180,7 +181,7 @@ fun HomeTrendCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Icon(
-                    imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
+                    imageVector = ForwardChevron,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp),

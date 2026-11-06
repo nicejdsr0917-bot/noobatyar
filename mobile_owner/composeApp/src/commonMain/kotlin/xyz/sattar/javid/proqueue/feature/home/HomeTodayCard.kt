@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.home
 
+import xyz.sattar.javid.proqueue.core.ui.components.ForwardChevron
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -191,7 +192,7 @@ private fun QueueChip(count: Int, onClick: () -> Unit) {
             color = tint,
         )
         Icon(
-            imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
+            imageVector = ForwardChevron,
             contentDescription = null,
             tint = tint,
             modifier = Modifier.size(16.dp),
