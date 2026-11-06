@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05 22:42
+updated: 2026-11-06
 tags: [gf]
 ---
 # وب مشتری (front_client)
@@ -49,3 +49,6 @@ tags: [gf]
 
 ## تم روشن پیش‌فرض (2026-11-05 شب)
 - `themeScript` در `app/layout.tsx` همیشه `data-theme` می‌گذارد (`light` مگر اینکه کاربر dark ذخیره کرده باشد). دیگر به تم سیستم‌عامل نگاه نمی‌کند. `themeColor` فقط بنفش است.
+
+## بیمه تکمیلی در رزرو (2026-11-06)
+- `app/b/[slug]/book/page.tsx`: اگر `business.takes_insurance` باشد، بیمه‌های `SUPPLEMENTARY` با لوگو (`mediaUrl`) و گزینه «ندارم» به‌شکل چیپ نشان داده می‌شوند. `bookAppointment(..., insuranceSlug)` فیلد `insurance` را می‌فرستد و در `booking_intent` هم ذخیره می‌شود.

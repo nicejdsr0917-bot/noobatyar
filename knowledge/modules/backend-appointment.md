@@ -66,3 +66,5 @@ tags: [gf]
   - `appointment_store_gateway_track_id` زمان را به دست‌کم `GATEWAY_HOLD_MINUTES = 10` می‌رساند و هیچ‌وقت کوتاهش نمی‌کند.
 - تست‌ها در `appointment/tests_capacity_hold.py`.
 - `AppointmentQuerySerializer.first_visit_discount`: درصد تخفیف کسب‌وکار، اگر این اولین مراجعه مشتری باشد.
+- `Appointment.insurance` (FK اختیاری به `business.Insurance`، migration `0019`): بیمه تکمیلی‌ای که مراجع موقع رزرو انتخاب کرده. فقط `client_book(..., insurance_slug=)` آن را پر می‌کند. `_supplementary_insurance_id` فقط بیمه تکمیلیِ فعالِ خود کسب‌وکار را قبول می‌کند، آن هم فقط اگر `takes_insurance(category)` باشد. بقیه بی‌صدا رد می‌شوند.
+- `AppointmentQuerySerializer.insurance_name` و `insurance_logo` (مسیر نسبی). `appointment_list_for_business` شامل `select_related('visitor', 'insurance')` است. تست‌ها در `tests_insurance.py`.

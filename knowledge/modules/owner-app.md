@@ -92,3 +92,11 @@ tags: [gf]
 - آیکن «نوبت‌یار کارفرما» مشکی است: `brand/apply-to-apps.js` نسخه اونر را از همان SVGها با جایگزینی رنگ‌های بنفش (`OWNER_STOPS`) می‌سازد (اندروید، iOS، پنل وب، `main_icon`). commit `664fdc6` آیکن سرمه‌ای قبلی را با بنفش جایگزین کرده بود.
 - فایل مارکت: `brand/png/noobatyar-owner-store-512.png`.
 - پیش‌فرض تم روشن است، در اندروید، iOS و wasm. wasm قبلاً پیش‌فرض دارک داشت.
+- **بیمه و کد پیگیری (2026-11-06):** `core/ui/components/AppointmentInfoLines.kt` شامل این‌هاست:
+  - `paymentTrackingCode()`: فقط وقتی بیعانه CARD/GATEWAY پرداخت شده.
+  - `visibleInsuranceName(category)`: فقط برای صنف پزشکی. دسته ناشناخته را به سرور می‌سپارد.
+  - `InsuranceLine`: لوگو و نام، بدون برچسب.
+  - `PaymentTrackingLine`: «پیگیری: …»، قابل انتخاب.
+  - `QueueItemCard` و `AppointmentCard` آیتم‌ها را در `FlowRow` نشان می‌دهند. Room نسخه ۲۵ است (`insuranceName/insuranceLogo`).
+- **`ForwardChevron`** = `Icons.AutoMirrored.Rounded.KeyboardArrowRight`: «<» در فارسی. هرگز آیکن auto-mirrored را با `isRtl` بین Left و Right انتخاب نکن (دوبار برعکس می‌شود).
+- `labelSmall` ۱۲sp است (نه ۱۱). دکمه‌های فقط‌آیکنی برچسب `Str.back/increase/decrease/more_options` دارند.

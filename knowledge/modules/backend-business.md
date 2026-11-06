@@ -133,3 +133,5 @@ tags: [gf]
 - `manage.py seed_insurance_logos [--force]` لوگوهای `business/insurance_logos/<slug>.png` (۲۵۶ پیکسل) را وصل می‌کند. بدون `--force` لوگوی آپلودشده از ادمین را دست نمی‌زند. روی prod اجرا شد: ۲۰ از ۲۲. آتیه‌سازان حافظ و نیروهای مسلح لوگو ندارند.
 - منبع لوگوها: SVGهای `assets.bimeh.com/resources/images/logos/<NAME>.svg` (با Chrome headless رندر شدند)، تامین اجتماعی از Wikimedia، سلامت از پیش‌نمایش زیپ کاربر.
 - `SmsLogVisitorSerializer.phone_number` و `visitor.SmsLogSerializer.visitor_phone` با `business.claims.mask_phone` ماسک می‌شوند. جستجوی شماره در سرور همچنان کار می‌کند. جزییات کمپین پیامک تبلیغاتی (`promo-sms/<id>/`) هنوز شماره کامل می‌دهد (تست آن را عمداً چک می‌کند).
+- `models/guilds.takes_insurance(category)`: آیا دسته در صنف‌های `TAKES_INSURANCE` (پزشکی، دندان، سلامت) است. خروجی عمومی و کلاینت کسب‌وکار (`PublicBusinessSerializer`، `ClientBusinessSerializer`) فیلد `takes_insurance` دارند و `tests_contract_shapes` آن را چک می‌کند.
+- `directory_import._plain` همزه را fold می‌کند (U+0623/U+0625→ا، U+0624→و، U+0626→ی، حذف U+0621 و U+0654، U+06C0→ه). نام‌های پروژه و `iran_cities.json` دیگر همزه ندارند («نایین»).
