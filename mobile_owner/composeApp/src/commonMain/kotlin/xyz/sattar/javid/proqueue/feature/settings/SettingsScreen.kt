@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.settings
 
+import xyz.sattar.javid.proqueue.core.ui.components.ForwardChevron
 import xyz.sattar.javid.proqueue.feature.createBusiness.AdvancedSection
 import xyz.sattar.javid.proqueue.feature.home.FirstVisitDiscountSheet
 import xyz.sattar.javid.proqueue.feature.home.HomeCard
@@ -742,7 +743,7 @@ private fun ProfileRow(
             }
         }
         Icon(
-            imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
+            imageVector = ForwardChevron,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -1093,7 +1094,7 @@ private fun SettingsItem(
         }
         if (!centerVertically) {
             Icon(
-                imageVector = if (AppLocale.isRtl) Icons.Rounded.ChevronLeft else Icons.Rounded.ChevronRight,
+                imageVector = ForwardChevron,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = tint.copy(alpha = 0.5f)

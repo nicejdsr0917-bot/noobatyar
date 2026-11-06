@@ -1,5 +1,6 @@
 package xyz.sattar.javid.proqueue.feature.login
 
+import xyz.sattar.javid.proqueue.core.ui.components.ForwardChevron
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.ui.components.AuthHeaderIllustrationSize
 import xyz.sattar.javid.proqueue.core.ui.components.BrandIllustration
@@ -354,7 +355,7 @@ private fun NoAccountCard(
                 color = MaterialTheme.colorScheme.primary
             )
             Icon(
-                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                imageVector = ForwardChevron,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)
