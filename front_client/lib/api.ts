@@ -25,8 +25,10 @@ export interface BusinessInsurance {
 export interface Business {
   id: number;
   title: string;
-  /** Insurances accepted (medical guilds only); absent on an older server. */
+  /** Insurances accepted; absent on an older server. */
   insurances?: BusinessInsurance[];
+  /** Medical guilds only: the booking page asks for the client's supplementary insurance. */
+  takes_insurance?: boolean;
   category: string;
   /** Persian label as the server rendered it. Preferred over the local map so
    *  a category added after this build shipped still reads correctly. */

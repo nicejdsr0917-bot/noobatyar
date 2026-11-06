@@ -177,8 +177,12 @@ def travel_estimate(data):
 
 
 def _supplementary_insurance_id(business, slug):
-    """Id of ``slug`` when it is an active supplementary insurance the business takes, else None."""
-    if not slug:
+    """Id of ``slug`` when it is an active supplementary insurance the business takes, else None.
+
+    Only medical guilds (TAKES_INSURANCE) record one; a salon never does."""
+    from business.models.guilds import takes_insurance
+
+    if not slug or not takes_insurance(business.category):
         return None
     return business.insurances.filter(
         slug=slug, insurance_type='SUPPLEMENTARY', is_active=True,

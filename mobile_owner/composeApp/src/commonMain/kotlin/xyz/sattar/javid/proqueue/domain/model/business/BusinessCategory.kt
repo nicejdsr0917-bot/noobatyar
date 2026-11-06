@@ -121,4 +121,7 @@ enum class BusinessCategoryGroup(private val persianNameRef: () -> String) {
     OTHER(Str::other),;
 
     val persianName: String get() = persianNameRef()
+
+    /** Doctors, dentists and health practices take insurance; a salon never does. */
+    val takesInsurance: Boolean get() = this == MEDICAL || this == DENTAL || this == HEALTH
 }

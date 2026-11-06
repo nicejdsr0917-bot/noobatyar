@@ -22,4 +22,6 @@ data class Appointment(
     val firstVisitDiscount: Int = 0,
     /** Supplementary insurance the client picked at booking; null for none. */
     val insuranceName: String? = null,
+    /** Its logo (site-relative path), null without one. */
+    val insuranceLogo: String? = null,
 )

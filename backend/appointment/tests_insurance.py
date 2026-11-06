@@ -14,6 +14,8 @@ class BookingInsuranceTests(_Fixture):
         self.basic = Insurance.objects.create(name='تأمین اجتماعی', slug='tamin', insurance_type='BASIC')
         self.other = Insurance.objects.create(name='ایران', slug='iran', insurance_type='SUPPLEMENTARY')
         self.business.insurances.add(self.supp, self.basic)
+        self.business.category = 'DENTIST'
+        self.business.save(update_fields=['category'])
 
     def test_picked_supplementary_is_stored(self):
         self.assertEqual(self.book(insurance='day').status_code, 200)
@@ -26,6 +28,12 @@ class BookingInsuranceTests(_Fixture):
             self.assertEqual(r.status_code, 200, (slug, r.content))
             self.assertIsNone(Appointment.objects.get().insurance_id, slug)
 
+    def test_non_medical_business_never_records_one(self):
+        self.business.category = 'WOMENS_SALON'
+        self.business.save(update_fields=['category'])
+        self.assertEqual(self.book(insurance='day').status_code, 200)
+        self.assertIsNone(Appointment.objects.get().insurance_id)
+
     def test_omitted_is_null(self):
         self.assertEqual(self.book().status_code, 200)
         self.assertIsNone(Appointment.objects.get().insurance_id)
@@ -36,6 +44,7 @@ class BookingInsuranceTests(_Fixture):
         api.force_authenticate(user=self.business.user)
         rows = api.get('/api/appointment/query', {'business_id': self.business.id}).json()['data']['results']
         self.assertEqual(rows[0]['insurance_name'], 'دی')
+        self.assertIsNone(rows[0]['insurance_logo'])
         Appointment.objects.update(insurance=None)
         rows = api.get('/api/appointment/query', {'business_id': self.business.id}).json()['data']['results']
         self.assertIsNone(rows[0]['insurance_name'])

@@ -128,6 +128,7 @@ class AppointmentRepositoryImpl(
                     source = dto.source,
                     firstVisitDiscount = dto.firstVisitDiscount,
                     insuranceName = dto.insuranceName,
+                    insuranceLogo = dto.insuranceLogo,
                     createdAt = DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
                     updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                 )
@@ -374,6 +375,7 @@ class AppointmentRepositoryImpl(
                     source = dto.source,
                     firstVisitDiscount = dto.firstVisitDiscount,
                     insuranceName = dto.insuranceName,
+                    insuranceLogo = dto.insuranceLogo,
                         createdAt = DateTimeUtils.parseIsoToEpochMillis(dto.createdAt),
                         updatedAt = DateTimeUtils.parseIsoToEpochMillis(dto.updatedAt)
                     )

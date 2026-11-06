@@ -51,5 +51,6 @@ data class AppointmentEntity(
     /** Percent off for a new client's first visit; 0 for none. */
     val firstVisitDiscount: Int = 0,
     /** Supplementary insurance the client picked at booking; null for none. */
-    val insuranceName: String? = null
+    val insuranceName: String? = null,
+    val insuranceLogo: String? = null
 )

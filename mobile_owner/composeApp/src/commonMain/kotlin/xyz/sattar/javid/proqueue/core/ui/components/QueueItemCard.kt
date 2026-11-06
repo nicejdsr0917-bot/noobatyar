@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,6 +60,7 @@ import xyz.sattar.javid.proqueue.core.utils.openWhatsApp
 import xyz.sattar.javid.proqueue.feature.home.QueueItem
 import xyz.sattar.javid.proqueue.feature.share.ReminderCardDialog
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun QueueItemCard(
     item: QueueItem,
@@ -120,18 +123,25 @@ fun QueueItemCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = item.visitorName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                SourceBadge(item.appointment.source, modifier = Modifier.padding(horizontal = 8.dp))
-                FirstVisitBadge(item.appointment.firstVisitDiscount)
-                Spacer(modifier = Modifier.weight(1f))
+                // Name and badges share one weighted group so the ⋮ menu sits
+                // at the row's far end; two weights side by side split the
+                // free space and left the menu floating mid-row.
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = item.visitorName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    SourceBadge(item.appointment.source, modifier = Modifier.padding(horizontal = 8.dp))
+                    FirstVisitBadge(item.appointment.firstVisitDiscount)
+                }
 
                 var showMenu by remember { mutableStateOf(false) }
                 Box {
@@ -278,15 +288,20 @@ fun QueueItemCard(
                 }
             }
 
-            // Medical guilds: the insurance the client will use, and the
-            // deposit's tracking code to check against the bank, each shown
-            // only when the booking has one.
-            val insuranceName = item.appointment.insuranceName?.takeIf { it.isNotBlank() }
+            // Medical guilds: the insurance the client will use; and the
+            // deposit's tracking code to check against the bank. Side by side
+            // when they fit, so the card grows by one short line at most.
+            val insuranceName = item.appointment.visibleInsuranceName(
+                BusinessStateHolder.selectedBusiness.value?.category
+            )
             val trackingCode = item.appointment.paymentTrackingCode()
             if (insuranceName != null || trackingCode != null) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    InsuranceLine(insuranceName)
+                Spacer(modifier = Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    InsuranceLine(insuranceName, item.appointment.insuranceLogo)
                     PaymentTrackingLine(trackingCode)
                 }
             }

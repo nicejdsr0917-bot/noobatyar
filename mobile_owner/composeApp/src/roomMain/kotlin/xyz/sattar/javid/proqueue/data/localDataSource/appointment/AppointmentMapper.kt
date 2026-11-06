@@ -23,6 +23,7 @@ fun AppointmentEntity.toDomain() = Appointment(
     source = source,
     firstVisitDiscount = firstVisitDiscount,
     insuranceName = insuranceName,
+    insuranceLogo = insuranceLogo,
 )
 
 fun Appointment.toEntity() = AppointmentEntity(
@@ -43,6 +44,7 @@ fun Appointment.toEntity() = AppointmentEntity(
     source = source,
     firstVisitDiscount = firstVisitDiscount,
     insuranceName = insuranceName,
+    insuranceLogo = insuranceLogo,
 )
 
 fun AppointmentWithDetailsEntity.toDomain() = AppointmentWithDetails(

@@ -51,7 +51,7 @@ internal const val dbFileName = "proQueue.db"
     // 22: BusinessEntity.followersCount (customers following the page).
     // 23: AppointmentEntity.firstVisitDiscount (new client's first-visit discount).
     // 24: BusinessEntity.locationPrivacy (exact pin or area only).
-    // 25: AppointmentEntity.insuranceName (client's supplementary insurance).
+    // 25: AppointmentEntity.insuranceName/insuranceLogo (client's supplementary insurance).
     version = 25
 )
 @ConstructedBy(DbFactory::class)

@@ -24,4 +24,6 @@ data class AppointmentDto(
     @SerialName("first_visit_discount") val firstVisitDiscount: Int = 0,
     /** Supplementary insurance the client picked at booking (medical guilds), else null. */
     @SerialName("insurance_name") val insuranceName: String? = null,
+    /** That insurance's logo, a site-relative path; null without one. */
+    @SerialName("insurance_logo") val insuranceLogo: String? = null,
 )

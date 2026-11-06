@@ -7,6 +7,7 @@ import {
   getBusinessByCode,
   getAvailableSlots,
   bookAppointment,
+  mediaUrl,
   isNotFound,
   UnauthorizedError,
   closedWeekdaysJs,
@@ -348,10 +349,10 @@ export default function BookingPage({ params }: Props) {
   // entry has to keep showing as a chip so it can be un-picked again.
   const menuServices = business.services ?? [];
   const allowCustomService = business.allow_client_add_service === true;
-  // Only a business that lists supplementary insurances (medical guilds) asks.
-  const supplementaryInsurances = (business.insurances ?? []).filter(
-    (ins) => ins.insurance_type === 'SUPPLEMENTARY'
-  );
+  // Only a medical business (doctor, dentist, health) asks; a salon never does.
+  const supplementaryInsurances = business.takes_insurance
+    ? (business.insurances ?? []).filter((ins) => ins.insurance_type === 'SUPPLEMENTARY')
+    : [];
   const chipServices = [
     ...menuServices,
     ...selectedServices.filter((s) => !menuServices.includes(s)),
@@ -613,8 +614,9 @@ export default function BookingPage({ params }: Props) {
             {t('yourSupplementaryInsurance')}</label>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-            {[{ slug: '', name: t('noSupplementaryInsurance') }, ...supplementaryInsurances].map(({ slug: insSlug, name }) => {
+            {[{ slug: '', name: t('noSupplementaryInsurance'), logo: null as string | null | undefined }, ...supplementaryInsurances].map(({ slug: insSlug, name, logo }) => {
               const isSelected = insuranceSlug === insSlug;
+              const logoSrc = mediaUrl(logo);
               return (
                 <button
                   key={insSlug || 'none'}
@@ -633,6 +635,10 @@ export default function BookingPage({ params }: Props) {
                   }}
                 >
                   {isSelected && <Icon name="check" size={14} style={{ display: 'inline-block', verticalAlign: '-2px', marginInlineEnd: 4 }} />}
+                  {logoSrc && (
+                    // eslint-disable-next-line @next/next/no-img-element -- tiny server-uploaded insurer logo
+                    <img src={logoSrc} alt="" width={18} height={18} style={{ display: 'inline-block', verticalAlign: '-4px', marginInlineEnd: 6, borderRadius: 4, objectFit: 'contain' }} />
+                  )}
                   {name}
                 </button>
               );

@@ -117,6 +117,8 @@ class AppointmentQuerySerializer(serializers.ModelSerializer):
     first_visit_discount = serializers.SerializerMethodField()
     # Name of the supplementary insurance the visitor picked at booking, else null.
     insurance_name = serializers.SerializerMethodField()
+    # Its logo, a site-relative path like InsuranceSerializer.logo; null without one.
+    insurance_logo = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -135,12 +137,16 @@ class AppointmentQuerySerializer(serializers.ModelSerializer):
             'source',
             'first_visit_discount',
             'insurance_name',
+            'insurance_logo',
             'created_at',
             'updated_at'
         ]
 
     def get_insurance_name(self, obj):
         return obj.insurance.name if obj.insurance_id else None
+
+    def get_insurance_logo(self, obj):
+        return obj.insurance.logo.url if obj.insurance_id and obj.insurance.logo else None
 
     def get_first_visit_discount(self, obj):
         from business.first_visit import discount_for

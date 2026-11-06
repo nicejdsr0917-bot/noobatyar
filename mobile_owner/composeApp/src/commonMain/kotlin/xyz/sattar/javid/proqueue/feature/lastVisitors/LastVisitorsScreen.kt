@@ -8,6 +8,9 @@ import androidx.compose.foundation.lazy.grid.items
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import xyz.sattar.javid.proqueue.core.ui.components.SourceBadge
 import xyz.sattar.javid.proqueue.core.ui.components.InsuranceLine
+import xyz.sattar.javid.proqueue.core.ui.components.visibleInsuranceName
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
 import androidx.compose.material3.Surface
@@ -606,6 +609,7 @@ private fun VisitorsTabBar(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AppointmentCard(
     appointmentWithDetails: AppointmentWithDetails,
@@ -642,14 +646,12 @@ fun AppointmentCard(
             val overdue =
                 DateTimeUtils.systemCurrentMilliseconds() > endTimeMs && appointment.status == "WAITING"
 
-            // Who, then where the booking stands, then when — each on its own
-            // line. Name and status badge side by side left the name squeezed
-            // against the badge, and the time/date/duration crammed in beside
-            // the avatar were too small to read at a glance.
+            // Who and where the booking stands on one line (the name gives way
+            // with an ellipsis, never the status), then when on its own strip.
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
@@ -662,24 +664,21 @@ fun AppointmentCard(
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = visitor.fullName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        StatusBadge(status = appointment.status, overdue = overdue)
-                        SourceBadge(appointment.source)
-                    }
-                }
+                Text(
+                    text = visitor.fullName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                StatusBadge(status = appointment.status, overdue = overdue)
+                SourceBadge(appointment.source, modifier = Modifier.padding(start = 6.dp))
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // When, on a tinted strip of its own across the card's full width.
             Surface(
@@ -707,63 +706,70 @@ fun AppointmentCard(
             val hasNote = !appointment.description.isNullOrBlank()
             val hasDeposit = appointment.depositPaymentMethod == "CARD" || appointment.depositPaymentMethod == "GATEWAY"
             val receipt = appointment.paymentReceipt
-            val insuranceName = appointment.insuranceName?.takeIf { it.isNotBlank() }
+            val insuranceName = appointment.visibleInsuranceName(appointmentWithDetails.business.category)
             if (hasNote || hasDeposit || receipt != null || insuranceName != null) {
                 Column(
-                    modifier = Modifier.padding(top = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(top = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (hasNote) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Edit,
-                                contentDescription = null,
-                                modifier = Modifier.size(13.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = appointment.description.orEmpty(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                    // Note, insurance and deposit flow side by side and wrap only
+                    // when they run out of width, instead of a line each.
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (hasNote) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(13.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = appointment.description.orEmpty(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
-                    }
 
-                    InsuranceLine(insuranceName)
+                        InsuranceLine(insuranceName, appointment.insuranceLogo)
 
-                    // Deposit summary — a gateway payment has a tracking
-                    // reference but no receipt image, so this stands on its
-                    // own. An owner meeting the client in person to collect
-                    // the remainder needs to see that a deposit was already
-                    // taken, and through which channel.
-                    if (hasDeposit) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = if (appointment.depositPaymentMethod == "GATEWAY")
-                                    Icons.Rounded.CreditCard else Icons.Rounded.Payments,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = Str.deposit_paid_label + " — " + (
-                                    if (appointment.depositPaymentMethod == "GATEWAY")
-                                        Str.deposit_method_gateway
-                                    else Str.deposit_method_card
-                                ) + (appointment.paymentReference?.takeIf { it.isNotBlank() }
-                                    ?.let { " · ${Str.tracking_number_label}: $it" } ?: ""),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                // Two lines, not an ellipsis: the tracking
-                                // number is at the end, and a cut-off one is
-                                // useless to an owner checking a payment.
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        // Deposit summary — a gateway payment has a tracking
+                        // reference but no receipt image, so this stands on its
+                        // own. An owner meeting the client in person to collect
+                        // the remainder needs to see that a deposit was already
+                        // taken, and through which channel.
+                        if (hasDeposit) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (appointment.depositPaymentMethod == "GATEWAY")
+                                        Icons.Rounded.CreditCard else Icons.Rounded.Payments,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = Str.deposit_paid_label + " — " + (
+                                        if (appointment.depositPaymentMethod == "GATEWAY")
+                                            Str.deposit_method_gateway
+                                        else Str.deposit_method_card
+                                    ) + (appointment.paymentReference?.takeIf { it.isNotBlank() }
+                                        ?.let { " · ${Str.tracking_number_label}: $it" } ?: ""),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    // Two lines, not an ellipsis: the tracking
+                                    // number is at the end, and a cut-off one is
+                                    // useless to an owner checking a payment.
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
 

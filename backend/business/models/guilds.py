@@ -97,3 +97,12 @@ SERVICE_EXAMPLES = {
 }
 # The guilds whose businesses take insurance: only they get the insurance column and picker.
 TAKES_INSURANCE = {'MEDICAL', 'DENTAL', 'HEALTH'}
+
+
+def takes_insurance(category):
+    """True when ``category`` (a Business.category code) belongs to a guild in TAKES_INSURANCE."""
+    from ..categories import CATEGORY_GROUPS
+    return any(
+        key in TAKES_INSURANCE and any(code == category for code, _l in pairs)
+        for key, _label, pairs in CATEGORY_GROUPS
+    )

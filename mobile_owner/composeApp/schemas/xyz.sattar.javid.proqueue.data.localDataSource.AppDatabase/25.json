@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 25,
-    "identityHash": "156cfea64d36613614efe96e7a8ba127",
+    "identityHash": "f00fd9648fd7ea6a0c939b7402480801",
     "entities": [
       {
         "tableName": "Business",
@@ -343,7 +343,7 @@
       },
       {
         "tableName": "Appointment",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `businessId` INTEGER NOT NULL, `visitorId` INTEGER NOT NULL, `appointmentDate` INTEGER NOT NULL, `serviceDuration` INTEGER, `status` TEXT NOT NULL, `description` TEXT, `selectedServices` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `paymentReceipt` TEXT, `trackingCode` TEXT, `paymentReference` TEXT, `depositPaymentMethod` TEXT, `source` TEXT, `firstVisitDiscount` INTEGER NOT NULL, `insuranceName` TEXT, FOREIGN KEY(`businessId`) REFERENCES `Business`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`visitorId`) REFERENCES `Visitor`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `businessId` INTEGER NOT NULL, `visitorId` INTEGER NOT NULL, `appointmentDate` INTEGER NOT NULL, `serviceDuration` INTEGER, `status` TEXT NOT NULL, `description` TEXT, `selectedServices` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `paymentReceipt` TEXT, `trackingCode` TEXT, `paymentReference` TEXT, `depositPaymentMethod` TEXT, `source` TEXT, `firstVisitDiscount` INTEGER NOT NULL, `insuranceName` TEXT, `insuranceLogo` TEXT, FOREIGN KEY(`businessId`) REFERENCES `Business`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`visitorId`) REFERENCES `Visitor`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -436,6 +436,11 @@
           {
             "fieldPath": "insuranceName",
             "columnName": "insuranceName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "insuranceLogo",
+            "columnName": "insuranceLogo",
             "affinity": "TEXT"
           }
         ],
@@ -670,7 +675,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '156cfea64d36613614efe96e7a8ba127')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f00fd9648fd7ea6a0c939b7402480801')"
     ]
   }
 }

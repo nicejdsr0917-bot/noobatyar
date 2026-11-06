@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ConfirmationNumber
@@ -14,11 +15,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import xyz.sattar.javid.proqueue.core.i18n.Str
+import xyz.sattar.javid.proqueue.core.utils.mediaUrl
 import xyz.sattar.javid.proqueue.domain.model.appointment.Appointment
+import xyz.sattar.javid.proqueue.domain.model.business.BusinessCategory
 
 /**
  * The deposit's tracking code: what the client typed for a card-to-card
@@ -30,11 +36,40 @@ fun Appointment.paymentTrackingCode(): String? =
         it.isNotEmpty() && (depositPaymentMethod == "CARD" || depositPaymentMethod == "GATEWAY")
     }
 
-/** «بیمهٔ تکمیلی: …» — draws nothing when the client picked none. */
+/**
+ * The supplementary insurance to show for this booking: only at a medical
+ * business (doctor, dentist, health). A category this build does not know
+ * is trusted to the server, which records an insurance only for those guilds.
+ */
+fun Appointment.visibleInsuranceName(businessCategory: String?): String? {
+    val name = insuranceName?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val known = BusinessCategory.entries.firstOrNull { it.value == businessCategory }
+    return if (known == null || known.group.takesInsurance) name else null
+}
+
+/** «بیمهٔ تکمیلی: …» with the insurer's own logo (shield icon without one). */
 @Composable
-fun InsuranceLine(name: String?, modifier: Modifier = Modifier) {
-    val value = name?.trim()?.takeIf { it.isNotEmpty() } ?: return
-    InfoLine(Icons.Rounded.HealthAndSafety, "${Str.supplementary_insurance_label}: $value", modifier)
+fun InsuranceLine(name: String?, logo: String?, modifier: Modifier = Modifier) {
+    name ?: return
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (logo != null) {
+            AsyncImage(
+                model = mediaUrl(logo),
+                contentDescription = null,
+                modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)),
+                contentScale = ContentScale.Fit
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Rounded.HealthAndSafety,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        Spacer(modifier = Modifier.width(6.dp))
+        InfoText("${Str.supplementary_insurance_label}: $name")
+    }
 }
 
 /** «کد پیگیری پرداخت: …», selectable so the owner can copy it into their bank app. */
@@ -42,26 +77,31 @@ fun InsuranceLine(name: String?, modifier: Modifier = Modifier) {
 fun PaymentTrackingLine(code: String?, modifier: Modifier = Modifier) {
     code ?: return
     SelectionContainer(modifier = modifier) {
-        InfoLine(Icons.Rounded.ConfirmationNumber, "${Str.payment_tracking_label}: $code")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            InfoIcon(Icons.Rounded.ConfirmationNumber)
+            Spacer(modifier = Modifier.width(6.dp))
+            InfoText("${Str.payment_tracking_label}: $code")
+        }
     }
 }
 
 @Composable
-private fun InfoLine(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(14.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+private fun InfoIcon(icon: ImageVector) {
+    Icon(
+        imageVector = icon,
+        contentDescription = null,
+        modifier = Modifier.size(14.dp),
+        tint = MaterialTheme.colorScheme.primary
+    )
+}
+
+@Composable
+private fun InfoText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }

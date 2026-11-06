@@ -475,7 +475,13 @@ class PublicBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
         source='get_category_display', read_only=True,
     )
     insurances = InsuranceSerializer(many=True, read_only=True)
+    # Medical guilds only: the booking page asks for the client's supplementary insurance.
+    takes_insurance = serializers.SerializerMethodField()
     distance_km = serializers.SerializerMethodField()
+
+    def get_takes_insurance(self, obj) -> bool:
+        from .models.guilds import takes_insurance
+        return takes_insurance(obj.category)
     rating = serializers.SerializerMethodField()
 
     def get_rating(self, obj):
@@ -510,6 +516,7 @@ class PublicBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
             'online_booking_requests_count',
             'followers_count',
             'insurances',
+            'takes_insurance',
             'distance_km',
             'first_visit_discount',
             'phone',
@@ -568,7 +575,13 @@ class ClientBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
         source='get_category_display', read_only=True,
     )
     insurances = InsuranceSerializer(many=True, read_only=True)
+    # Medical guilds only: the booking page asks for the client's supplementary insurance.
+    takes_insurance = serializers.SerializerMethodField()
     distance_km = serializers.SerializerMethodField()
+
+    def get_takes_insurance(self, obj) -> bool:
+        from .models.guilds import takes_insurance
+        return takes_insurance(obj.category)
 
     class Meta:
         model = Business
@@ -576,7 +589,7 @@ class ClientBusinessSerializer(PublicPayloadMixin, serializers.ModelSerializer):
             'id', 'title', 'category', 'category_display', 'unique_code', 'phone', 'extra_phones',
             'social_links',
             'address', 'latitude', 'longitude', 'province', 'city', 'neighborhood', 'city_code',
-            'is_claimed', 'online_booking_requests_count', 'followers_count', 'insurances', 'distance_km',
+            'is_claimed', 'online_booking_requests_count', 'followers_count', 'insurances', 'takes_insurance', 'distance_km',
             'logo', 'theme_color',
             'default_service_duration', 'work_start_hour', 'work_end_hour',
             'work_start_minute', 'work_end_minute',
