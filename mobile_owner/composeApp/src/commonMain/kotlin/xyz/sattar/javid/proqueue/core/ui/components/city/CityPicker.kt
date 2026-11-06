@@ -170,7 +170,7 @@ fun CityPickerSheet(onDismiss: () -> Unit, onPick: (PickedCity) -> Unit) {
                 val province = openProvince
                 if (province != null && query.isBlank()) {
                     IconButton(onClick = { openProvince = null }) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = Str.back)
                     }
                 }
                 Text(

@@ -373,7 +373,6 @@ private fun StandardNavigationItem(
                 style = MaterialTheme.typography.labelSmall,
                 color = contentColor,
                 fontWeight = FontWeight.Bold,
-                fontSize = 11.sp,
                 modifier = Modifier.padding(top = 4.dp)
             )
         }

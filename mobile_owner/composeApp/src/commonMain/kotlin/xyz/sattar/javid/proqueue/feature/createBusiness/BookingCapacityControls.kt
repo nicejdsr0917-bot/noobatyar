@@ -85,7 +85,7 @@ fun SlotCapacityControl(businessId: Long?) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
             FilledTonalIconButton(onClick = { set((value ?: 1) - 1) }, enabled = !busy && (value ?: 1) > loaded.minSlotCapacity) {
-                Icon(Icons.Rounded.Remove, contentDescription = null)
+                Icon(Icons.Rounded.Remove, contentDescription = Str.decrease)
             }
             Spacer(Modifier.width(12.dp))
             OutlinedTextField(
@@ -101,7 +101,7 @@ fun SlotCapacityControl(businessId: Long?) {
             )
             Spacer(Modifier.width(12.dp))
             FilledTonalIconButton(onClick = { set((value ?: 0) + 1) }, enabled = !busy && (value ?: 0) < loaded.maxSlotCapacity) {
-                Icon(Icons.Rounded.Add, contentDescription = null)
+                Icon(Icons.Rounded.Add, contentDescription = Str.increase)
             }
         }
         Spacer(Modifier.height(6.dp))
