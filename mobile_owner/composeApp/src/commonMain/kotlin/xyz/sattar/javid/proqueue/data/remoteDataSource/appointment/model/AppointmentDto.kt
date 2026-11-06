@@ -22,4 +22,6 @@ data class AppointmentDto(
     @SerialName("source") val source: String? = null,
     /** The business's first-visit discount on a client's first visit, else 0. */
     @SerialName("first_visit_discount") val firstVisitDiscount: Int = 0,
+    /** Supplementary insurance the client picked at booking (medical guilds), else null. */
+    @SerialName("insurance_name") val insuranceName: String? = null,
 )

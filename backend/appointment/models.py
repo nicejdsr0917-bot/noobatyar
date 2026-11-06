@@ -215,6 +215,14 @@ class Appointment(models.Model):
         null=True, blank=True, verbose_name='زمان تقریبی رانندگی، تا (دقیقه)',
     )
 
+    # The supplementary insurance the visitor said they will use, picked from
+    # the business's own list at booking (medical guilds). Null when none was
+    # picked or an older client booked.
+    insurance = models.ForeignKey(
+        'business.Insurance', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='+', verbose_name='بیمهٔ تکمیلی مراجع',
+    )
+
     # Where a client booking came from; compared with the owner's own IPs to
     # spot owners booking themselves for the new-client reward.
     booking_ip = models.GenericIPAddressField(

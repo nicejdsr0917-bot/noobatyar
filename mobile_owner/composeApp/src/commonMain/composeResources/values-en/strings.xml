@@ -1136,4 +1136,6 @@
     <string name="location_privacy_exact_desc">Customers see the exact spot and get directions with Neshan or Balad.</string>
     <string name="location_privacy_area_desc">Customers only see a circle of about 500 m, not the exact spot. Good for working from home. Keep the written address general too.</string>
     <string name="hold_minutes_row_subtitle">How long a booking is held while the client pays</string>
+    <string name="supplementary_insurance_label">Supplementary insurance</string>
+    <string name="payment_tracking_label">Payment tracking code</string>
 </resources>

@@ -66,6 +66,8 @@ export default function BookingPage({ params }: Props) {
   const [customService, setCustomService] = useState('');
   // Optional free-text note describing the requested service.
   const [description, setDescription] = useState('');
+  // Supplementary insurance the client will use (medical guilds), as a slug; '' = none.
+  const [insuranceSlug, setInsuranceSlug] = useState('');
   // A slot the user picked before logging in, to be re-selected on return.
   const [pendingSlot, setPendingSlot] = useState<TimeSlot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,7 +152,7 @@ export default function BookingPage({ params }: Props) {
     try {
       const intent = JSON.parse(raw) as {
         slug: string; slot: TimeSlot; businessId: number; description?: string;
-        selectedServices?: string[];
+        selectedServices?: string[]; insuranceSlug?: string;
       };
       if (intent.slug !== slug || intent.businessId !== business.id || !intent.slot) {
         return;
@@ -158,6 +160,7 @@ export default function BookingPage({ params }: Props) {
       /* eslint-disable react-hooks/set-state-in-effect -- restoring a saved intent from localStorage, only possible client-side */
       if (intent.description) setDescription(intent.description);
       if (intent.selectedServices?.length) setSelectedServices(intent.selectedServices);
+      if (intent.insuranceSlug) setInsuranceSlug(intent.insuranceSlug);
       const slotDay = days.find(
         (d) => toDateString(d) === toDateString(new Date(intent.slot.timestamp))
       );
@@ -202,6 +205,7 @@ export default function BookingPage({ params }: Props) {
       businessId: business.id,
       description: description.trim(),
       selectedServices,
+      insuranceSlug,
     }));
     router.push(`/auth/login?redirect=/b/${slug}/book`);
   };
@@ -224,7 +228,8 @@ export default function BookingPage({ params }: Props) {
         business.default_service_duration,
         description.trim(),
         token,
-        selectedServices
+        selectedServices,
+        insuranceSlug || undefined
       );
 
       // Scheduled regardless of which branch below fires — a customer who
@@ -343,6 +348,10 @@ export default function BookingPage({ params }: Props) {
   // entry has to keep showing as a chip so it can be un-picked again.
   const menuServices = business.services ?? [];
   const allowCustomService = business.allow_client_add_service === true;
+  // Only a business that lists supplementary insurances (medical guilds) asks.
+  const supplementaryInsurances = (business.insurances ?? []).filter(
+    (ins) => ins.insurance_type === 'SUPPLEMENTARY'
+  );
   const chipServices = [
     ...menuServices,
     ...selectedServices.filter((s) => !menuServices.includes(s)),
@@ -589,6 +598,46 @@ export default function BookingPage({ params }: Props) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Supplementary insurance (medical guilds) ──
+          Shown to the owner on the booking, so the clinic knows which
+          insurance to claim from before the visit. Picked from the
+          business's own list; optional. */}
+      {selectedSlot && supplementaryInsurances.length > 0 && (
+        <div className="section" style={{ paddingTop: 0 }}>
+          <label
+            style={{ display: 'block', textAlign: 'start', fontSize: 13, fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}
+          >
+            {t('yourSupplementaryInsurance')}</label>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+            {[{ slug: '', name: t('noSupplementaryInsurance') }, ...supplementaryInsurances].map(({ slug: insSlug, name }) => {
+              const isSelected = insuranceSlug === insSlug;
+              return (
+                <button
+                  key={insSlug || 'none'}
+                  type="button"
+                  onClick={() => setInsuranceSlug(insSlug)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 999,
+                    fontSize: 13,
+                    fontFamily: 'inherit',
+                    cursor: 'pointer',
+                    border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                    background: isSelected ? 'var(--color-primary-tint)' : 'var(--color-surface)',
+                    color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
+                    fontWeight: isSelected ? 700 : 500,
+                  }}
+                >
+                  {isSelected && <Icon name="check" size={14} style={{ display: 'inline-block', verticalAlign: '-2px', marginInlineEnd: 4 }} />}
+                  {name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -20,4 +20,6 @@ data class Appointment(
     val source: String? = null,
     /** Percent off for a new client's first visit (paid at the counter); 0 for none. */
     val firstVisitDiscount: Int = 0,
+    /** Supplementary insurance the client picked at booking; null for none. */
+    val insuranceName: String? = null,
 )

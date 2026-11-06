@@ -115,6 +115,8 @@ class AppointmentQuerySerializer(serializers.ModelSerializer):
     appointment_date = serializers.SerializerMethodField()
     # The business's first-visit discount when this is the client's first visit there, else 0.
     first_visit_discount = serializers.SerializerMethodField()
+    # Name of the supplementary insurance the visitor picked at booking, else null.
+    insurance_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -132,9 +134,13 @@ class AppointmentQuerySerializer(serializers.ModelSerializer):
             'payment_receipt',
             'source',
             'first_visit_discount',
+            'insurance_name',
             'created_at',
             'updated_at'
         ]
+
+    def get_insurance_name(self, obj):
+        return obj.insurance.name if obj.insurance_id else None
 
     def get_first_visit_discount(self, obj):
         from business.first_visit import discount_for

@@ -13,9 +13,20 @@ export function mediaUrl(path: string | null | undefined): string | null {
 
 export type SocialKind = 'instagram' | 'telegram' | 'whatsapp' | 'eitaa' | 'bale' | 'rubika' | 'website';
 
+/** An insurance the business accepts, as the public business endpoint returns it. */
+export interface BusinessInsurance {
+  id: number;
+  name: string;
+  slug: string;
+  insurance_type: 'SUPPLEMENTARY' | 'BASIC';
+  logo?: string | null;
+}
+
 export interface Business {
   id: number;
   title: string;
+  /** Insurances accepted (medical guilds only); absent on an older server. */
+  insurances?: BusinessInsurance[];
   category: string;
   /** Persian label as the server rendered it. Preferred over the local map so
    *  a category added after this build shipped still reads correctly. */
@@ -380,7 +391,8 @@ export async function bookAppointment(
   serviceDuration?: number,
   description?: string,
   token?: string,
-  selectedServices?: string[]
+  selectedServices?: string[],
+  insuranceSlug?: string
 ) {
   return apiFetch<{ id: number; requires_payment?: boolean }>('/api/client/appointments/', {
     method: 'POST',
@@ -393,6 +405,7 @@ export async function bookAppointment(
       ...(serviceDuration && { service_duration: serviceDuration }),
       ...(description && { description }),
       ...(selectedServices?.length && { selected_services: selectedServices }),
+      ...(insuranceSlug && { insurance: insuranceSlug }),
     }),
   });
 }

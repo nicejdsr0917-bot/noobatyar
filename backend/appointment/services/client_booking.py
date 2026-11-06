@@ -176,8 +176,17 @@ def travel_estimate(data):
     return out
 
 
+def _supplementary_insurance_id(business, slug):
+    """Id of ``slug`` when it is an active supplementary insurance the business takes, else None."""
+    if not slug:
+        return None
+    return business.insurances.filter(
+        slug=slug, insurance_type='SUPPLEMENTARY', is_active=True,
+    ).values_list('id', flat=True).first()
+
+
 def client_book(*, business, visitor, appointment_date, duration, description='', raw_services=None,
-                source=Appointment.SOURCE_WEB, travel=None, ip=None):
+                source=Appointment.SOURCE_WEB, travel=None, ip=None, insurance_slug=None):
     """
     Book ``business`` for ``visitor`` at ``appointment_date`` (aware datetime).
 
@@ -232,6 +241,9 @@ def client_book(*, business, visitor, appointment_date, duration, description=''
         extra = dict(travel or {})
         if ip:
             extra['booking_ip'] = ip
+        insurance_id = _supplementary_insurance_id(business, insurance_slug)
+        if insurance_id:
+            extra['insurance_id'] = insurance_id
         if extra:
             Appointment.objects.filter(pk=appointment.pk).update(**extra)
             for field, value in extra.items():

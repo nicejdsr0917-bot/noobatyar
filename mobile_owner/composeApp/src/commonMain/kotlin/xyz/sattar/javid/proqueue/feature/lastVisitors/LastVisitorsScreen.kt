@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveSheet
 import xyz.sattar.javid.proqueue.core.ui.components.SourceBadge
+import xyz.sattar.javid.proqueue.core.ui.components.InsuranceLine
 import xyz.sattar.javid.proqueue.core.ui.components.adaptivePagePadding
 import xyz.sattar.javid.proqueue.core.ui.components.isWideLayout
 import androidx.compose.material3.Surface
@@ -706,7 +707,8 @@ fun AppointmentCard(
             val hasNote = !appointment.description.isNullOrBlank()
             val hasDeposit = appointment.depositPaymentMethod == "CARD" || appointment.depositPaymentMethod == "GATEWAY"
             val receipt = appointment.paymentReceipt
-            if (hasNote || hasDeposit || receipt != null) {
+            val insuranceName = appointment.insuranceName?.takeIf { it.isNotBlank() }
+            if (hasNote || hasDeposit || receipt != null || insuranceName != null) {
                 Column(
                     modifier = Modifier.padding(top = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -729,6 +731,8 @@ fun AppointmentCard(
                             )
                         }
                     }
+
+                    InsuranceLine(insuranceName)
 
                     // Deposit summary — a gateway payment has a tracking
                     // reference but no receipt image, so this stands on its

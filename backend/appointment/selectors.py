@@ -65,7 +65,7 @@ def appointment_list_for_owner(*, user, business_id):
     """
     return Appointment.objects.filter(
         business_id=business_id, business__user=user
-    ).select_related('visitor')
+    ).select_related('visitor', 'insurance')
 
 
 def appointment_get_for_visitor(*, pk, visitor, select_related=('business', 'visitor')):

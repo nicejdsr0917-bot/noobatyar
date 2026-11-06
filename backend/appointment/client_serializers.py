@@ -174,7 +174,10 @@ class ClientAppointmentCreateSerializer(serializers.ModelSerializer):
         choices=[Appointment.SOURCE_WEB, Appointment.SOURCE_APP],
         write_only=True, required=False, default=Appointment.SOURCE_WEB,
     )
+    # Slug of the supplementary insurance the client will use; checked against
+    # the business's own list in client_book, an unknown one is dropped.
+    insurance = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True, max_length=50)
 
     class Meta:
         model = Appointment
-        fields = ['business_id', 'appointment_date', 'service_duration', 'description', 'selected_services', 'source']
+        fields = ['business_id', 'appointment_date', 'service_duration', 'description', 'selected_services', 'source', 'insurance']

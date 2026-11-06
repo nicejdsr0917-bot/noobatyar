@@ -278,6 +278,19 @@ fun QueueItemCard(
                 }
             }
 
+            // Medical guilds: the insurance the client will use, and the
+            // deposit's tracking code to check against the bank, each shown
+            // only when the booking has one.
+            val insuranceName = item.appointment.insuranceName?.takeIf { it.isNotBlank() }
+            val trackingCode = item.appointment.paymentTrackingCode()
+            if (insuranceName != null || trackingCode != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    InsuranceLine(insuranceName)
+                    PaymentTrackingLine(trackingCode)
+                }
+            }
+
             // Folded to one line; see CollapsibleReceipt.
             item.appointment.paymentReceipt?.let { receipt ->
                 Spacer(modifier = Modifier.height(12.dp))
