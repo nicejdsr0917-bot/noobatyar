@@ -11,7 +11,7 @@ class BookingInsuranceTests(_Fixture):
     def setUp(self):
         super().setUp()
         self.supp = Insurance.objects.create(name='دی', slug='day', insurance_type='SUPPLEMENTARY')
-        self.basic = Insurance.objects.create(name='تأمین اجتماعی', slug='tamin', insurance_type='BASIC')
+        self.basic = Insurance.objects.create(name='تامین اجتماعی', slug='tamin', insurance_type='BASIC')
         self.other = Insurance.objects.create(name='ایران', slug='iran', insurance_type='SUPPLEMENTARY')
         self.business.insurances.add(self.supp, self.basic)
         self.business.category = 'DENTIST'
