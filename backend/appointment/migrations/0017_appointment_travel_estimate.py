@@ -23,6 +23,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='appointment',
             name='travel_distance_m',
-            field=models.PositiveIntegerField(blank=True, null=True, verbose_name='فاصلهٔ مستقیم مراجع (متر)'),
+            field=models.PositiveIntegerField(blank=True, null=True, verbose_name='فاصله مستقیم مراجع (متر)'),
         ),
     ]

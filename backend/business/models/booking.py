@@ -48,7 +48,7 @@ class BusinessClaimRequest(models.Model):
     METHOD_OTP = 'OTP'
     METHOD_MANUAL = 'MANUAL'
     METHOD_CHOICES = [
-        (METHOD_OTP, 'تأیید پیامکی'),
+        (METHOD_OTP, 'تایید پیامکی'),
         (METHOD_MANUAL, 'بررسی دستی'),
     ]
 
@@ -57,7 +57,7 @@ class BusinessClaimRequest(models.Model):
     STATUS_REJECTED = 'REJECTED'
     STATUS_CHOICES = [
         (STATUS_PENDING, 'در انتظار'),
-        (STATUS_APPROVED, 'تأیید شد'),
+        (STATUS_APPROVED, 'تایید شد'),
         (STATUS_REJECTED, 'رد شد'),
     ]
 

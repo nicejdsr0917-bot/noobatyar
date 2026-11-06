@@ -165,7 +165,7 @@ class VisitorView(APIView):
             return APIResponse.error(
                 message="اطلاعات وارد شده معتبر نیست",
                 code=400,
-                data=serializer.errors  # ارسال جزئیات خطا برای دیباگ
+                data=serializer.errors  # ارسال جزییات خطا برای دیباگ
             )
 
         except ValidationError as e:
@@ -199,7 +199,7 @@ class VisitorView(APIView):
                 )
             except services.PhoneLocked:
                 return APIResponse.error(
-                    message="این مراجع از برنامهٔ مشتریان یا در کسب‌وکارهای دیگر استفاده می‌کند و شمارهٔ موبایل او قابل تغییر نیست؛ فقط نام قابل ویرایش است",
+                    message="این مراجع از برنامه مشتریان یا در کسب‌وکارهای دیگر استفاده می‌کند و شماره موبایل او قابل تغییر نیست؛ فقط نام قابل ویرایش است",
                     code=403
                 )
             except services.VisitorNotFound:

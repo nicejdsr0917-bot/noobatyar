@@ -195,7 +195,7 @@ class BaleWebhookTests(BaleTestBase):
         self.tap(f'm:d:{self.business.pk}:A')
         final = self.sent_texts(call)[-1]
         self.assertLessEqual(len(final), 4096)
-        self.assertIn('تأیید شد', final)
+        self.assertIn('تایید شد', final)
 
     @patch('bale.client._call', side_effect=_ok)
     def test_approved_business_becomes_publicly_visible(self, _call):
@@ -296,11 +296,11 @@ class BaleTypedReasonTests(BaleTestBase):
     @patch('bale.client._call', side_effect=_ok)
     def test_typed_reason_works_for_suspension_too(self, _call):
         self.tap(f'm:w:{self.business.pk}:S')
-        self.say('گزارش تخلف تأیید شد')
+        self.say('گزارش تخلف تایید شد')
 
         self.business.refresh_from_db()
         self.assertEqual(self.business.moderation_status, Business.MODERATION_SUSPENDED)
-        self.assertEqual(self.business.moderation_note, 'گزارش تخلف تأیید شد')
+        self.assertEqual(self.business.moderation_note, 'گزارش تخلف تایید شد')
 
     @patch('bale.client._call', side_effect=_ok)
     def test_message_without_a_prompt_decides_nothing(self, _call):
@@ -364,7 +364,7 @@ class BalePendingListTests(BaleTestBase):
 
     @patch('bale.client._call', side_effect=_ok)
     def test_empty_queue_says_so(self, _call):
-        self.make_business('تأییدشده', Business.MODERATION_APPROVED)
+        self.make_business('تاییدشده', Business.MODERATION_APPROVED)
 
         self.say('/pending')
 
@@ -375,7 +375,7 @@ class BalePendingListTests(BaleTestBase):
     def test_lists_only_pending_businesses(self, _call):
         self.make_business('در انتظار الف')
         self.make_business('در انتظار ب')
-        self.make_business('تأییدشده', Business.MODERATION_APPROVED)
+        self.make_business('تاییدشده', Business.MODERATION_APPROVED)
         self.make_business('ردشده', Business.MODERATION_REJECTED)
 
         self.say('/pending')
@@ -385,7 +385,7 @@ class BalePendingListTests(BaleTestBase):
         self.assertIn('2 کسب‌وکار در انتظار بررسی', joined)
         self.assertIn('در انتظار الف', joined)
         self.assertIn('در انتظار ب', joined)
-        self.assertNotIn('تأییدشده', joined)
+        self.assertNotIn('تاییدشده', joined)
         self.assertNotIn('ردشده', joined)
 
     @patch('bale.client._call', side_effect=_ok)

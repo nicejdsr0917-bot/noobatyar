@@ -161,7 +161,7 @@ python manage.py setup_admin_roles --dry-run  # فقط گزارش، بدون ت�
 
 ---
 
-## ۵. مسئله‌ی `role='ADMIN'` در برابر `is_staff`
+## ۵. مساله‌ی `role='ADMIN'` در برابر `is_staff`
 
 در `api/models.py` دو مفهوم بی‌ارتباط از «مدیر» وجود دارد:
 

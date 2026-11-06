@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='appointment',
             name='deposit_verified_at',
-            field=models.DateTimeField(blank=True, help_text='زمانی که زیبال پرداخت بیعانهٔ آنلاین را تأیید کرد. اگر نوبت بعد از آن قفل\u200cشده بماند (ساعت از دست رفته)، پول گرفته شده و باید برگردانده شود.', null=True, verbose_name='زمان تأیید پرداخت بیعانه'),
+            field=models.DateTimeField(blank=True, help_text='زمانی که زیبال پرداخت بیعانه آنلاین را تایید کرد. اگر نوبت بعد از آن قفل\u200cشده بماند (ساعت از دست رفته)، پول گرفته شده و باید برگردانده شود.', null=True, verbose_name='زمان تایید پرداخت بیعانه'),
         ),
     ]

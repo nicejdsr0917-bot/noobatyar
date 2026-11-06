@@ -133,7 +133,7 @@ class SmsLog(models.Model):
     )
     message_text = models.TextField(verbose_name='متن پیام')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SENT', verbose_name='وضعیت')
-    error_detail = models.TextField(blank=True, null=True, verbose_name='جزئیات خطا')
+    error_detail = models.TextField(blank=True, null=True, verbose_name='جزییات خطا')
     sent_at = models.DateTimeField(auto_now_add=True, verbose_name='زمان ارسال')
     
     class Meta:

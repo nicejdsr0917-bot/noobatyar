@@ -151,7 +151,7 @@ class AdminMessageLog(models.Model):
     title = models.CharField(max_length=255, blank=True, verbose_name='عنوان')
     body = models.TextField(verbose_name='متن')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, verbose_name='وضعیت')
-    error_detail = models.TextField(blank=True, verbose_name='جزئیات خطا')
+    error_detail = models.TextField(blank=True, verbose_name='جزییات خطا')
     sent_at = models.DateTimeField(auto_now_add=True, verbose_name='زمان ارسال')
 
     class Meta:

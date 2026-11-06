@@ -120,7 +120,7 @@
       </div>
       <p class="sr-note">
         متن پیامک‌ها (message_text) هرگز در این گزارش نمایش یا خروجی گرفته نمی‌شود — ممکن است
-        شامل نام و اطلاعات نوبت مراجع باشد. فقط جزئیات خطای سمت پروایدر (error_detail) نمایش داده می‌شود.
+        شامل نام و اطلاعات نوبت مراجع باشد. فقط جزییات خطای سمت پروایدر (error_detail) نمایش داده می‌شود.
       </p>
     </div>
 
@@ -152,7 +152,7 @@
       <h3>موارد اخیر</h3>
       {% if report.recent_logs %}
         <table class="sr-table">
-          <thead><tr><th>کسب‌وکار</th><th>وضعیت</th><th>زمان</th><th>جزئیات خطا</th></tr></thead>
+          <thead><tr><th>کسب‌وکار</th><th>وضعیت</th><th>زمان</th><th>جزییات خطا</th></tr></thead>
           <tbody>
             {% for row in report.recent_logs %}
               <tr>

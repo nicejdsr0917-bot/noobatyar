@@ -20,11 +20,11 @@ tags: [gf]
 - AVD: `Pixel_6a`، SDK در `~/Library/Android/sdk`
 - zsh: `head` → ابزار Perl؛ از `/usr/bin/head` استفاده کن. `timeout` نصب نیست.
 
-## اجرای محلی همهٔ پروژه‌ها
+## اجرای محلی همه پروژه‌ها
 - بک‌اند یکپارچه: preview `backend_mobile_client_mac` (اجرا از worktree `../Noobatyar-mobile-client/backend` با venv repo اصلی؛ `.env.local` آن‌جا کپی شده، `OTP_DEV_CODE`/`SMS_DEV_MODE` فعال).
 - `CLIENT_WEB_URL=http://127.0.0.1:3000` در `.env.local` (نه `10.0.2.2`، که فقط داخل امولاتور کار می‌کند و بازگشت از درگاه زیبال در مرورگر مک را گیر می‌انداخت).
 - ادمین: `http://localhost:8000/admin/` (بعد از ورود به `/accounts/profile/` می‌رود که ۴۰۴ است).
-- build پنل وب اونر اگر با «Failed to create MD5 hash … ` 2.xml`» شکست خورد: فایل‌های تکراری « 2» سینک iCloud در `mobile_owner/build/` → پوشهٔ build را پاک کن.
+- build پنل وب اونر اگر با «Failed to create MD5 hash … ` 2.xml`» شکست خورد: فایل‌های تکراری « 2» سینک iCloud در `mobile_owner/build/` → پوشه build را پاک کن.
 
 ## هشدارها
 - `.claude/launch.json` پیکربندی‌های ویندوزی (`cmd /c`، `.bat`) دارد؛ روی مک از `_mac`ها استفاده کن.
@@ -42,10 +42,10 @@ tags: [gf]
 - workflow جدای کلاینت: `android-release-client.yml` با تگ `client-v*.*.*`. دو نسخه می‌سازد: assembleProdSiteRelease (سایت/تلگرام) و assembleProdStoreRelease (یک APK برای مایکت و بازار) و از secretهای اونر استفاده می‌کند. هنوز اجرا نشده.
 - محلی:
   - وب اونر با preview `mobile_owner_web_mobile_client_mac` روی :8081 (پورت 8080 دست Docker است).
-  - اپ اونر اندروید: `sh ./gradlew :composeApp:assembleLocalSiteDebug -PlocalBaseUrl=http://127.0.0.1:8000`، سپس `adb install` نسخهٔ arm64. اول preview وب را stop کنید.
+  - اپ اونر اندروید: `sh ./gradlew :composeApp:assembleLocalSiteDebug -PlocalBaseUrl=http://127.0.0.1:8000`، سپس `adb install` نسخه arm64. اول preview وب را stop کنید.
 
 ## دیپلوی‌ها و ریلیزهای 2026-11-04/05
-- prod روی `3ce5e67` است. هر دیپلوی با bundle (`git bundle create f <server-sha>..develop`، بازهٔ SHA..SHA کار نمی‌کند) و dump قبلش انجام شد.
+- prod روی `3ce5e67` است. هر دیپلوی با bundle (`git bundle create f <server-sha>..develop`، بازه SHA..SHA کار نمی‌کند) و dump قبلش انجام شد.
 - web، worker و worker_bulk را با `--no-deps --build` بساز. frontend هم وقتی سایت تغییر کرده.
 - قبل از بیلد آدرس به‌روزرسانی Shecan را curl کن.
 - ریلیزها `v1.12.0` و `client-v1.2.0`. دو CI را پشت سر هم بزن، چون هر دو بدون retry xcconfig را روی develop push می‌کنند.
@@ -55,5 +55,5 @@ tags: [gf]
 ## دیپلوی 2026-11-05 ساعت 22:30
 - bundle از `829ced1` تا `6c30d6a`، با dump `pre-deploy-20261105-2230.sql.gz`.
 - rebuild روی `web`، `worker`، `worker_bulk` و `frontend`، بعد `seed_insurance_logos`، بعد `deploy-panel.sh`.
-- ⚠️ **بعد از rebuild وب، nginx را reload کن** (`docker compose exec -T nginx nginx -s reload`). nginx به IP قدیمی کانتینر وصل می‌ماند و همهٔ درخواست‌های API خطای 502 می‌گیرند. این بار حدود یک دقیقه قطعی داشتیم.
+- ⚠️ **بعد از rebuild وب، nginx را reload کن** (`docker compose exec -T nginx nginx -s reload`). nginx به IP قدیمی کانتینر وصل می‌ماند و همه درخواست‌های API خطای 502 می‌گیرند. این بار حدود یک دقیقه قطعی داشتیم.
 - قبل از push معمولاً CI یک commit «sync iOS version» روی origin گذاشته است. `git rebase --autostash origin/develop` کافی است.

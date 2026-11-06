@@ -60,8 +60,13 @@ _FA_DIGITS = str.maketrans('۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩٫٬', '0123
 
 
 def _plain(text):
-    """Header / name comparison form: one script variant, no spaces or ZWNJ."""
-    text = str(text or '').translate(str.maketrans('يك', 'یک'))
+    """Header / name comparison form: one script variant, no hamza, no spaces or ZWNJ.
+
+    The app's own names carry no hamza («نایین»، «تامین»), so a sheet that
+    still writes them with one (U+0623 / U+0626 / U+0621…) must match too."""
+    text = str(text or '').translate(str.maketrans(
+        {'ي': 'ی', 'ك': 'ک', '\u0623': 'ا', '\u0625': 'ا', '\u0624': 'و', '\u0626': 'ی',
+         '\u0621': None, '\u0654': None, '\u06c0': 'ه'}))
     return re.sub(r'[\s‌_\-]+', '', text).lower()
 
 

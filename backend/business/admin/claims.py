@@ -22,17 +22,17 @@ class BusinessClaimRequestAdmin(ModelAdmin):
     readonly_fields = ('created_at', 'resolved_at')
     actions = ['approve_claims', 'reject_claims']
 
-    @admin.action(description='تأیید و انتقال مالکیت')
+    @admin.action(description='تایید و انتقال مالکیت')
     def approve_claims(self, request, queryset):
         done = 0
         for claim in queryset.filter(status=BusinessClaimRequest.STATUS_PENDING):
             try:
-                apply_claim(claim, resolution_note=f'تأیید دستی توسط {request.user}')
+                apply_claim(claim, resolution_note=f'تایید دستی توسط {request.user}')
                 done += 1
             except ClaimError as exc:
                 self.message_user(request, f"{claim.business}: {exc}", level=messages.ERROR)
         if done:
-            self.message_user(request, f"{done} درخواست تأیید شد", level=messages.SUCCESS)
+            self.message_user(request, f"{done} درخواست تایید شد", level=messages.SUCCESS)
 
     @admin.action(description='رد درخواست')
     def reject_claims(self, request, queryset):

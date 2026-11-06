@@ -45,7 +45,7 @@ class BusinessModerationLogInline(TabularInline):
     fields = ('created_jalali', 'transition', 'note', 'actor')
     readonly_fields = ('created_jalali', 'transition', 'note', 'actor')
     verbose_name = 'تصمیم بررسی'
-    verbose_name_plural = 'تاریخچهٔ بررسی'
+    verbose_name_plural = 'تاریخچه بررسی'
     ordering = ('-created_at',)
 
     # The log is an audit trail: it is written by moderation.apply_decision()
@@ -145,7 +145,7 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
     @admin.display(description='وضعیت پلن', ordering='is_locked')
     def lock_badge(self, obj):
         if obj.is_locked:
-            return _badge('🔒 قفل‌شده (سهمیهٔ پلن)', 'danger')
+            return _badge('🔒 قفل‌شده (سهمیه پلن)', 'danger')
         # Not a badge: "فعال" is the unremarkable state, and pilling it would
         # give the normal case the same visual weight as the one that needs
         # somebody to act.
@@ -493,7 +493,7 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
             business, to_status, actor=request.user, note=note,
         )
 
-        verb = 'تأیید' if to_status == Business.MODERATION_APPROVED else 'رد'
+        verb = 'تایید' if to_status == Business.MODERATION_APPROVED else 'رد'
         # The decision is already committed at this point; a failed SMS is
         # reported, never treated as a failure of the decision itself.
         if notified:
@@ -546,10 +546,10 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
             )
         return None
 
-    @admin.action(description='تأیید کسب‌وکارهای انتخاب‌شده')
+    @admin.action(description='تایید کسب‌وکارهای انتخاب‌شده')
     def action_approve(self, request, queryset):
         return self._bulk_decide(
-            request, queryset, Business.MODERATION_APPROVED, 'تأیید', note_required=False,
+            request, queryset, Business.MODERATION_APPROVED, 'تایید', note_required=False,
         )
 
     @admin.action(description='رد کردن کسب‌وکارهای انتخاب‌شده')

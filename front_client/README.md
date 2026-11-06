@@ -2,7 +2,7 @@
 
 اپ Next.js که مشتری‌های نهایی برای دیدن پروفایل عمومی یک کسب‌وکار و رزرو
 نوبت استفاده می‌کنند. اپ موبایل مستقلی برای مشتری وجود ندارد — این تنها راه
-رزرو نوبت است (جزئیات در
+رزرو نوبت است (جزییات در
 [`../docs/ENVIRONMENTS.md`](../docs/ENVIRONMENTS.md#اپ-موبایل-مشتری)).
 
 ## استک
@@ -31,14 +31,14 @@ npm --prefix front_client run dev
 ```
 
 روی `http://localhost:3000` بالا می‌آید. `.env.local` (gitignore شده) باید
-`NEXT_PUBLIC_API_URL` را به بک‌اند لوکال اشاره کند — جزئیات کامل و جدول
+`NEXT_PUBLIC_API_URL` را به بک‌اند لوکال اشاره کند — جزییات کامل و جدول
 هاست‌نیم‌ها برای هر کلاینت در
 [`../docs/ENVIRONMENTS.md`](../docs/ENVIRONMENTS.md) است.
 
 ## برند
 
 آیکن‌ها و رنگ‌ها از [`../brand/`](../brand) اعمال می‌شوند؛ رنگ اصلی محصول
-(`--color-primary`) در `app/globals.css` تعریف شده — جزئیات در
+(`--color-primary`) در `app/globals.css` تعریف شده — جزییات در
 [`../brand/README.md`](../brand/README.md) و
 [`../docs/BRAND_GUIDE_FOR_AI.md`](../docs/BRAND_GUIDE_FOR_AI.md).
 

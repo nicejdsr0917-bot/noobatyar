@@ -5,7 +5,7 @@ urlpatterns = [
     path('plans/', views.plan_list),               # لیست پلن‌ها
     path('my-subscription/', views.my_subscription),  # اشتراک من
     path('my-entitlements/', views.my_entitlements),  # قابلیت‌ها و مصرف
-    path('wallet/history/', views.wallet_history),     # موجودی و تاریخچهٔ اعتبار اضافه
+    path('wallet/history/', views.wallet_history),     # موجودی و تاریخچه اعتبار اضافه
     path('wallet/convert/', views.wallet_convert),     # تبدیل موجودی تومانی به پیامک/نوبت
 
     path('plans/payment/', views.pay_for_plan),
@@ -16,7 +16,7 @@ urlpatterns = [
     path('addons/buy/', views.buy_addon),              # خرید بسته
     path('addons/payment-result', views.addon_payment_callback, name='addon-callback'),
 
-    path('checkout/quote/', views.checkout_quote),     # جزئیات مبلغ پیش از پرداخت
+    path('checkout/quote/', views.checkout_quote),     # جزییات مبلغ پیش از پرداخت
 
     # ── Myket in-app billing ─────────────────────────────────────
     path('store/myket/intent/', views.myket_intent),

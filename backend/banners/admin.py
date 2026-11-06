@@ -48,7 +48,7 @@ class BannerAdmin(ModelAdmin):
     list_select_related = ('group',)
     fieldsets = (
         (None, {
-            'description': f'اندازهٔ عکس بنر دقیقاً {BANNER_WIDTH}×{BANNER_HEIGHT} پیکسل است؛ عکس با اندازهٔ دیگر رد می‌شود. '
+            'description': f'اندازه عکس بنر دقیقاً {BANNER_WIDTH}×{BANNER_HEIGHT} پیکسل است؛ عکس با اندازه دیگر رد می‌شود. '
                            'یا یک «گروه دسته‌بندی» یا یک «دسته‌بندی» انتخاب کنید (نه هر دو).',
             'fields': ('group', 'category', 'image', 'order', 'is_active', 'starts_at', 'ends_at'),
         }),
@@ -97,7 +97,7 @@ class ClientPromoAdmin(ModelAdmin):
     autocomplete_fields = ('business',)
     fieldsets = (
         (None, {
-            'description': 'یک خط کوتاه بالای لیست کاوش یا روی نقشهٔ مرکز در اپ مشتری. '
+            'description': 'یک خط کوتاه بالای لیست کاوش یا روی نقشه مرکز در اپ مشتری. '
                            'با لمس، مرکز انتخاب‌شده در اپ باز می‌شود؛ اگر مرکزی نیست، لینک.',
             'fields': ('text', 'action_label', 'business', 'link_url', 'placement',
                        'order', 'is_active', 'starts_at', 'ends_at'),

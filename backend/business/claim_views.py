@@ -122,7 +122,7 @@ class ClaimStartView(APIView):
                     'masked_phone': mask_phone(business.phone),
                     'expires_in': 180,
                 },
-                message=f"کد تأیید به شماره {mask_phone(business.phone)} ارسال شد",
+                message=f"کد تایید به شماره {mask_phone(business.phone)} ارسال شد",
             )
 
         logger.info("Manual claim request %s for business %s by user %s", claim.id, business.id, user.id)
@@ -140,7 +140,7 @@ class ClaimVerifyView(APIView):
         user = request.user
         code = str(request.data.get('code') or '').strip()
         if not code:
-            return APIResponse.error(message="کد تأیید را وارد کنید", code=400)
+            return APIResponse.error(message="کد تایید را وارد کنید", code=400)
 
         claim = await BusinessClaimRequest.objects.select_related('business', 'user').filter(
             business_id=business_id, user=user,
@@ -155,7 +155,7 @@ class ClaimVerifyView(APIView):
             return APIResponse.error(message=verified.get('error', 'کد نامعتبر است'), code=400)
 
         try:
-            business = await sync_to_async(apply_claim)(claim, resolution_note='تأیید پیامکی')
+            business = await sync_to_async(apply_claim)(claim, resolution_note='تایید پیامکی')
         except ClaimError as exc:
             return APIResponse.error(message=str(exc), code=409)
 

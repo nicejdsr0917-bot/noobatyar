@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
                 ('next_follow_up', models.DateField(blank=True, db_index=True, null=True, verbose_name='پیگیری بعدی')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')),
                 ('updated_at', models.DateTimeField(auto_now=True, verbose_name='آخرین ویرایش')),
-                ('assigned_to', models.ForeignKey(blank=True, limit_choices_to={'is_staff': True}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='marketing_leads', to=settings.AUTH_USER_MODEL, verbose_name='مسئول پیگیری')),
+                ('assigned_to', models.ForeignKey(blank=True, limit_choices_to={'is_staff': True}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='marketing_leads', to=settings.AUTH_USER_MODEL, verbose_name='مسوول پیگیری')),
                 ('business', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='marketing_lead', to='business.business', verbose_name='مرکز')),
             ],
             options={

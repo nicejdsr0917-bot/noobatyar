@@ -62,18 +62,18 @@ def notify_review_queued_push(business) -> bool:
 
 def _approved_push(business):
     return (
-        '✅ تأیید شد',
-        f'کسب‌وکار «{business.title}» تأیید شد و اکنون در نوبت‌یار قابل مشاهده است.',
+        '✅ تایید شد',
+        f'کسب‌وکار «{business.title}» تایید شد و اکنون در نوبت‌یار قابل مشاهده است.',
     )
 
 
 def _rejected_push(business):
     reason = (business.moderation_note or '').strip()
-    body = f'کسب‌وکار «{business.title}» تأیید نشد.'
+    body = f'کسب‌وکار «{business.title}» تایید نشد.'
     if reason:
         body += f' دلیل: {reason}'
     body += ' می‌توانید اطلاعات را در اپلیکیشن اصلاح کنید تا دوباره بررسی شود.'
-    return ('❌ تأیید نشد', body)
+    return ('❌ تایید نشد', body)
 
 
 def _suspended_push(business):

@@ -69,7 +69,7 @@
 ### ۱.۳. آمار نوبت‌ها و صف انتظار (Queue Management & Stats)
 - **اقدام در Backend (`appointment/views/appointment_stats_view.py`):**
   - در حال حاضر `AppointmentStatsView` آمار کلی (total, completed, no_show) را می‌دهد.
-  - **نیاز جدید:** اضافه شدن سرویس محاسبه تعداد افراد منتظر قبل از یک نوبت خاص. کوئری: `Count(appointments)` با شرط `status='WAITING'` و `appointment_date < target_date` یا بر اساس زمان ثبت (`created_at`).
+  - **نیاز جدید:** اضافه شدن سرویس محاسبه تعداد افراد منتظر قبل از یک نوبت خاص. کویری: `Count(appointments)` با شرط `status='WAITING'` و `appointment_date < target_date` یا بر اساس زمان ثبت (`created_at`).
 - **اقدام در Owner App:** نمایش این آمار در داشبورد به صورت Real-time یا با Polling/Websocket.
 
 ### ۱.۴. رفع مشکل صفحه‌بندی (Pagination) در موبایل
@@ -93,7 +93,7 @@
 - **اقدام در Backend:** توسعه اندپوینت‌های لازم برای دریافت لیست مشتریان یک کسب‌وکار به همراه تاریخچه پیام‌های ارسال شده (پیاده‌سازی مدل `SmsLog` در صورت نیاز).
 - **اقدام در Owner App:** طراحی سرویس‌ها و UI مجزا برای نمایش این بخش در موبایل اونر.
 
-### ۱.۷. تایید نوبت‌های ثبت شده توسط کلاینت ✅ **جزئاً انجام شد**
+### ۱.۷. تایید نوبت‌های ثبت شده توسط کلاینت ✅ **جزیاً انجام شد**
 - ✅ وضعیت‌های `PENDING_APPROVAL`, `PENDING_VERIFICATION`, `CONFIRMED`, `LOCKED` در مدل `Appointment` پیاده‌سازی شدند.
 - ✅ اندپوینت ثبت نوبت کلاینت (`POST /api/client/appointments/`) با وضعیت `PENDING_APPROVAL` وجود دارد.
 - **اقدام باقی‌مانده در Owner App:** توسعه سرویس و یک UI اختصاصی (مانند تب "درخواست‌های بررسی‌نشده") برای مشاهده درخواست‌های کلاینت‌ها و تایید/رد آن‌ها — نمایش `PENDING_VERIFICATION` با indicator بصری متمایز.
@@ -162,7 +162,7 @@
   - **اقدام:** تغییر نقش‌ها به `BUSINESS_OWNER`, `CLIENT`, `ADMIN`.
   - ایجاد Permission Classهای اختصاصی در Django REST (مثل `IsBusinessOwner`, `IsClient`).
 
-### ۳.۲. بهینه‌سازی دیتابیس و کوئری‌ها
+### ۳.۲. بهینه‌سازی دیتابیس و کویری‌ها
 - جداسازی منطق‌های تکراری در Views و انتقال آن‌ها به لایه Services (Business Logic Layer).
 - اضافه کردن ایندکس‌های مناسب به دیتابیس، به ویژه برای `unique_code` کسب‌وکارها و `appointment_date` در ترکیب با `status`.
 - کش کردن آمار و کاتالوگ کسب‌وکارها با استفاده از Redis برای کاهش بار دیتابیس.
@@ -175,7 +175,7 @@
 | Method | URL | Auth | توضیح |
 |--------|-----|------|-------|
 | `POST` | `/api/send-otp/` | — | ارسال کد OTP (ریت‌لیمیت ۳ دقیقه) |
-| `POST` | `/api/verify-otp/` | — | تأیید کد OTP |
+| `POST` | `/api/verify-otp/` | — | تایید کد OTP |
 | `POST` | `/api/register/` | — | ثبت‌نام کاربر جدید |
 | `POST` | `/api/login/` | — | ورود با رمز عبور |
 | `GET/PATCH` | `/api/business/<id>/` | Owner JWT | مدیریت کسب‌وکار (کامل) |

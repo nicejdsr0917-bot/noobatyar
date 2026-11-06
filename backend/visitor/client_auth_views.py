@@ -50,7 +50,7 @@ def client_send_otp_view(request):
     if not result['success']:
         return APIResponse.error(result.get('error', 'خطا در ارسال کد'))
 
-    return APIResponse.success(data={'expires_in': 180}, message='کد تأیید ارسال شد')
+    return APIResponse.success(data={'expires_in': 180}, message='کد تایید ارسال شد')
 
 
 @api_view(['POST'])
@@ -104,7 +104,7 @@ def client_register_view(request):
 
     expected = cache.get(f'visitor_register_token:{phone}')
     if not expected or not secrets.compare_digest(str(expected), register_token):
-        return APIResponse.error('توکن تأیید شماره نامعتبر یا منقضی شده است')
+        return APIResponse.error('توکن تایید شماره نامعتبر یا منقضی شده است')
     cache.delete(f'visitor_register_token:{phone}')
 
     # get_or_create rather than create: phone_number is globally unique, so a

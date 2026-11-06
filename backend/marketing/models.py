@@ -31,7 +31,7 @@ class MarketingLead(models.Model):
     next_follow_up = models.DateField(null=True, blank=True, db_index=True, verbose_name='پیگیری بعدی')
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
-        limit_choices_to={'is_staff': True}, related_name='marketing_leads', verbose_name='مسئول پیگیری')
+        limit_choices_to={'is_staff': True}, related_name='marketing_leads', verbose_name='مسوول پیگیری')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='آخرین ویرایش')
 

@@ -166,3 +166,12 @@ class AdminAddFormTests(TestCase):
         self.assertEqual(biz.moderation_status, Business.MODERATION_APPROVED)
         self.assertEqual(biz.city_code, 4)
         self.assertIsNone(biz.latitude)
+
+
+class HamzaFoldingTests(TestCase):
+    def test_hamza_spellings_match_the_plain_names(self):
+        from .directory_import import _plain
+        # Hamza forms written as escapes: the repo itself carries none.
+        self.assertEqual(_plain('\u0646\u0627\u0626\u06cc\u0646'), _plain('نایین'))
+        self.assertEqual(_plain('\u062a\u0623\u0645\u06cc\u0646 اجتماعی'), _plain('تامین اجتماعی'))
+        self.assertEqual(_plain('\u0636\u06cc\u0627\u0621\u0622\u0628\u0627\u062f'), _plain('ضیاآباد'))

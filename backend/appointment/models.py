@@ -24,9 +24,9 @@ class Appointment(models.Model):
     # CANCELLED           : rejected or manually cancelled
     STATUS_CHOICES = [
         ('LOCKED',               'قفل شده (در حال پرداخت)'),
-        ('PENDING_VERIFICATION', 'در انتظار تأیید فیش'),
-        ('PENDING_APPROVAL',     'در انتظار تأیید مالک'),
-        ('CONFIRMED',            'تأیید شده'),
+        ('PENDING_VERIFICATION', 'در انتظار تایید فیش'),
+        ('PENDING_APPROVAL',     'در انتظار تایید مالک'),
+        ('CONFIRMED',            'تایید شده'),
         ('WAITING',              'در صف انتظار'),
         ('IN_PROGRESS',          'در حال سرویس'),
         ('COMPLETED',            'تکمیل شده'),
@@ -121,9 +121,9 @@ class Appointment(models.Model):
     deposit_verified_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text='زمانی که زیبال پرداخت بیعانهٔ آنلاین را تأیید کرد. اگر نوبت بعد از آن '
+        help_text='زمانی که زیبال پرداخت بیعانه آنلاین را تایید کرد. اگر نوبت بعد از آن '
                   'قفل‌شده بماند (ساعت از دست رفته)، پول گرفته شده و باید برگردانده شود.',
-        verbose_name='زمان تأیید پرداخت بیعانه',
+        verbose_name='زمان تایید پرداخت بیعانه',
     )
 
     DEPOSIT_METHOD_CHOICES = [
@@ -206,7 +206,7 @@ class Appointment(models.Model):
     # time as a range: an estimate from their last saved position, never
     # required (null when the app had no position or an older client booked).
     travel_distance_m = models.PositiveIntegerField(
-        null=True, blank=True, verbose_name='فاصلهٔ مستقیم مراجع (متر)',
+        null=True, blank=True, verbose_name='فاصله مستقیم مراجع (متر)',
     )
     drive_minutes_min = models.PositiveSmallIntegerField(
         null=True, blank=True, verbose_name='زمان تقریبی رانندگی، از (دقیقه)',

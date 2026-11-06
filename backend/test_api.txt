@@ -60,16 +60,16 @@ curl -X POST http://127.0.0.1:8000/api/auth/forgot-password/send/ \
   -H "Content-Type: application/json" \
   -d '{"phone": "09178516035"}'
 # ✅ Success (200 OK):
-# {"status": "success", "code": 200, "message": "کد تأیید ارسال شد", "data": {"expires_in": 120}}
+# {"status": "success", "code": 200, "message": "کد تایید ارسال شد", "data": {"expires_in": 120}}
 # ❌ Error (400 Bad Request):
 # {"status": "error", "code": 400, "message": "فرمت شماره: 09XXXXXXXXX", "data": null}
 
-# 6. تأیید کد (Verify OTP)
+# 6. تایید کد (Verify OTP)
 curl -X POST http://127.0.0.1:8000/api/auth/forgot-password/verify/ \
   -H "Content-Type: application/json" \
   -d '{"phone": "09178516035", "code": "123456"}'
 # ✅ Success (200 OK):
-# {"status": "success", "code": 200, "message": "کد تأیید شد", "data": {"reset_token": "abc...123", "expires_in": 300}}
+# {"status": "success", "code": 200, "message": "کد تایید شد", "data": {"reset_token": "abc...123", "expires_in": 300}}
 # ❌ Error (400 Bad Request):
 # {"status": "error", "code": 400, "message": "کد نامعتبر یا منقضی شده است", "data": null}
 

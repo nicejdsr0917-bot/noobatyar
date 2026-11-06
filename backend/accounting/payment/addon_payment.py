@@ -184,11 +184,11 @@ class AddOnVerificationService:
                     "Zibal add-on amount mismatch for %s: verified=%r expected=%s toman",
                     self.track_id, (result.data or {}).get("amount"), self.purchase.amount,
                 )
-                return {"success": False, "message": "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید",
+                return {"success": False, "message": "تایید پرداخت با تاخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید",
                         "data": {}}
 
             if result.outcome == zibal.Outcome.TRANSPORT_ERROR:
-                return {"success": False, "message": "تأیید پرداخت با تأخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید",
+                return {"success": False, "message": "تایید پرداخت با تاخیر مواجه شد؛ چند لحظه بعد دوباره تلاش کنید",
                         "data": result.data}
 
             if result.outcome == zibal.Outcome.FAILED:

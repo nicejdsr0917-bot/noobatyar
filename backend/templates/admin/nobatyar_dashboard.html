@@ -18,8 +18,8 @@
 
 {% if dashboard_failed %}
   <div class="nb-banner nb-banner--error">
-    محاسبهٔ آمار داشبورد با خطا مواجه شد. بخش‌ها از منوی کناری در دسترس‌اند و
-    جزئیات خطا در لاگ‌های سرور ثبت شده است.
+    محاسبه آمار داشبورد با خطا مواجه شد. بخش‌ها از منوی کناری در دسترس‌اند و
+    جزییات خطا در لاگ‌های سرور ثبت شده است.
   </div>
 {% endif %}
 
@@ -30,7 +30,7 @@
     <div>
       <h1>نمای کلی سامانه</h1>
       <p class="nb-dash-meta">
-        آخرین محاسبه: {{ dashboard_generated_at }}{% if dashboard_cached %} · از حافظهٔ موقت{% endif %}
+        آخرین محاسبه: {{ dashboard_generated_at }}{% if dashboard_cached %} · از حافظه موقت{% endif %}
       </p>
     </div>
     <div class="nb-actions">
@@ -72,7 +72,7 @@
               <h3>{{ panel.title }}</h3>
               <span class="nb-alert-count">{{ panel.count }}</span>
               <span class="nb-spacer"></span>
-              {% if panel.url %}<a href="{{ panel.url }}">مشاهدهٔ همه</a>{% endif %}
+              {% if panel.url %}<a href="{{ panel.url }}">مشاهده همه</a>{% endif %}
             </div>
             {% if panel.rows %}
               <div class="nb-table-scroll">
@@ -112,7 +112,7 @@
          against Zibal will otherwise assume it is broken. {% endcomment %}
       <p class="nb-note">
         فقط پرداخت‌های <strong>موفق</strong> شمرده می‌شوند؛ پرداخت‌های ناتمام در بخش
-        «نیازمند رسیدگی» می‌آیند. بیعانهٔ نوبت‌ها در این ارقام نیست — بیعانه به درگاه
+        «نیازمند رسیدگی» می‌آیند. بیعانه نوبت‌ها در این ارقام نیست — بیعانه به درگاه
         زیبالِ خودِ کسب‌وکار واریز می‌شود و هرگز از حساب پلتفرم عبور نمی‌کند.
       </p>
     </section>

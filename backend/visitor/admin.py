@@ -161,7 +161,7 @@ class SmsLogAdmin(ModelAdmin):
         # No message_text column — see visitor/reports.py's docstring, "PII
         # discipline". error_detail is provider-side and safe to export.
         writer.writerow([f"موارد اخیر (حداکثر {reports.RECENT_LOGS_LIMIT} ردیف)"])
-        writer.writerow(['کسب‌وکار', 'وضعیت', 'زمان', 'جزئیات خطا'])
+        writer.writerow(['کسب‌وکار', 'وضعیت', 'زمان', 'جزییات خطا'])
         for row in report['recent_logs']:
             writer.writerow([row['business'], row['status'], row['sent_at'], row['error_detail']])
         if not report['recent_logs']:

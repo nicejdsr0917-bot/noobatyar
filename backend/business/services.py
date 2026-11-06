@@ -143,7 +143,7 @@ def apply_moderation_decision(business, to_status, actor, note='', notify=True):
     The SMS is fired after the decision is committed and can never undo it: a
     provider outage must not roll a rejection back. Returns whether the notice
     was actually accepted by the provider, so a caller that cares (e.g. an admin
-    message) can say "تأیید شد، اما پیامک ارسال نشد".
+    message) can say "تایید شد، اما پیامک ارسال نشد".
     """
     from .models import Business
     from .moderation import apply_decision

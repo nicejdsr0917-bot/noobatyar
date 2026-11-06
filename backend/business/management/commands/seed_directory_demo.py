@@ -59,7 +59,7 @@ BUSINESSES = [
         'default_service_duration': 30,
         'work_start_hour': 10,
         'work_end_hour': 19,
-        'services': ['تزریق ژل و بوتاکس', 'لیزر موهای زائد', 'مزوتراپی', 'پاکسازی پوست'],
+        'services': ['تزریق ژل و بوتاکس', 'لیزر موهای زاید', 'مزوتراپی', 'پاکسازی پوست'],
         'insurances': ['asia', 'alborz', 'iran', 'salamat'],
     },
     {

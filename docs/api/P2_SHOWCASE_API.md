@@ -71,5 +71,5 @@ to enforce: without a `logo` file the response is **400** `"لوگوی کسب‌
 Old app versions send neither, so they keep working. Updates (`PUT /api/business/<id>/`) are never enforced.
 
 ## Admin / Bale (staff only, for reference)
-New items appear in admin → «نمونه‌کار و مدارک» and as Bale cards (photo + ✅ تأیید / ❌ رد with canned reasons).
+New items appear in admin → «نمونه‌کار و مدارک» and as Bale cards (photo + ✅ تایید / ❌ رد with canned reasons).
 Marketing leads (admin → «بازاریابی») have no public API.

@@ -67,7 +67,7 @@ class ModerationSerializerExposureTests(TestCase):
         serializer = BusinessSerializer(
             self.business,
             data={'moderation_status': Business.MODERATION_APPROVED,
-                  'moderation_note': 'خودم تأیید کردم'},
+                  'moderation_note': 'خودم تایید کردم'},
             partial=True,
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
@@ -163,7 +163,7 @@ class BusinessApiModerationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()['data']
         self.assertEqual(data['moderation_status'], Business.MODERATION_APPROVED)
-        self.assertEqual(data['moderation_status_display'], 'تأیید شده')
+        self.assertEqual(data['moderation_status_display'], 'تایید شده')
 
     def test_put_changing_title_requeues_and_response_shows_it(self):
         response = self.client.put(self.url, {'title': 'عنوان جدید'}, format='json')
@@ -308,7 +308,7 @@ class ModerationSmsTests(TestCase):
             )
 
         self.assertTrue(notified)
-        self.assertIn('تأیید شد', send.call_args[0][1])
+        self.assertIn('تایید شد', send.call_args[0][1])
 
 
 class PendingEditStagingTests(TestCase):

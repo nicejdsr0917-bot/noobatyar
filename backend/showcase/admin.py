@@ -45,7 +45,7 @@ class _ShowcaseAdmin(ModelAdmin):
             self._stamp(request, obj)
         super().save_model(request, obj, form, change)
 
-    @admin.action(description='تأیید موارد انتخاب‌شده')
+    @admin.action(description='تایید موارد انتخاب‌شده')
     def approve_selected(self, request, queryset):
         n = 0
         for obj in queryset.exclude(status=ModerationStatus.APPROVED):
@@ -53,7 +53,7 @@ class _ShowcaseAdmin(ModelAdmin):
             self._stamp(request, obj)
             obj.save()
             n += 1
-        self.message_user(request, f'{n} مورد تأیید شد', messages.SUCCESS)
+        self.message_user(request, f'{n} مورد تایید شد', messages.SUCCESS)
 
     @admin.action(description='رد موارد انتخاب‌شده (دلیل: کیفیت یا محتوای نامناسب)')
     def reject_selected(self, request, queryset):

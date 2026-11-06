@@ -2,7 +2,7 @@
 
 این فایل شامل تمام کارهایی است که برای دیپلوی کردن پروژه بک‌اند روی سرور لینوکس ابونتو (IP: `93.127.223.93`) انجام شده است.
 
-> **به‌روزرسانی ۲۰۲۶-۰۷-۲۹:** سرور روی حالت clean-slate بازنصب شد و از این پس با دامنه + TLS سرو می‌شود، نه IP خام. جزئیات کامل و مراحل بازتولید در [`DEPLOY_TLS_DOMAIN.md`](../DEPLOY_TLS_DOMAIN.md) و [`backend/fresh_server_setup.sh`](fresh_server_setup.sh) آمده — بخش‌های زیر که هنوز IP خام یا Portainer عمومی را ارجاع می‌دهند، تاریخی‌اند و باید در کنار آن سند خوانده شوند.
+> **به‌روزرسانی ۲۰۲۶-۰۷-۲۹:** سرور روی حالت clean-slate بازنصب شد و از این پس با دامنه + TLS سرو می‌شود، نه IP خام. جزییات کامل و مراحل بازتولید در [`DEPLOY_TLS_DOMAIN.md`](../DEPLOY_TLS_DOMAIN.md) و [`backend/fresh_server_setup.sh`](fresh_server_setup.sh) آمده — بخش‌های زیر که هنوز IP خام یا Portainer عمومی را ارجاع می‌دهند، تاریخی‌اند و باید در کنار آن سند خوانده شوند.
 
 ## ۱. داکرایز کردن پروژه (Dockerization)
 برای اینکه پروژه قابلیت اجرای مستقل و پایدار روی سرور داشته باشه، فایل‌های زیر ایجاد شدند:
@@ -13,7 +13,7 @@
   3. `redis`: کش مشترک بین تمام workerها (برای OTP، rate-limit و کش اندپوینت‌ها)
   4. `web`: اپلیکیشن اصلی جنگو — با **ASGI** اجرا می‌شود (چند worker یووی‌کورن)
   5. `frontend`: کلاینت Next.js
-  6. `nginx`: وب‌سرور Nginx برای دریافت ریکوئست‌ها روی پورت ۸۰ و انتقال آن‌ها به جنگو/فرانت.
+  6. `nginx`: وب‌سرور Nginx برای دریافت ریکویست‌ها روی پورت ۸۰ و انتقال آن‌ها به جنگو/فرانت.
 - **`nginx/nginx.conf`**: تنظیمات Nginx برای Reverse Proxy و سرو کردن فایل‌های استاتیک جنگو.
 - **`entrypoint.sh`**: اسکریپتی که موقع بالا آمدن کانتینر `web`، ابتدا منتظر دیتابیس می‌مونه، بعد مایگریشن‌ها (`migrate`) رو اجرا می‌کنه، فایل‌های استاتیک (`collectstatic`) رو جمع‌آوری می‌کنه و در نهایت پروژه رو ران می‌کنه.
 
@@ -38,7 +38,7 @@
 - **کانکشن دیتابیس**: `CONN_MAX_AGE` (پیش‌فرض `0`، چون pooling را به `pgbouncer` سپرده‌ایم) و `CONN_HEALTH_CHECKS`.
 - **امنیت**: `CORS_ALLOWED_ORIGINS`، `ZIBAL_MERCHANT_ID`، `SITE_URL` و توکن‌های پیامک از env خوانده می‌شوند؛ در پروداکشن اگر `SECRET_KEY` ست نشده باشد اجرا با خطا متوقف می‌شود (fail-fast).
 - **JWT**: عمر access token به ۲۴ ساعت و refresh به ۱۴ روز کاهش یافت (قابل تنظیم با `JWT_ACCESS_HOURS` و `JWT_REFRESH_DAYS`).
-- مسیر `STATIC_ROOT` برای ذخیره فایل‌های استاتیک و ارائه آن‌ها توسط Nginx تنظیم شد.
+- مسیر `STATIC_ROOT` برای ذخیره فایل‌های استاتیک و ارایه آن‌ها توسط Nginx تنظیم شد.
 
 ## ۳. مدیریت پیش‌نیازها
 فایل `requirements_prod.txt` ایجاد شد که شامل پیش‌نیازهای اصلی و سازگار با سرور لینوکس بود (مثل `psycopg2-binary`، `gunicorn`، `uvicorn[standard]`، `django-redis`، `httpx`، `redis` و ...). پکیج‌های اضافی مربوط به هوش مصنوعی و مک حذف شدند تا سایز ایمیج بهینه‌تر بشه.
@@ -63,7 +63,7 @@ docker compose exec web python manage.py shell < seed_test_data.py
 - `mobile_owner/composeApp/build.gradle.kts`: `BASE_URL = https://api.noobatyar.ir`، `BOOKING_BASE_URL = https://app.noobatyar.ir`
 - `front_client`: در build زمان، `NEXT_PUBLIC_API_URL=https://api.noobatyar.ir` در `docker-compose.yml` ست شده.
 
-IP خام (`93.127.223.93`) عمداً در `ALLOWED_HOSTS` باقی مانده تا نسخه‌های قدیمی‌تر اپ که هنوز IP دارند از کار نیفتند — جزئیات در [`DEPLOY_TLS_DOMAIN.md`](../DEPLOY_TLS_DOMAIN.md).
+IP خام (`93.127.223.93`) عمداً در `ALLOWED_HOSTS` باقی مانده تا نسخه‌های قدیمی‌تر اپ که هنوز IP دارند از کار نیفتند — جزییات در [`DEPLOY_TLS_DOMAIN.md`](../DEPLOY_TLS_DOMAIN.md).
 
 ## ۷. معماری بهینه‌سازی برای بار بالا (هزاران درخواست همزمان)
 برای پایداری و ظرفیت واقعی زیر بار سنگین، این تغییرات اعمال شد:
@@ -75,7 +75,7 @@ IP خام (`93.127.223.93`) عمداً در `ALLOWED_HOSTS` باقی مانده 
 - **Throttling**: سقف نرخ سراسری (`anon`/`user`) و اختصاصی برای اندپوینت‌های OTP و slot. عبور از سقف → پاسخ `429`.
 - **Pagination**: لیست نوبت مشتری (`ClientAppointmentListView`) دیگر کل تاریخچه را در حافظه لود نمی‌کند و صفحه‌بندی‌شده است (شکل پاسخ: `count / total_pages / current_page / next / previous / results`).
 - **ایندکس ترکیبی** `(business, status, appointment_date)` روی جدول نوبت‌ها (migration `0005`).
-- **پیامک پس‌زمینه**: ارسال پیامک رزرو از طریق ترد daemon انجام می‌شود تا مستقل از حلقه‌ی رویداد ریکوئست باشد.
+- **پیامک پس‌زمینه**: ارسال پیامک رزرو از طریق ترد daemon انجام می‌شود تا مستقل از حلقه‌ی رویداد ریکویست باشد.
 
 ### متغیرهای محیطی (Environment Variables)
 این متغیرها باید در فایل `.env` کنار `docker-compose.yml` تنظیم شوند:

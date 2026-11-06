@@ -85,7 +85,7 @@ def send_card(config, business, kind=KIND_NEW, changed=None):
     The logo goes as a separate photo message rather than as a caption on the
     card, because the decision buttons live on the card and a photo message's
     text can only be changed with editMessageCaption — so folding the two
-    together would mean the "✅ تأیید شد" rewrite silently fails and the buttons
+    together would mean the "✅ تایید شد" rewrite silently fails and the buttons
     stay live after a decision.
     """
     photo = _logo_path(business)
@@ -228,7 +228,7 @@ def build_text(business, kind, changed=None) -> str:
     staged = _staged_values(business)
     if staged:
         lines.append('')
-        lines.append('— متن جدید در انتظار تأیید —')
+        lines.append('— متن جدید در انتظار تایید —')
         lines.extend(staged)
 
     if business.moderation_submitted_at:
@@ -300,7 +300,7 @@ def _showcase_model(kind):
 
 def showcase_card_text(kind, item) -> str:
     biz = item.business
-    head = '🖼 نمونه‌کار جدید در انتظار تأیید' if kind == 'portfolio' else '🎓 مدرک جدید در انتظار تأیید'
+    head = '🖼 نمونه‌کار جدید در انتظار تایید' if kind == 'portfolio' else '🎓 مدرک جدید در انتظار تایید'
     lines = [head, '', f'کسب‌وکار: {biz.title}']
     if biz.unique_code:
         lines.append(f'کد: {biz.unique_code}')

@@ -145,7 +145,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='business',
             name='first_approved_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='اولین تأیید'),
+            field=models.DateTimeField(blank=True, null=True, verbose_name='اولین تایید'),
         ),
         migrations.AlterField(
             model_name='business',
@@ -185,7 +185,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='business',
             name='moderation_status',
-            field=models.CharField(choices=[('PENDING', 'در انتظار بررسی'), ('APPROVED', 'تأیید شده'), ('REJECTED', 'رد شده'), ('SUSPENDED', 'معلق شده')], db_index=True, default='PENDING', help_text='وضعیت بررسی محتوا؛ فقط «تأیید شده» عمومی نمایش داده می\u200cشود.', max_length=20, verbose_name='وضعیت بررسی'),
+            field=models.CharField(choices=[('PENDING', 'در انتظار بررسی'), ('APPROVED', 'تایید شده'), ('REJECTED', 'رد شده'), ('SUSPENDED', 'معلق شده')], db_index=True, default='PENDING', help_text='وضعیت بررسی محتوا؛ فقط «تایید شده» عمومی نمایش داده می\u200cشود.', max_length=20, verbose_name='وضعیت بررسی'),
         ),
         migrations.AlterField(
             model_name='business',
@@ -270,7 +270,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='business',
             name='services',
-            field=models.JSONField(blank=True, default=list, help_text="خدماتی که این کسب\u200cوکار ارائه می\u200cدهد، مثلاً ['کوتاهی مو', 'رنگ مو']", verbose_name='خدمات'),
+            field=models.JSONField(blank=True, default=list, help_text="خدماتی که این کسب\u200cوکار ارایه می\u200cدهد، مثلاً ['کوتاهی مو', 'رنگ مو']", verbose_name='خدمات'),
         ),
         migrations.AlterField(
             model_name='business',
@@ -285,7 +285,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='business',
             name='unique_code',
-            field=models.CharField(blank=True, db_index=True, help_text='کد یکتای عمومی کسب\u200cوکار؛ همان چیزی که در آدرس صفحهٔ رزرو می\u200cآید (\u200f/b/Noobatyar-<کد>). اگر خالی بماند یک کد ۸ کاراکتری خودکار ساخته می\u200cشود. برای کد دلخواه تا ۶۴ کاراکتر مجاز است. توجه: تغییر کد، لینک\u200cهای قبلیِ همین کسب\u200cوکار را از کار می\u200cاندازد.', max_length=64, unique=True, validators=[django.core.validators.RegexValidator(message='کد فقط می\u200cتواند شامل حروف انگلیسی، رقم، خط تیره (-) و زیرخط (_) باشد.', regex='^[A-Za-z0-9_-]+$')], verbose_name='کد یکتا'),
+            field=models.CharField(blank=True, db_index=True, help_text='کد یکتای عمومی کسب\u200cوکار؛ همان چیزی که در آدرس صفحه رزرو می\u200cآید (\u200f/b/Noobatyar-<کد>). اگر خالی بماند یک کد ۸ کاراکتری خودکار ساخته می\u200cشود. برای کد دلخواه تا ۶۴ کاراکتر مجاز است. توجه: تغییر کد، لینک\u200cهای قبلیِ همین کسب\u200cوکار را از کار می\u200cاندازد.', max_length=64, unique=True, validators=[django.core.validators.RegexValidator(message='کد فقط می\u200cتواند شامل حروف انگلیسی، رقم، خط تیره (-) و زیرخط (_) باشد.', regex='^[A-Za-z0-9_-]+$')], verbose_name='کد یکتا'),
         ),
         migrations.AlterField(
             model_name='business',
@@ -365,7 +365,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='contentreport',
             name='detail',
-            field=models.TextField(blank=True, default='', verbose_name='جزئیات'),
+            field=models.TextField(blank=True, default='', verbose_name='جزییات'),
         ),
         migrations.AlterField(
             model_name='contentreport',

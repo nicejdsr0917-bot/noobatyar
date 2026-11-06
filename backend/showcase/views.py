@@ -77,7 +77,7 @@ class OwnerCollectionView(_OwnerBase):
             return APIResponse.error(self.limit_message, code=400)
         return APIResponse.success(
             data=self._ser(request, item),
-            message='ثبت شد و پس از تأیید برای مشتریان نمایش داده می‌شود',
+            message='ثبت شد و پس از تایید برای مشتریان نمایش داده می‌شود',
             status=status.HTTP_201_CREATED)
 
 

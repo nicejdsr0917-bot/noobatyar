@@ -597,7 +597,7 @@ UNFOLD = {
                 'separator': True,
                 'collapsible': True,
                 'items': [
-                    _item('نسخهٔ اپ', 'system_update', _changelist('versions', 'appversion'), 'versions.view_appversion'),
+                    _item('نسخه اپ', 'system_update', _changelist('versions', 'appversion'), 'versions.view_appversion'),
                     _item('ربات بله', 'smart_toy', _changelist('bale', 'balesettings'), 'bale.view_balesettings'),
                     _item('نقش‌ها', 'admin_panel_settings', _changelist('auth', 'group'), 'auth.view_group'),
                 ],

@@ -33,7 +33,7 @@ REJECT_REASONS = [
 
 SUSPEND_REASONS = [
     'گزارش تخلف از سوی کاربران',
-    'محتوای نامناسب پس از تأیید',
+    'محتوای نامناسب پس از تایید',
     'درخواست پشتیبانی',
 ]
 
@@ -54,7 +54,7 @@ REASONS_BY_LETTER = {
 def main_keyboard(business_id) -> dict:
     """Approve outright, or step into a reason menu for the negative decisions."""
     return {'inline_keyboard': [[
-        {'text': '✅ تأیید', 'callback_data': f'm:d:{business_id}:A'},
+        {'text': '✅ تایید', 'callback_data': f'm:d:{business_id}:A'},
         {'text': '❌ رد', 'callback_data': f'm:q:{business_id}:R'},
         {'text': '⛔ تعلیق', 'callback_data': f'm:q:{business_id}:S'},
     ]]}
@@ -185,7 +185,7 @@ SHOWCASE_LETTERS = {v: k for k, v in SHOWCASE_KINDS.items()}
 def showcase_keyboard(kind, item_id) -> dict:
     k = SHOWCASE_LETTERS[kind]
     return {'inline_keyboard': [[
-        {'text': '✅ تأیید', 'callback_data': f's:{k}:{item_id}:A'},
+        {'text': '✅ تایید', 'callback_data': f's:{k}:{item_id}:A'},
         {'text': '❌ رد', 'callback_data': f's:{k}:{item_id}:Q'},
     ]]}
 

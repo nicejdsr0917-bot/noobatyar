@@ -149,10 +149,10 @@ def notify_client_of_decision(appointment, old_status, new_status):
 
     if new_status == 'CANCELLED':
         message = signed(
-            f"❌ متأسفانه نوبت شما در {business_title} تایید نشد\n"
+            f"❌ متاسفانه نوبت شما در {business_title} تایید نشد\n"
             f"تاریخ: {time_str}"
         )
-        push_body = f"متأسفانه نوبت شما در {business_title} تایید نشد — تاریخ: {time_str}"
+        push_body = f"متاسفانه نوبت شما در {business_title} تایید نشد — تاریخ: {time_str}"
     else:
         message = signed(
             f"✅ نوبت شما در {business_title} تایید شد\n"

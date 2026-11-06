@@ -75,7 +75,7 @@ class AppointmentView(APIView):
                 }
             )
 
-            return APIResponse.success(data=appointment_data, message='جزئیات نوبت با موفقیت دریافت شد')
+            return APIResponse.success(data=appointment_data, message='جزییات نوبت با موفقیت دریافت شد')
 
         except Exception as e:
             elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
@@ -445,7 +445,7 @@ class AppointmentView(APIView):
 
         return APIResponse.success(
             data=await sync_to_async(_serialized)(appointment),
-            message='جزئیات نوبت با موفقیت بروزرسانی شد',
+            message='جزییات نوبت با موفقیت بروزرسانی شد',
         )
 
     async def _update_details_and_status(
@@ -496,5 +496,5 @@ class AppointmentView(APIView):
         )
         return APIResponse.success(
             data=await sync_to_async(_serialized)(appointment),
-            message='جزئیات نوبت با موفقیت بروزرسانی شد',
+            message='جزییات نوبت با موفقیت بروزرسانی شد',
         )

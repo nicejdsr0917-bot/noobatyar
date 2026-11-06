@@ -18,7 +18,7 @@
   {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
 
   {% if report %}
-    <h2>نتیجهٔ بررسی «{{ file_name }}» <small style="color:var(--body-quiet-color)">(هنوز چیزی ثبت نشده)</small></h2>
+    <h2>نتیجه بررسی «{{ file_name }}» <small style="color:var(--body-quiet-color)">(هنوز چیزی ثبت نشده)</small></h2>
 
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-block:12px">
       <div class="module" style="padding:12px 18px"><strong style="font-size:24px">{{ report.created }}</strong><br>مرکز جدید</div>
@@ -47,7 +47,7 @@
     {% endif %}
 
     {% if report.samples %}
-      <h3>نمونهٔ مراکزی که ثبت می‌شوند</h3>
+      <h3>نمونه مراکزی که ثبت می‌شوند</h3>
       <table style="width:100%">
         <thead><tr><th>نام</th><th>شهر</th><th>صنف</th><th>نکته‌ها</th></tr></thead>
         <tbody>

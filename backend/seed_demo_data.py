@@ -146,7 +146,7 @@ for spec in BUSINESSES:
     # moderation_status=APPROVED by hand leaves logo empty even though the
     # business reads as approved.
     if biz.moderation_status != Business.MODERATION_APPROVED or biz.pending_logo:
-        apply_decision(biz, Business.MODERATION_APPROVED, actor=None, note='دمو — تأیید خودکار')
+        apply_decision(biz, Business.MODERATION_APPROVED, actor=None, note='دمو — تایید خودکار')
         biz.refresh_from_db()
     if biz.logo:
         biz.theme_color = color_from_logo(biz.logo)

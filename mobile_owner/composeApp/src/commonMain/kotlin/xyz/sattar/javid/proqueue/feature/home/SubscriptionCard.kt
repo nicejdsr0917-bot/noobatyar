@@ -91,7 +91,7 @@ fun SubscriptionCard(subscription: SubscriptionDto?) {
                     .background(Brush.linearGradient(gradientColors))
                     .padding(16.dp)
             ) {
-                // آیکون تزئینی پس‌زمینه
+                // آیکون تزیینی پس‌زمینه
                 Icon(
                     imageVector = icon,
                     contentDescription = null,

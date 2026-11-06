@@ -23,7 +23,7 @@ class RegisterSerializer(serializers.Serializer):
     """ثبت‌نام با phone + یکی از دو روش احراز:
 
     - password: مسیر کلاسیک (اپ‌های موبایل)
-    - register_token: توکن کوتاه‌مدتی که پس از تأیید OTP صادر می‌شود (وب)
+    - register_token: توکن کوتاه‌مدتی که پس از تایید OTP صادر می‌شود (وب)
 
     هر دو اختیاری‌اند اما دست‌کم یکی باید ارسال شود؛ وگرنه ثبت‌نام وب که هرگز
     رمز عبور نمی‌گیرد با خطای «این مقدار لازم است» رد می‌شد.
@@ -41,7 +41,7 @@ class RegisterSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if not attrs.get('password') and not attrs.get('register_token'):
-            raise serializers.ValidationError("رمز عبور یا توکن تأیید شماره الزامی است")
+            raise serializers.ValidationError("رمز عبور یا توکن تایید شماره الزامی است")
         return attrs
 
 class SendOTPSerializer(serializers.Serializer):
@@ -52,7 +52,7 @@ class SendOTPSerializer(serializers.Serializer):
         return _clean_mobile(value)
 
 class VerifyOTPSerializer(serializers.Serializer):
-    """تأیید OTP عمومی"""
+    """تایید OTP عمومی"""
     phone = serializers.CharField(max_length=11)
     code = serializers.CharField(min_length=4, max_length=6)
 
@@ -105,7 +105,7 @@ class ForgotPasswordSendOTPSerializer(serializers.Serializer):
 
 
 class ForgotPasswordVerifyOTPSerializer(serializers.Serializer):
-    """تأیید OTP"""
+    """تایید OTP"""
     phone = serializers.CharField(max_length=11)
     code = serializers.CharField(min_length=4, max_length=6)
 
