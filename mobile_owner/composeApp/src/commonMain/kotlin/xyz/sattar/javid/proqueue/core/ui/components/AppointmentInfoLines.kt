@@ -47,7 +47,10 @@ fun Appointment.visibleInsuranceName(businessCategory: String?): String? {
     return if (known == null || known.group.takesInsurance) name else null
 }
 
-/** «بیمهٔ تکمیلی: …» with the insurer's own logo (shield icon without one). */
+/**
+ * The insurer's logo and name — «بیمه ملت» already says what it is, so no
+ * label: the card stays one line shorter. Shield icon without a logo.
+ */
 @Composable
 fun InsuranceLine(name: String?, logo: String?, modifier: Modifier = Modifier) {
     name ?: return
@@ -55,7 +58,7 @@ fun InsuranceLine(name: String?, logo: String?, modifier: Modifier = Modifier) {
         if (logo != null) {
             AsyncImage(
                 model = mediaUrl(logo),
-                contentDescription = null,
+                contentDescription = Str.supplementary_insurance_label,
                 modifier = Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)),
                 contentScale = ContentScale.Fit
             )
@@ -68,11 +71,11 @@ fun InsuranceLine(name: String?, logo: String?, modifier: Modifier = Modifier) {
             )
         }
         Spacer(modifier = Modifier.width(6.dp))
-        InfoText("${Str.supplementary_insurance_label}: $name")
+        InfoText(name)
     }
 }
 
-/** «کد پیگیری پرداخت: …», selectable so the owner can copy it into their bank app. */
+/** «پیگیری: …», the deposit's tracking code, selectable so the owner can copy it into their bank app. */
 @Composable
 fun PaymentTrackingLine(code: String?, modifier: Modifier = Modifier) {
     code ?: return
@@ -80,7 +83,7 @@ fun PaymentTrackingLine(code: String?, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             InfoIcon(Icons.Rounded.ConfirmationNumber)
             Spacer(modifier = Modifier.width(6.dp))
-            InfoText("${Str.payment_tracking_label}: $code")
+            InfoText("${Str.payment_tracking_short}: $code")
         }
     }
 }

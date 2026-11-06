@@ -113,7 +113,7 @@ fun QueueItemCard(
         // full width — the one thing to do with this booking. Squeezing the
         // action button onto the name's line left the name, the menu and the
         // button fighting over one row.
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             val startTimeOnly = DateTimeUtils.formatTime(item.estimatedStartTime)
             val endTimeOnly = DateTimeUtils.formatTime(item.estimatedEndTime)
             val todayStart = DateTimeUtils.startOfTodayMillis()
@@ -240,7 +240,7 @@ fun QueueItemCard(
 
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -296,9 +296,9 @@ fun QueueItemCard(
             )
             val trackingCode = item.appointment.paymentTrackingCode()
             if (insuranceName != null || trackingCode != null) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     InsuranceLine(insuranceName, item.appointment.insuranceLogo)
@@ -312,14 +312,14 @@ fun QueueItemCard(
                 CollapsibleReceipt(receipt = receipt)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Primary action — the one thing an owner does most on a queue
             // row — on its own line, full width, where the thumb lands.
             FilledTonalButton(
                 onClick = onComplete,
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().height(42.dp),
+                modifier = Modifier.fillMaxWidth().height(38.dp),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Check,
