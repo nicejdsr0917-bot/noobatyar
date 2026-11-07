@@ -10,16 +10,16 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         plans = [
             {
-                # آزمایشی — رایگان ۳۰ روزه؛ باید بیعانه (اصلی‌ترین قابلیت
+                # آزمایشی — رایگان ۱۰ روزه؛ باید بیعانه (اصلی‌ترین قابلیت
                 # فروش) را هم شامل شود تا دوره‌ی آزمایشی خودش محصول را بفروشد
                 'name': 'آزمایشی',
                 'price': 0,
                 'discount_price': None,
-                'duration_value': 30,
+                'duration_value': 10,
                 'duration_unit': 'day',
                 'is_vip': False,
                 'description': [
-                    'آزمایشی ۳۰ روزه',
+                    'آزمایشی ۱۰ روزه',
                     'تا ۱۰۰ نوبت',
                     '۲۰ پیامک رایگان',
                     'بیعانه کارت‌به‌کارت',
