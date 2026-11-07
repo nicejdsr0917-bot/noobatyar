@@ -10,6 +10,18 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## v1.13.3 — 2026-11-07 (اپ اونر)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- در نسخه مایکت، قیمت پلن‌ها و بسته‌ها همان مبلغی است که هنگام پرداخت در مایکت می‌بینید.
+- بهبودهای کوچک در صفحه درباره ما.
+<!-- fa:end -->
+
+### mobile_owner
+- Myket build sends `X-Store: myket`; plan/add-on `price_display` is the Myket store total (backend `accounting/serializers.py`), matching the Myket gateway. Myket review fix.
+- Telegram row hidden from About in the Myket build (Myket review).
+
 ## v1.13.2 — 2026-11-06 (اپ اونر)
 
 <!-- fa:start -->
