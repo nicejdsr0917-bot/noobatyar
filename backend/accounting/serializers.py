@@ -1,7 +1,18 @@
 from rest_framework import serializers
 
-from . import toman_wallet, usage
+from . import pricing, toman_wallet, usage
 from .models import Plan, Subscription, AddOnPack, CreditLedger
+
+
+def _store_price(request, base):
+    """Myket build (``X-Store: myket``) is charged the store price, so show that.
+
+    None for every other client, which keeps showing the plain price. Old app
+    versions don't send the header and so see no change.
+    """
+    if request is None or request.headers.get('X-Store', '').lower() != pricing.CHANNEL_MYKET:
+        return None
+    return pricing.quote(base, pricing.CHANNEL_MYKET)['total']
 
 
 class PlanSerializer(serializers.ModelSerializer):
@@ -18,6 +29,7 @@ class PlanSerializer(serializers.ModelSerializer):
         price = obj.discount_price if obj.discount_price is not None else obj.price
         if price == 0:
             return 'رایگان'
+        price = _store_price(self.context.get('request'), price) or price
         return f"{price:,} تومان"
 
     def get_duration_display(self, obj):
@@ -51,7 +63,8 @@ class AddOnPackSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'price', 'price_display', 'kind', 'sms_amount', 'appointment_amount', 'feature_key', 'duration_days', 'myket_sku']
 
     def get_price_display(self, obj):
-        return f"{obj.price:,} تومان"
+        price = _store_price(self.context.get('request'), obj.price) or obj.price
+        return f"{price:,} تومان"
 
 
 class BuyPlanSerializer(serializers.Serializer):

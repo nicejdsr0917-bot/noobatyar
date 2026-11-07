@@ -2,6 +2,7 @@ package xyz.sattar.javid.proqueue.feature.aboutUs
 
 import xyz.sattar.javid.proqueue.core.ui.components.ForwardChevron
 import xyz.sattar.javid.proqueue.core.AppLinks
+import xyz.sattar.javid.proqueue.core.billing.StoreBillingProvider
 import xyz.sattar.javid.proqueue.core.i18n.Str
 import xyz.sattar.javid.proqueue.core.utils.toPersianDigits
 import xyz.sattar.javid.proqueue.core.ui.components.AdaptiveColumns
@@ -195,16 +196,19 @@ fun AboutUsContent(
                             onClick = { uriHandler.openUri(AppLinks.RUBIKA) }
                         )
                         SocialDivider()
-                        SocialRow(
-                            title = Str.telegram,
-                            handle = AppLinks.TELEGRAM_HANDLE,
-                            painter = painterResource(Res.drawable.ic_social_telegram),
-                            tile = Brush.linearGradient(listOf(Color(0xFF37AEE2), Color(0xFF1E96C8))),
-                            iconPadding = 10.dp,
-                            index = 3,
-                            onClick = { uriHandler.openUri(AppLinks.TELEGRAM) }
-                        )
-                        SocialDivider()
+                        // Myket's review rejects links to Telegram, so that build omits the row.
+                        if (StoreBillingProvider.billing?.storeKey != "myket") {
+                            SocialRow(
+                                title = Str.telegram,
+                                handle = AppLinks.TELEGRAM_HANDLE,
+                                painter = painterResource(Res.drawable.ic_social_telegram),
+                                tile = Brush.linearGradient(listOf(Color(0xFF37AEE2), Color(0xFF1E96C8))),
+                                iconPadding = 10.dp,
+                                index = 3,
+                                onClick = { uriHandler.openUri(AppLinks.TELEGRAM) }
+                            )
+                            SocialDivider()
+                        }
                         SocialRow(
                             title = Str.instagram,
                             handle = AppLinks.INSTAGRAM_HANDLE,

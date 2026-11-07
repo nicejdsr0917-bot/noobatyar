@@ -180,11 +180,10 @@ jobs:
           exit $FAIL
 
       - name: Upload APK to noobatyar.ir
-        # NOTE: parallel to the owner workflow and NOT verified for the client
-        # app: it assumes the same FTP account and a download button that
-        # requests wp-content/uploads/android/Noobatyar-client.apk. Check that
-        # file name against the website before relying on it; the step is
-        # continue-on-error, so a wrong target never blocks the release.
+        # Same FTP account as the owner workflow; the site's client download
+        # button requests wp-content/uploads/android/Noobatyar-client.apk
+        # (confirmed 2026-11-07, client-v1.3.0 landed there). Only the
+        # prodSite universal APK goes here, never the store one.
         # (Owner description follows.) The WordPress download button on
         # noobatyar.ir always requests a
         # fixed URL under wp-content/uploads/android/Noobatyar-owner.apk, so

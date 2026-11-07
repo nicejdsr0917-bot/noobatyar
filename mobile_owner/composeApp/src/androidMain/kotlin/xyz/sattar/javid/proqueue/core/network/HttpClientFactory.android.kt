@@ -4,6 +4,7 @@ import com.chuckerteam.chucker.api.ChuckerInterceptor
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.DefaultRequest
+import io.ktor.client.request.header
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.URLProtocol
 import io.ktor.http.path
@@ -40,6 +41,11 @@ actual object HttpClientFactory {
         install(AuthInterceptor)
         install(DefaultRequest) {
             url("${xyz.sattar.javid.proqueue.core.utils.AppConfig.baseUrl}/api/")
+            // Store builds (Myket) tell the server so prices shown match the store's.
+            // Read per request: the billing is set in MainActivity after this is built.
+            xyz.sattar.javid.proqueue.core.billing.StoreBillingProvider.billing?.let {
+                header("X-Store", it.storeKey)
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
+from rest_framework.test import APIClient
 
 from accounting import pricing
 
@@ -46,3 +47,43 @@ class MinimumPriceTests(SimpleTestCase):
             Plan(name="x", price=9_000).clean()
         with self.assertRaises(ValidationError):
             Plan(name="x", price=199_000, discount_price=5_000).clean()
+
+
+class StorePriceDisplayTests(TestCase):
+    """The Myket build must show what Myket charges; everyone else the plain price."""
+
+    def setUp(self):
+        from accounting.models import AddOnPack, Plan
+        self.plan = Plan.objects.create(name="پایه", price=199_000, duration_value=1, duration_unit="month")
+        self.sale = Plan.objects.create(name="ویژه", price=300_000, discount_price=199_000,
+                                        duration_value=1, duration_unit="month")
+        self.pack = AddOnPack.objects.create(name="بسته", price=50_000, kind="sms", sms_amount=100)
+        self.client = APIClient()
+
+    def _display(self, url, **headers):
+        rows = self.client.get(url, **headers).json()["data"]
+        return {r["name"]: r["price_display"] for r in rows}
+
+    def _plan_url(self):
+        return "/api/accounting/plans/"
+
+    def test_default_shows_plain_price(self):
+        got = self._display(self._plan_url())
+        self.assertEqual(got["پایه"], "199,000 تومان")
+
+    def test_myket_shows_store_total(self):
+        total = pricing.quote(199_000, pricing.CHANNEL_MYKET)["total"]
+        got = self._display(self._plan_url(), HTTP_X_STORE="myket")
+        self.assertEqual(got["پایه"], f"{total:,} تومان")
+        self.assertEqual(got["ویژه"], f"{total:,} تومان")  # discount price is the base
+
+    def test_myket_pack_and_raw_fields_unchanged(self):
+        total = pricing.quote(50_000, pricing.CHANNEL_MYKET)["total"]
+        got = self._display("/api/accounting/addons/", HTTP_X_STORE="myket")
+        self.assertEqual(got["بسته"], f"{total:,} تومان")
+        rows = self.client.get(self._plan_url(), HTTP_X_STORE="myket").json()["data"]
+        self.assertEqual({r["price"] for r in rows}, {199_000, 300_000})
+
+    def test_unknown_store_ignored(self):
+        got = self._display(self._plan_url(), HTTP_X_STORE="bazaar")
+        self.assertEqual(got["پایه"], "199,000 تومان")

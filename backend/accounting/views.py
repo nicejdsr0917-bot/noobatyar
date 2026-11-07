@@ -30,7 +30,7 @@ _payment_callback = services.payment_callback_url
 def plan_list(request):
     """لیست پلن‌ها — برای همه قابل مشاهده"""
     plans = Plan.objects.filter(is_active=True)
-    serializer = PlanSerializer(plans, many=True)
+    serializer = PlanSerializer(plans, many=True, context={'request': request})
     return APIResponse.success(
         data=serializer.data,
         message=None
@@ -52,7 +52,7 @@ def my_subscription(request):  # ✅ sync
             message='اشتراک فعالی ندارید'
         )
 
-    serializer = SubscriptionSerializer(subscription)
+    serializer = SubscriptionSerializer(subscription, context={'request': request})
     return APIResponse.success(data=serializer.data)
 
 
@@ -141,7 +141,7 @@ def wallet_convert(request):
 def addon_list(request):
     """لیست بسته‌های افزودنی فعال."""
     packs = AddOnPack.objects.filter(is_active=True)
-    return APIResponse.success(data=AddOnPackSerializer(packs, many=True).data)
+    return APIResponse.success(data=AddOnPackSerializer(packs, many=True, context={'request': request}).data)
 
 
 @api_view(['POST'])
