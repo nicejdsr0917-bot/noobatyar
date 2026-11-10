@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05 22:42
+updated: 2026-11-10 22:13
 tags: [gf]
 ---
 # Ops: سرور، دیپلوی، CI، محیط محلی
@@ -57,3 +57,9 @@ tags: [gf]
 - rebuild روی `web`، `worker`، `worker_bulk` و `frontend`، بعد `seed_insurance_logos`، بعد `deploy-panel.sh`.
 - ⚠️ **بعد از rebuild وب، nginx را reload کن** (`docker compose exec -T nginx nginx -s reload`). nginx به IP قدیمی کانتینر وصل می‌ماند و همه درخواست‌های API خطای 502 می‌گیرند. این بار حدود یک دقیقه قطعی داشتیم.
 - قبل از push معمولاً CI یک commit «sync iOS version» روی origin گذاشته است. `git rebase --autostash origin/develop` کافی است.
+
+## n8n برای لیست مراکز (2026-11-10، فقط لوکال)
+- `backend/docker-compose.n8n.yml` (پروژه جدا `noobatyar-n8n`): بدون رمز دیتابیس و volume مشترک، `127.0.0.1:${N8N_HOST_PORT:-5679}`، `mem_limit 700m`، `NODES_EXCLUDE` برای executeCommand/ssh. env در `backend/.env.n8n` (`N8N_ENCRYPTION_KEY`، git-ignore).
+- workflow: `backend/n8n/directory-sync.workflow.json` (import با `n8n import:workflow`، credential `httpHeaderAuth` با توکن). منبع دانا: `https://appsef.dana-insurance.ir/SubPortal/HealthCenter/GetAllMedicalCenters?centerKindId=...&pageNo=...` (۲۵ ردیف در صفحه).
+- روی سرور: n8n باید به `http://web:8000` وصل شود (`web` در `ALLOWED_HOSTS`)، nginx مسیر `/api/internal/` را 404 می‌کند، پورت فقط `127.0.0.1` با SSH tunnel. سایت بیمه‌ها فقط از داخل ایران باز می‌شوند.
+- دیپلوی لازم: migration `0043`، `DIRECTORY_SYNC_TOKEN`، reload nginx. دستورالعمل: `docs/N8N_DIRECTORY_SYNC.md`.

@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-06
+updated: 2026-11-10
 tags: [gf]
 ---
 # backend: business
@@ -135,3 +135,11 @@ tags: [gf]
 - `SmsLogVisitorSerializer.phone_number` و `visitor.SmsLogSerializer.visitor_phone` با `business.claims.mask_phone` ماسک می‌شوند. جستجوی شماره در سرور همچنان کار می‌کند. جزییات کمپین پیامک تبلیغاتی (`promo-sms/<id>/`) هنوز شماره کامل می‌دهد (تست آن را عمداً چک می‌کند).
 - `models/guilds.takes_insurance(category)`: آیا دسته در صنف‌های `TAKES_INSURANCE` (پزشکی، دندان، سلامت) است. خروجی عمومی و کلاینت کسب‌وکار (`PublicBusinessSerializer`، `ClientBusinessSerializer`) فیلد `takes_insurance` دارند و `tests_contract_shapes` آن را چک می‌کند.
 - `directory_import._plain` همزه را fold می‌کند (U+0623/U+0625→ا، U+0624→و، U+0626→ی، حذف U+0621 و U+0654، U+06C0→ه). نام‌های پروژه و `iran_cities.json` دیگر همزه ندارند («نایین»).
+
+## مراکز، origin و همگام‌سازی n8n (2026-11-10)
+- **مرکز** = `Business` با `is_claimed=False`. ادمین: `CenterListing` (proxy، `models/centers.py`) و `CenterAdmin` (`admin/centers.py`، منوی «مراکز»). لیست `BusinessAdmin` فقط claimed است؛ فقط changelist محدود شده (`resolver_match.url_name`)، صفحه ویرایش مرکز از آن‌جا هم باز می‌شود.
+- **پیگیری تماس:** `CenterOutreach` (OneToOne، وضعیت NEW/CALLED/INTERESTED/CONVERTED/REJECTED، یادداشت، `contacted_at`). اکشن‌ها: علامت‌گذاری گروهی، CSV لیست تماس (فقط دارای تلفن). `claims.apply_claim` وضعیت را CONVERTED می‌کند.
+- **`Business.origin`** (migration `0043`): SELF (owner create در `views.py`)، ADMIN و DIRECTORY (`DirectoryFormMixin.save_model`)، DIRECTORY (import/sync)، CONVERTED (claim). مراکز قبلی backfill شدند؛ claimedهای قدیمی `''`.
+- **پاسخ API:** `public_policy.apply_center_rules` همیشه `is_noobatyar`، `kind`، `booking_available` اضافه می‌کند؛ برای مرکز رزرو، بیعانه، تخفیف، پرداخت و اعلان را خاموش می‌کند. در `tests_contract_shapes` pin شده.
+- **sync:** `directory_sync.sync_listings` = `run_import` + افزودن بیمه به مراکز ادعا نشده (فقط افزایشی). `internal_views.directory_sync` → `POST /api/internal/directory-sync/` با `DIRECTORY_SYNC_TOKEN` (404 بدون توکن)، حداکثر ۵۰۰ ردیف، `dry_run`. تست: `tests_directory_sync.py`، `tests_centers.py`.
+- جزییات n8n و منبع دانا: [[modules/ops-deploy]] و `docs/N8N_DIRECTORY_SYNC.md`.
