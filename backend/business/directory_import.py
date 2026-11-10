@@ -390,6 +390,7 @@ def run_import(rows, source, *, dry_run=False, require_city=True, batch_size=500
             longitude=lng,
             bio=str(row.get('bio') or '').strip(),
             is_claimed=False,
+            origin=Business.ORIGIN_DIRECTORY,
             external_source=source,
             moderation_status=Business.MODERATION_APPROVED,
             first_approved_at=now,

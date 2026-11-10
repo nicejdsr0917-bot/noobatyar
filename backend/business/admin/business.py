@@ -72,9 +72,9 @@ class BusinessModerationLogInline(TabularInline):
 class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
     list_display = (
         'title', 'user', 'unique_code', 'category',
-        'moderation_badge', 'lock_badge', 'rank_column', 'created_at',
+        'origin', 'moderation_badge', 'lock_badge', 'rank_column', 'created_at',
     )
-    list_filter = ('moderation_status', 'category', 'is_claimed', 'is_locked')
+    list_filter = ('origin', 'moderation_status', 'category', 'is_claimed', 'is_locked')
     search_fields = ('title', 'unique_code', 'user__phone', 'bio')
     filter_horizontal = ('insurances',)
     date_hierarchy = 'created_at'
@@ -126,7 +126,14 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
     def get_queryset(self, request):
         # The changelist renders `user` on every row (and search hits
         # user__phone), so join it once instead of per row.
-        return super().get_queryset(request).select_related('user')
+        qs = super().get_queryset(request).select_related('user')
+        # «کسب‌وکارها» lists owners with a tick; unclaimed directory listings live
+        # under «مراکز» (admin/centers.py). Only the *list* is narrowed: a center's
+        # change page, delete page and the claim-request links still resolve here.
+        match = getattr(request, 'resolver_match', None)
+        if match is not None and (match.url_name or '').endswith('_changelist'):
+            qs = qs.filter(is_claimed=True)
+        return qs
 
     # ── Changelist columns ────────────────────────────────────────────────
     # Two badges, deliberately different shapes and wordings, because the two
@@ -361,7 +368,7 @@ class BusinessAdmin(_BulkConfirmMixin, DirectoryFormMixin, ModelAdmin):
         from ..models.guilds import GUILDS
         guild = context['guild']
         target = (
-            f'admin:business_{GUILDS[guild][0].__name__.lower()}_changelist' if guild else 'admin:business_business_changelist'
+            f'admin:business_{GUILDS[guild][0].__name__.lower()}_changelist' if guild else 'admin:business_centerlisting_changelist'
         )
         return redirect(reverse(target, current_app=self.admin_site.name) + '?is_claimed__exact=0')
 

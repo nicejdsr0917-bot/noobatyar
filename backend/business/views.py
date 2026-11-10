@@ -148,7 +148,8 @@ class BusinessView(APIView):
                 # oldest-waiting-first rule quietly stops holding. Creating the
                 # business *is* the submission, so stamp it here.
                 business = await sync_to_async(serializer.save)(
-                    user=user, moderation_submitted_at=timezone.now()
+                    user=user, moderation_submitted_at=timezone.now(),
+                    origin=Business.ORIGIN_SELF,
                 )
                 # One sync hop for the payload (it reads the insurances m2m).
                 created_data = await sync_to_async(lambda: serializer.data)()

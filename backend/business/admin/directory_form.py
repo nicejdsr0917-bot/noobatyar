@@ -129,6 +129,8 @@ class DirectoryFormMixin:
     def save_model(self, request, obj, form, change):
         if obj.city and not obj.city_code:
             obj.city_code = directory_import.city_code_for(obj.city, obj.province)
+        if not change and not obj.origin:
+            obj.origin = Business.ORIGIN_ADMIN if obj.is_claimed else Business.ORIGIN_DIRECTORY
         if not change and not obj.is_claimed:
             # Moderation exists for what owners type; a listing the staff adds
             # is already vetted, and would otherwise wait in the queue, unseen.

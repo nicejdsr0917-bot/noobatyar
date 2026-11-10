@@ -1,0 +1,146 @@
+{
+  "id": "yeNA2UcMxKGumDzM",
+  "name": "Noobatyar directory sync",
+  "nodes": [
+    {
+      "id": "n1",
+      "name": "Weekly (Sun 03:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * 0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n2",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "n3",
+      "name": "Fetch and normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// ===== تنظیمات: فقط این بخش را ویرایش کنید =====\nconst DJANGO_URL = 'http://host.docker.internal:8000';   // روی سرور: http://web:8000\nconst DRY_RUN = false;       // true = فقط گزارش، بدون ذخیره؛ false = ذخیره در دیتابیس\nconst CHUNK = 400;           // حداکثر ردیف در هر درخواست (سقف Django: 500)\nconst MAX_PAGES = 600;       // سقف ایمنی صفحه‌ها برای هر نوع مرکز\n\n// منبع «دانا»: API عمومی خود صفحه مراکز درمانی بیمه دانا\n// (https://appsef.dana-insurance.ir/subportal) با ۲۵ ردیف در هر صفحه.\nconst SOURCES = [\n  {\n    name: 'dana',\n    insurance: 'بیمه دانا',\n    api: 'https://appsef.dana-insurance.ir/SubPortal/HealthCenter/GetAllMedicalCenters',\n    kinds: [                 // نوع مرکز دانا -> دسته‌بندی نوبت‌یار\n      { id: 1219, category: 'DOCTOR' },    // مطب\n      { id: 1221, category: 'DENTIST' },   // دندان‌پزشکی\n      { id: 1212, category: 'DOCTOR' },    // کلینیک / درمانگاه\n    ],\n  },\n];\n// ================================================\n\n// یکدست‌سازی حروف (بدون همزه، طبق قاعده پروژه) و حذف علامت‌های جهت\nconst fix = (v) => (v === undefined || v === null ? '' : String(v))\n  .replace(/\\u200f|\\u200e|\\u202b|\\u202c/g, '')\n  .replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ۀ/g, 'ه')\n  .replace(/[\\u0623\\u0625\\u0622]/g, (c) => (c === '\\u0622' ? 'آ' : 'ا'))\n  .replace(/\\u0624/g, 'و').replace(/\\u0626/g, 'ی').replace(/[\\u0621\\u0654]/g, '')\n  .replace(/^[\"'\\s]+|[\"'\\s]+$/g, '').replace(/\\s+/g, ' ').trim();\n\nconst URL = DJANGO_URL + '/api/internal/directory-sync/';\nconst out = [];\nconst errors = [];\nfor (const src of SOURCES) {\n  const mapped = [];\n  for (const kind of src.kinds) {\n    let page = 1, pages = 1;\n    try {\n      while (page <= pages && page <= MAX_PAGES) {\n        const res = await this.helpers.httpRequest({\n          method: 'GET', url: src.api, json: true, timeout: 30000,\n          qs: { centerKindId: kind.id, Name: '', province: '', city: '', address: '', NoeTakhasos: '', pageNo: page },\n        });\n        pages = Math.ceil((res.count || 0) / (res.pageSize || 25));\n        for (const r of (res.data || [])) {\n          const title = fix(r.Name);\n          if (!title) continue;\n          mapped.push({\n            title, city: fix(r.City), province: fix(r.Province), phone: fix(r.Tel),\n            address: fix(r.Address), category: kind.category, insurances: src.insurance,\n            latitude: r.Latitude == null ? '' : r.Latitude, longitude: r.Longitude == null ? '' : r.Longitude,\n          });\n        }\n        page += 1;\n      }\n    } catch (e) {\n      errors.push(src.name + ' kind ' + kind.id + ' page ' + page + ': ' + e.message);\n    }\n  }\n  for (let i = 0; i < mapped.length; i += CHUNK) {\n    out.push({ json: { url: URL, source: 'n8n-' + src.name, dry_run: DRY_RUN, rows: mapped.slice(i, i + CHUNK) } });\n  }\n  if (!mapped.length) errors.push(src.name + ': no rows');\n}\nif (errors.length) out.push({ json: { url: URL, source: 'n8n-errors', dry_run: DRY_RUN, rows: [], error: errors.join(' | ').slice(0, 800) } });\nreturn out;\n"
+      }
+    },
+    {
+      "id": "n4",
+      "name": "Send to Django",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: $json.source, dry_run: $json.dry_run, rows: $json.rows }) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "dirSyncCred",
+          "name": "Noobatyar directory sync"
+        }
+      }
+    },
+    {
+      "id": "n5",
+      "name": "Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// خلاصه اجرا؛ اگر منبعی خطا داد یا Django خطا برگرداند، اجرا قرمز می‌شود.\nconst items = $input.all().map((i) => i.json);\nconst fetchErrors = $('Fetch and normalize').all().map((i) => i.json).filter((j) => j.error).map((j) => j.source + ': ' + j.error);\nconst bad = items.filter((j) => typeof j.total !== 'number').map((j) => 'Django: ' + JSON.stringify(j).slice(0, 200));\nconst problems = [...fetchErrors, ...bad];\nconst sum = (k) => items.reduce((a, j) => a + (Number(j[k]) || 0), 0);\nconst summary = { dry_run: items.some((j) => j.dry_run === true), total: sum('total'), created: sum('created'),\n  duplicates: sum('duplicates'), invalid: sum('invalid'), linked: sum('linked'), problems: problems.length };\nif (problems.length) throw new Error('sync problems: ' + problems.join(' | ').slice(0, 500));\nreturn [{ json: summary }];\n"
+      }
+    }
+  ],
+  "connections": {
+    "Weekly (Sun 03:00)": {
+      "main": [
+        [
+          {
+            "node": "Fetch and normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Fetch and normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch and normalize": {
+      "main": [
+        [
+          {
+            "node": "Send to Django",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Django": {
+      "main": [
+        [
+          {
+            "node": "Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Tehran"
+  }
+}

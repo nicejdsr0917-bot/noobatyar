@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from api.exceptions import custom_404_handler
+from business import internal_views
 from core.health import healthz, readyz
 
 
@@ -16,6 +17,8 @@ urlpatterns = [
     # a single trailing slash there. nginx must be taught the new prefix too —
     # see the note in core/settings.py.
     path(settings.ADMIN_URL, admin.site.urls),
+    # n8n -> Django only; blocked at nginx (see DIRECTORY_SYNC_TOKEN).
+    path('api/internal/directory-sync/', internal_views.directory_sync),
     path('api/', include('api.urls')),
     path('api/accounting/', include('accounting.urls')),
     path('api/version/', include('versions.urls')),

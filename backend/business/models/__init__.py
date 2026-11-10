@@ -12,6 +12,7 @@ from .booking import BusinessClaimRequest, OnlineBookingRequest
 from .follow import BusinessFollow
 from .promo import PromoCampaign, PromoCampaignRecipient
 from .guilds import GUILDS  # noqa: F401  (registers the per-guild proxy models)
+from .centers import CenterListing, CenterOutreach
 
 __all__ = [
     'BIO_MAX_LENGTH', 'User',
@@ -20,4 +21,5 @@ __all__ = [
     'ServiceCatalogItem',
     'OnlineBookingRequest', 'BusinessClaimRequest', 'BusinessFollow',
     'PromoCampaign', 'PromoCampaignRecipient',
+    'CenterListing', 'CenterOutreach',
 ]

@@ -17,7 +17,7 @@ from django.utils import timezone
 
 from accounting import entitlements
 
-from .models import Business, BusinessClaimRequest
+from .models import Business, BusinessClaimRequest, CenterOutreach
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,10 @@ def apply_claim(claim_request, resolution_note=''):
         now = timezone.now()
         business.user = claim_request.user
         business.is_claimed = True
-        business.save(update_fields=['user', 'is_claimed', 'updated_at'])
+        business.origin = Business.ORIGIN_CONVERTED
+        business.save(update_fields=['user', 'is_claimed', 'origin', 'updated_at'])
+        # The call-tracking row (if any) closes with the conversion.
+        CenterOutreach.objects.filter(business=business).update(status=CenterOutreach.STATUS_CONVERTED)
 
         claim_request.status = BusinessClaimRequest.STATUS_APPROVED
         claim_request.resolved_at = now

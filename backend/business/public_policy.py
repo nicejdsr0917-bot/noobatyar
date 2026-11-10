@@ -199,6 +199,44 @@ def apply_notice_rules(data, instance):
     return data
 
 
+# What an unclaimed center must never offer a client, whatever its row holds:
+# the booking flow, deposits, discounts and the owner's notice board.
+_CENTER_OFF = {
+    'booking_enabled': False,
+    'can_book': False,
+    'deposit_mode': 'NONE',
+    'deposit_amount': 0,
+    'first_visit_discount': 0,
+    'payment_link': '',
+    'accepted_payment_methods': [],
+    'online_gateway_enabled': False,
+    'allow_client_add_service': False,
+    'notice_enabled': False,
+    'notice_message': '',
+}
+
+
+def apply_center_rules(data, instance):
+    """Say plainly in the payload whether this is a Noobatyar business or a center.
+
+    ``is_noobatyar`` / ``kind`` / ``booking_available`` are always present so a
+    client never has to infer it from ``is_claimed`` and ``booking_enabled``.
+    A center (``is_claimed=False``) is a directory listing: no Noobatyar tick,
+    no booking and none of the booking extras (deposit, first-visit discount,
+    payment methods, notice). Only fields the serializer actually emits are
+    touched, so the shape of each endpoint is otherwise unchanged.
+    """
+    claimed = bool(getattr(instance, 'is_claimed', True))
+    data['is_noobatyar'] = claimed
+    data['kind'] = 'business' if claimed else 'center'
+    if not claimed:
+        for key, off in _CENTER_OFF.items():
+            if key in data:
+                data[key] = off
+    data['booking_available'] = bool(claimed and data.get('booking_enabled'))
+    return data
+
+
 class PublicPayloadMixin:
     """Shared by the two customer-facing business serializers.
 
@@ -215,7 +253,8 @@ class PublicPayloadMixin:
         data = apply_contact_rules(data, instance, self.context)
         data = apply_location_privacy(data, instance)
         # Emergency-notice gating + the subscription-driven booking block.
-        return apply_notice_rules(data, instance)
+        data = apply_notice_rules(data, instance)
+        return apply_center_rules(data, instance)
 
     def to_representation(self, instance):
         # Sync-only: async views must call this inside sync_to_async (one hop

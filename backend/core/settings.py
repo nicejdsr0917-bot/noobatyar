@@ -334,6 +334,12 @@ if not DEBUG:
 MYKET_ACCESS_TOKEN = os.getenv('MYKET_ACCESS_TOKEN', '')
 MYKET_PACKAGE_NAME = os.getenv('MYKET_PACKAGE_NAME', 'xyz.sattar.javid.proqueue')
 
+# Bearer token for POST /api/internal/directory-sync/ (the n8n doctor-list
+# refresh). Empty = the endpoint answers 404 as if it did not exist. nginx also
+# blocks /api/internal/ from the outside; n8n reaches Django directly on the
+# docker network.
+DIRECTORY_SYNC_TOKEN = os.getenv('DIRECTORY_SYNC_TOKEN', '')
+
 ZIBAL_MERCHANT_ID = os.getenv('ZIBAL_MERCHANT_ID') or ''
 if not ZIBAL_MERCHANT_ID:
     if DEBUG:
@@ -513,6 +519,7 @@ UNFOLD = {
                 'items': [
                     _item('صف بررسی', 'fact_check', reverse_lazy('admin:business_business_moderation_queue'), 'business.view_business'),
                     _item('کسب‌وکارها', 'storefront', _changelist('business', 'business'), 'business.view_business'),
+                    _item('مراکز', 'domain', _changelist('business', 'centerlisting'), 'business.view_centerlisting'),
                     _item('نمونه‌کارها', 'photo_library', _changelist('showcase', 'portfolioitem'), 'showcase.view_portfolioitem'),
                     _item('مدارک', 'workspace_premium', _changelist('showcase', 'certificate'), 'showcase.view_certificate'),
                     _item('تخلف‌ها', 'flag', _changelist('business', 'contentreport'), 'business.view_contentreport'),

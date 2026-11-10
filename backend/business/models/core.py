@@ -153,6 +153,23 @@ class Business(models.Model):
     city_code = models.PositiveIntegerField(null=True, blank=True, db_index=True, verbose_name='کد شهر')
     is_claimed = models.BooleanField(default=True, db_index=True, help_text="True if registered/claimed by an owner on Noobatyar; False if imported directory listing.")
     external_source = models.CharField(max_length=100, blank=True, default='', help_text="Source dataset identifier for imported listings")
+    # Where the row came from, so staff can tell «خودش ثبت‌نام کرد» from «من اضافه
+    # کردم». '' = unknown (rows made before this field existed; staff can set it).
+    ORIGIN_SELF = 'SELF'            # the owner signed up and created it
+    ORIGIN_ADMIN = 'ADMIN'          # staff added it by hand for an owner
+    ORIGIN_DIRECTORY = 'DIRECTORY'  # an unclaimed center (import / sync / staff-added listing)
+    ORIGIN_CONVERTED = 'CONVERTED'  # a center whose owner later claimed it
+    ORIGIN_CHOICES = [
+        (ORIGIN_SELF, 'ثبت‌نام توسط خود صاحب'),
+        (ORIGIN_ADMIN, 'اضافه‌شده توسط ادمین'),
+        (ORIGIN_DIRECTORY, 'مرکز (بانک اطلاعاتی)'),
+        (ORIGIN_CONVERTED, 'تبدیل‌شده از مرکز'),
+    ]
+    origin = models.CharField(
+        max_length=12, blank=True, default='', choices=ORIGIN_CHOICES, db_index=True,
+        verbose_name='نحوه ثبت',
+        help_text='خالی = نامشخص (کسب‌وکارهای قبل از این فیلد).',
+    )
     # Denormalised review summary (reviews app keeps it in step, see
     # reviews/services.py): lets the public list/detail show the rating with no
     # extra query and lets the nightly rank job read it cheaply.
