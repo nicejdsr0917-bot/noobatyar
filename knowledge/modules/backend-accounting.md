@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-05
+updated: 2026-11-10
 tags: [gf]
 ---
 # backend: accounting (اشتراک و پرداخت)
@@ -54,3 +54,9 @@ tags: [gf]
 ## پاداش مشتری تازه (2026-11-05)
 - `toman_wallet.reward_new_client` فقط وقتی پرداخت می‌شود که `business.first_visit_discount > 0` باشد. معنایش: سهم نوبت‌یار از تخفیف اولین مراجعه.
 - ضدتقلب (`same_ip`، `quick_complete`، …) پاداش را `blocked` می‌کند. ادمین آن را با `grant_blocked_reward` پرداخت می‌کند.
+
+## قیمت مایکت در اپ (2026-11-07، v1.13.3)
+- نسخه مایکت اپ اونر هدر `X-Store: myket` می‌فرستد (`HttpClientFactory.android.kt`، از `StoreBillingProvider.billing`). با این هدر `price_display` پلن و add-on همان `pricing.quote(base, 'myket')['total']` است (`_store_price` در `serializers.py`). فیلدهای خام `price`/`discount_price` عوض نمی‌شوند؛ بقیه کلاینت‌ها و نسخه‌های قدیمی همان قیمت پایه را می‌بینند.
+- viewهای `plans/`، `my-subscription/`، `addons/` باید `context={'request': request}` بدهند، وگرنه قیمت مایکت دیده نمی‌شود.
+- قیمت SKU در پنل مایکت دستی است و باید با `manage.py myket_prices` یکی باشد (تخفیف پلن = عوض کردن دستی SKU).
+- سهمیه ماهانه پلن (نوبت/پیامک) از پلن فعال در همان لحظه حساب می‌شود؛ با تمام شدن `ends_at` فورا ۰ می‌شود (مهلت ۳ روزه فقط وضعیت و قفل کسب‌وکار است). کیف‌پول بسته‌ها منقضی نمی‌شود.
