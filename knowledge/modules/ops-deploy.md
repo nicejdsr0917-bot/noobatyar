@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-10 22:13
+updated: 2026-11-10 22:24
 tags: [gf]
 ---
 # Ops: سرور، دیپلوی، CI، محیط محلی
@@ -63,3 +63,5 @@ tags: [gf]
 - workflow: `backend/n8n/directory-sync.workflow.json` (import با `n8n import:workflow`، credential `httpHeaderAuth` با توکن). منبع دانا: `https://appsef.dana-insurance.ir/SubPortal/HealthCenter/GetAllMedicalCenters?centerKindId=...&pageNo=...` (۲۵ ردیف در صفحه).
 - روی سرور: n8n باید به `http://web:8000` وصل شود (`web` در `ALLOWED_HOSTS`)، nginx مسیر `/api/internal/` را 404 می‌کند، پورت فقط `127.0.0.1` با SSH tunnel. سایت بیمه‌ها فقط از داخل ایران باز می‌شوند.
 - دیپلوی لازم: migration `0043`، `DIRECTORY_SYNC_TOKEN`، reload nginx. دستورالعمل: `docs/N8N_DIRECTORY_SYNC.md`.
+- workflow نام مراکز را با `cleanTitle` تمیز می‌کند («آنلاین» دانا حذف می‌شود). اگر API دانا باز نشد (TLS) اجرا قرمز می‌شود و چیزی ثبت نمی‌شود؛ ۸۰۰ درخواست بدون فاصله ممکن است محدودیت بیاورد.
+- اپ کلاینت (develop، پوشه `mobile_client/`): فلاورها `localSite`، `prodSite`، `prodStore`؛ برای AVD `assembleLocalSiteDebug` (نه `assembleLocalDebug`).
