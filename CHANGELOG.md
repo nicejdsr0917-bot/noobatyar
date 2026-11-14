@@ -10,6 +10,21 @@
   per-package, technical) is for developers/agents and isn't shown to users.
 -->
 
+## client-v1.4.0 — 2026-11-14 (اپ مشتری)
+
+<!-- fa:start -->
+تغییرات این نسخه:
+- جست‌وجو در فهرست بیمه‌ها، با لوگوی هر بیمه.
+- تم روشن حالا پیش‌فرض است و متن‌ها در تم تیره خواناتر شدند.
+- استوری‌ها با لمس درست به استوری بعدی می‌روند.
+- عکس نمونه‌کارها به شکل اصلی خودشان دیده می‌شوند: مربع، عمودی یا افقی.
+- بهبودهای کوچک در صفحه درباره ما.
+<!-- fa:end -->
+
+### mobile_client
+- Store flavor (Myket/Bazaar APK) hides the Telegram channel on About (Myket review: the channel shares the APK directly). New `AppConfig.isStoreBuild`, read from `BuildConfig.STORE`; `socialChannels` filters `STORE_HIDDEN_CHANNELS`. Site APK unchanged.
+- Since client-v1.3.0: insurance picker search, insurer logos, light theme default, dark-theme text fix, story tap fixes, showcase photos keep their shape, no hamza in any text.
+
 ## v1.13.3 — 2026-11-07 (اپ اونر)
 
 <!-- fa:start -->

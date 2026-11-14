@@ -7,4 +7,5 @@ package xyz.sattar.javid.proqueue.core.utils
 actual object AppConfig {
     actual val baseUrl: String = xyz.sattar.javid.proqueue.BuildKonfig.BASE_URL
     actual val bookingBaseUrl: String = xyz.sattar.javid.proqueue.BuildKonfig.BOOKING_BASE_URL
+    actual val isStoreBuild: Boolean = false
 }

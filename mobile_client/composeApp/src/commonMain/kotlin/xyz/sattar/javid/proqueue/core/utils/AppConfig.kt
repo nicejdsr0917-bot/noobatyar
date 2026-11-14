@@ -17,4 +17,7 @@ package xyz.sattar.javid.proqueue.core.utils
 expect object AppConfig {
     val baseUrl: String
     val bookingBaseUrl: String
+
+    /** True for the "store" flavor (the APK uploaded to Myket and Bazaar). */
+    val isStoreBuild: Boolean
 }

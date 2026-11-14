@@ -1,5 +1,7 @@
 package xyz.sattar.javid.proqueue.core.config
 
+import xyz.sattar.javid.proqueue.core.utils.AppConfig
+
 /** Public web page the owner app / landing lives on — the "register your business" CTA target. */
 const val OWNER_LANDING_URL = "https://noobatyar.ir"
 
@@ -12,8 +14,18 @@ data class SocialChannelSpec(
     val tile: Long,
 )
 
-/** Channels listed on the About screen, in display order. */
-val socialChannels: List<SocialChannelSpec> = listOf(
+/**
+ * Channels listed on the About screen, in display order. Myket's review
+ * rejects links to our Telegram channel (it shares the APK directly), so
+ * the store build leaves it out.
+ */
+val socialChannels: List<SocialChannelSpec>
+    get() = allSocialChannels.filter { !(AppConfig.isStoreBuild && it.id in STORE_HIDDEN_CHANNELS) }
+
+/** Channel ids the store (Myket/Bazaar) build must not show. */
+val STORE_HIDDEN_CHANNELS = setOf("telegram")
+
+private val allSocialChannels: List<SocialChannelSpec> = listOf(
     SocialChannelSpec("bale", "بله", "ble.ir/noobatyar", "https://ble.ir/noobatyar", 0xFF07A77A),
     SocialChannelSpec("eitaa", "ایتا", "eitaa.com/noobatyar", "https://eitaa.com/noobatyar", 0xFFEA6D0E),
     SocialChannelSpec("rubika", "روبیکا", "rubika.ir/noobatyar", "https://rubika.ir/noobatyar", 0xFF1C83B6),
